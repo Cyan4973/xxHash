@@ -25,6 +25,9 @@
    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+	You can contact the author at :
+	- xxHash source repository : http://code.google.com/p/xxhash/
 */
 
 
@@ -38,9 +41,13 @@
 //**************************************
 // Compiler Options
 //**************************************
-#ifdef _MSC_VER  // Visual Studio
+#ifdef _MSC_VER              // Visual Studio
 #define inline __forceinline // Visual is not C99, but supports some kind of inline
-#include <intrin.h>          // _BitScanForward
+#endif
+
+// GCC does not support _rotl outside of Windows
+#if !defined(_WIN32)
+#define _rotl(x,r) ((x << r) | (x >> (32 - r)))
 #endif
 
 

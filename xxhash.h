@@ -30,6 +30,33 @@
 	You can contact the author at :
 	- xxHash source repository : http://code.google.com/p/xxhash/
 */
+
+/* Notice extracted from xxHash homepage :
+
+xxHash is an extremely fast Hash algorithm, running at RAM speed limits.
+It also successfully passes all tests from the SMHasher suite.
+
+Comparison (single thread, Windows Seven 32 bits, using SMHasher on a Core 2 Duo @3GHz)
+
+Name            Speed       Q.Score   Author
+xxHash          5.4 GB/s     10
+CrapWow         3.2 GB/s      2       Andrew
+MumurHash 3a    2.7 GB/s     10       Austin Appleby
+SpookyHash      2.0 GB/s     10       Bob Jenkins
+SBox            1.4 GB/s      9       Bret Mulvey
+Lookup3         1.2 GB/s      9       Bob Jenkins
+SuperFastHash   1.2 GB/s      1       Paul Hsieh
+CityHash64      1.05 GB/s    10       Pike & Alakuijala
+FNV             0.55 GB/s     5       Fowler, Noll, Vo
+CRC32           0.43 GB/s     9
+MD5-32          0.33 GB/s    10       Ronald L. Rivest
+SHA1-32         0.28 GB/s    10
+
+Q.Score is a measure of quality of the hash function. 
+It depends on successfully passing SMHasher test set. 
+10 is a perfect score.
+*/
+
 #pragma once
 
 #if defined (__cplusplus)
@@ -38,19 +65,46 @@ extern "C" {
 
 
 //****************************
-// Hash Functions
+// Simple Hash Functions
 //****************************
 
-unsigned int XXH_fast32  (const void* input, int len, unsigned int seed);
-unsigned int XXH_strong32(const void* input, int len, unsigned int seed);
+unsigned int XXH32 (const void* input, int len, unsigned int seed);
 
 /*
-XXH_fast32() :
+XXH32() :
 	Calculate the 32-bits hash of "input", of length "len"
 	"seed" can be used to alter the result
+	This function successfully passes all SMHasher tests.
+	Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
+*/
 
-XXH_strong32() :
-	Same as XXH_fast(), but the resulting hash has stronger properties
+
+
+//****************************
+// Advanced Hash Functions
+//****************************
+
+void*        XXH32_init   (unsigned int seed);
+int          XXH32_feed   (void* state, const void* input, int len);
+unsigned int XXH32_result (void* state);
+
+/*
+These functions calculate the xxhash of an input provided in several small packets,
+as opposed to an input provided as a single block.
+
+You must start with :
+void* XXH32_init()
+The function returns a pointer which holds the state of calculation.
+
+This pointer must be provided as "void* state" parameter for XXH32_feed().
+The function returns an error code, with 0 meaning OK, and all other values meaning there is an error.
+
+Finally, you can end the calculation anytime, by using XXH32_result().
+This function returns the final 32-bits hash.
+You must provide the same "void* state" parameter created by XXH32_init().
+
+Memory will be freed by XXH32_result().
+
 */
 
 

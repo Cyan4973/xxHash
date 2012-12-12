@@ -31,9 +31,12 @@
 */
 
 
+
 //**************************************
 // Includes
 //**************************************
+#include <stdlib.h>    // for malloc(), free()
+#include <string.h>    // for memcpy()
 #include "xxhash.h"
 
 
@@ -41,13 +44,11 @@
 //**************************************
 // Compiler Options
 //**************************************
-#ifdef _MSC_VER              // Visual Studio
-#define inline __forceinline // Visual is not C99, but supports some kind of inline
-#endif
-
-// GCC does not support _rotl outside of Windows
-#if !defined(_WIN32)
-#define _rotl(x,r) ((x << r) | (x >> (32 - r)))
+// Note : under GCC, it may, sometimes, be faster to let the macro definition, instead of using win32 intrinsic
+#if defined(_WIN32)
+# define XXH_rotl32(x,r) _rotl(x,r)
+#else
+# define XXH_rotl32(x,r) ((x << r) | (x >> (32 - r)))
 #endif
 
 
@@ -55,147 +56,214 @@
 //**************************************
 // Constants
 //**************************************
-#define PRIME1   2654435761U
-#define PRIME2   2246822519U
-#define PRIME3   3266489917U
-#define PRIME4    668265263U
-#define PRIME5   0x165667b1
+#define PRIME32_1   2654435761U
+#define PRIME32_2   2246822519U
+#define PRIME32_3   3266489917U
+#define PRIME32_4    668265263U
+#define PRIME32_5    374761393U
 
 
 
 //****************************
-// Private functions
+// Simple Hash Functions
 //****************************
 
-// This version is for very small inputs (< 16  bytes)
-inline unsigned int XXH_small(const void* key, int len, unsigned int seed)
+unsigned int XXH32(const void* input, int len, unsigned int seed)
 {
-	const unsigned char* p = (unsigned char*)key;
-	const unsigned char* const bEnd = p + len;
-	unsigned int idx = seed + PRIME1;
-	unsigned int crc = PRIME5;
-	const unsigned char* const limit = bEnd - 4;
+#if 0
+	// Simple version, good for code maintenance, but unfortunately slow for small inputs
+	void* state = XXH32_init(seed);
+	XXH32_feed(state, input, len);
+	return XXH32_result32(state);
+#else
 
-	while (p<limit)
+	const unsigned char* p = (const unsigned char*)input;
+	const unsigned char* const bEnd = p + len;
+	unsigned int h32;
+
+	if (len>=16)
 	{
-		crc += ((*(unsigned int*)p) + idx++);
-		crc += _rotl(crc, 17) * PRIME4;
-		crc *= PRIME1;
+		const unsigned char* const limit = bEnd - 16;
+		unsigned int v1 = seed + PRIME32_1 + PRIME32_2;
+		unsigned int v2 = seed + PRIME32_2;
+		unsigned int v3 = seed + 0;
+		unsigned int v4 = seed - PRIME32_1;
+
+		do
+		{
+			v1 += (*(unsigned int*)p) * PRIME32_2; v1 = XXH_rotl32(v1, 13); v1 *= PRIME32_1; p+=4;
+			v2 += (*(unsigned int*)p) * PRIME32_2; v2 = XXH_rotl32(v2, 13); v2 *= PRIME32_1; p+=4;
+			v3 += (*(unsigned int*)p) * PRIME32_2; v3 = XXH_rotl32(v3, 13); v3 *= PRIME32_1; p+=4;
+			v4 += (*(unsigned int*)p) * PRIME32_2; v4 = XXH_rotl32(v4, 13); v4 *= PRIME32_1; p+=4;
+		} while (p<=limit) ;
+
+		h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+	}
+	else
+	{
+		h32  = seed + PRIME32_5;
+	}
+
+	h32 += (unsigned int) len;
+	
+	while (p<=bEnd-4)
+	{
+		h32 += (*(unsigned int*)p) * PRIME32_3;
+		h32 = XXH_rotl32(h32, 17) * PRIME32_4 ;
 		p+=4;
 	}
 
 	while (p<bEnd)
 	{
-		crc += ((*p) + idx++);
-		crc *= PRIME1;
+		h32 += (*p) * PRIME32_5;
+		h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
 		p++;
 	}
 
-	crc += len;
+	h32 ^= h32 >> 15;
+	h32 *= PRIME32_2;
+	h32 ^= h32 >> 13;
+	h32 *= PRIME32_3;
+	h32 ^= h32 >> 16;
 
-	crc ^= crc >> 15;
-	crc *= PRIME2;
-	crc ^= crc >> 13;
-	crc *= PRIME3;
-	crc ^= crc >> 16;
+	return h32;
 
-	return crc;
+#endif
 }
 
 
+//****************************
+// Advanced Hash Functions
+//****************************
 
-//******************************
-// Hash functions
-//******************************
-unsigned int XXH_fast32(const void* input, int len, unsigned int seed)
+struct XXH_state32_t
 {
-	// Special case, for small inputs
-	if (len < 16) return XXH_small(input, len, seed);
+	unsigned int seed;
+	unsigned int v1;
+	unsigned int v2;
+	unsigned int v3;
+	unsigned int v4;
+	unsigned long long total_len;
+	char memory[16];
+	int memsize;
+};
 
+
+void* XXH32_init (unsigned int seed)
+{
+	struct XXH_state32_t * state = (struct XXH_state32_t *) malloc ( sizeof(struct XXH_state32_t));
+	state->seed = seed;
+	state->v1 = seed + PRIME32_1 + PRIME32_2;
+	state->v2 = seed + PRIME32_2;
+	state->v3 = seed + 0;
+	state->v4 = seed - PRIME32_1;
+	state->total_len = 0;
+	state->memsize = 0;
+
+	return (void*)state;
+}
+
+
+int   XXH32_feed (void* state_in, const void* input, int len)
+{
+	struct XXH_state32_t * state = state_in;
+	const unsigned char* p = (const unsigned char*)input;
+	const unsigned char* const bEnd = p + len;
+
+	state->total_len += len;
+	
+	if (state->memsize + len < 16)   // fill in tmp buffer
 	{
-		const unsigned char* p = (const unsigned char*)input;
-		const unsigned char* const bEnd = p + len;
-		unsigned int v1 = seed + PRIME1;
-		unsigned int v2 = v1 * PRIME2 + len;
-		unsigned int v3 = v2 * PRIME3;
-		unsigned int v4 = v3 * PRIME4;	
-		const unsigned char* const limit = bEnd - 16;
-		unsigned int crc;
-
-		while (p<limit)
-		{
-			v1 = _rotl(v1, 13) + (*(unsigned int*)p); p+=4;
-			v2 = _rotl(v2, 11) + (*(unsigned int*)p); p+=4;
-			v3 = _rotl(v3, 17) + (*(unsigned int*)p); p+=4;
-			v4 = _rotl(v4, 19) + (*(unsigned int*)p); p+=4;
-		} 
-
-		p = bEnd - 16;
-		v1 += _rotl(v1, 17); v2 += _rotl(v2, 19); v3 += _rotl(v3, 13); v4 += _rotl(v4, 11); 
-		v1 *= PRIME1; v2 *= PRIME1; v3 *= PRIME1; v4 *= PRIME1; 
-		v1 += *(unsigned int*)p; p+=4; v2 += *(unsigned int*)p; p+=4; v3 += *(unsigned int*)p; p+=4; v4 += *(unsigned int*)p;   // p+=4;
-		v1 *= PRIME2; v2 *= PRIME2; v3 *= PRIME2; v4 *= PRIME2; 
-		v1 += _rotl(v1, 11); v2 += _rotl(v2, 17); v3 += _rotl(v3, 19); v4 += _rotl(v4, 13); 
-		v1 *= PRIME3; v2 *= PRIME3; v3 *= PRIME3; v4 *= PRIME3;
-
-		crc = v1 + _rotl(v2, 3) + _rotl(v3, 6) + _rotl(v4, 9);
-		crc ^= crc >> 11;
-		crc += (PRIME4+len) * PRIME1;
-		crc ^= crc >> 15;
-		crc *= PRIME2;
-		crc ^= crc >> 13;
-
-		return crc;
+		memcpy(state->memory + state->memsize, input, len);
+		state->memsize +=  len;
+		return 0;
 	}
 
-}
-
-
-
-unsigned int XXH_strong32(const void* input, int len, unsigned int seed)
-{
-	// Special case, for small inputs
-	if (len < 16) return XXH_small(input, len, seed);
-
+	if (state->memsize)   // some data left from previous feed
 	{
-		const unsigned char* p = (const unsigned char*)input;
-		const unsigned char* const bEnd = p + len;
-		unsigned int v1 = seed + PRIME1;
-		unsigned int v2 = v1 * PRIME2 + len;
-		unsigned int v3 = v2 * PRIME3;
-		unsigned int v4 = v3 * PRIME4;	
-		const unsigned char* const limit = bEnd - 16;
-		unsigned int crc;
-
-		while (p<limit)
+		memcpy(state->memory + state->memsize, input, 16-state->memsize);
 		{
-			v1 += _rotl(v1, 13); v1 *= PRIME1; v1 += (*(unsigned int*)p); p+=4;
-			v2 += _rotl(v2, 11); v2 *= PRIME1; v2 += (*(unsigned int*)p); p+=4;
-			v3 += _rotl(v3, 17); v3 *= PRIME1; v3 += (*(unsigned int*)p); p+=4;
-			v4 += _rotl(v4, 19); v4 *= PRIME1; v4 += (*(unsigned int*)p); p+=4;
-		} 
-
-		p = bEnd - 16;
-		v1 += _rotl(v1, 17); v2 += _rotl(v2, 19); v3 += _rotl(v3, 13); v4 += _rotl(v4, 11); 
-		v1 *= PRIME1; v2 *= PRIME1; v3 *= PRIME1; v4 *= PRIME1; 
-		v1 += *(unsigned int*)p; p+=4; v2 += *(unsigned int*)p; p+=4; v3 += *(unsigned int*)p; p+=4; v4 += *(unsigned int*)p;   // p+=4;
-		v1 *= PRIME2; v2 *= PRIME2; v3 *= PRIME2; v4 *= PRIME2; 
-		v1 += _rotl(v1, 11); v2 += _rotl(v2, 17); v3 += _rotl(v3, 19); v4 += _rotl(v4, 13); 
-		v1 *= PRIME3; v2 *= PRIME3; v3 *= PRIME3; v4 *= PRIME3;
-
-		crc = v1 + _rotl(v2, 3) + _rotl(v3, 6) + _rotl(v4, 9);
-		crc ^= crc >> 11;
-		crc += (PRIME4+len) * PRIME1;
-		crc ^= crc >> 15;
-		crc *= PRIME2;
-		crc ^= crc >> 13;
-
-		return crc;
+			const unsigned int* p32 = (const unsigned int*)state->memory;
+			state->v1 += (*p32) * PRIME32_2; state->v1 = XXH_rotl32(state->v1, 13); state->v1 *= PRIME32_1; p32++;
+			state->v2 += (*p32) * PRIME32_2; state->v2 = XXH_rotl32(state->v2, 13); state->v2 *= PRIME32_1; p32++; 
+			state->v3 += (*p32) * PRIME32_2; state->v3 = XXH_rotl32(state->v3, 13); state->v3 *= PRIME32_1; p32++;
+			state->v4 += (*p32) * PRIME32_2; state->v4 = XXH_rotl32(state->v4, 13); state->v4 *= PRIME32_1; p32++;
+		}
+		p += 16-state->memsize;
+		state->memsize = 0;
 	}
 
+	{
+		const unsigned char* const limit = bEnd - 16;
+		unsigned int v1 = state->v1;
+		unsigned int v2 = state->v2;
+		unsigned int v3 = state->v3;
+		unsigned int v4 = state->v4;
+
+		while (p<=limit)
+		{
+			v1 += (*(unsigned int*)p) * PRIME32_2; v1 = XXH_rotl32(v1, 13); v1 *= PRIME32_1; p+=4;
+			v2 += (*(unsigned int*)p) * PRIME32_2; v2 = XXH_rotl32(v2, 13); v2 *= PRIME32_1; p+=4;
+			v3 += (*(unsigned int*)p) * PRIME32_2; v3 = XXH_rotl32(v3, 13); v3 *= PRIME32_1; p+=4;
+			v4 += (*(unsigned int*)p) * PRIME32_2; v4 = XXH_rotl32(v4, 13); v4 *= PRIME32_1; p+=4;
+		}  
+
+		state->v1 = v1;
+		state->v2 = v2;
+		state->v3 = v3;
+		state->v4 = v4;
+	}
+
+	if (p < bEnd)
+	{
+		memcpy(state->memory, p, bEnd-p);
+		state->memsize = bEnd-p;
+	}
+
+	return 0;
 }
 
 
+unsigned int XXH32_result (void* state_in)
+{
+	struct XXH_state32_t * state = state_in;
+	unsigned char * p   = (unsigned char*)state->memory;
+	unsigned char* bEnd = (unsigned char*)state->memory + state->memsize;
+	unsigned int h32;
 
 
+	if (state->total_len >= 16)
+	{
+		h32 = XXH_rotl32(state->v1, 1) + XXH_rotl32(state->v2, 7) + XXH_rotl32(state->v3, 12) + XXH_rotl32(state->v4, 18);
+	}
+	else
+	{
+		h32  = state->seed + PRIME32_5;
+	}
 
+	h32 += (unsigned int) state->total_len;
+	
+	while (p<=bEnd-4)
+	{
+		h32 += (*(unsigned int*)p) * PRIME32_3;
+		h32 = XXH_rotl32(h32, 17) * PRIME32_4 ;
+		p+=4;
+	}
+
+	while (p<bEnd)
+	{
+		h32 += (*p) * PRIME32_5;
+		h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
+		p++;
+	}
+
+	h32 ^= h32 >> 15;
+	h32 *= PRIME32_2;
+	h32 ^= h32 >> 13;
+	h32 *= PRIME32_3;
+	h32 ^= h32 >> 16;
+
+	free(state_in);
+
+	return h32;
+}

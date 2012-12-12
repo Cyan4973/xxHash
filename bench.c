@@ -51,9 +51,8 @@
 // Hash Functions to test
 //**************************************
 #include "xxhash.h"
-#define DEFAULTHASH XXH_fast32
-#define HASH0 XXH_fast32
-#define HASH1 XXH_strong32
+#define DEFAULTHASH XXH32
+#define HASH0 XXH32
 
 
 
@@ -192,6 +191,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
   size_t readSize;
   char* in_buff;
   struct hashFunctionPrototype hashP;
+  unsigned int hashResult;
 
   U64 totals = 0;
   double totalc = 0.;
@@ -276,7 +276,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 		  milliTime = BMK_GetMilliStart();
 		  while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
 		  {
-            unsigned int r = hashP.hashFunction(in_buff, benchedsize, 0);
+            hashResult = hashP.hashFunction(in_buff, benchedsize, 0);
 			nb_loops++;
 		  }
 		  milliTime = BMK_GetMilliSpan(milliTime);
@@ -288,7 +288,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 
 		}
 
-		DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", infilename, (int)benchedsize, (double)benchedsize / fastestC / 1000.);
+		DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", infilename, (int)benchedsize, (double)benchedsize / fastestC / 1000., hashResult);
 
 		totals += benchedsize;
 		totalc += fastestC;
@@ -298,7 +298,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
   }
 
   if (nbFiles > 1)
-		printf("%-16.16s :%11llu -> %7.1f MB/s \n", "  TOTAL", (long long unsigned int)totals, (double)totals/totalc/1000.);
+		printf("%-16.16s :%11llu -> %7.1f MB/s\n", "  TOTAL", (long long unsigned int)totals, (double)totals/totalc/1000.);
 
   return 0;
 }

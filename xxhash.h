@@ -104,7 +104,15 @@ This function returns the final 32-bits hash.
 You must provide the same "void* state" parameter created by XXH32_init().
 
 Memory will be freed by XXH32_result().
+*/
 
+
+unsigned int XXH32_getIntermediateResult (void* state);
+/*
+This function does the same as XXH32_result(), generating a 32-bit hash,
+but preserve memory context.
+This way, it becomes possible to generate an intermediate hash, and then continue feeding data with XXH32_feed().
+To free memory context, use XXH32_result().
 */
 
 

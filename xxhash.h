@@ -76,6 +76,8 @@ XXH32() :
 	"seed" can be used to alter the result
 	This function successfully passes all SMHasher tests.
 	Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
+	Note that "len" is type "int", which means it is limited to 2^31-1.
+	If your data is larger, use the advanced functions below.
 */
 
 
@@ -97,7 +99,11 @@ void* XXH32_init()
 The function returns a pointer which holds the state of calculation.
 
 This pointer must be provided as "void* state" parameter for XXH32_feed().
+XXH32_feed() can be called as many times as necessary.
 The function returns an error code, with 0 meaning OK, and all other values meaning there is an error.
+Note that "len" is type "int", which means it is limited to 2^31-1. 
+If your data is larger, it is recommended
+to chunk your data into blocks of size 2^30 (1GB) to avoid any "int" overflow issue.
 
 Finally, you can end the calculation anytime, by using XXH32_result().
 This function returns the final 32-bits hash.
@@ -111,7 +117,7 @@ unsigned int XXH32_getIntermediateResult (void* state);
 /*
 This function does the same as XXH32_result(), generating a 32-bit hash,
 but preserve memory context.
-This way, it becomes possible to generate an intermediate hash, and then continue feeding data with XXH32_feed().
+This way, it becomes possible to generate intermediate hashes, and then continue feeding data with XXH32_feed().
 To free memory context, use XXH32_result().
 */
 

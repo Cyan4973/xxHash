@@ -98,7 +98,7 @@
 
 #if defined(_MSC_VER)     // Visual Studio
 #  define XXH_swap32 _byteswap_ulong
-#elif GCC_VERSION >= 430
+#elif GCC_VERSION >= 403
 #  define XXH_swap32 __builtin_bswap32
 #else
 static inline unsigned int XXH_swap32 (unsigned int x) {
@@ -208,7 +208,7 @@ struct XXH_state32_t
 	unsigned int v2;
 	unsigned int v3;
 	unsigned int v4;
-	unsigned int total_len;
+	unsigned long long total_len;
 	char memory[16];
 	int memsize;
 };

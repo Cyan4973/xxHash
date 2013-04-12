@@ -135,11 +135,11 @@ static inline unsigned int XXH_swap32 (unsigned int x) {
 
 unsigned int XXH32(const void* input, int len, unsigned int seed)
 {
-#if 0
+#if 1
 	// Simple version, good for code maintenance, but unfortunately slow for small inputs
 	void* state = XXH32_init(seed);
-	XXH32_feed(state, input, len);
-	return XXH32_result(state);
+	XXH32_update(state, input, len);
+	return XXH32_digest(state);
 #else
 
 	const unsigned char* p = (const unsigned char*)input;
@@ -229,22 +229,24 @@ void* XXH32_init (unsigned int seed)
 }
 
 
-int   XXH32_feed (void* state_in, const void* input, int len)
+XXH_errorcode XXH32_update (void* state_in, const void* input, int len)
 {
-	struct XXH_state32_t * state = state_in;
+	struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
 	const unsigned char* p = (const unsigned char*)input;
 	const unsigned char* const bEnd = p + len;
 
-	state->total_len += len;
+	if (input==NULL) return XXH_ERROR;
+    
+    state->total_len += len;
 	
 	if (state->memsize + len < 16)   // fill in tmp buffer
 	{
 		memcpy(state->memory + state->memsize, input, len);
 		state->memsize +=  len;
-		return 0;
+		return OK;
 	}
 
-	if (state->memsize)   // some data left from previous feed
+	if (state->memsize)   // some data left from previous update
 	{
 		memcpy(state->memory + state->memsize, input, 16-state->memsize);
 		{
@@ -282,16 +284,16 @@ int   XXH32_feed (void* state_in, const void* input, int len)
 	if (p < bEnd)
 	{
 		memcpy(state->memory, p, bEnd-p);
-		state->memsize = bEnd-p;
+		state->memsize = (int)(bEnd-p);
 	}
 
-	return 0;
+	return OK;
 }
 
 
-unsigned int XXH32_getIntermediateResult (void* state_in)
+unsigned int XXH32_intermediateDigest (void* state_in)
 {
-	struct XXH_state32_t * state = state_in;
+	struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
 	unsigned char * p   = (unsigned char*)state->memory;
 	unsigned char* bEnd = (unsigned char*)state->memory + state->memsize;
 	unsigned int h32;
@@ -332,9 +334,9 @@ unsigned int XXH32_getIntermediateResult (void* state_in)
 }
 
 
-unsigned int XXH32_result (void* state_in)
+unsigned int XXH32_digest (void* state_in)
 {
-    unsigned int h32 = XXH32_getIntermediateResult(state_in);
+    unsigned int h32 = XXH32_intermediateDigest(state_in);
 
 	free(state_in);
 

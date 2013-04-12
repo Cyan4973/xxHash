@@ -65,6 +65,13 @@ extern "C" {
 
 
 //****************************
+// Type
+//****************************
+typedef enum { OK=0, XXH_ERROR } XXH_errorcode;
+
+
+
+//****************************
 // Simple Hash Functions
 //****************************
 
@@ -72,8 +79,9 @@ unsigned int XXH32 (const void* input, int len, unsigned int seed);
 
 /*
 XXH32() :
-	Calculate the 32-bits hash of "input", of length "len"
-	"seed" can be used to alter the result
+	Calculate the 32-bits hash of sequence of length "len" stored at memory address "input".
+    The memory between input & input+len must be valid (allocated and read-accessible).
+	"seed" can be used to alter the result predictably.
 	This function successfully passes all SMHasher tests.
 	Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
 	Note that "len" is type "int", which means it is limited to 2^31-1.
@@ -86,40 +94,51 @@ XXH32() :
 // Advanced Hash Functions
 //****************************
 
-void*        XXH32_init   (unsigned int seed);
-int          XXH32_feed   (void* state, const void* input, int len);
-unsigned int XXH32_result (void* state);
+void*         XXH32_init   (unsigned int seed);
+XXH_errorcode XXH32_update (void* state, const void* input, int len);
+unsigned int  XXH32_digest (void* state);
 
 /*
 These functions calculate the xxhash of an input provided in several small packets,
 as opposed to an input provided as a single block.
 
-You must start with :
+It must be started with :
 void* XXH32_init()
 The function returns a pointer which holds the state of calculation.
 
-This pointer must be provided as "void* state" parameter for XXH32_feed().
-XXH32_feed() can be called as many times as necessary.
-The function returns an error code, with 0 meaning OK, and all other values meaning there is an error.
+This pointer must be provided as "void* state" parameter for XXH32_update().
+XXH32_update() can be called as many times as necessary.
+The user must provide a valid (allocated) input.
+The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
 Note that "len" is type "int", which means it is limited to 2^31-1. 
-If your data is larger, it is recommended
-to chunk your data into blocks of size 2^30 (1GB) to avoid any "int" overflow issue.
+If your data is larger, it is recommended to chunk your data into blocks 
+of size for example 2^30 (1GB) to avoid any "int" overflow issue.
 
-Finally, you can end the calculation anytime, by using XXH32_result().
+Finally, you can end the calculation anytime, by using XXH32_digest().
 This function returns the final 32-bits hash.
 You must provide the same "void* state" parameter created by XXH32_init().
-
-Memory will be freed by XXH32_result().
+Memory will be freed by XXH32_digest().
 */
 
 
-unsigned int XXH32_getIntermediateResult (void* state);
+unsigned int XXH32_intermediateDigest (void* state);
 /*
-This function does the same as XXH32_result(), generating a 32-bit hash,
+This function does the same as XXH32_digest(), generating a 32-bit hash,
 but preserve memory context.
-This way, it becomes possible to generate intermediate hashes, and then continue feeding data with XXH32_feed().
-To free memory context, use XXH32_result().
+This way, it becomes possible to generate intermediate hashes, and then continue feeding data with XXH32_update().
+To free memory context, use XXH32_digest().
 */
+
+
+
+//****************************
+// Deprecated function names
+//****************************
+// The following translations are provided to ease code transition
+// You are encouraged to no longer this function names
+#define XXH32_feed   XXH32_update
+#define XXH32_result XXH32_digest
+#define XXH32_getIntermediateResult XXH32_intermediateDigest
 
 
 

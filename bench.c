@@ -96,7 +96,7 @@
 
 struct hashFunctionPrototype
 {
-	unsigned int (*hashFunction)(const char*, int, unsigned int);
+	unsigned int (*hashFunction)(const void*, int, unsigned int);
 };
 
 
@@ -191,7 +191,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
   size_t readSize;
   char* in_buff;
   struct hashFunctionPrototype hashP;
-  unsigned int hashResult;
+  unsigned int hashResult=0;
 
   U64 totals = 0;
   double totalc = 0.;
@@ -259,10 +259,8 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 	  // Bench
 	  {
 		int loopNb, nb_loops;
-		size_t cSize=0;
 	    int milliTime;
 		double fastestC = 100000000.;
-		double ratio=0.;
 
 		DISPLAY("\r%79s\r", "");       // Clean display line
 		for (loopNb = 1; loopNb <= nbIterations; loopNb++)
@@ -276,13 +274,12 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 		  milliTime = BMK_GetMilliStart();
 		  while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
 		  {
-            hashResult = hashP.hashFunction(in_buff, benchedsize, 0);
+            hashResult = hashP.hashFunction(in_buff, (int)benchedsize, 0);
 			nb_loops++;
 		  }
 		  milliTime = BMK_GetMilliSpan(milliTime);
 
 		  if ((double)milliTime < fastestC*nb_loops) fastestC = (double)milliTime/nb_loops;
-		  cSize=benchedsize;
 
 		  DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", loopNb, infilename, (int)benchedsize, (double)benchedsize / fastestC / 1000.);
 

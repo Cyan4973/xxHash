@@ -135,7 +135,7 @@ static inline unsigned int XXH_swap32 (unsigned int x) {
 
 unsigned int XXH32(const void* input, int len, unsigned int seed)
 {
-#if 1
+#if 0
 	// Simple version, good for code maintenance, but unfortunately slow for small inputs
 	void* state = XXH32_init(seed);
 	XXH32_update(state, input, len);

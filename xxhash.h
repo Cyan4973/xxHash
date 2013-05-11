@@ -1,7 +1,7 @@
 /*
    xxHash - Fast Hash algorithm
    Header File
-   Copyright (C) 2012, Yann Collet.
+   Copyright (C) 2012-2013, Yann Collet.
    BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
 
    Redistribution and use in source and binary forms, with or without
@@ -118,6 +118,18 @@ Finally, you can end the calculation anytime, by using XXH32_digest().
 This function returns the final 32-bits hash.
 You must provide the same "void* state" parameter created by XXH32_init().
 Memory will be freed by XXH32_digest().
+*/
+
+
+int           XXH32_sizeofState();
+XXH_errorcode XXH32_resetState(void* state_in, unsigned int seed);
+/*
+These functions are the basic elements of XXH32_init();
+The objective is to allow user application to make its own allocation.
+
+XXH32_sizeofState() is used to know how much space must be allocated by the application.
+This space must be referenced by a void* pointer.
+This pointer must be provided as 'state_in' into XXH32_resetState(), which initializes the state.
 */
 
 

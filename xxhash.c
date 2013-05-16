@@ -90,6 +90,24 @@ You can contact the author at :
 #endif
 
 
+//**************************************
+// Basic Types
+//**************************************
+#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
+# include <stdint.h>
+  typedef uint8_t  BYTE;
+  typedef uint16_t U16;
+  typedef uint32_t U32;
+  typedef  int32_t S32;
+  typedef uint64_t U64;
+#else
+  typedef unsigned char       BYTE;
+  typedef unsigned short      U16;
+  typedef unsigned int        U32;
+  typedef   signed int        S32;
+  typedef unsigned long long  U64;
+#endif
+
 
 //**************************************
 // Compiler-specific Options & Functions
@@ -113,26 +131,6 @@ static inline U32 XXH_swap32 (U32 x) {
         ((x <<  8) & 0x00ff0000 ) |
         ((x >>  8) & 0x0000ff00 ) |
         ((x >> 24) & 0x000000ff );}
-#endif
-
-
-
-//**************************************
-// Basic Types
-//**************************************
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
-# include <stdint.h>
-  typedef uint8_t  BYTE;
-  typedef uint16_t U16;
-  typedef uint32_t U32;
-  typedef  int32_t S32;
-  typedef uint64_t U64;
-#else
-  typedef unsigned char       BYTE;
-  typedef unsigned short      U16;
-  typedef unsigned int        U32;
-  typedef   signed int        S32;
-  typedef unsigned long long  U64;
 #endif
 
 

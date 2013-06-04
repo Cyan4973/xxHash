@@ -13,7 +13,7 @@ default: xxHash
 all: xxHash
 
 xxHash: xxhash.c bench.c
-	$(CC)      -O2 $(CFLAGS) $^ -o $@$(EXT)
+	$(CC) -O2 $(CFLAGS) $^ -o $@$(EXT)
 
 clean:
 	rm -f core *.o xxHash$(EXT)

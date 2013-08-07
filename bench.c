@@ -88,8 +88,13 @@ You can contact the author at :
 #define NBLOOPS    3           // Default number of benchmark iterations
 #define TIMELOOP   2000        // Minimum timing per iteration
 
-#define MAX_MEM    (1984<<20)
+#define KB *(1U<<10)
+#define MB *(1U<<20)
+#define GB *(1U<<30)
 
+#define MAX_MEM    (2 GB - 64 MB)
+
+#define PRIME 2654435761U
 
 //**************************************
 // Local structures
@@ -147,23 +152,25 @@ static int BMK_GetMilliSpan( int nTimeStart )
 }
 
 
-static size_t BMK_findMaxMem(U64 requiredMem)
+static size_t BMK_findMaxMem(U64 requestedMem)
 {
-    size_t step = (64U<<20);   // 64 MB
+    size_t step = (64 MB);
+    size_t allocatedMemory;
     BYTE* testmem=NULL;
 
-    requiredMem = (((requiredMem >> 25) + 1) << 26);
-    if (requiredMem > MAX_MEM) requiredMem = MAX_MEM;
+    requestedMem += 3*step;
+    requestedMem -= (size_t)requestedMem & (step-1);
+    if (requestedMem > MAX_MEM) requestedMem = MAX_MEM;
+    allocatedMemory = (size_t)requestedMem;
 
-    requiredMem += 2*step;
     while (!testmem)
     {
-        requiredMem -= step;
-        testmem = malloc ((size_t)requiredMem);
+        allocatedMemory -= step;
+        testmem = (BYTE*) malloc((size_t)allocatedMemory);
     }
-
     free (testmem);
-    return (size_t) (requiredMem - step);
+
+    return (size_t) (allocatedMemory - step);
 }
 
 
@@ -185,13 +192,6 @@ static U64 BMK_GetFileSize(char* infilename)
 int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 {
     int fileIdx=0;
-    FILE* fileIn;
-    char* infilename;
-    U64 largefilesize;
-    size_t benchedsize;
-    size_t readSize;
-    char* buffer;
-    char* in_buff;
     struct hashFunctionPrototype hashP;
     unsigned int hashResult=0;
 
@@ -217,41 +217,49 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
     // Loop for each file
     while (fileIdx<nbFiles)
     {
+        FILE*  inFile;
+        char*  inFileName;
+        U64    inFileSize;
+        size_t benchedSize;
+        size_t readSize;
+        char*  buffer;
+        char*  alignedBuffer;
+
         // Check file existence
-        infilename = fileNamesTable[fileIdx++];
-        fileIn = fopen( infilename, "rb" );
-        if (fileIn==NULL)
+        inFileName = fileNamesTable[fileIdx++];
+        inFile = fopen( inFileName, "rb" );
+        if (inFile==NULL)
         {
-            DISPLAY( "Pb opening %s\n", infilename);
+            DISPLAY( "Pb opening %s\n", inFileName);
             return 11;
         }
 
         // Memory allocation & restrictions
-        largefilesize = BMK_GetFileSize(infilename);
-        benchedsize = (size_t) BMK_findMaxMem(largefilesize);
-        if ((U64)benchedsize > largefilesize) benchedsize = (size_t)largefilesize;
-        if (benchedsize < largefilesize)
+        inFileSize = BMK_GetFileSize(inFileName);
+        benchedSize = (size_t) BMK_findMaxMem(inFileSize);
+        if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
+        if (benchedSize < inFileSize)
         {
-            DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", infilename, (int)(benchedsize>>20));
+            DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", inFileName, (int)(benchedSize>>20));
         }
 
-        buffer = (char*)malloc((size_t )benchedsize+16);
+        buffer = (char*)malloc((size_t )benchedSize+16);
         if(!buffer)
         {
             DISPLAY("\nError: not enough memory!\n");
-            fclose(fileIn);
+            fclose(inFile);
             return 12;
         }
-        in_buff = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   // align buffer on next 16 bytes boundaries
+        alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   // align on next 16 bytes boundaries
 
         // Fill input buffer
-        DISPLAY("Loading %s...       \r", infilename);
-        readSize = fread(in_buff, 1, benchedsize, fileIn);
-        fclose(fileIn);
+        DISPLAY("Loading %s...       \r", inFileName);
+        readSize = fread(alignedBuffer, 1, benchedSize, inFile);
+        fclose(inFile);
 
-        if(readSize != benchedsize)
+        if(readSize != benchedSize)
         {
-            DISPLAY("\nError: problem reading file '%s' !!    \n", infilename);
+            DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
             free(buffer);
             return 13;
         }
@@ -259,17 +267,18 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 
         // Bench
         {
-            int loopNb, nb_loops;
-            int milliTime;
+            int interationNb;
             double fastestC = 100000000.;
 
             DISPLAY("\r%79s\r", "");       // Clean display line
-            for (loopNb = 1; loopNb <= nbIterations; loopNb++)
+            for (interationNb = 1; interationNb <= nbIterations; interationNb++)
             {
-                // Hash
-                DISPLAY("%1i-%-14.14s : %10i ->\r", loopNb, infilename, (int)benchedsize);
+                int nbHashes = 0;
+                int milliTime;
 
-                nb_loops = 0;
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, inFileName, (int)benchedSize);
+
+                // Hash loop
                 milliTime = BMK_GetMilliStart();
                 while(BMK_GetMilliStart() == milliTime);
                 milliTime = BMK_GetMilliStart();
@@ -278,21 +287,21 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                     int i;
                     for (i=0; i<100; i++)
                     {
-                        hashResult = hashP.hashFunction(in_buff, (int)benchedsize, 0);
-                        nb_loops++;
+                        hashResult = hashP.hashFunction(alignedBuffer, (int)benchedSize, 0);
+                        nbHashes++;
                     }
                 }
                 milliTime = BMK_GetMilliSpan(milliTime);
 
-                if ((double)milliTime < fastestC*nb_loops) fastestC = (double)milliTime/nb_loops;
+                if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
 
-                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", loopNb, infilename, (int)benchedsize, (double)benchedsize / fastestC / 1000.);
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, inFileName, (int)benchedSize, (double)benchedSize / fastestC / 1000.);
 
             }
 
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", infilename, (int)benchedsize, (double)benchedsize / fastestC / 1000., hashResult);
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", inFileName, (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
 
-            totals += benchedsize;
+            totals += benchedSize;
             totalc += fastestC;
         }
 
@@ -303,6 +312,68 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
         printf("%-16.16s :%11llu -> %7.1f MB/s\n", "  TOTAL", (long long unsigned int)totals, (double)totals/totalc/1000.);
 
     return 0;
+}
+
+
+
+static void BMK_checkResult(U32 r1, U32 r2)
+{
+    static int nbTests = 1;
+
+    if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
+    else 
+    {
+        DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
+        exit(1);
+    }
+    nbTests++;
+}
+
+
+static void BMK_testSequence(void* sentence, int len, U32 seed, U32 Nresult)
+{
+    U32 Dresult;
+    void* state;
+    int index;
+
+    Dresult = XXH32(sentence, len, seed);
+    BMK_checkResult(Dresult, Nresult);
+
+    state = XXH32_init(seed);
+    XXH32_update(state, sentence, len);
+    Dresult = XXH32_digest(state);
+    BMK_checkResult(Dresult, Nresult);
+
+    state = XXH32_init(seed);
+    for (index=0; index<len; index++) XXH32_update(state, ((char*)sentence)+index, 1);
+    Dresult = XXH32_digest(state);
+    BMK_checkResult(Dresult, Nresult);
+
+}
+
+
+#define SANITY_BUFFER_SIZE 101
+static void BMK_sanityCheck()
+{
+    BYTE sanityBuffer[SANITY_BUFFER_SIZE];
+    int i;
+    U32 random = PRIME;
+
+    for (i=0; i<SANITY_BUFFER_SIZE; i++)
+    {
+        sanityBuffer[i] = (BYTE)(random>>24);
+        random *= random;
+    }
+
+    BMK_testSequence(sanityBuffer,  1, 0,     0xB85CBEE5);
+    BMK_testSequence(sanityBuffer,  1, PRIME, 0xD5845D64);
+    BMK_testSequence(sanityBuffer, 14, 0,     0xE5AA0AB4);
+    BMK_testSequence(sanityBuffer, 14, PRIME, 0x4481951D);
+    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
+    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0x498EC8E2);
+
+    DISPLAY(" -- all tests ok");
+    DISPLAY("\r%79s\r", "");       // Clean display line
 }
 
 
@@ -337,6 +408,9 @@ int main(int argc, char** argv)
 
     // Welcome message
     DISPLAY( WELCOME_MESSAGE );
+
+    // Check results are good
+    BMK_sanityCheck();
 
     if (argc<2) { badusage(argv[0]); return 1; }
 

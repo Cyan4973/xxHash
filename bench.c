@@ -1,6 +1,6 @@
 /*
 bench.c - Demo program to benchmark open-source algorithm
-Copyright (C) Yann Collet 2012-2013
+Copyright (C) Yann Collet 2012-2014
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -292,17 +292,45 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                     }
                 }
                 milliTime = BMK_GetMilliSpan(milliTime);
-
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
-
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, inFileName, (int)benchedSize, (double)benchedSize / fastestC / 1000.);
-
             }
-
             DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", inFileName, (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
 
             totals += benchedSize;
             totalc += fastestC;
+        }
+
+        // Bench Unaligned
+        {
+            int interationNb;
+            double fastestC = 100000000.;
+
+            DISPLAY("\r%79s\r", "");       // Clean display line
+            for (interationNb = 1; (interationNb <= nbIterations) && ((benchedSize>1)); interationNb++)
+            {
+                int nbHashes = 0;
+                int milliTime;
+
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "(unaligned)", (int)benchedSize);
+                // Hash loop
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliStart() == milliTime);
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
+                {
+                    int i;
+                    for (i=0; i<100; i++)
+                    {
+                        hashResult = hashP.hashFunction(alignedBuffer+1, (int)benchedSize-1, 0);
+                        nbHashes++;
+                    }
+                }
+                milliTime = BMK_GetMilliSpan(milliTime);
+                if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "(unaligned)", (int)(benchedSize-1), (double)(benchedSize-1) / fastestC / 1000.);
+            }
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "(unaligned)", (int)benchedSize-1, (double)(benchedSize-1) / fastestC / 1000.);
         }
 
         free(buffer);

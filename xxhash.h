@@ -1,5 +1,5 @@
 /*
-   xxHash - Fast Hash algorithm
+   xxHash - Extremely Fast Hash algorithm
    Header File
    Copyright (C) 2012-2014, Yann Collet.
    BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)

@@ -106,7 +106,6 @@ unsigned int XXH64_32(const void* key, int len, unsigned int seed)
 //**************************************
 // Local structures
 //**************************************
-
 struct hashFunctionPrototype
 {
     unsigned int (*hashFunction)(const void*, int, unsigned int);
@@ -487,8 +486,8 @@ static void BMK_sanityCheck()
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0xCAA65939306F1E21ULL);
 
-    DISPLAY(" -- all tests ok");
     DISPLAY("\r%79s\r", "");       // Clean display line
+    DISPLAY("Sanity check -- all tests ok\n");
 }
 
 
@@ -564,4 +563,3 @@ int main(int argc, char** argv)
 
     return BMK_benchFile(argv+filenamesStart, argc-filenamesStart, fn_selection);
 }
-

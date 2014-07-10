@@ -7,14 +7,14 @@
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
    met:
-  
+
        * Redistributions of source code must retain the above copyright
    notice, this list of conditions and the following disclaimer.
        * Redistributions in binary form must reproduce the above
    copyright notice, this list of conditions and the following disclaimer
    in the documentation and/or other materials provided with the
    distribution.
-  
+
    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -52,8 +52,8 @@ CRC32           0.43 GB/s     9
 MD5-32          0.33 GB/s    10       Ronald L. Rivest
 SHA1-32         0.28 GB/s    10
 
-Q.Score is a measure of quality of the hash function. 
-It depends on successfully passing SMHasher test set. 
+Q.Score is a measure of quality of the hash function.
+It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 */
 
@@ -75,7 +75,8 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 // Simple Hash Functions
 //****************************
 
-unsigned int XXH32 (const void* input, int len, unsigned int seed);
+unsigned int       XXH32 (const void* input, int len, unsigned int seed);
+unsigned long long XXH64 (const void* input, int len, unsigned long long seed);
 
 /*
 XXH32() :
@@ -86,6 +87,8 @@ XXH32() :
     Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
     Note that "len" is type "int", which means it is limited to 2^31-1.
     If your data is larger, use the advanced functions below.
+XXH64() :
+    Calculate the 64-bits hash of sequence of length "len" stored at memory address "input".
 */
 
 
@@ -97,6 +100,10 @@ XXH32() :
 void*         XXH32_init   (unsigned int seed);
 XXH_errorcode XXH32_update (void* state, const void* input, int len);
 unsigned int  XXH32_digest (void* state);
+
+void*         		XXH64_init   (unsigned long long seed);
+XXH_errorcode 		XXH64_update (void* state, const void* input, int len);
+unsigned long long  XXH64_digest (void* state);
 
 /*
 These functions calculate the xxhash of an input provided in several small packets,
@@ -110,8 +117,8 @@ This pointer must be provided as "void* state" parameter for XXH32_update().
 XXH32_update() can be called as many times as necessary.
 The user must provide a valid (allocated) input.
 The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
-Note that "len" is type "int", which means it is limited to 2^31-1. 
-If your data is larger, it is recommended to chunk your data into blocks 
+Note that "len" is type "int", which means it is limited to 2^31-1.
+If your data is larger, it is recommended to chunk your data into blocks
 of size for example 2^30 (1GB) to avoid any "int" overflow issue.
 
 Finally, you can end the calculation anytime, by using XXH32_digest().
@@ -126,6 +133,13 @@ XXH_errorcode XXH32_resetState(void* state, unsigned int seed);
 
 #define       XXH32_SIZEOFSTATE 48
 typedef struct { long long ll[(XXH32_SIZEOFSTATE+(sizeof(long long)-1))/sizeof(long long)]; } XXH32_stateSpace_t;
+
+int           XXH64_sizeofState(void);
+XXH_errorcode XXH64_resetState(void* state, unsigned long long seed);
+
+#define       XXH64_SIZEOFSTATE 88
+typedef struct { long long ll[(XXH64_SIZEOFSTATE+(sizeof(long long)-1))/sizeof(long long)]; } XXH64_stateSpace_t;
+
 /*
 These functions allow user application to make its own allocation for state.
 
@@ -138,7 +152,8 @@ use the structure XXH32_stateSpace_t, which will ensure that memory space is lar
 */
 
 
-unsigned int XXH32_intermediateDigest (void* state);
+unsigned int       XXH32_intermediateDigest (void* state);
+unsigned long long XXH64_intermediateDigest (void* state);
 /*
 This function does the same as XXH32_digest(), generating a 32-bit hash,
 but preserve memory context.
@@ -151,11 +166,7 @@ To free memory context, use XXH32_digest(), or free().
 //****************************
 // Deprecated function names
 //****************************
-// The following translations are provided to ease code transition
-// You are encouraged to no longer this function names
-#define XXH32_feed   XXH32_update
-#define XXH32_result XXH32_digest
-#define XXH32_getIntermediateResult XXH32_intermediateDigest
+
 
 
 

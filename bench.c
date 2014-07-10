@@ -25,7 +25,7 @@ You can contact the author at :
 // Compiler Options
 //**************************************
 // Visual warning messages (must be first line)
-#define _CRT_SECURE_NO_WARNINGS   
+#define _CRT_SECURE_NO_WARNINGS
 
 // Under Linux at least, pull in the *64 commands
 #define _LARGEFILE64_SOURCE
@@ -48,13 +48,20 @@ You can contact the author at :
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
-
 //**************************************
 // Hash Functions to test
 //**************************************
 #include "xxhash.h"
 #define DEFAULTHASH XXH32
 #define HASH0 XXH32
+
+// Making a wrapper to fit into the 32 bit api
+unsigned int XXH64_32(const void* key, int len, unsigned int seed)
+{
+	unsigned long long hash = XXH64(key, len, seed);
+	return (unsigned int)(hash & 0xFFFFFFFF);
+}
+#define HASH1 XXH64_32
 
 
 //**************************************
@@ -86,7 +93,7 @@ You can contact the author at :
 #define WELCOME_MESSAGE "*** %s %s, by %s (%s) ***\n", PROGRAM_NAME, PROGRAM_VERSION, AUTHOR, COMPILED
 
 #define NBLOOPS    3           // Default number of benchmark iterations
-#define TIMELOOP   2000        // Minimum timing per iteration
+#define TIMELOOP   2500        // Minimum timing per iteration
 
 #define KB *(1U<<10)
 #define MB *(1U<<20)
@@ -193,7 +200,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 {
     int fileIdx=0;
     struct hashFunctionPrototype hashP;
-    unsigned int hashResult=0;
+    U32 hashResult=0;
 
     U64 totals = 0;
     double totalc = 0.;
@@ -213,6 +220,8 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
 #endif
     default: hashP.hashFunction = DEFAULTHASH;
     }
+
+    DISPLAY("Selected fn %d", selection);
 
     // Loop for each file
     while (fileIdx<nbFiles)
@@ -253,7 +262,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
         alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   // align on next 16 bytes boundaries
 
         // Fill input buffer
-        DISPLAY("Loading %s...       \r", inFileName);
+        DISPLAY("\rLoading %s...        \n", inFileName);
         readSize = fread(alignedBuffer, 1, benchedSize, inFile);
         fclose(inFile);
 
@@ -265,7 +274,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
         }
 
 
-        // Bench
+        // Bench XXH32
         {
             int interationNb;
             double fastestC = 100000000.;
@@ -276,7 +285,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                 int nbHashes = 0;
                 int milliTime;
 
-                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, inFileName, (int)benchedSize);
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH32", (int)benchedSize);
 
                 // Hash loop
                 milliTime = BMK_GetMilliStart();
@@ -293,15 +302,15 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                 }
                 milliTime = BMK_GetMilliSpan(milliTime);
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
-                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, inFileName, (int)benchedSize, (double)benchedSize / fastestC / 1000.);
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", inFileName, (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
 
             totals += benchedSize;
             totalc += fastestC;
         }
 
-        // Bench Unaligned
+        // Bench Unaligned XXH32
         {
             int interationNb;
             double fastestC = 100000000.;
@@ -328,9 +337,46 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                 }
                 milliTime = BMK_GetMilliSpan(milliTime);
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
-                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "(unaligned)", (int)(benchedSize-1), (double)(benchedSize-1) / fastestC / 1000.);
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH32 (unaligned)", (int)(benchedSize-1), (double)(benchedSize-1) / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "(unaligned)", (int)benchedSize-1, (double)(benchedSize-1) / fastestC / 1000.);
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)benchedSize-1, (double)(benchedSize-1) / fastestC / 1000.);
+        }
+
+        // Bench XXH64
+        {
+            int interationNb;
+            double fastestC = 100000000.;
+            unsigned long long h64 = 0;
+
+            DISPLAY("\r%79s\r", "");       // Clean display line
+            for (interationNb = 1; interationNb <= nbIterations; interationNb++)
+            {
+                int nbHashes = 0;
+                int milliTime;
+
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH64", (int)benchedSize);
+
+                // Hash loop
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliStart() == milliTime);
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
+                {
+                    int i;
+                    for (i=0; i<100; i++)
+                    {
+                        h64 = XXH64(alignedBuffer, (int)benchedSize, 0);
+                        nbHashes++;
+                    }
+                }
+                milliTime = BMK_GetMilliSpan(milliTime);
+                if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
+            }
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X%08X\n", "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h64>>32), (U32)(h64));
+
+            totals += benchedSize;
+            totalc += fastestC;
         }
 
         free(buffer);
@@ -349,12 +395,47 @@ static void BMK_checkResult(U32 r1, U32 r2)
     static int nbTests = 1;
 
     if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
-    else 
+    else
     {
         DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
     nbTests++;
+}
+
+
+static void BMK_checkResult64(U64 r1, U64 r2)
+{
+    static int nbTests = 1;
+
+    if (r1!=r2)
+    {
+        DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
+        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2<<32), (U32)r2);
+        exit(1);
+    }
+    nbTests++;
+}
+
+
+static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
+{
+    U64 Dresult;
+    void* state;
+    int index;
+
+    Dresult = XXH64(sentence, len, seed);
+    BMK_checkResult64(Dresult, Nresult);
+
+    state = XXH64_init(seed);
+    XXH64_update(state, sentence, len);
+    Dresult = XXH64_digest(state);
+    BMK_checkResult64(Dresult, Nresult);
+
+    state = XXH64_init(seed);
+    for (index=0; index<len; index++) XXH64_update(state, ((char*)sentence)+index, 1);
+    Dresult = XXH64_digest(state);
+    BMK_checkResult64(Dresult, Nresult);
 }
 
 
@@ -376,7 +457,6 @@ static void BMK_testSequence(void* sentence, int len, U32 seed, U32 Nresult)
     for (index=0; index<len; index++) XXH32_update(state, ((char*)sentence)+index, 1);
     Dresult = XXH32_digest(state);
     BMK_checkResult(Dresult, Nresult);
-
 }
 
 
@@ -385,12 +465,12 @@ static void BMK_sanityCheck()
 {
     BYTE sanityBuffer[SANITY_BUFFER_SIZE];
     int i;
-    U32 random = PRIME;
+    U32 prime = PRIME;
 
     for (i=0; i<SANITY_BUFFER_SIZE; i++)
     {
-        sanityBuffer[i] = (BYTE)(random>>24);
-        random *= random;
+        sanityBuffer[i] = (BYTE)(prime>>24);
+        prime *= prime;
     }
 
     BMK_testSequence(sanityBuffer,  1, 0,     0xB85CBEE5);
@@ -399,6 +479,13 @@ static void BMK_sanityCheck()
     BMK_testSequence(sanityBuffer, 14, PRIME, 0x4481951D);
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0x498EC8E2);
+
+    BMK_testSequence64(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
+    BMK_testSequence64(sanityBuffer,  1, PRIME, 0x739840CB819FA723ULL);
+    BMK_testSequence64(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
+    BMK_testSequence64(sanityBuffer, 14, PRIME, 0x5B9611585EFCC9CBULL);
+    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
+    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0xCAA65939306F1E21ULL);
 
     DISPLAY(" -- all tests ok");
     DISPLAY("\r%79s\r", "");       // Clean display line
@@ -415,6 +502,7 @@ int usage(char* exename)
     DISPLAY( "      %s [arg] filename\n", exename);
     DISPLAY( "Arguments :\n");
     DISPLAY( " -i# : number of iterations \n");
+    DISPLAY( " -s# : Function selection [0,1]. Default is 0 \n");
     DISPLAY( " -h  : help (this text)\n");
     return 0;
 }
@@ -442,6 +530,7 @@ int main(int argc, char** argv)
 
     if (argc<2) { badusage(argv[0]); return 1; }
 
+    int fn_selection = 0;
     for(i=1; i<argc; i++)
     {
         char* argument = argv[i];
@@ -459,6 +548,8 @@ int main(int argc, char** argv)
             // Modify Nb Iterations (benchmark only)
             if ( argument[0] =='i' ) { int iters = argument[1] - '0'; BMK_SetNbIterations(iters); continue; }
 
+            // select function
+            if ( argument[0] =='s' ) { fn_selection = argument[1] - '0'; continue; }
         }
 
         // first provided filename is input
@@ -469,7 +560,8 @@ int main(int argc, char** argv)
     // No input filename ==> Error
     if(!input_filename) { badusage(argv[0]); return 1; }
 
-    return BMK_benchFile(argv+filenamesStart, argc-filenamesStart, 0);
+    if(fn_selection < 0 || fn_selection > 1) { badusage(argv[0]); return 1; }
 
+    return BMK_benchFile(argv+filenamesStart, argc-filenamesStart, fn_selection);
 }
 

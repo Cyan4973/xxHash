@@ -24,7 +24,9 @@
 # ################################################################
 
 CC=gcc
-CFLAGS=-I. -std=c99 -Wall -W -Wundef -Wno-implicit-function-declaration
+#CFLAGS=-I. -std=c99 -Wall -W -Wundef -Wno-implicit-function-declaration
+CFLAGS+= -I. -std=c99 -O3 -Wall -Wextra -Wundef -Wshadow
+
 
 OS := $(shell uname)
 ifeq ($(OS),Linux)
@@ -35,10 +37,13 @@ endif
 
 default: xxHash
 
-all: xxHash
+all: xxHash xxHash32
 
 xxHash: xxhash.c bench.c
-	$(CC) -O2 $(CFLAGS) $^ -o $@$(EXT)
+	$(CC)      $(CFLAGS) $^ -o $@$(EXT)
+
+xxHash32: xxhash.c bench.c
+	$(CC) -m32 $(CFLAGS) $^ -o $@$(EXT)
 
 clean:
 	rm -f core *.o xxHash$(EXT)

@@ -42,6 +42,9 @@ The reference system uses a Core 2 Duo @3GHz
     <th>CRC32</th><th>0.43 GB/s</th><th>9</th><th></th>
   </tr>
   <tr>
+    <th>SipHash</th><th>0.34 GB/s</th><th>10</th><th>Jean-Philippe Aumasson</th>
+  </tr>
+  <tr>
     <th>MD5-32</th><th>0.33 GB/s</th><th>10</th><th>Ronald L. Rivest</th>
   </tr>
   <tr>
@@ -63,6 +66,7 @@ The reference system uses a Core i5-3340M @2.7GHz
 |------------|------------------|------------------|
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
+| SipHash    |  1.4 GB/s        |  0.4 GB/s        |
 
 
 This is an official mirror of xxHash project, [hosted on Google Code](http://code.google.com/p/xxhash/).

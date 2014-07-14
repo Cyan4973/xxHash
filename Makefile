@@ -56,11 +56,11 @@ xxHash32: xxhash.c bench.c
 test: $(TEST_TARGETS)
 
 test-64: xxHash
-	./xxHash Makefile
-	valgrind ./xxHash -i1 Makefile
+	./xxHash bench.c
+	valgrind ./xxHash -i1 bench.c
 
 test-32: xxHash32
-	./xxHash32 Makefile
+	./xxHash32 bench.c
 
 clean:
 	rm -f core *.o xxHash$(EXT) xxHash32$(EXT)

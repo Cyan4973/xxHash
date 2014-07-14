@@ -47,7 +47,7 @@ You can contact the author at :
 // When this option is enabled, xxHash output for null input pointers will be the same as a null-length input.
 // This option has a very small performance cost (only measurable on small inputs).
 // By default, this option is disabled. To enable it, uncomment below define :
-//#define XXH_ACCEPT_NULL_INPUT_POINTER 1
+// #define XXH_ACCEPT_NULL_INPUT_POINTER 1
 
 // XXH_FORCE_NATIVE_FORMAT :
 // By default, xxHash library provides endian-independant Hash values, based on little-endian convention.
@@ -231,15 +231,15 @@ FORCE_INLINE U64 XXH_readLE64(const U64* ptr, XXH_endianess endian) { return XXH
 //****************************
 // Simple Hash Functions
 //****************************
-FORCE_INLINE U32 XXH32_endian_align(const void* input, int len, U32 seed, XXH_endianess endian, XXH_alignment align)
+FORCE_INLINE U32 XXH32_endian_align(const void* input, unsigned int len, U32 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
-    const BYTE* const bEnd = p + len;
+    const BYTE* bEnd = p + len;
     U32 h32;
 #define XXH_get32bits(p) XXH_readLE32_align((const U32*)p, endian, align)
 
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (p==NULL) { len=0; p=(const BYTE*)(size_t)16; }
+    if (p==NULL) { len=0; bEnd=p=(const BYTE*)(size_t)16; }
 #endif
 
     if (len>=16)
@@ -291,7 +291,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, int len, U32 seed, XXH_en
 }
 
 
-U32 XXH32(const void* input, int len, U32 seed)
+U32 XXH32(const void* input, unsigned int len, U32 seed)
 {
 #if 0
     // Simple version, good for code maintenance, but unfortunately slow for small inputs
@@ -302,7 +302,7 @@ U32 XXH32(const void* input, int len, U32 seed)
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
 #  if !defined(XXH_USE_UNALIGNED_ACCESS)
-    if ((((size_t)input) & 3))   // Input is aligned, let's leverage the speed advantage
+    if ((((size_t)input) & 3) == 0)   // Input is aligned, let's leverage the speed advantage
     {
         if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
             return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
@@ -318,15 +318,15 @@ U32 XXH32(const void* input, int len, U32 seed)
 #endif
 }
 
-FORCE_INLINE U64 XXH64_endian_align(const void* input, int len, U64 seed, XXH_endianess endian, XXH_alignment align)
+FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
-    const BYTE* const bEnd = p + len;
+    const BYTE* bEnd = p + len;
     U64 h64;
 #define XXH_get64bits(p) XXH_readLE64_align((const U64*)p, endian, align)
 
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (p==NULL) { len=0; p=(const BYTE*)(size_t)32; }
+    if (p==NULL) { len=0; bEnd=p=(const BYTE*)(size_t)32; }
 #endif
 
     if (len>=32)
@@ -374,6 +374,8 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, int len, U64 seed, XXH_en
     	p+=8;
     }
 
+#if 1
+
     if (p<=bEnd-4)
     {
     	h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1;
@@ -388,6 +390,30 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, int len, U64 seed, XXH_en
         p++;
     }
 
+#else
+
+    if( p<bEnd )
+    {
+        // Copy the remaining bytes
+        U64 k1 = PRIME64_5;
+        BYTE* _k1 = (BYTE*)&k1;
+        switch( (size_t)(bEnd-p))  // Yes, I tried multiple ways of doing this memcopy
+        {
+        case 7:	*_k1++ = *p++;
+        case 6:	*_k1++ = *p++;
+        case 5:	*_k1++ = *p++;
+        case 4:	*_k1++ = *p++;
+        case 3:	*_k1++ = *p++;
+        case 2:	*_k1++ = *p++;
+        case 1:	*_k1++ = *p++;
+        }
+
+        k1 *= PRIME64_5; k1 = XXH_rotl64(k1,31); k1 *= PRIME64_3; h64 ^= k1;
+        h64 = XXH_rotl64(h64, 11) * PRIME64_1 + PRIME64_4;
+    }
+
+#endif
+
     h64 ^= h64 >> 33;
     h64 *= PRIME64_2;
     h64 ^= h64 >> 29;
@@ -397,12 +423,13 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, int len, U64 seed, XXH_en
     return h64;
 }
 
-unsigned long long XXH64(const void* input, int len, unsigned long long seed)
+
+unsigned long long XXH64(const void* input, unsigned int len, unsigned long long seed)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
 #  if !defined(XXH_USE_UNALIGNED_ACCESS)
-    if ((((size_t)input) & 3))   // Input is aligned, let's leverage the speed advantage
+    if ((((size_t)input) & 7)==0)   // Input is aligned, let's leverage the speed advantage
     {
         if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
             return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
@@ -565,7 +592,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (void* state_in, const void* inpu
     return XXH_OK;
 }
 
-XXH_errorcode XXH32_update (void* state_in, const void* input, int len)
+XXH_errorcode XXH32_update (void* state_in, const void* input, unsigned int len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -704,7 +731,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (void* state_in, const void* inpu
     return XXH_OK;
 }
 
-XXH_errorcode XXH64_update (void* state_in, const void* input, int len)
+XXH_errorcode XXH64_update (void* state_in, const void* input, unsigned int len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 

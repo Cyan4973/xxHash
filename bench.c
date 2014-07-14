@@ -56,7 +56,7 @@ You can contact the author at :
 #define HASH0 XXH32
 
 // Making a wrapper to fit into the 32 bit api
-unsigned int XXH64_32(const void* key, int len, unsigned int seed)
+unsigned int XXH64_32(const void* key, unsigned int len, unsigned int seed)
 {
 	unsigned long long hash = XXH64(key, len, seed);
 	return (unsigned int)(hash & 0xFFFFFFFF);
@@ -108,7 +108,7 @@ unsigned int XXH64_32(const void* key, int len, unsigned int seed)
 //**************************************
 struct hashFunctionPrototype
 {
-    unsigned int (*hashFunction)(const void*, int, unsigned int);
+    unsigned int (*hashFunction)(const void*, unsigned int, unsigned int);
 };
 
 
@@ -520,6 +520,7 @@ int main(int argc, char** argv)
     int i,
         filenamesStart=2;
     char* input_filename=0;
+    int fn_selection = 0;
 
     // Welcome message
     DISPLAY( WELCOME_MESSAGE );
@@ -529,7 +530,6 @@ int main(int argc, char** argv)
 
     if (argc<2) { badusage(argv[0]); return 1; }
 
-    int fn_selection = 0;
     for(i=1; i<argc; i++)
     {
         char* argument = argv[i];

@@ -54,16 +54,15 @@ Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 
-A new version, XXH64, has been created thanks to Mathias Westerdahl contribution, which offers superior speed and dispersion on 64-bits systems.
+A new version, XXH64, has been created thanks to Mathias Westerdahl contribution, which offers superior speed and dispersion for 64-bits systems. Note however that 32-bits applications will still run faster using the 32-bits version.
 
-SMHasher speed test, compiled GCC 4.6.1, a Linux 64-bits system.
+SMHasher speed test, compiled using GCC 4.8.2, a Linux Mint 64-bits.
 The reference system uses a Core i5-3340M @2.7GHz
 
 | Version    | Speed on 64-bits | Speed on 32-bits |
 |------------|------------------|------------------|
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
-|------------|------------------|------------------|
 
 
 This is an official mirror of xxHash project, [hosted on Google Code](http://code.google.com/p/xxhash/).

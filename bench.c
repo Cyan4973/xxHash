@@ -86,11 +86,11 @@ unsigned int XXH64_32(const void* key, unsigned int len, unsigned int seed)
 //**************************************
 // Constants
 //**************************************
-#define PROGRAM_NAME "Benchmark utility using xxHash algorithm"
+#define PROGRAM_NAME "xxHash tester"
 #define PROGRAM_VERSION ""
 #define COMPILED __DATE__
 #define AUTHOR "Yann Collet"
-#define WELCOME_MESSAGE "*** %s %s, by %s (%s) ***\n", PROGRAM_NAME, PROGRAM_VERSION, AUTHOR, COMPILED
+#define WELCOME_MESSAGE "*** %s %i-bits %s, by %s (%s) ***\n", PROGRAM_NAME, (int)(sizeof(void*)*8), PROGRAM_VERSION, AUTHOR, COMPILED
 
 #define NBLOOPS    3           // Default number of benchmark iterations
 #define TIMELOOP   2500        // Minimum timing per iteration

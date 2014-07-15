@@ -66,7 +66,6 @@ The reference system uses a Core i5-3340M @2.7GHz
 |------------|------------------|------------------|
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
-| SipHash    |  1.4 GB/s        |  0.4 GB/s        |
 
 
 This is an official mirror of xxHash project, [hosted on Google Code](http://code.google.com/p/xxhash/).

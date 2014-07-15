@@ -24,7 +24,7 @@
 # ################################################################
 
 CC=gcc
-CFLAGS+= -I. -std=c99 -O3 -Wall -Wextra -Wundef -Wshadow
+CFLAGS+= -I. -std=c99 -O3 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes
 
 
 OS := $(shell uname)

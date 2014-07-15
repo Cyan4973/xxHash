@@ -136,7 +136,7 @@ void BMK_SetNbIterations(int nbLoops)
 // Benchmark Functions
 //*********************************************************
 
-static int BMK_GetMilliStart()
+static int BMK_GetMilliStart(void)
 {
     // Supposed to be portable
     // Rolls over every ~ 12.1 days (0x100000/24/60/60)
@@ -460,7 +460,7 @@ static void BMK_testSequence(void* sentence, int len, U32 seed, U32 Nresult)
 
 
 #define SANITY_BUFFER_SIZE 101
-static void BMK_sanityCheck()
+static void BMK_sanityCheck(void)
 {
     BYTE sanityBuffer[SANITY_BUFFER_SIZE];
     int i;

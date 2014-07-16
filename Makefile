@@ -24,7 +24,8 @@
 # ################################################################
 
 CC=gcc
-CFLAGS=-I. -std=c99 -Wall -W -Wundef -Wno-implicit-function-declaration
+CFLAGS+= -I. -std=c99 -O3 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes
+
 
 OS := $(shell uname)
 ifeq ($(OS),Linux)
@@ -33,12 +34,35 @@ else
 EXT =.exe
 endif
 
+# Minimize test target for Travis CI's Build Matrix
+ifeq ($(XXH_TRAVIS_CI_ENV),-m32)
+TEST_TARGETS=test-32
+else ifeq ($(XXH_TRAVIS_CI_ENV),-m64)
+TEST_TARGETS=test-64
+else
+TEST_TARGETS=test-64 test-32
+endif
+
 default: xxHash
 
-all: xxHash
+all: xxHash xxHash32
 
 xxHash: xxhash.c bench.c
-	$(CC) -O2 $(CFLAGS) $^ -o $@$(EXT)
+	$(CC)      $(CFLAGS) $^ -o $@$(EXT)
+
+xxHash32: xxhash.c bench.c
+	$(CC) -m32 $(CFLAGS) $^ -o $@$(EXT)
+
+test: $(TEST_TARGETS)
+
+test-64: xxHash
+	./xxHash bench.c
+	valgrind ./xxHash -i1 bench.c
+
+test-32: xxHash32
+	./xxHash32 bench.c
 
 clean:
-	rm -f core *.o xxHash$(EXT)
+	rm -f core *.o xxHash$(EXT) xxHash32$(EXT)
+
+

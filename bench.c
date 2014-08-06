@@ -472,6 +472,8 @@ static void BMK_sanityCheck(void)
         prime *= prime;
     }
 
+    BMK_testSequence(NULL,          0, 0,     0x02CC5D05);
+    BMK_testSequence(NULL,          0, PRIME, 0x36B78AE7);
     BMK_testSequence(sanityBuffer,  1, 0,     0xB85CBEE5);
     BMK_testSequence(sanityBuffer,  1, PRIME, 0xD5845D64);
     BMK_testSequence(sanityBuffer, 14, 0,     0xE5AA0AB4);
@@ -479,6 +481,8 @@ static void BMK_sanityCheck(void)
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0x498EC8E2);
 
+    BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
+    BMK_testSequence64(NULL        ,  0, PRIME, 0xAC75FDA2929B17EFULL);
     BMK_testSequence64(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
     BMK_testSequence64(sanityBuffer,  1, PRIME, 0x739840CB819FA723ULL);
     BMK_testSequence64(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);

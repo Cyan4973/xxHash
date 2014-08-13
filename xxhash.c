@@ -490,14 +490,14 @@ XXH_errorcode XXH64_resetState(void* state_in, unsigned long long seed)
 void* XXH32_init (U32 seed)
 {
     void* state = XXH_malloc (sizeof(struct XXH_state32_t));
-    XXH32_resetState(state, seed);
+    if (state != NULL) XXH32_resetState(state, seed);
     return state;
 }
 
 void* XXH64_init (unsigned long long seed)
 {
     void* state = XXH_malloc (sizeof(struct XXH_state64_t));
-    XXH64_resetState(state, seed);
+    if (state != NULL) XXH64_resetState(state, seed);
     return state;
 }
 

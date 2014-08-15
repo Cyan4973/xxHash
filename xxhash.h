@@ -112,8 +112,9 @@ as opposed to an input provided as a single block.
 It must be started with :
 void* XXHnn_init()
 The function returns a pointer which holds the state of calculation.
+If the pointer is NULL, allocation has failed, so no state can be tracked.
 
-This pointer must be provided as "void* state" parameter for XXHnn_update().
+The state pointer must be provided as "void* state" parameter for XXHnn_update().
 XXHnn_update() can be called as many times as necessary.
 The user must provide a valid (allocated) input.
 The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
@@ -155,7 +156,7 @@ use the structure XXHnn_stateSpace_t, which will ensure that memory space is lar
 unsigned int       XXH32_intermediateDigest (void* state);
 unsigned long long XXH64_intermediateDigest (void* state);
 /*
-This function does the same as XXHnn_digest(), generating a nn-bit hash,
+These functions do the same as XXHnn_digest(), generating a nn-bit hash,
 but preserve memory context.
 This way, it becomes possible to generate intermediate hashes, and then continue feeding data with XXHnn_update().
 To free memory context, use XXHnn_digest(), or free().

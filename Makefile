@@ -27,42 +27,38 @@ CC=gcc
 CFLAGS+= -I. -std=c99 -O3 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes
 
 
-OS := $(shell uname)
-ifeq ($(OS),Linux)
-EXT =
-else
+# Define *.exe as extension for Windows systems
+ifneq (,$(filter Windows%,$(OS)))
 EXT =.exe
-endif
-
-# Minimize test target for Travis CI's Build Matrix
-ifeq ($(XXH_TRAVIS_CI_ENV),-m32)
-TEST_TARGETS=test-32
-else ifeq ($(XXH_TRAVIS_CI_ENV),-m64)
-TEST_TARGETS=test-64
 else
-TEST_TARGETS=test-64 test-32
+EXT =
 endif
 
-default: xxHash
+default: xxhsum
 
-all: xxHash xxHash32
+all: xxhsum xxhsum32
 
-xxHash: xxhash.c bench.c
+xxhsum: xxhash.c bench.c
 	$(CC)      $(CFLAGS) $^ -o $@$(EXT)
+#	ln -sf $@ xxh32sum
+#	ln -sf $@ xxh64sum
 
-xxHash32: xxhash.c bench.c
+xxhsum32: xxhash.c bench.c
 	$(CC) -m32 $(CFLAGS) $^ -o $@$(EXT)
 
 test: $(TEST_TARGETS)
 
-test-64: xxHash
-	./xxHash bench.c
-	valgrind ./xxHash -i1 bench.c
+test: xxhsum
+	./xxhsum -b bench.c
+	valgrind ./xxhsum -bi1 bench.c
+	valgrind ./xxhsum -H0 bench.c
+	valgrind ./xxhsum -H1 bench.c
 
-test-32: xxHash32
-	./xxHash32 bench.c
+test-all: test xxhsum32
+	./xxhsum32 -b bench.c
 
 clean:
-	rm -f core *.o xxHash$(EXT) xxHash32$(EXT)
+	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxh32sum xxh64sum
+	@echo cleaning completed
 
 

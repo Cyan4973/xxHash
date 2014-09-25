@@ -83,11 +83,20 @@ You can contact the author at :
 // Modify the local functions below should you wish to use some other memory related routines
 // for malloc(), free()
 #include <stdlib.h>
-FORCE_INLINE void* XXH_malloc(size_t s) { return malloc(s); }
-FORCE_INLINE void  XXH_free  (void* p)  { free(p); }
+FORCE_INLINE void* XXH_malloc(size_t s)
+{
+    return malloc(s);
+}
+FORCE_INLINE void  XXH_free  (void* p)
+{
+    free(p);
+}
 // for memcpy()
 #include <string.h>
-FORCE_INLINE void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
+FORCE_INLINE void* XXH_memcpy(void* dest, const void* src, size_t size)
+{
+    return memcpy(dest,src,size);
+}
 
 
 //**************************************
@@ -95,17 +104,17 @@ FORCE_INLINE void* XXH_memcpy(void* dest, const void* src, size_t size) { return
 //**************************************
 #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
 # include <stdint.h>
-  typedef uint8_t  BYTE;
-  typedef uint16_t U16;
-  typedef uint32_t U32;
-  typedef  int32_t S32;
-  typedef uint64_t U64;
+typedef uint8_t  BYTE;
+typedef uint16_t U16;
+typedef uint32_t U32;
+typedef  int32_t S32;
+typedef uint64_t U64;
 #else
-  typedef unsigned char      BYTE;
-  typedef unsigned short     U16;
-  typedef unsigned int       U32;
-  typedef   signed int       S32;
-  typedef unsigned long long U64;
+typedef unsigned char      BYTE;
+typedef unsigned short     U16;
+typedef unsigned int       U32;
+typedef   signed int       S32;
+typedef unsigned long long U64;
 #endif
 
 #if defined(__GNUC__)  && !defined(XXH_USE_UNALIGNED_ACCESS)
@@ -122,8 +131,14 @@ FORCE_INLINE void* XXH_memcpy(void* dest, const void* src, size_t size) { return
 #  endif
 #endif
 
-typedef struct _U32_S { U32 v; } _PACKED U32_S;
-typedef struct _U64_S { U64 v; } _PACKED U64_S;
+typedef struct _U32_S
+{
+    U32 v;
+} _PACKED U32_S;
+typedef struct _U64_S
+{
+    U64 v;
+} _PACKED U64_S;
 
 #if !defined(XXH_USE_UNALIGNED_ACCESS) && !defined(__GNUC__)
 #  pragma pack(pop)
@@ -154,12 +169,15 @@ typedef struct _U64_S { U64 v; } _PACKED U64_S;
 #  define XXH_swap32 __builtin_bswap32
 #  define XXH_swap64 __builtin_bswap64
 #else
-static inline U32 XXH_swap32 (U32 x) {
+static inline U32 XXH_swap32 (U32 x)
+{
     return  ((x << 24) & 0xff000000 ) |
-			((x <<  8) & 0x00ff0000 ) |
-			((x >>  8) & 0x0000ff00 ) |
-			((x >> 24) & 0x000000ff );}
-static inline U64 XXH_swap64 (U64 x) {
+            ((x <<  8) & 0x00ff0000 ) |
+            ((x >>  8) & 0x0000ff00 ) |
+            ((x >> 24) & 0x000000ff );
+}
+static inline U64 XXH_swap64 (U64 x)
+{
     return  ((x << 56) & 0xff00000000000000ULL) |
             ((x << 40) & 0x00ff000000000000ULL) |
             ((x << 24) & 0x0000ff0000000000ULL) |
@@ -167,7 +185,8 @@ static inline U64 XXH_swap64 (U64 x) {
             ((x >> 8)  & 0x00000000ff000000ULL) |
             ((x >> 24) & 0x0000000000ff0000ULL) |
             ((x >> 40) & 0x000000000000ff00ULL) |
-            ((x >> 56) & 0x00000000000000ffULL);}
+            ((x >> 56) & 0x00000000000000ffULL);
+}
 #endif
 
 
@@ -191,7 +210,7 @@ static inline U64 XXH_swap64 (U64 x) {
 //**************************************
 typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 #ifndef XXH_CPU_LITTLE_ENDIAN   // It is possible to define XXH_CPU_LITTLE_ENDIAN externally, for example using a compiler switch
-    static const int one = 1;
+static const int one = 1;
 #   define XXH_CPU_LITTLE_ENDIAN   (*(char*)(&one))
 #endif
 
@@ -215,7 +234,10 @@ FORCE_INLINE U32 XXH_readLE32_align(const U32* ptr, XXH_endianess endian, XXH_al
         return endian==XXH_littleEndian ? *ptr : XXH_swap32(*ptr);
 }
 
-FORCE_INLINE U32 XXH_readLE32(const U32* ptr, XXH_endianess endian) { return XXH_readLE32_align(ptr, endian, XXH_unaligned); }
+FORCE_INLINE U32 XXH_readLE32(const U32* ptr, XXH_endianess endian)
+{
+    return XXH_readLE32_align(ptr, endian, XXH_unaligned);
+}
 
 FORCE_INLINE U64 XXH_readLE64_align(const U64* ptr, XXH_endianess endian, XXH_alignment align)
 {
@@ -225,13 +247,16 @@ FORCE_INLINE U64 XXH_readLE64_align(const U64* ptr, XXH_endianess endian, XXH_al
         return endian==XXH_littleEndian ? *ptr : XXH_swap64(*ptr);
 }
 
-FORCE_INLINE U64 XXH_readLE64(const U64* ptr, XXH_endianess endian) { return XXH_readLE64_align(ptr, endian, XXH_unaligned); }
+FORCE_INLINE U64 XXH_readLE64(const U64* ptr, XXH_endianess endian)
+{
+    return XXH_readLE64_align(ptr, endian, XXH_unaligned);
+}
 
 
 //****************************
 // Simple Hash Functions
 //****************************
-FORCE_INLINE U32 XXH32_endian_align(const void* input, unsigned int len, U32 seed, XXH_endianess endian, XXH_alignment align)
+FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
@@ -239,7 +264,11 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, unsigned int len, U32 see
 #define XXH_get32bits(p) XXH_readLE32_align((const U32*)p, endian, align)
 
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (p==NULL) { len=0; bEnd=p=(const BYTE*)(size_t)16; }
+    if (p==NULL)
+    {
+        len=0;
+        bEnd=p=(const BYTE*)(size_t)16;
+    }
 #endif
 
     if (len>=16)
@@ -252,11 +281,24 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, unsigned int len, U32 see
 
         do
         {
-            v1 += XXH_get32bits(p) * PRIME32_2; v1 = XXH_rotl32(v1, 13); v1 *= PRIME32_1; p+=4;
-            v2 += XXH_get32bits(p) * PRIME32_2; v2 = XXH_rotl32(v2, 13); v2 *= PRIME32_1; p+=4;
-            v3 += XXH_get32bits(p) * PRIME32_2; v3 = XXH_rotl32(v3, 13); v3 *= PRIME32_1; p+=4;
-            v4 += XXH_get32bits(p) * PRIME32_2; v4 = XXH_rotl32(v4, 13); v4 *= PRIME32_1; p+=4;
-        } while (p<=limit);
+            v1 += XXH_get32bits(p) * PRIME32_2;
+            v1 = XXH_rotl32(v1, 13);
+            v1 *= PRIME32_1;
+            p+=4;
+            v2 += XXH_get32bits(p) * PRIME32_2;
+            v2 = XXH_rotl32(v2, 13);
+            v2 *= PRIME32_1;
+            p+=4;
+            v3 += XXH_get32bits(p) * PRIME32_2;
+            v3 = XXH_rotl32(v3, 13);
+            v3 *= PRIME32_1;
+            p+=4;
+            v4 += XXH_get32bits(p) * PRIME32_2;
+            v4 = XXH_rotl32(v4, 13);
+            v4 *= PRIME32_1;
+            p+=4;
+        }
+        while (p<=limit);
 
         h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
     }
@@ -291,7 +333,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, unsigned int len, U32 see
 }
 
 
-U32 XXH32 (const void* input, size_t len, U32 seed)
+unsigned int XXH32 (const void* input, size_t len, unsigned seed)
 {
 #if 1
     // Simple version, good for code maintenance, but unfortunately slow for small inputs
@@ -319,7 +361,7 @@ U32 XXH32 (const void* input, size_t len, U32 seed)
 #endif
 }
 
-FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 seed, XXH_endianess endian, XXH_alignment align)
+FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
@@ -327,7 +369,11 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 see
 #define XXH_get64bits(p) XXH_readLE64_align((const U64*)p, endian, align)
 
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (p==NULL) { len=0; bEnd=p=(const BYTE*)(size_t)32; }
+    if (p==NULL)
+    {
+        len=0;
+        bEnd=p=(const BYTE*)(size_t)32;
+    }
 #endif
 
     if (len>=32)
@@ -340,25 +386,50 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 see
 
         do
         {
-            v1 += XXH_get64bits(p) * PRIME64_2; p+=8; v1 = XXH_rotl64(v1, 31); v1 *= PRIME64_1;
-            v2 += XXH_get64bits(p) * PRIME64_2; p+=8; v2 = XXH_rotl64(v2, 31); v2 *= PRIME64_1;
-            v3 += XXH_get64bits(p) * PRIME64_2; p+=8; v3 = XXH_rotl64(v3, 31); v3 *= PRIME64_1;
-            v4 += XXH_get64bits(p) * PRIME64_2; p+=8; v4 = XXH_rotl64(v4, 31); v4 *= PRIME64_1;
-        } while (p<=limit);
+            v1 += XXH_get64bits(p) * PRIME64_2;
+            p+=8;
+            v1 = XXH_rotl64(v1, 31);
+            v1 *= PRIME64_1;
+            v2 += XXH_get64bits(p) * PRIME64_2;
+            p+=8;
+            v2 = XXH_rotl64(v2, 31);
+            v2 *= PRIME64_1;
+            v3 += XXH_get64bits(p) * PRIME64_2;
+            p+=8;
+            v3 = XXH_rotl64(v3, 31);
+            v3 *= PRIME64_1;
+            v4 += XXH_get64bits(p) * PRIME64_2;
+            p+=8;
+            v4 = XXH_rotl64(v4, 31);
+            v4 *= PRIME64_1;
+        }
+        while (p<=limit);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
 
-        v1 *= PRIME64_2; v1 = XXH_rotl64(v1, 31); v1 *= PRIME64_1; h64 ^= v1;
-    	h64 = h64 * PRIME64_1 + PRIME64_4;
+        v1 *= PRIME64_2;
+        v1 = XXH_rotl64(v1, 31);
+        v1 *= PRIME64_1;
+        h64 ^= v1;
+        h64 = h64 * PRIME64_1 + PRIME64_4;
 
-        v2 *= PRIME64_2; v2 = XXH_rotl64(v2, 31); v2 *= PRIME64_1; h64 ^= v2;
-    	h64 = h64 * PRIME64_1 + PRIME64_4;
+        v2 *= PRIME64_2;
+        v2 = XXH_rotl64(v2, 31);
+        v2 *= PRIME64_1;
+        h64 ^= v2;
+        h64 = h64 * PRIME64_1 + PRIME64_4;
 
-        v3 *= PRIME64_2; v3 = XXH_rotl64(v3, 31); v3 *= PRIME64_1; h64 ^= v3;
-    	h64 = h64 * PRIME64_1 + PRIME64_4;
+        v3 *= PRIME64_2;
+        v3 = XXH_rotl64(v3, 31);
+        v3 *= PRIME64_1;
+        h64 ^= v3;
+        h64 = h64 * PRIME64_1 + PRIME64_4;
 
-        v4 *= PRIME64_2; v4 = XXH_rotl64(v4, 31); v4 *= PRIME64_1; h64 ^= v4;
-    	h64 = h64 * PRIME64_1 + PRIME64_4;
+        v4 *= PRIME64_2;
+        v4 = XXH_rotl64(v4, 31);
+        v4 *= PRIME64_1;
+        h64 ^= v4;
+        h64 = h64 * PRIME64_1 + PRIME64_4;
     }
     else
     {
@@ -369,22 +440,25 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 see
 
     while (p+8<=bEnd)
     {
-    	U64 k1 = XXH_get64bits(p);
-    	k1 *= PRIME64_2; k1 = XXH_rotl64(k1,31); k1 *= PRIME64_1; h64 ^= k1;
-    	h64 = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
-    	p+=8;
+        U64 k1 = XXH_get64bits(p);
+        k1 *= PRIME64_2;
+        k1 = XXH_rotl64(k1,31);
+        k1 *= PRIME64_1;
+        h64 ^= k1;
+        h64 = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
+        p+=8;
     }
 
     if (p+4<=bEnd)
     {
-    	h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1;
+        h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1;
         h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
         p+=4;
     }
 
     while (p<bEnd)
     {
-    	h64 ^= (*p) * PRIME64_5;
+        h64 ^= (*p) * PRIME64_5;
         h64 = XXH_rotl64(h64, 11) * PRIME64_1;
         p++;
     }
@@ -401,6 +475,13 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 see
 
 unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
 {
+#if 1
+    // Simple version, good for code maintenance, but unfortunately slow for small inputs
+    XXH64_state_t state;
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, input, len);
+    return XXH64_digest(&state);
+#else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
 #  if !defined(XXH_USE_UNALIGNED_ACCESS)
@@ -417,6 +498,7 @@ unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed
         return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);
     else
         return XXH64_endian_align(input, len, seed, XXH_bigEndian, XXH_unaligned);
+#endif
 }
 
 /****************************************************
@@ -432,7 +514,7 @@ typedef struct
     U32 v2;
     U32 v3;
     U32 v4;
-    int memsize;
+    U32 memsize;
     char memory[16];
 } XXH_istate32_t;
 
@@ -444,7 +526,7 @@ typedef struct
     U64 v2;
     U64 v3;
     U64 v4;
-    int memsize;
+    U32 memsize;
     char memory[32];
 } XXH_istate64_t;
 
@@ -454,14 +536,22 @@ XXH32_state_t* XXH32_createState(void)
     XXH_STATIC_ASSERT(sizeof(XXH32_state_t) >= sizeof(XXH_istate32_t));   // A compilation error here means XXH32_state_t is not large enough
     return (XXH32_state_t*)malloc(sizeof(XXH32_state_t));
 }
-XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr) { free(statePtr); return XXH_OK; };
+XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
+{
+    free(statePtr);
+    return XXH_OK;
+};
 
 XXH64_state_t* XXH64_createState(void)
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_state_t) >= sizeof(XXH_istate64_t));   // A compilation error here means XXH64_state_t is not large enough
     return (XXH64_state_t*)malloc(sizeof(XXH64_state_t));
 }
-XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr) { free(statePtr); return XXH_OK; };
+XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
+{
+    free(statePtr);
+    return XXH_OK;
+};
 
 
 /*** Hash feed ***/
@@ -508,7 +598,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state_in, const v
     if (state->memsize + len < 16)   // fill in tmp buffer
     {
         XXH_memcpy(state->memory + state->memsize, input, len);
-        state->memsize +=  len;
+        state->memsize += (U32)len;
         return XXH_OK;
     }
 
@@ -517,10 +607,22 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state_in, const v
         XXH_memcpy(state->memory + state->memsize, input, 16-state->memsize);
         {
             const U32* p32 = (const U32*)state->memory;
-            state->v1 += XXH_readLE32(p32, endian) * PRIME32_2; state->v1 = XXH_rotl32(state->v1, 13); state->v1 *= PRIME32_1; p32++;
-            state->v2 += XXH_readLE32(p32, endian) * PRIME32_2; state->v2 = XXH_rotl32(state->v2, 13); state->v2 *= PRIME32_1; p32++;
-            state->v3 += XXH_readLE32(p32, endian) * PRIME32_2; state->v3 = XXH_rotl32(state->v3, 13); state->v3 *= PRIME32_1; p32++;
-            state->v4 += XXH_readLE32(p32, endian) * PRIME32_2; state->v4 = XXH_rotl32(state->v4, 13); state->v4 *= PRIME32_1; p32++;
+            state->v1 += XXH_readLE32(p32, endian) * PRIME32_2;
+            state->v1 = XXH_rotl32(state->v1, 13);
+            state->v1 *= PRIME32_1;
+            p32++;
+            state->v2 += XXH_readLE32(p32, endian) * PRIME32_2;
+            state->v2 = XXH_rotl32(state->v2, 13);
+            state->v2 *= PRIME32_1;
+            p32++;
+            state->v3 += XXH_readLE32(p32, endian) * PRIME32_2;
+            state->v3 = XXH_rotl32(state->v3, 13);
+            state->v3 *= PRIME32_1;
+            p32++;
+            state->v4 += XXH_readLE32(p32, endian) * PRIME32_2;
+            state->v4 = XXH_rotl32(state->v4, 13);
+            state->v4 *= PRIME32_1;
+            p32++;
         }
         p += 16-state->memsize;
         state->memsize = 0;
@@ -536,11 +638,24 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state_in, const v
 
         do
         {
-            v1 += XXH_readLE32((const U32*)p, endian) * PRIME32_2; v1 = XXH_rotl32(v1, 13); v1 *= PRIME32_1; p+=4;
-            v2 += XXH_readLE32((const U32*)p, endian) * PRIME32_2; v2 = XXH_rotl32(v2, 13); v2 *= PRIME32_1; p+=4;
-            v3 += XXH_readLE32((const U32*)p, endian) * PRIME32_2; v3 = XXH_rotl32(v3, 13); v3 *= PRIME32_1; p+=4;
-            v4 += XXH_readLE32((const U32*)p, endian) * PRIME32_2; v4 = XXH_rotl32(v4, 13); v4 *= PRIME32_1; p+=4;
-        } while (p<=limit);
+            v1 += XXH_readLE32((const U32*)p, endian) * PRIME32_2;
+            v1 = XXH_rotl32(v1, 13);
+            v1 *= PRIME32_1;
+            p+=4;
+            v2 += XXH_readLE32((const U32*)p, endian) * PRIME32_2;
+            v2 = XXH_rotl32(v2, 13);
+            v2 *= PRIME32_1;
+            p+=4;
+            v3 += XXH_readLE32((const U32*)p, endian) * PRIME32_2;
+            v3 = XXH_rotl32(v3, 13);
+            v3 *= PRIME32_1;
+            p+=4;
+            v4 += XXH_readLE32((const U32*)p, endian) * PRIME32_2;
+            v4 = XXH_rotl32(v4, 13);
+            v4 *= PRIME32_1;
+            p+=4;
+        }
+        while (p<=limit);
 
         state->v1 = v1;
         state->v2 = v2;
@@ -637,7 +752,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state_in, const v
     if (state->memsize + len < 32)   // fill in tmp buffer
     {
         XXH_memcpy(state->memory + state->memsize, input, len);
-        state->memsize +=  len;
+        state->memsize += (U32)len;
         return XXH_OK;
     }
 
@@ -646,10 +761,22 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state_in, const v
         XXH_memcpy(state->memory + state->memsize, input, 32-state->memsize);
         {
             const U64* p64 = (const U64*)state->memory;
-            state->v1 += XXH_readLE64(p64, endian) * PRIME64_2; state->v1 = XXH_rotl64(state->v1, 31); state->v1 *= PRIME64_1; p64++;
-            state->v2 += XXH_readLE64(p64, endian) * PRIME64_2; state->v2 = XXH_rotl64(state->v2, 31); state->v2 *= PRIME64_1; p64++;
-            state->v3 += XXH_readLE64(p64, endian) * PRIME64_2; state->v3 = XXH_rotl64(state->v3, 31); state->v3 *= PRIME64_1; p64++;
-            state->v4 += XXH_readLE64(p64, endian) * PRIME64_2; state->v4 = XXH_rotl64(state->v4, 31); state->v4 *= PRIME64_1; p64++;
+            state->v1 += XXH_readLE64(p64, endian) * PRIME64_2;
+            state->v1 = XXH_rotl64(state->v1, 31);
+            state->v1 *= PRIME64_1;
+            p64++;
+            state->v2 += XXH_readLE64(p64, endian) * PRIME64_2;
+            state->v2 = XXH_rotl64(state->v2, 31);
+            state->v2 *= PRIME64_1;
+            p64++;
+            state->v3 += XXH_readLE64(p64, endian) * PRIME64_2;
+            state->v3 = XXH_rotl64(state->v3, 31);
+            state->v3 *= PRIME64_1;
+            p64++;
+            state->v4 += XXH_readLE64(p64, endian) * PRIME64_2;
+            state->v4 = XXH_rotl64(state->v4, 31);
+            state->v4 *= PRIME64_1;
+            p64++;
         }
         p += 32-state->memsize;
         state->memsize = 0;
@@ -665,11 +792,24 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state_in, const v
 
         do
         {
-            v1 += XXH_readLE64((const U64*)p, endian) * PRIME64_2; v1 = XXH_rotl64(v1, 31); v1 *= PRIME64_1; p+=8;
-            v2 += XXH_readLE64((const U64*)p, endian) * PRIME64_2; v2 = XXH_rotl64(v2, 31); v2 *= PRIME64_1; p+=8;
-            v3 += XXH_readLE64((const U64*)p, endian) * PRIME64_2; v3 = XXH_rotl64(v3, 31); v3 *= PRIME64_1; p+=8;
-            v4 += XXH_readLE64((const U64*)p, endian) * PRIME64_2; v4 = XXH_rotl64(v4, 31); v4 *= PRIME64_1; p+=8;
-        } while (p<=limit);
+            v1 += XXH_readLE64((const U64*)p, endian) * PRIME64_2;
+            v1 = XXH_rotl64(v1, 31);
+            v1 *= PRIME64_1;
+            p+=8;
+            v2 += XXH_readLE64((const U64*)p, endian) * PRIME64_2;
+            v2 = XXH_rotl64(v2, 31);
+            v2 *= PRIME64_1;
+            p+=8;
+            v3 += XXH_readLE64((const U64*)p, endian) * PRIME64_2;
+            v3 = XXH_rotl64(v3, 31);
+            v3 *= PRIME64_1;
+            p+=8;
+            v4 += XXH_readLE64((const U64*)p, endian) * PRIME64_2;
+            v4 = XXH_rotl64(v4, 31);
+            v4 *= PRIME64_1;
+            p+=8;
+        }
+        while (p<=limit);
 
         state->v1 = v1;
         state->v2 = v2;
@@ -707,24 +847,36 @@ FORCE_INLINE U64 XXH64_digest_endian (XXH64_state_t* state_in, XXH_endianess end
 
     if (state->total_len >= 32)
     {
-    	U64 v1 = state->v1;
-    	U64 v2 = state->v2;
-    	U64 v3 = state->v3;
-    	U64 v4 = state->v4;
+        U64 v1 = state->v1;
+        U64 v2 = state->v2;
+        U64 v3 = state->v3;
+        U64 v4 = state->v4;
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
 
-        v1 *= PRIME64_2; v1 = XXH_rotl64(v1, 31); v1 *= PRIME64_1; h64 ^= v1;
-    	h64 = h64*PRIME64_1 + PRIME64_4;
+        v1 *= PRIME64_2;
+        v1 = XXH_rotl64(v1, 31);
+        v1 *= PRIME64_1;
+        h64 ^= v1;
+        h64 = h64*PRIME64_1 + PRIME64_4;
 
-        v2 *= PRIME64_2; v2 = XXH_rotl64(v2, 31); v2 *= PRIME64_1; h64 ^= v2;
-    	h64 = h64*PRIME64_1 + PRIME64_4;
+        v2 *= PRIME64_2;
+        v2 = XXH_rotl64(v2, 31);
+        v2 *= PRIME64_1;
+        h64 ^= v2;
+        h64 = h64*PRIME64_1 + PRIME64_4;
 
-        v3 *= PRIME64_2; v3 = XXH_rotl64(v3, 31); v3 *= PRIME64_1; h64 ^= v3;
-    	h64 = h64*PRIME64_1 + PRIME64_4;
+        v3 *= PRIME64_2;
+        v3 = XXH_rotl64(v3, 31);
+        v3 *= PRIME64_1;
+        h64 ^= v3;
+        h64 = h64*PRIME64_1 + PRIME64_4;
 
-        v4 *= PRIME64_2; v4 = XXH_rotl64(v4, 31); v4 *= PRIME64_1; h64 ^= v4;
-    	h64 = h64*PRIME64_1 + PRIME64_4;
+        v4 *= PRIME64_2;
+        v4 = XXH_rotl64(v4, 31);
+        v4 *= PRIME64_1;
+        h64 ^= v4;
+        h64 = h64*PRIME64_1 + PRIME64_4;
     }
     else
     {
@@ -735,22 +887,25 @@ FORCE_INLINE U64 XXH64_digest_endian (XXH64_state_t* state_in, XXH_endianess end
 
     while (p+8<=bEnd)
     {
-    	U64 k1 = XXH_readLE64((const U64*)p, endian);
-    	k1 *= PRIME64_2; k1 = XXH_rotl64(k1,31); k1 *= PRIME64_1; h64 ^= k1;
-    	h64 = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
-    	p+=8;
+        U64 k1 = XXH_readLE64((const U64*)p, endian);
+        k1 *= PRIME64_2;
+        k1 = XXH_rotl64(k1,31);
+        k1 *= PRIME64_1;
+        h64 ^= k1;
+        h64 = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
+        p+=8;
     }
 
     if (p+4<=bEnd)
     {
-    	h64 ^= (U64)(XXH_readLE32((const U32*)p, endian)) * PRIME64_1;
+        h64 ^= (U64)(XXH_readLE32((const U32*)p, endian)) * PRIME64_1;
         h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
         p+=4;
     }
 
     while (p<bEnd)
     {
-    	h64 ^= (*p) * PRIME64_5;
+        h64 ^= (*p) * PRIME64_5;
         h64 = XXH_rotl64(h64, 11) * PRIME64_1;
         p++;
     }

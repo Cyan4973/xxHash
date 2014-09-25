@@ -36,9 +36,12 @@ You can contact the author at :
 //**************************************
 #include <stdlib.h>     // malloc
 #include <stdio.h>      // fprintf, fopen, ftello64
+#include <string.h>     // strcmp
 #include <sys/timeb.h>  // timeb
 #include <sys/types.h>  // stat64
 #include <sys/stat.h>   // stat64
+
+#include "xxhash.h"
 
 
 //**************************************
@@ -47,21 +50,6 @@ You can contact the author at :
 #if !defined(S_ISREG)
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
-
-//**************************************
-// Hash Functions to test
-//**************************************
-#include "xxhash.h"
-#define DEFAULTHASH XXH32
-#define HASH0 XXH32
-
-// Making a wrapper to fit into the 32 bit api
-unsigned XXH64_32(const void* key, size_t len, unsigned seed)
-{
-	unsigned long long hash = XXH64(key, len, seed);
-	return (unsigned)(hash & 0xFFFFFFFF);
-}
-#define HASH1 XXH64_32
 
 
 //**************************************
@@ -94,6 +82,7 @@ unsigned XXH64_32(const void* key, size_t len, unsigned seed)
 
 #define NBLOOPS    3           // Default number of benchmark iterations
 #define TIMELOOP   2500        // Minimum timing per iteration
+#define PRIME 2654435761U
 
 #define KB *(1U<<10)
 #define MB *(1U<<20)
@@ -101,35 +90,19 @@ unsigned XXH64_32(const void* key, size_t len, unsigned seed)
 
 #define MAX_MEM    (2 GB - 64 MB)
 
-#define PRIME 2654435761U
-
-//**************************************
-// Local structures
-//**************************************
-struct hashFunctionPrototype
-{
-    unsigned int (*hashFunction)(const void*, size_t, unsigned);
-};
 
 
 //**************************************
 // MACRO
 //**************************************
-#define DISPLAY(...) fprintf(stderr, __VA_ARGS__)
-
-
+#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
+#define DISPLAYLEVEL(l, ...) if (displayLevel>=l) DISPLAY(__VA_ARGS__);
+static unsigned displayLevel = 1;
 
 //**************************************
 // Benchmark Parameters
 //**************************************
 static int nbIterations = NBLOOPS;
-
-void BMK_SetNbIterations(int nbLoops)
-{
-    nbIterations = nbLoops;
-    DISPLAY("- %i iterations-", nbIterations);
-}
-
 
 
 //*********************************************************
@@ -195,32 +168,14 @@ static U64 BMK_GetFileSize(char* infilename)
 }
 
 
-int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
+int BMK_benchFile(char** fileNamesTable, int nbFiles)
 {
     int fileIdx=0;
-    struct hashFunctionPrototype hashP;
     U32 hashResult=0;
 
     U64 totals = 0;
     double totalc = 0.;
 
-
-    // Init
-    switch (selection)
-    {
-#ifdef HASH0
-    case 0 : hashP.hashFunction = HASH0; break;
-#endif
-#ifdef HASH1
-    case 1 : hashP.hashFunction = HASH1; break;
-#endif
-#ifdef HASH2
-    case 2 : hashP.hashFunction = HASH2; break;
-#endif
-    default: hashP.hashFunction = DEFAULTHASH;
-    }
-
-    DISPLAY("Selected fn %d", selection);
 
     // Loop for each file
     while (fileIdx<nbFiles)
@@ -295,7 +250,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                     int i;
                     for (i=0; i<100; i++)
                     {
-                        hashResult = hashP.hashFunction(alignedBuffer, (int)benchedSize, 0);
+                        hashResult = XXH32(alignedBuffer, benchedSize, 0);
                         nbHashes++;
                     }
                 }
@@ -330,7 +285,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                     int i;
                     for (i=0; i<100; i++)
                     {
-                        hashResult = hashP.hashFunction(alignedBuffer+1, (int)benchedSize-1, 0);
+                        hashResult = XXH32(alignedBuffer+1, benchedSize-1, 0);
                         nbHashes++;
                     }
                 }
@@ -364,7 +319,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles, int selection)
                     int i;
                     for (i=0; i<100; i++)
                     {
-                        h64 = XXH64(alignedBuffer, (int)benchedSize, 0);
+                        h64 = XXH64(alignedBuffer, benchedSize, 0);
                         nbHashes++;
                     }
                 }
@@ -491,7 +446,93 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0xCAA65939306F1E21ULL);
 
     DISPLAY("\r%79s\r", "");       // Clean display line
-    DISPLAY("Sanity check -- all tests ok\n");
+    DISPLAYLEVEL(2, "Sanity check -- all tests ok\n");
+}
+
+
+int BMK_hash(char* fileName, U32 hashNb)
+{
+    FILE*  inFile;
+    size_t const blockSize = 64 KB;
+    size_t readSize;
+    char*  buffer;
+    XXH64_state_t state;
+
+    // Check file existence
+    inFile = fopen( fileName, "rb" );
+    if (inFile==NULL)
+    {
+        DISPLAY( "Pb opening %s\n", fileName);
+        return 11;
+    }
+
+    // Memory allocation & restrictions
+    buffer = (char*)malloc(blockSize);
+    if(!buffer)
+    {
+        DISPLAY("\nError: not enough memory!\n");
+        fclose(inFile);
+        return 12;
+    }
+
+    // Init
+    switch(hashNb)
+    {
+    case 0:
+        XXH32_reset((XXH32_state_t*)&state, 0);
+        break;
+    case 1:
+        XXH64_reset(&state, 0);
+        break;
+    default:
+        DISPLAY("Error : bad hash algorithm ID\n");
+        fclose(inFile);
+        free(buffer);
+        return -1;
+    }
+
+
+    // Load file & update hash
+    DISPLAY("\rLoading %s...        \r", fileName);
+    readSize = 1;
+    while (readSize)
+    {
+        readSize = fread(buffer, 1, blockSize, inFile);
+        switch(hashNb)
+        {
+        case 0:
+            XXH32_update((XXH32_state_t*)&state, buffer, readSize);
+            break;
+        case 1:
+            XXH64_update(&state, buffer, readSize);
+            break;
+        default:
+            break;
+        }
+    }
+    fclose(inFile);
+    free(buffer);
+
+    // display Hash
+    switch(hashNb)
+    {
+    case 0:
+        {
+            U32 h32 = XXH32_digest((XXH32_state_t*)&state);
+            DISPLAY("%08x   %s           \n", h32, fileName);
+            break;
+        }
+    case 1:
+        {
+            U64 h64 = XXH64_digest(&state);
+            DISPLAY("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
+            break;
+        }
+    default:
+            break;
+    }
+
+    return 0;
 }
 
 
@@ -504,8 +545,9 @@ int usage(char* exename)
     DISPLAY( "Usage :\n");
     DISPLAY( "      %s [arg] filename\n", exename);
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -i# : number of iterations \n");
-    DISPLAY( " -s# : Function selection [0,1]. Default is 0 \n");
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", 1);
+    DISPLAY( " -b  : benchmark mode \n");
+    DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", nbIterations);
     DISPLAY( " -h  : help (this text)\n");
     return 0;
 }
@@ -515,24 +557,22 @@ int badusage(char* exename)
 {
     DISPLAY("Wrong parameters\n");
     usage(exename);
-    return 0;
+    return 1;
 }
 
 
 int main(int argc, char** argv)
 {
     int i,
-        filenamesStart=2;
+        filenamesStart=0;
     char* input_filename=0;
-    int fn_selection = 0;
+    int fn_selection = 1;
+    U32 benchmarkMode = 0;
 
-    // Welcome message
-    DISPLAY( WELCOME_MESSAGE );
+    if (argc<2) return badusage(argv[0]);
 
-    // Check results are good
-    BMK_sanityCheck();
-
-    if (argc<2) { badusage(argv[0]); return 1; }
+    // lz4cat behavior
+    if (!strcmp(argv[0], "xxh32sum")) fn_selection=0;
 
     for(i=1; i<argc; i++)
     {
@@ -541,29 +581,60 @@ int main(int argc, char** argv)
         if(!argument) continue;   // Protection if argument empty
 
         // Select command
-        if (argument[0]=='-')
+        if (*argument=='-')
         {
-            argument ++;
+            argument++;
 
-            // Display help on usage
-            if ( argument[0] =='h' ) { usage(argv[0]); return 0; }
+            while (*argument!=0)
+            {
+                switch(*argument)
+                {
+                // Display help on usage
+                case 'h':
+                    return usage(argv[0]);
 
-            // Modify Nb Iterations (benchmark only)
-            if ( argument[0] =='i' ) { int iters = argument[1] - '0'; BMK_SetNbIterations(iters); continue; }
+                // select hash algorithm
+                case 'H':
+                    fn_selection = argument[1] - '0';
+                    argument+=2;
+                    break;
 
-            // select function
-            if ( argument[0] =='s' ) { fn_selection = argument[1] - '0'; continue; }
+                // Trigger benchmark mode
+                case 'b':
+                    argument++;
+                    benchmarkMode=1;
+                    break;
+
+                // Modify Nb Iterations (benchmark only)
+                case 'i':
+                    nbIterations = argument[1] - '0';
+                    argument+=2;
+                    break;
+
+                default:
+                    return badusage(argv[0]);
+                }
+            }
         }
 
-        // first provided filename is input
-        if (!input_filename) { input_filename=argument; filenamesStart=i; continue; }
+        else
+            // first provided filename is input
+            if (!input_filename) { input_filename=argument; filenamesStart=i; continue; }
 
     }
+
+    // Welcome message
+    DISPLAYLEVEL(2, WELCOME_MESSAGE );
+
+    // Check results are good
+    BMK_sanityCheck();
+
+    if (benchmarkMode) return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
 
     // No input filename ==> Error
     if(!input_filename) { badusage(argv[0]); return 1; }
 
     if(fn_selection < 0 || fn_selection > 1) { badusage(argv[0]); return 1; }
 
-    return BMK_benchFile(argv+filenamesStart, argc-filenamesStart, fn_selection);
+    return BMK_hash(argv[filenamesStart], fn_selection);
 }

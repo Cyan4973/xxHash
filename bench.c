@@ -56,10 +56,10 @@ You can contact the author at :
 #define HASH0 XXH32
 
 // Making a wrapper to fit into the 32 bit api
-unsigned int XXH64_32(const void* key, unsigned int len, unsigned int seed)
+unsigned XXH64_32(const void* key, size_t len, unsigned seed)
 {
 	unsigned long long hash = XXH64(key, len, seed);
-	return (unsigned int)(hash & 0xFFFFFFFF);
+	return (unsigned)(hash & 0xFFFFFFFF);
 }
 #define HASH1 XXH64_32
 
@@ -108,7 +108,7 @@ unsigned int XXH64_32(const void* key, unsigned int len, unsigned int seed)
 //**************************************
 struct hashFunctionPrototype
 {
-    unsigned int (*hashFunction)(const void*, unsigned int, unsigned int);
+    unsigned int (*hashFunction)(const void*, size_t, unsigned);
 };
 
 
@@ -420,20 +420,20 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
 {
     U64 Dresult;
-    void* state;
+    XXH64_state_t state;
     int index;
 
     Dresult = XXH64(sentence, len, seed);
     BMK_checkResult64(Dresult, Nresult);
 
-    state = XXH64_init(seed);
-    XXH64_update(state, sentence, len);
-    Dresult = XXH64_digest(state);
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, sentence, len);
+    Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 
-    state = XXH64_init(seed);
-    for (index=0; index<len; index++) XXH64_update(state, ((char*)sentence)+index, 1);
-    Dresult = XXH64_digest(state);
+    XXH64_reset(&state, seed);
+    for (index=0; index<len; index++) XXH64_update(&state, ((char*)sentence)+index, 1);
+    Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 }
 
@@ -441,20 +441,20 @@ static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
 static void BMK_testSequence(void* sentence, int len, U32 seed, U32 Nresult)
 {
     U32 Dresult;
-    void* state;
+    XXH32_state_t state;
     int index;
 
     Dresult = XXH32(sentence, len, seed);
     BMK_checkResult(Dresult, Nresult);
 
-    state = XXH32_init(seed);
-    XXH32_update(state, sentence, len);
-    Dresult = XXH32_digest(state);
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, sentence, len);
+    Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 
-    state = XXH32_init(seed);
-    for (index=0; index<len; index++) XXH32_update(state, ((char*)sentence)+index, 1);
-    Dresult = XXH32_digest(state);
+    XXH32_reset(&state, seed);
+    for (index=0; index<len; index++) XXH32_update(&state, ((char*)sentence)+index, 1);
+    Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 }
 

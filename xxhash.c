@@ -291,13 +291,14 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, unsigned int len, U32 see
 }
 
 
-U32 XXH32(const void* input, unsigned int len, U32 seed)
+U32 XXH32 (const void* input, size_t len, U32 seed)
 {
-#if 0
+#if 1
     // Simple version, good for code maintenance, but unfortunately slow for small inputs
-    void* state = XXH32_init(seed);
-    XXH32_update(state, input, len);
-    return XXH32_digest(state);
+    XXH32_state_t state;
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, input, len);
+    return XXH32_digest(&state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -398,7 +399,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, unsigned int len, U64 see
 }
 
 
-unsigned long long XXH64(const void* input, unsigned int len, unsigned long long seed)
+unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -418,11 +419,12 @@ unsigned long long XXH64(const void* input, unsigned int len, unsigned long long
         return XXH64_endian_align(input, len, seed, XXH_bigEndian, XXH_unaligned);
 }
 
-//****************************
-// Advanced Hash Functions
-//****************************
+/****************************************************
+ *  Advanced Hash Functions
+****************************************************/
 
-struct XXH_state32_t
+/*** Allocation ***/
+typedef struct
 {
     U64 total_len;
     U32 seed;
@@ -432,9 +434,9 @@ struct XXH_state32_t
     U32 v4;
     int memsize;
     char memory[16];
-};
+} XXH_istate32_t;
 
-struct XXH_state64_t
+typedef struct
 {
     U64 total_len;
     U64 seed;
@@ -444,25 +446,29 @@ struct XXH_state64_t
     U64 v4;
     int memsize;
     char memory[32];
-};
+} XXH_istate64_t;
 
 
-int XXH32_sizeofState(void)
+XXH32_state_t* XXH32_createState(void)
 {
-    XXH_STATIC_ASSERT(XXH32_SIZEOFSTATE >= sizeof(struct XXH_state32_t));   // A compilation error here means XXH32_SIZEOFSTATE is not large enough
-    return sizeof(struct XXH_state32_t);
+    XXH_STATIC_ASSERT(sizeof(XXH32_state_t) >= sizeof(XXH_istate32_t));   // A compilation error here means XXH32_state_t is not large enough
+    return (XXH32_state_t*)malloc(sizeof(XXH32_state_t));
 }
+XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr) { free(statePtr); return XXH_OK; };
 
-int XXH64_sizeofState(void)
+XXH64_state_t* XXH64_createState(void)
 {
-    XXH_STATIC_ASSERT(XXH64_SIZEOFSTATE >= sizeof(struct XXH_state64_t));   // A compilation error here means XXH64_SIZEOFSTATE is not large enough
-    return sizeof(struct XXH_state64_t);
+    XXH_STATIC_ASSERT(sizeof(XXH64_state_t) >= sizeof(XXH_istate64_t));   // A compilation error here means XXH64_state_t is not large enough
+    return (XXH64_state_t*)malloc(sizeof(XXH64_state_t));
 }
+XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr) { free(statePtr); return XXH_OK; };
 
 
-XXH_errorcode XXH32_resetState(void* state_in, U32 seed)
+/*** Hash feed ***/
+
+XXH_errorcode XXH32_reset(XXH32_state_t* state_in, U32 seed)
 {
-    struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
+    XXH_istate32_t* state = (XXH_istate32_t*) state_in;
     state->seed = seed;
     state->v1 = seed + PRIME32_1 + PRIME32_2;
     state->v2 = seed + PRIME32_2;
@@ -473,9 +479,9 @@ XXH_errorcode XXH32_resetState(void* state_in, U32 seed)
     return XXH_OK;
 }
 
-XXH_errorcode XXH64_resetState(void* state_in, unsigned long long seed)
+XXH_errorcode XXH64_reset(XXH64_state_t* state_in, unsigned long long seed)
 {
-    struct XXH_state64_t * state = (struct XXH_state64_t *) state_in;
+    XXH_istate64_t* state = (XXH_istate64_t*) state_in;
     state->seed = seed;
     state->v1 = seed + PRIME64_1 + PRIME64_2;
     state->v2 = seed + PRIME64_2;
@@ -487,24 +493,9 @@ XXH_errorcode XXH64_resetState(void* state_in, unsigned long long seed)
 }
 
 
-void* XXH32_init (U32 seed)
+FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state_in, const void* input, size_t len, XXH_endianess endian)
 {
-    void* state = XXH_malloc (sizeof(struct XXH_state32_t));
-    if (state != NULL) XXH32_resetState(state, seed);
-    return state;
-}
-
-void* XXH64_init (unsigned long long seed)
-{
-    void* state = XXH_malloc (sizeof(struct XXH_state64_t));
-    if (state != NULL) XXH64_resetState(state, seed);
-    return state;
-}
-
-
-FORCE_INLINE XXH_errorcode XXH32_update_endian (void* state_in, const void* input, int len, XXH_endianess endian)
-{
-    struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
+    XXH_istate32_t* state = (XXH_istate32_t *) state_in;
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
@@ -566,7 +557,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (void* state_in, const void* inpu
     return XXH_OK;
 }
 
-XXH_errorcode XXH32_update (void* state_in, const void* input, unsigned int len)
+XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -578,9 +569,9 @@ XXH_errorcode XXH32_update (void* state_in, const void* input, unsigned int len)
 
 
 
-FORCE_INLINE U32 XXH32_intermediateDigest_endian (void* state_in, XXH_endianess endian)
+FORCE_INLINE U32 XXH32_digest_endian (XXH32_state_t* state_in, XXH_endianess endian)
 {
-    struct XXH_state32_t * state = (struct XXH_state32_t *) state_in;
+    XXH_istate32_t* state = (XXH_istate32_t*) state_in;
     const BYTE * p = (const BYTE*)state->memory;
     BYTE* bEnd = (BYTE*)state->memory + state->memsize;
     U32 h32;
@@ -620,30 +611,20 @@ FORCE_INLINE U32 XXH32_intermediateDigest_endian (void* state_in, XXH_endianess 
 }
 
 
-U32 XXH32_intermediateDigest (void* state_in)
+U32 XXH32_digest (XXH32_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-        return XXH32_intermediateDigest_endian(state_in, XXH_littleEndian);
+        return XXH32_digest_endian(state_in, XXH_littleEndian);
     else
-        return XXH32_intermediateDigest_endian(state_in, XXH_bigEndian);
+        return XXH32_digest_endian(state_in, XXH_bigEndian);
 }
 
 
-U32 XXH32_digest (void* state_in)
+FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state_in, const void* input, size_t len, XXH_endianess endian)
 {
-    U32 h32 = XXH32_intermediateDigest(state_in);
-
-    XXH_free(state_in);
-
-    return h32;
-}
-
-
-FORCE_INLINE XXH_errorcode XXH64_update_endian (void* state_in, const void* input, int len, XXH_endianess endian)
-{
-    struct XXH_state64_t * state = (struct XXH_state64_t *) state_in;
+    XXH_istate64_t * state = (XXH_istate64_t *) state_in;
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
@@ -705,7 +686,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (void* state_in, const void* inpu
     return XXH_OK;
 }
 
-XXH_errorcode XXH64_update (void* state_in, const void* input, unsigned int len)
+XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -717,9 +698,9 @@ XXH_errorcode XXH64_update (void* state_in, const void* input, unsigned int len)
 
 
 
-FORCE_INLINE U64 XXH64_intermediateDigest_endian (void* state_in, XXH_endianess endian)
+FORCE_INLINE U64 XXH64_digest_endian (XXH64_state_t* state_in, XXH_endianess endian)
 {
-    struct XXH_state64_t * state = (struct XXH_state64_t *) state_in;
+    XXH_istate64_t * state = (XXH_istate64_t *) state_in;
     const BYTE * p = (const BYTE*)state->memory;
     BYTE* bEnd = (BYTE*)state->memory + state->memsize;
     U64 h64;
@@ -784,23 +765,14 @@ FORCE_INLINE U64 XXH64_intermediateDigest_endian (void* state_in, XXH_endianess 
 }
 
 
-unsigned long long XXH64_intermediateDigest (void* state_in)
+unsigned long long XXH64_digest (XXH64_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-        return XXH64_intermediateDigest_endian(state_in, XXH_littleEndian);
+        return XXH64_digest_endian(state_in, XXH_littleEndian);
     else
-        return XXH64_intermediateDigest_endian(state_in, XXH_bigEndian);
+        return XXH64_digest_endian(state_in, XXH_bigEndian);
 }
 
-
-unsigned long long XXH64_digest (void* state_in)
-{
-    U64 h64 = XXH64_intermediateDigest(state_in);
-
-    XXH_free(state_in);
-
-    return h64;
-}
 

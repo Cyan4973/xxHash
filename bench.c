@@ -572,7 +572,7 @@ int main(int argc, char** argv)
     if (argc<2) return badusage(argv[0]);
 
     // lz4cat behavior
-    if (!strcmp(argv[0], "xxh32sum")) fn_selection=0;
+    if (strstr(argv[0], "xxh32sum")!=NULL) fn_selection=0;
 
     for(i=1; i<argc; i++)
     {

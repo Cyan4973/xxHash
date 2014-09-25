@@ -40,8 +40,8 @@ all: xxhsum xxhsum32
 
 xxhsum: xxhash.c bench.c
 	$(CC)      $(CFLAGS) $^ -o $@$(EXT)
-#	ln -sf $@ xxh32sum
-#	ln -sf $@ xxh64sum
+	ln -sf $@ xxh32sum
+	ln -sf $@ xxh64sum
 
 xxhsum32: xxhash.c bench.c
 	$(CC) -m32 $(CFLAGS) $^ -o $@$(EXT)

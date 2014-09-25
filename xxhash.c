@@ -335,7 +335,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
 
 unsigned int XXH32 (const void* input, size_t len, unsigned seed)
 {
-#if 1
+#if 0
     // Simple version, good for code maintenance, but unfortunately slow for small inputs
     XXH32_state_t state;
     XXH32_reset(&state, seed);
@@ -475,7 +475,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
 
 unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
 {
-#if 1
+#if 0
     // Simple version, good for code maintenance, but unfortunately slow for small inputs
     XXH64_state_t state;
     XXH64_reset(&state, seed);

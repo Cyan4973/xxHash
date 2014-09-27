@@ -28,6 +28,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 You can contact the author at :
 - xxHash source repository : http://code.google.com/p/xxhash/
+- public discussion board : https://groups.google.com/forum/#!forum/lz4c
 */
 
 
@@ -80,7 +81,7 @@ You can contact the author at :
 // Includes & Memory related functions
 //**************************************
 #include "xxhash.h"
-// Modify the local functions below should you wish to use some other memory related routines
+// Modify the local functions below should you wish to use some other memory routines
 // for malloc(), free()
 #include <stdlib.h>
 FORCE_INLINE void* XXH_malloc(size_t s)
@@ -684,7 +685,7 @@ XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t l
 
 
 
-FORCE_INLINE U32 XXH32_digest_endian (XXH32_state_t* state_in, XXH_endianess endian)
+FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state_in, XXH_endianess endian)
 {
     XXH_istate32_t* state = (XXH_istate32_t*) state_in;
     const BYTE * p = (const BYTE*)state->memory;
@@ -726,7 +727,7 @@ FORCE_INLINE U32 XXH32_digest_endian (XXH32_state_t* state_in, XXH_endianess end
 }
 
 
-U32 XXH32_digest (XXH32_state_t* state_in)
+U32 XXH32_digest (const XXH32_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -838,7 +839,7 @@ XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t l
 
 
 
-FORCE_INLINE U64 XXH64_digest_endian (XXH64_state_t* state_in, XXH_endianess endian)
+FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state_in, XXH_endianess endian)
 {
     XXH_istate64_t * state = (XXH_istate64_t *) state_in;
     const BYTE * p = (const BYTE*)state->memory;
@@ -920,7 +921,7 @@ FORCE_INLINE U64 XXH64_digest_endian (XXH64_state_t* state_in, XXH_endianess end
 }
 
 
-unsigned long long XXH64_digest (XXH64_state_t* state_in)
+unsigned long long XXH64_digest (const XXH64_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 

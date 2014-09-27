@@ -124,11 +124,11 @@ States must then be initialized using XXHnn_reset() before first use.
 
 XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned seed);
 XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
-unsigned int  XXH32_digest (XXH32_state_t* statePtr);
+unsigned int  XXH32_digest (const XXH32_state_t* statePtr);
 
 XXH_errorcode      XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
 XXH_errorcode      XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
-unsigned long long XXH64_digest (XXH64_state_t* statePtr);
+unsigned long long XXH64_digest (const XXH64_state_t* statePtr);
 
 /*
 These functions calculate the xxHash of an input provided in multiple smaller packets,

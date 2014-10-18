@@ -95,7 +95,7 @@ You can contact the author at :
 //**************************************
 // Display macros
 //**************************************
-#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
+#define DISPLAY(...)         fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
 static unsigned g_displayLevel = 1;
 

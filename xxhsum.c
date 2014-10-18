@@ -569,12 +569,13 @@ int main(int argc, char** argv)
     int i,
         filenamesStart=0;
     char* input_filename=0;
+    char* exename = argv[0];
     U32 benchmarkMode = 0;
 
     // lz4cat behavior
     if (strstr(argv[0], "xxh32sum")!=NULL) g_fn_selection=0;
 
-    if (argc<2) return badusage(argv[0]);
+    if (argc<2) return badusage(exename);
 
     for(i=1; i<argc; i++)
     {
@@ -593,7 +594,7 @@ int main(int argc, char** argv)
                 {
                 // Display help on usage
                 case 'h':
-                    return usage(argv[0]);
+                    return usage(exename);
 
                 // select hash algorithm
                 case 'H':
@@ -614,7 +615,7 @@ int main(int argc, char** argv)
                     break;
 
                 default:
-                    return badusage(argv[0]);
+                    return badusage(exename);
                 }
             }
         }
@@ -628,12 +629,16 @@ int main(int argc, char** argv)
     // Check results are good
     BMK_sanityCheck();
 
-    if (benchmarkMode) return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
+    if (benchmarkMode)
+    {
+        DISPLAY( WELCOME_MESSAGE );
+        return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
+    }
 
     // No input filename ==> Error
-    if(!input_filename) { badusage(argv[0]); return 1; }
+    if(!input_filename) { badusage(exename); return 1; }
 
-    if(g_fn_selection < 0 || g_fn_selection > 1) { badusage(argv[0]); return 1; }
+    if(g_fn_selection < 0 || g_fn_selection > 1) { badusage(exename); return 1; }
 
     return BMK_hash(argv[filenamesStart], g_fn_selection);
 }

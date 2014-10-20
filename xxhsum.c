@@ -74,7 +74,7 @@ You can contact the author at :
 //**************************************
 // Constants
 //**************************************
-#define PROGRAM_NAME "xxHash tester"
+#define PROGRAM_NAME exename
 #define PROGRAM_VERSION ""
 #define COMPILED __DATE__
 #define AUTHOR "Yann Collet"
@@ -93,16 +93,18 @@ You can contact the author at :
 
 
 //**************************************
-// MACRO
+// Display macros
 //**************************************
-#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
-#define DISPLAYLEVEL(l, ...) if (displayLevel>=l) DISPLAY(__VA_ARGS__);
-static unsigned displayLevel = 1;
+#define DISPLAY(...)         fprintf(stdout, __VA_ARGS__)
+#define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
+static unsigned g_displayLevel = 1;
+
 
 //**************************************
-// Benchmark Parameters
+// Global variables
 //**************************************
-static int nbIterations = NBLOOPS;
+static int g_nbIterations = NBLOOPS;
+static int g_fn_selection = 1;
 
 
 //*********************************************************
@@ -234,7 +236,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles)
             double fastestC = 100000000.;
 
             DISPLAY("\r%79s\r", "");       // Clean display line
-            for (interationNb = 1; interationNb <= nbIterations; interationNb++)
+            for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
             {
                 int nbHashes = 0;
                 int milliTime;
@@ -270,7 +272,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles)
             double fastestC = 100000000.;
 
             DISPLAY("\r%79s\r", "");       // Clean display line
-            for (interationNb = 1; (interationNb <= nbIterations) && ((benchedSize>1)); interationNb++)
+            for (interationNb = 1; (interationNb <= g_nbIterations) && ((benchedSize>1)); interationNb++)
             {
                 int nbHashes = 0;
                 int milliTime;
@@ -303,7 +305,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles)
             unsigned long long h64 = 0;
 
             DISPLAY("\r%79s\r", "");       // Clean display line
-            for (interationNb = 1; interationNb <= nbIterations; interationNb++)
+            for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
             {
                 int nbHashes = 0;
                 int milliTime;
@@ -542,12 +544,13 @@ int BMK_hash(char* fileName, U32 hashNb)
 
 int usage(char* exename)
 {
+    DISPLAY( WELCOME_MESSAGE );
     DISPLAY( "Usage :\n");
     DISPLAY( "      %s [arg] filename\n", exename);
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", 1);
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", g_fn_selection);
     DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", nbIterations);
+    DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
     DISPLAY( " -h  : help (this text)\n");
     return 0;
 }
@@ -566,13 +569,13 @@ int main(int argc, char** argv)
     int i,
         filenamesStart=0;
     char* input_filename=0;
-    int fn_selection = 1;
+    char* exename = argv[0];
     U32 benchmarkMode = 0;
 
-    if (argc<2) return badusage(argv[0]);
-
     // lz4cat behavior
-    if (strstr(argv[0], "xxh32sum")!=NULL) fn_selection=0;
+    if (strstr(argv[0], "xxh32sum")!=NULL) g_fn_selection=0;
+
+    if (argc<2) return badusage(exename);
 
     for(i=1; i<argc; i++)
     {
@@ -591,11 +594,11 @@ int main(int argc, char** argv)
                 {
                 // Display help on usage
                 case 'h':
-                    return usage(argv[0]);
+                    return usage(exename);
 
                 // select hash algorithm
                 case 'H':
-                    fn_selection = argument[1] - '0';
+                    g_fn_selection = argument[1] - '0';
                     argument+=2;
                     break;
 
@@ -607,12 +610,12 @@ int main(int argc, char** argv)
 
                 // Modify Nb Iterations (benchmark only)
                 case 'i':
-                    nbIterations = argument[1] - '0';
+                    g_nbIterations = argument[1] - '0';
                     argument+=2;
                     break;
 
                 default:
-                    return badusage(argv[0]);
+                    return badusage(exename);
                 }
             }
         }
@@ -623,18 +626,19 @@ int main(int argc, char** argv)
 
     }
 
-    // Welcome message
-    DISPLAYLEVEL(2, WELCOME_MESSAGE );
-
     // Check results are good
     BMK_sanityCheck();
 
-    if (benchmarkMode) return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
+    if (benchmarkMode)
+    {
+        DISPLAY( WELCOME_MESSAGE );
+        return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
+    }
 
     // No input filename ==> Error
-    if(!input_filename) { badusage(argv[0]); return 1; }
+    if(!input_filename) { badusage(exename); return 1; }
 
-    if(fn_selection < 0 || fn_selection > 1) { badusage(argv[0]); return 1; }
+    if(g_fn_selection < 0 || g_fn_selection > 1) { badusage(exename); return 1; }
 
-    return BMK_hash(argv[filenamesStart], fn_selection);
+    return BMK_hash(argv[filenamesStart], g_fn_selection);
 }

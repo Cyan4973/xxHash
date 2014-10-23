@@ -95,7 +95,8 @@ You can contact the author at :
 //**************************************
 // Display macros
 //**************************************
-#define DISPLAY(...)         fprintf(stdout, __VA_ARGS__)
+#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
+#define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
 static unsigned g_displayLevel = 1;
 
@@ -521,13 +522,13 @@ int BMK_hash(char* fileName, U32 hashNb)
     case 0:
         {
             U32 h32 = XXH32_digest((XXH32_state_t*)&state);
-            DISPLAY("%08x   %s           \n", h32, fileName);
+            DISPLAYRESULT("%08x   %s           \n", h32, fileName);
             break;
         }
     case 1:
         {
             U64 h64 = XXH64_digest(&state);
-            DISPLAY("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
+            DISPLAYRESULT("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
             break;
         }
     default:

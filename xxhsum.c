@@ -21,25 +21,34 @@ You can contact the author at :
 - Discussion group : https://groups.google.com/forum/?fromgroups#!forum/lz4c
 */
 
-//**************************************
-// Compiler Options
-//**************************************
-// Visual warning messages (must be first line)
-#define _CRT_SECURE_NO_WARNINGS
+/**************************************
+ * Compiler Options
+ *************************************/
+/* MS Visual */
+#if defined(_MSC_VER) || defined(_WIN32)
+#  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  define BMK_LEGACY_TIMER 1        /* gettimeofday() not supported by MSVC */
+#endif
 
-// Under Linux at least, pull in the *64 commands
+/* Under Linux at least, pull in the *64 commands */
 #define _LARGEFILE64_SOURCE
 
 
-//**************************************
-// Includes
-//**************************************
+/**************************************
+ * Includes
+ *************************************/
 #include <stdlib.h>     // malloc
 #include <stdio.h>      // fprintf, fopen, ftello64
 #include <string.h>     // strcmp
-#include <sys/timeb.h>  // timeb
 #include <sys/types.h>  // stat64
 #include <sys/stat.h>   // stat64
+
+// Use ftime() if gettimeofday() is not available on your target
+#if defined(BMK_LEGACY_TIMER)
+#  include <sys/timeb.h>   // timeb, ftime
+#else
+#  include <sys/time.h>    // gettimeofday
+#endif
 
 #include "xxhash.h"
 
@@ -84,8 +93,8 @@ You can contact the author at :
 #define TIMELOOP   2500        // Minimum timing per iteration
 #define PRIME 2654435761U
 
-#define KB *(1U<<10)
-#define MB *(1U<<20)
+#define KB *(1<<10)
+#define MB *(1<<20)
 #define GB *(1U<<30)
 
 #define MAX_MEM    (2 GB - 64 MB)
@@ -112,18 +121,34 @@ static int g_fn_selection = 1;
 // Benchmark Functions
 //*********************************************************
 
+#if defined(BMK_LEGACY_TIMER)
+
 static int BMK_GetMilliStart(void)
 {
-    // Supposed to be portable
-    // Rolls over every ~ 12.1 days (0x100000/24/60/60)
-    // Use GetMilliSpan to correct for rollover
-    struct timeb tb;
-    int nCount;
-    ftime( &tb );
-    nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
-    return nCount;
+  // Based on Legacy ftime()
+  // Rolls over every ~ 12.1 days (0x100000/24/60/60)
+  // Use GetMilliSpan to correct for rollover
+  struct timeb tb;
+  int nCount;
+  ftime( &tb );
+  nCount = (int) (tb.millitm + (tb.time & 0xfffff) * 1000);
+  return nCount;
 }
 
+#else
+
+static int BMK_GetMilliStart(void)
+{
+  // Based on newer gettimeofday()
+  // Use GetMilliSpan to correct for rollover
+  struct timeval tv;
+  int nCount;
+  gettimeofday(&tv, NULL);
+  nCount = (int) (tv.tv_usec/1000 + (tv.tv_sec & 0xfffff) * 1000);
+  return nCount;
+}
+
+#endif
 
 static int BMK_GetMilliSpan( int nTimeStart )
 {

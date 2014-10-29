@@ -51,6 +51,7 @@ xxhsum32: xxhash.c xxhsum.c
 test: $(TEST_TARGETS)
 
 test: xxhsum
+	./xxhsum < xxhash.c
 	./xxhsum -b xxhash.c
 	valgrind --leak-check=yes ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes ./xxhsum -H0 xxhash.c

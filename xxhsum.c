@@ -21,40 +21,63 @@ You can contact the author at :
 - Discussion group : https://groups.google.com/forum/?fromgroups#!forum/lz4c
 */
 
-//**************************************
-// Compiler Options
-//**************************************
-// Visual warning messages (must be first line)
-#define _CRT_SECURE_NO_WARNINGS
+/**************************************
+ * Compiler Options
+ *************************************/
+/* MS Visual */
+#if defined(_MSC_VER) || defined(_WIN32)
+#  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  define BMK_LEGACY_TIMER 1        /* gettimeofday() not supported by MSVC */
+#endif
 
-// Under Linux at least, pull in the *64 commands
+/* Under Linux at least, pull in the *64 commands */
 #define _LARGEFILE64_SOURCE
 
 
-//**************************************
-// Includes
-//**************************************
+/**************************************
+ * Includes
+ *************************************/
 #include <stdlib.h>     // malloc
-#include <stdio.h>      // fprintf, fopen, ftello64
+#include <stdio.h>      // fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno
 #include <string.h>     // strcmp
-#include <sys/timeb.h>  // timeb
 #include <sys/types.h>  // stat64
 #include <sys/stat.h>   // stat64
 
 #include "xxhash.h"
 
 
-//**************************************
-// Compiler specifics
-//**************************************
+/**************************************
+ * OS-Specific Includes
+ *************************************/
+// Use ftime() if gettimeofday() is not available on your target
+#if defined(BMK_LEGACY_TIMER)
+#  include <sys/timeb.h>   // timeb, ftime
+#else
+#  include <sys/time.h>    // gettimeofday
+#endif
+
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>    // _O_BINARY
+#  include <io.h>       // _setmode, _isatty
+#  ifdef __MINGW32__
+   int _fileno(FILE *stream);   // MINGW somehow forgets to include this windows declaration into <stdio.h>
+#  endif
+#  define SET_BINARY_MODE(file) _setmode(_fileno(file), _O_BINARY)
+#  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
+#else
+#  include <unistd.h>   // isatty, STDIN_FILENO
+#  define SET_BINARY_MODE(file)
+#  define IS_CONSOLE(stdStream) isatty(STDIN_FILENO)
+#endif
+
 #if !defined(S_ISREG)
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
 
-//**************************************
-// Basic Types
-//**************************************
+/**************************************
+ * Basic Types
+ *************************************/
 #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
 # include <stdint.h>
   typedef  uint8_t BYTE;
@@ -71,9 +94,9 @@ You can contact the author at :
 #endif
 
 
-//**************************************
-// Constants
-//**************************************
+/**************************************
+ * Constants
+ *************************************/
 #define PROGRAM_NAME exename
 #define PROGRAM_VERSION ""
 #define COMPILED __DATE__
@@ -84,12 +107,13 @@ You can contact the author at :
 #define TIMELOOP   2500        // Minimum timing per iteration
 #define PRIME 2654435761U
 
-#define KB *(1U<<10)
-#define MB *(1U<<20)
+#define KB *(1<<10)
+#define MB *(1<<20)
 #define GB *(1U<<30)
 
 #define MAX_MEM    (2 GB - 64 MB)
 
+static const char stdinName[] = "-";
 
 
 //**************************************
@@ -102,28 +126,44 @@ static unsigned g_displayLevel = 1;
 
 
 //**************************************
-// Global variables
+// Unit variables
 //**************************************
 static int g_nbIterations = NBLOOPS;
-static int g_fn_selection = 1;
+static int g_fn_selection = 1;    // required within main() & usage()
 
 
 //*********************************************************
 // Benchmark Functions
 //*********************************************************
 
+#if defined(BMK_LEGACY_TIMER)
+
 static int BMK_GetMilliStart(void)
 {
-    // Supposed to be portable
-    // Rolls over every ~ 12.1 days (0x100000/24/60/60)
-    // Use GetMilliSpan to correct for rollover
-    struct timeb tb;
-    int nCount;
-    ftime( &tb );
-    nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
-    return nCount;
+  // Based on Legacy ftime()
+  // Rolls over every ~ 12.1 days (0x100000/24/60/60)
+  // Use GetMilliSpan to correct for rollover
+  struct timeb tb;
+  int nCount;
+  ftime( &tb );
+  nCount = (int) (tb.millitm + (tb.time & 0xfffff) * 1000);
+  return nCount;
 }
 
+#else
+
+static int BMK_GetMilliStart(void)
+{
+  // Based on newer gettimeofday()
+  // Use GetMilliSpan to correct for rollover
+  struct timeval tv;
+  int nCount;
+  gettimeofday(&tv, NULL);
+  nCount = (int) (tv.tv_usec/1000 + (tv.tv_sec & 0xfffff) * 1000);
+  return nCount;
+}
+
+#endif
 
 static int BMK_GetMilliSpan( int nTimeStart )
 {
@@ -171,7 +211,7 @@ static U64 BMK_GetFileSize(char* infilename)
 }
 
 
-int BMK_benchFile(char** fileNamesTable, int nbFiles)
+static int BMK_benchFile(char** fileNamesTable, int nbFiles)
 {
     int fileIdx=0;
     U32 hashResult=0;
@@ -453,7 +493,7 @@ static void BMK_sanityCheck(void)
 }
 
 
-int BMK_hash(char* fileName, U32 hashNb)
+static int BMK_hash(const char* fileName, U32 hashNb)
 {
     FILE*  inFile;
     size_t const blockSize = 64 KB;
@@ -462,7 +502,13 @@ int BMK_hash(char* fileName, U32 hashNb)
     XXH64_state_t state;
 
     // Check file existence
-    inFile = fopen( fileName, "rb" );
+    if (fileName == stdinName)
+    {
+        inFile = stdin;
+        SET_BINARY_MODE(stdin);
+    }
+    else
+        inFile = fopen( fileName, "rb" );
     if (inFile==NULL)
     {
         DISPLAY( "Pb opening %s\n", fileName);
@@ -543,11 +589,12 @@ int BMK_hash(char* fileName, U32 hashNb)
 //  Main
 //*********************************************************
 
-int usage(char* exename)
+static int usage(const char* exename)
 {
     DISPLAY( WELCOME_MESSAGE );
     DISPLAY( "Usage :\n");
-    DISPLAY( "      %s [arg] filename\n", exename);
+    DISPLAY( "      %s [arg] [filename]\n", exename);
+    DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
     DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", g_fn_selection);
     DISPLAY( " -b  : benchmark mode \n");
@@ -557,7 +604,7 @@ int usage(char* exename)
 }
 
 
-int badusage(char* exename)
+static int badusage(const char* exename)
 {
     DISPLAY("Wrong parameters\n");
     usage(exename);
@@ -567,16 +614,13 @@ int badusage(char* exename)
 
 int main(int argc, char** argv)
 {
-    int i,
-        filenamesStart=0;
-    char* input_filename=0;
-    char* exename = argv[0];
+    int i, filenamesStart=0;
+    const char* input_filename = (char*)stdinName;
+    const char* exename = argv[0];
     U32 benchmarkMode = 0;
 
-    // lz4cat behavior
-    if (strstr(argv[0], "xxh32sum")!=NULL) g_fn_selection=0;
-
-    if (argc<2) return badusage(exename);
+    // xxh32sum default to 32 bits checksum
+    if (strstr(exename, "xxh32sum")!=NULL) g_fn_selection=0;
 
     for(i=1; i<argc; i++)
     {
@@ -584,62 +628,62 @@ int main(int argc, char** argv)
 
         if(!argument) continue;   // Protection if argument empty
 
-        // Select command
-        if (*argument=='-')
+        if (*argument!='-')
         {
-            argument++;
-
-            while (*argument!=0)
-            {
-                switch(*argument)
-                {
-                // Display help on usage
-                case 'h':
-                    return usage(exename);
-
-                // select hash algorithm
-                case 'H':
-                    g_fn_selection = argument[1] - '0';
-                    argument+=2;
-                    break;
-
-                // Trigger benchmark mode
-                case 'b':
-                    argument++;
-                    benchmarkMode=1;
-                    break;
-
-                // Modify Nb Iterations (benchmark only)
-                case 'i':
-                    g_nbIterations = argument[1] - '0';
-                    argument+=2;
-                    break;
-
-                default:
-                    return badusage(exename);
-                }
-            }
+            input_filename=argument;
+            if (filenamesStart==0) filenamesStart=i;
+            continue;
         }
 
-        else
-            // first provided filename is input
-            if (!input_filename) { input_filename=argument; filenamesStart=i; continue; }
+        // Select command
+        // note : *argument=='-'
+        argument++;
 
+        while (*argument!=0)
+        {
+            switch(*argument)
+            {
+            // Display help on usage
+            case 'h':
+                return usage(exename);
+
+            // select hash algorithm
+            case 'H':
+                g_fn_selection = argument[1] - '0';
+                argument+=2;
+                break;
+
+            // Trigger benchmark mode
+            case 'b':
+                argument++;
+                benchmarkMode=1;
+                break;
+
+            // Modify Nb Iterations (benchmark only)
+            case 'i':
+                g_nbIterations = argument[1] - '0';
+                argument+=2;
+                break;
+
+            default:
+                return badusage(exename);
+            }
+        }
     }
 
-    // Check results are good
-    BMK_sanityCheck();
+    // Check if input is defined as console; trigger an error in this case
+    if ((input_filename == stdinName) && IS_CONSOLE(stdin) ) return badusage(exename);
 
+    // Check results are good
     if (benchmarkMode)
     {
+        if (filenamesStart==0) return badusage(exename);
         DISPLAY( WELCOME_MESSAGE );
+        BMK_sanityCheck();
         return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
     }
 
-    // No input filename ==> Error
-    if(!input_filename) { badusage(exename); return 1; }
+    if(g_fn_selection < 0 || g_fn_selection > 1) return badusage(exename);
 
-    if(g_fn_selection < 0 || g_fn_selection > 1) { badusage(exename); return 1; }
-
-    return BMK_hash(argv[filenamesStart], g_fn_selection);
+    return BMK_hash(input_filename, g_fn_selection);
 }

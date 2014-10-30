@@ -23,8 +23,9 @@
 # xxHash.exe : benchmark program, to demonstrate xxHash speed
 # ################################################################
 
-CC=gcc
-CFLAGS+= -I. -std=c99 -O3 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes
+CC     := $(CC)
+CFLAGS ?= -O3
+CFLAGS += -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes
 
 
 # Define *.exe as extension for Windows systems
@@ -33,6 +34,7 @@ EXT =.exe
 else
 EXT =
 endif
+
 
 default: xxhsum
 
@@ -49,10 +51,11 @@ xxhsum32: xxhash.c xxhsum.c
 test: $(TEST_TARGETS)
 
 test: xxhsum
+	./xxhsum < xxhash.c
 	./xxhsum -b xxhash.c
-	valgrind ./xxhsum -bi1 xxhash.c
-	valgrind ./xxhsum -H0 xxhash.c
-	valgrind ./xxhsum -H1 xxhash.c
+	valgrind --leak-check=yes ./xxhsum -bi1 xxhash.c
+	valgrind --leak-check=yes ./xxhsum -H0 xxhash.c
+	valgrind --leak-check=yes ./xxhsum -H1 xxhash.c
 
 test-all: test xxhsum32
 	./xxhsum32 -b xxhash.c

@@ -376,6 +376,43 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
             totalc += fastestC;
         }
 
+        // Bench XXH128
+        {
+            int interationNb;
+            double fastestC = 100000000.;
+            unsigned long long h64[2] = {0, 0};
+
+            DISPLAY("\r%79s\r", "");       // Clean display line
+            for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
+            {
+                int nbHashes = 0;
+                int milliTime;
+
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH64", (int)benchedSize);
+
+                // Hash loop
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliStart() == milliTime);
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
+                {
+                    int i;
+                    for (i=0; i<100; i++)
+                    {
+                        XXH128(alignedBuffer, benchedSize, 0, h64);
+                        nbHashes++;
+                    }
+                }
+                milliTime = BMK_GetMilliSpan(milliTime);
+                if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
+            }
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X%08X%08X%08X\n", "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h64[0]>>32), (U32)(h64[0]), (U32)(h64[1]>>32), (U32)(h64[1]));
+
+            totals += benchedSize;
+            totalc += fastestC;
+        }
+
         free(buffer);
     }
 
@@ -499,7 +536,8 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     size_t const blockSize = 64 KB;
     size_t readSize;
     char*  buffer;
-    XXH64_state_t state;
+    XXH64_state_t state[2];
+    XXH128_state_t *state128 = (XXH128_state_t *)state;
 
     // Check file existence
     if (fileName == stdinName)
@@ -531,7 +569,10 @@ static int BMK_hash(const char* fileName, U32 hashNb)
         XXH32_reset((XXH32_state_t*)&state, 0);
         break;
     case 1:
-        XXH64_reset(&state, 0);
+	XXH64_reset(&state[0], 0);
+        break;
+    case 2:
+        XXH128_reset(state128, 0);
         break;
     default:
         DISPLAY("Error : bad hash algorithm ID\n");
@@ -553,7 +594,10 @@ static int BMK_hash(const char* fileName, U32 hashNb)
             XXH32_update((XXH32_state_t*)&state, buffer, readSize);
             break;
         case 1:
-            XXH64_update(&state, buffer, readSize);
+            XXH64_update(&state[0], buffer, readSize);
+            break;
+        case 2:
+            XXH128_update(state128, buffer, readSize);
             break;
         default:
             break;
@@ -573,10 +617,18 @@ static int BMK_hash(const char* fileName, U32 hashNb)
         }
     case 1:
         {
-            U64 h64 = XXH64_digest(&state);
+            U64 h64 = XXH64_digest(&state[0]);
             DISPLAYRESULT("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
             break;
         }
+    case 2:
+    {
+            U64 h64[2];
+            XXH128_digest(state128, h64);
+            DISPLAYRESULT("%08x%08x%08x%08x   %s     \n", (U32)(h64[0]>>32), (U32)(h64[0]),
+            (U32)(h64[1]>>32), (U32)(h64[1]), fileName);
+            break;
+    }
     default:
             break;
     }
@@ -596,7 +648,7 @@ static int usage(const char* exename)
     DISPLAY( "      %s [arg] [filename]\n", exename);
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", g_fn_selection);
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=128bits (default %i)\n", g_fn_selection);
     DISPLAY( " -b  : benchmark mode \n");
     DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
     DISPLAY( " -h  : help (this text)\n");
@@ -621,6 +673,7 @@ int main(int argc, char** argv)
 
     // xxh32sum default to 32 bits checksum
     if (strstr(exename, "xxh32sum")!=NULL) g_fn_selection=0;
+    if (strstr(exename, "xxh128sum")!=NULL) g_fn_selection=2;
 
     for(i=1; i<argc; i++)
     {
@@ -683,7 +736,7 @@ int main(int argc, char** argv)
         return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
     }
 
-    if(g_fn_selection < 0 || g_fn_selection > 1) return badusage(exename);
+    if(g_fn_selection < 0 || g_fn_selection > 2) return badusage(exename);
 
     return BMK_hash(input_filename, g_fn_selection);
 }

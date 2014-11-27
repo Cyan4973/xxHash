@@ -548,6 +548,17 @@ XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
     return XXH_OK;
 };
 
+XXH128_state_t* XXH128_createState(void)
+{
+        XXH_STATIC_ASSERT(sizeof(XXH64_state_t) >= sizeof(XXH_istate64_t));   // A compilation error here means XXH64_state_t is not large enough
+        return (XXH128_state_t*)XXH_malloc(sizeof(XXH128_state_t));
+}
+XXH_errorcode XXH128_freeState(XXH128_state_t* statePtr)
+{
+        XXH_free(statePtr);
+        return XXH_OK;
+};
+
 
 /*** Hash feed ***/
 
@@ -926,3 +937,30 @@ unsigned long long XXH64_digest (const XXH64_state_t* state_in)
 }
 
 
+
+XXH_errorcode XXH128_reset (XXH128_state_t* statePtr, unsigned long long seed) {
+    XXH64_state_t *state = (XXH64_state_t *)statePtr;
+    XXH_errorcode code = XXH64_reset(&state[0], seed);
+    state[1] = state[0];
+    return code;
+}
+
+XXH_errorcode XXH128_update(XXH128_state_t* statePtr, const void* input, size_t length){
+    XXH64_state_t *state = (XXH64_state_t *)statePtr;
+    return XXH64_update (&state[0], input, length/2) | XXH64_update (&state[1], input+length/2, length/2);
+}
+
+void XXH128_digest(XXH128_state_t* statePtr, void *out){
+    unsigned long long *hash = out;
+    XXH64_state_t *state = (XXH64_state_t *)statePtr;
+    hash[0] = XXH64_digest (&state[0]);
+    hash[1] = XXH64_digest (&state[1]);
+}
+
+void XXH128 (const void* input, size_t len, unsigned long long seed, void *out)
+{
+    XXH128_state_t state;
+    XXH128_reset(&state, seed);
+    XXH128_update(&state, input, len);
+    XXH128_digest(&state, out);
+}

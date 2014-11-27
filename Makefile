@@ -44,6 +44,7 @@ xxhsum: xxhash.c xxhsum.c
 	$(CC)      $(CFLAGS) $^ -o $@$(EXT)
 	ln -sf $@ xxh32sum
 	ln -sf $@ xxh64sum
+	ln -sf $@ xxh128sum
 
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) -m32 $(CFLAGS) $^ -o $@$(EXT)
@@ -63,5 +64,3 @@ test-all: test xxhsum32
 clean:
 	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
-
-

@@ -83,6 +83,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 
 unsigned int       XXH32 (const void* input, size_t length, unsigned seed);
 unsigned long long XXH64 (const void* input, size_t length, unsigned long long seed);
+void XXH128 (const void* input, size_t len, unsigned long long seed, void *out);
 
 /*
 XXH32() :
@@ -102,6 +103,7 @@ XXH64() :
 *****************************/
 typedef struct { long long ll[ 6]; } XXH32_state_t;
 typedef struct { long long ll[11]; } XXH64_state_t;
+typedef struct { long long ll[22]; } XXH128_state_t;
 
 /*
 These structures allow static allocation of XXH states.
@@ -116,6 +118,9 @@ XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
 XXH64_state_t* XXH64_createState(void);
 XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 
+XXH128_state_t* XXH128_createState(void);
+XXH_errorcode XXH128_freeState(XXH128_state_t* statePtr);
+
 /*
 These functions create and release memory for XXH state.
 States must then be initialized using XXHnn_reset() before first use.
@@ -129,6 +134,10 @@ unsigned int  XXH32_digest (const XXH32_state_t* statePtr);
 XXH_errorcode      XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
 XXH_errorcode      XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
 unsigned long long XXH64_digest (const XXH64_state_t* statePtr);
+
+XXH_errorcode XXH128_reset (XXH128_state_t* statePtr, unsigned long long seed);
+XXH_errorcode XXH128_update(XXH128_state_t* statePtr, const void* input, size_t length);
+void XXH128_digest(XXH128_state_t* statePtr, void *out);
 
 /*
 These functions calculate the xxHash of an input provided in multiple smaller packets,
@@ -149,7 +158,6 @@ and therefore get some new hashes, by calling again XXHnn_digest().
 
 When you are done, don't forget to free XXH state space, using typically XXHnn_freeState().
 */
-
 
 #if defined (__cplusplus)
 }

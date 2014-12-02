@@ -923,6 +923,16 @@ XXH_errorcode XXH128_freeState(XXH128_state_t* statePtr)
     return XXH_OK;
 }
 
+XXH256_state_t* XXH256_createState(void)
+{
+    XXH_STATIC_ASSERT(sizeof(XXH256_state_t) >= sizeof(XXH_istate256_t));   // A compilation error here means XXH256_state_t is not large enough
+    return (XXH256_state_t*)XXH_malloc(sizeof(XXH256_state_t));
+}
+XXH_errorcode XXH256_freeState(XXH256_state_t* statePtr)
+{
+    XXH_free(statePtr);
+    return XXH_OK;
+}
 
 /*** Hash feed ***/
 

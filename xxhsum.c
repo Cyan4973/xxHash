@@ -21,34 +21,25 @@ You can contact the author at :
 - Discussion group : https://groups.google.com/forum/?fromgroups#!forum/lz4c
 */
 
-/**************************************
- * Compiler Options
- *************************************/
-/* MS Visual */
-#if defined(_MSC_VER) || defined(_WIN32)
-#  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
-#  define BMK_LEGACY_TIMER 1        /* gettimeofday() not supported by MSVC */
-#endif
+//**************************************
+// Compiler Options
+//**************************************
+// Visual warning messages (must be first line)
+#define _CRT_SECURE_NO_WARNINGS
 
-/* Under Linux at least, pull in the *64 commands */
+// Under Linux at least, pull in the *64 commands
 #define _LARGEFILE64_SOURCE
 
 
-/**************************************
- * Includes
- *************************************/
+//**************************************
+// Includes
+//**************************************
 #include <stdlib.h>     // malloc
 #include <stdio.h>      // fprintf, fopen, ftello64
 #include <string.h>     // strcmp
+#include <sys/timeb.h>  // timeb
 #include <sys/types.h>  // stat64
 #include <sys/stat.h>   // stat64
-
-// Use ftime() if gettimeofday() is not available on your target
-#if defined(BMK_LEGACY_TIMER)
-#  include <sys/timeb.h>   // timeb, ftime
-#else
-#  include <sys/time.h>    // gettimeofday
-#endif
 
 #include "xxhash.h"
 
@@ -93,8 +84,8 @@ You can contact the author at :
 #define TIMELOOP   2500        // Minimum timing per iteration
 #define PRIME 2654435761U
 
-#define KB *(1<<10)
-#define MB *(1<<20)
+#define KB *(1U<<10)
+#define MB *(1U<<20)
 #define GB *(1U<<30)
 
 #define MAX_MEM    (2 GB - 64 MB)
@@ -121,34 +112,18 @@ static int g_fn_selection = 1;
 // Benchmark Functions
 //*********************************************************
 
-#if defined(BMK_LEGACY_TIMER)
-
 static int BMK_GetMilliStart(void)
 {
-  // Based on Legacy ftime()
-  // Rolls over every ~ 12.1 days (0x100000/24/60/60)
-  // Use GetMilliSpan to correct for rollover
-  struct timeb tb;
-  int nCount;
-  ftime( &tb );
-  nCount = (int) (tb.millitm + (tb.time & 0xfffff) * 1000);
-  return nCount;
+    // Supposed to be portable
+    // Rolls over every ~ 12.1 days (0x100000/24/60/60)
+    // Use GetMilliSpan to correct for rollover
+    struct timeb tb;
+    int nCount;
+    ftime( &tb );
+    nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
+    return nCount;
 }
 
-#else
-
-static int BMK_GetMilliStart(void)
-{
-  // Based on newer gettimeofday()
-  // Use GetMilliSpan to correct for rollover
-  struct timeval tv;
-  int nCount;
-  gettimeofday(&tv, NULL);
-  nCount = (int) (tv.tv_usec/1000 + (tv.tv_sec & 0xfffff) * 1000);
-  return nCount;
-}
-
-#endif
 
 static int BMK_GetMilliSpan( int nTimeStart )
 {
@@ -286,7 +261,7 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x\n", "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
 
             totals += benchedSize;
             totalc += fastestC;
@@ -355,7 +330,83 @@ int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X%08X\n", "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h64>>32), (U32)(h64));
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x%08x\n", "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h64>>32), (U32)(h64));
+
+            totals += benchedSize;
+            totalc += fastestC;
+        }
+
+        // Bench XXH128
+        {
+            int interationNb;
+            double fastestC = 100000000.;
+            unsigned long long h128[2] = {0, 0};
+
+            DISPLAY("\r%79s\r", "");       // Clean display line
+            for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
+            {
+                int nbHashes = 0;
+                int milliTime;
+
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH128", (int)benchedSize);
+
+                // Hash loop
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliStart() == milliTime);
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
+                {
+                    int i;
+                    for (i=0; i<100; i++)
+                    {
+                        XXH128(alignedBuffer, benchedSize, 0, h128);
+                        nbHashes++;
+                    }
+                }
+                milliTime = BMK_GetMilliSpan(milliTime);
+                if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
+            }
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x%08x%08x%08x\n", "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h128[1]>>32), (U32)(h128[1]), (U32)(h128[0]>>32), (U32)(h128[0]));
+
+            totals += benchedSize;
+            totalc += fastestC;
+        }
+
+        // Bench XXH256
+        {
+            int interationNb;
+            double fastestC = 100000000.;
+            unsigned long long h256[4] = {0, 0};
+
+            DISPLAY("\r%79s\r", "");       // Clean display line
+            for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
+            {
+                int nbHashes = 0;
+                int milliTime;
+
+                DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH256", (int)benchedSize);
+
+                // Hash loop
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliStart() == milliTime);
+                milliTime = BMK_GetMilliStart();
+                while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
+                {
+                    int i;
+                    for (i=0; i<100; i++)
+                    {
+                        XXH256(alignedBuffer, benchedSize, 0, h256);
+                        nbHashes++;
+                    }
+                }
+                milliTime = BMK_GetMilliSpan(milliTime);
+                if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
+                DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH256", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
+            }
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x%08x%08x%08x%08x%08x%08x%08x\n", "XXH256", (int)benchedSize, (double)benchedSize / fastestC / 1000.,
+            											(U32)(h256[3]>>32), (U32)(h256[3]), (U32)(h256[2]>>32), (U32)(h256[2]),
+            											(U32)(h256[1]>>32), (U32)(h256[1]), (U32)(h256[0]>>32), (U32)(h256[0]));
 
             totals += benchedSize;
             totalc += fastestC;
@@ -376,10 +427,10 @@ static void BMK_checkResult(U32 r1, U32 r2)
 {
     static int nbTests = 1;
 
-    if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
+    if (r1==r2) DISPLAY("\rTest%3i : %08x == %08x   ok   ", nbTests, r1, r2);
     else
     {
-        DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
+        DISPLAY("\rERROR : Test%3i : %08x <> %08x   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
     nbTests++;
@@ -393,7 +444,7 @@ static void BMK_checkResult64(U64 r1, U64 r2)
     if (r1!=r2)
     {
         DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2<<32), (U32)r2);
+        DISPLAY("\r %08x%08x != %08x%08x \n", (U32)(r1>>32), (U32)r1, (U32)(r2<<32), (U32)r2);
         exit(1);
     }
     nbTests++;
@@ -484,7 +535,7 @@ int BMK_hash(char* fileName, U32 hashNb)
     size_t const blockSize = 64 KB;
     size_t readSize;
     char*  buffer;
-    XXH64_state_t state;
+    XXH256_state_t state;
 
     // Check file existence
     inFile = fopen( fileName, "rb" );
@@ -510,7 +561,13 @@ int BMK_hash(char* fileName, U32 hashNb)
         XXH32_reset((XXH32_state_t*)&state, 0);
         break;
     case 1:
-        XXH64_reset(&state, 0);
+        XXH64_reset((XXH64_state_t*)&state, 0);
+        break;
+    case 2:
+        XXH128_reset((XXH128_state_t*)&state, 0);
+        break;
+    case 3:
+        XXH256_reset((XXH256_state_t*)&state, 0);
         break;
     default:
         DISPLAY("Error : bad hash algorithm ID\n");
@@ -532,7 +589,13 @@ int BMK_hash(char* fileName, U32 hashNb)
             XXH32_update((XXH32_state_t*)&state, buffer, readSize);
             break;
         case 1:
-            XXH64_update(&state, buffer, readSize);
+            XXH64_update((XXH64_state_t*)&state, buffer, readSize);
+            break;
+        case 2:
+            XXH128_update((XXH128_state_t*)&state, buffer, readSize);
+            break;
+        case 3:
+            XXH256_update((XXH256_state_t*)&state, buffer, readSize);
             break;
         default:
             break;
@@ -552,8 +615,25 @@ int BMK_hash(char* fileName, U32 hashNb)
         }
     case 1:
         {
-            U64 h64 = XXH64_digest(&state);
+            U64 h64 = XXH64_digest((XXH64_state_t*)&state);
             DISPLAYRESULT("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
+            break;
+        }
+    case 2:
+        {
+        	U64 h64[2];
+            XXH128_digest((XXH128_state_t*)&state, h64);
+            DISPLAYRESULT("%08x%08x%08x%08x   %s     \n",
+            		(U32)(h64[1]>>32), (U32)(h64[1]), (U32)(h64[0]>>32), (U32)(h64[0]), fileName);
+            break;
+        }
+    case 3:
+        {
+        	U64 h64[4];
+            XXH256_digest((XXH256_state_t*)&state, h64);
+            DISPLAYRESULT("%08x%08x%08x%08x%08x%08x%08x%08x   %s     \n",
+            		(U32)(h64[3]>>32), (U32)(h64[3]), (U32)(h64[2]>>32), (U32)(h64[2]),
+            		(U32)(h64[1]>>32), (U32)(h64[1]), (U32)(h64[0]>>32), (U32)(h64[0]), fileName);
             break;
         }
     default:
@@ -574,7 +654,7 @@ int usage(char* exename)
     DISPLAY( "Usage :\n");
     DISPLAY( "      %s [arg] filename\n", exename);
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", g_fn_selection);
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=128bits, 3=256bits (default %i)\n", g_fn_selection);
     DISPLAY( " -b  : benchmark mode \n");
     DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
     DISPLAY( " -h  : help (this text)\n");
@@ -664,7 +744,7 @@ int main(int argc, char** argv)
     // No input filename ==> Error
     if(!input_filename) { badusage(exename); return 1; }
 
-    if(g_fn_selection < 0 || g_fn_selection > 1) { badusage(exename); return 1; }
+    if(g_fn_selection < 0 || g_fn_selection > 3) { badusage(exename); return 1; }
 
     return BMK_hash(argv[filenamesStart], g_fn_selection);
 }

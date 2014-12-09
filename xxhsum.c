@@ -492,6 +492,11 @@ static void BMK_sanityCheck(void)
     DISPLAYLEVEL(2, "Sanity check -- all tests ok\n");
 }
 
+static void BMK_display_BigEndian(const void* ptr, size_t length)
+{
+    const BYTE* p = ptr;
+    while (length--) DISPLAYRESULT("%02x", *p++);
+}
 
 static int BMK_hash(const char* fileName, U32 hashNb)
 {
@@ -568,13 +573,15 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     case 0:
         {
             U32 h32 = XXH32_digest((XXH32_state_t*)&state);
-            DISPLAYRESULT("%08x   %s           \n", h32, fileName);
+            BMK_display_BigEndian(&h32, 4);
+            DISPLAYRESULT("   %s           \n", fileName);
             break;
         }
     case 1:
         {
             U64 h64 = XXH64_digest(&state);
-            DISPLAYRESULT("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
+            BMK_display_BigEndian(&h64, 8);
+            DISPLAYRESULT("   %s     \n", fileName);
             break;
         }
     default:

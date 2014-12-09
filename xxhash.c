@@ -1,6 +1,6 @@
 /*
 xxHash - Fast Hash algorithm
-Copyright (C) 2012-2014, Yann Collet.
+Copyright (C) 2012-2015, Yann Collet.
 BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
 
 Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 You can contact the author at :
-- xxHash source repository : http://code.google.com/p/xxhash/
+- xxHash source repository : http://code.google.com/p/xxhash
+- xxHash source mirror : https://github.com/Cyan4973/xxHash
 - public discussion board : https://groups.google.com/forum/#!forum/lz4c
 */
 

@@ -1,6 +1,6 @@
 /*
 bench.c - Demo program to benchmark open-source algorithm
-Copyright (C) Yann Collet 2012-2014
+Copyright (C) Yann Collet 2012-2015
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,8 +17,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 You can contact the author at :
-- Blog homepage : http://fastcompression.blogspot.com/
-- Discussion group : https://groups.google.com/forum/?fromgroups#!forum/lz4c
+- xxHash source repository : http://code.google.com/p/xxhash
+- xxHash source mirror : https://github.com/Cyan4973/xxHash
+- public discussion board : https://groups.google.com/forum/#!forum/lz4c
 */
 
 /**************************************

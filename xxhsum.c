@@ -38,11 +38,11 @@ You can contact the author at :
 /**************************************
  * Includes
  *************************************/
-#include <stdlib.h>     // malloc
-#include <stdio.h>      // fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno
-#include <string.h>     // strcmp
-#include <sys/types.h>  // stat64
-#include <sys/stat.h>   // stat64
+#include <stdlib.h>     /* malloc */
+#include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
+#include <string.h>     /* strcmp */
+#include <sys/types.h>  /* stat64 */
+#include <sys/stat.h>   /* stat64 */
 
 #include "xxhash.h"
 

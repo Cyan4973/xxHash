@@ -1,6 +1,6 @@
 /*
 bench.c - Demo program to benchmark open-source algorithm
-Copyright (C) Yann Collet 2012-2014
+Copyright (C) Yann Collet 2012-2015
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,8 +17,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 You can contact the author at :
-- Blog homepage : http://fastcompression.blogspot.com/
-- Discussion group : https://groups.google.com/forum/?fromgroups#!forum/lz4c
+- xxHash source repository : http://code.google.com/p/xxhash
+- xxHash source mirror : https://github.com/Cyan4973/xxHash
+- public discussion board : https://groups.google.com/forum/#!forum/lz4c
 */
 
 //**************************************
@@ -34,12 +35,11 @@ You can contact the author at :
 //**************************************
 // Includes
 //**************************************
-#include <stdlib.h>     // malloc
-#include <stdio.h>      // fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno
-#include <string.h>     // strcmp
-#include <sys/timeb.h>  // timeb
-#include <sys/types.h>  // stat64
-#include <sys/stat.h>   // stat64
+#include <stdlib.h>     /* malloc */
+#include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
+#include <string.h>     /* strcmp */
+#include <sys/types.h>  /* stat64 */
+#include <sys/stat.h>   /* stat64 */
 
 #include "xxhash.h"
 
@@ -543,6 +543,11 @@ static void BMK_sanityCheck(void)
     DISPLAYLEVEL(2, "Sanity check -- all tests ok\n");
 }
 
+static void BMK_display_BigEndian(const void* ptr, size_t length)
+{
+    const BYTE* p = ptr;
+    while (length--) DISPLAYRESULT("%02x", *p++);
+}
 
 static int BMK_hash(const char* fileName, U32 hashNb)
 {
@@ -559,7 +564,7 @@ static int BMK_hash(const char* fileName, U32 hashNb)
         SET_BINARY_MODE(stdin);
     }
     else
-    inFile = fopen( fileName, "rb" );
+        inFile = fopen( fileName, "rb" );
     if (inFile==NULL)
     {
         DISPLAY( "Pb opening %s\n", fileName);
@@ -631,13 +636,15 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     case 0:
         {
             U32 h32 = XXH32_digest((XXH32_state_t*)&state);
-            DISPLAYRESULT("%08x   %s           \n", h32, fileName);
+            BMK_display_BigEndian(&h32, 4);
+            DISPLAYRESULT("   %s           \n", fileName);
             break;
         }
     case 1:
         {
             U64 h64 = XXH64_digest((XXH64_state_t*)&state);
-            DISPLAYRESULT("%08x%08x   %s     \n", (U32)(h64>>32), (U32)(h64), fileName);
+            BMK_display_BigEndian(&h64, 8);
+            DISPLAYRESULT("   %s     \n", fileName);
             break;
         }
     case 2:
@@ -717,39 +724,39 @@ int main(int argc, char** argv)
 
         // Select command
         // note : *argument=='-'
-            argument++;
+        argument++;
 
-            while (*argument!=0)
+        while (*argument!=0)
+        {
+            switch(*argument)
             {
-                switch(*argument)
-                {
-                // Display help on usage
-                case 'h':
-                    return usage(exename);
+            // Display help on usage
+            case 'h':
+                return usage(exename);
 
-                // select hash algorithm
-                case 'H':
-                    g_fn_selection = argument[1] - '0';
-                    argument+=2;
-                    break;
+            // select hash algorithm
+            case 'H':
+                g_fn_selection = argument[1] - '0';
+                argument+=2;
+                break;
 
-                // Trigger benchmark mode
-                case 'b':
-                    argument++;
-                    benchmarkMode=1;
-                    break;
+            // Trigger benchmark mode
+            case 'b':
+                argument++;
+                benchmarkMode=1;
+                break;
 
-                // Modify Nb Iterations (benchmark only)
-                case 'i':
-                    g_nbIterations = argument[1] - '0';
-                    argument+=2;
-                    break;
+            // Modify Nb Iterations (benchmark only)
+            case 'i':
+                g_nbIterations = argument[1] - '0';
+                argument+=2;
+                break;
 
-                default:
-                    return badusage(exename);
-                }
+            default:
+                return badusage(exename);
             }
         }
+    }
 
     // Check if input is defined as console; trigger an error in this case
     if ((input_filename == stdinName) && IS_CONSOLE(stdin) ) return badusage(exename);

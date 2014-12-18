@@ -72,11 +72,11 @@ You can contact the author at :
 #  define FORCE_INLINE static __forceinline
 #else
 #  if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
-#  ifdef __GNUC__
-#    define FORCE_INLINE static inline __attribute__((always_inline))
-#  else
-#    define FORCE_INLINE static inline
-#  endif
+#    ifdef __GNUC__
+#      define FORCE_INLINE static inline __attribute__((always_inline))
+#    else
+#      define FORCE_INLINE static inline
+#    endif
 #  else
 #    define FORCE_INLINE static
 #  endif /* __STDC_VERSION__ */
@@ -99,6 +99,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
     return memcpy(dest,src,size);
 }
 
+
 /**************************************
 *  Basic Types
 ***************************************/
@@ -116,7 +117,6 @@ typedef unsigned int       U32;
 typedef   signed int       S32;
 typedef unsigned long long U64;
 #endif
-
 
 #if defined(__GNUC__)  && !defined(XXH_USE_UNALIGNED_ACCESS)
 #  define _PACKED __attribute__ ((packed))
@@ -190,6 +190,7 @@ static U64 XXH_swap64 (U64 x)
 }
 #endif
 
+
 /**************************************
 *  Constants
 ***************************************/
@@ -252,6 +253,7 @@ FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
 {
     return XXH_readLE64_align(ptr, endian, XXH_unaligned);
 }
+
 
 /****************************
 *  Simple Hash Functions
@@ -916,6 +918,7 @@ XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 {
     XXH_free(statePtr);
     return XXH_OK;
+}
 
 XXH128_state_t* XXH128_createState(void)
 {

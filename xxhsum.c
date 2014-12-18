@@ -22,19 +22,22 @@ You can contact the author at :
 - public discussion board : https://groups.google.com/forum/#!forum/lz4c
 */
 
-//**************************************
-// Compiler Options
-//**************************************
-// Visual warning messages (must be first line)
-#define _CRT_SECURE_NO_WARNINGS
+/**************************************
+ * Compiler Options
+ *************************************/
+/* MS Visual */
+#if defined(_MSC_VER) || defined(_WIN32)
+#  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  define BMK_LEGACY_TIMER 1        /* gettimeofday() not supported by MSVC */
+#endif
 
-// Under Linux at least, pull in the *64 commands
+/* Under Linux at least, pull in the *64 commands */
 #define _LARGEFILE64_SOURCE
 
 
-//**************************************
-// Includes
-//**************************************
+/**************************************
+ * Includes
+ *************************************/
 #include <stdlib.h>     /* malloc */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
 #include <string.h>     /* strcmp */
@@ -47,6 +50,13 @@ You can contact the author at :
 /**************************************
  * OS-Specific Includes
  *************************************/
+// Use ftime() if gettimeofday() is not available on your target
+#if defined(BMK_LEGACY_TIMER)
+#  include <sys/timeb.h>   // timeb, ftime
+#else
+#  include <sys/time.h>    // gettimeofday
+#endif
+
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>    // _O_BINARY
 #  include <io.h>       // _setmode, _isatty
@@ -98,8 +108,8 @@ You can contact the author at :
 #define TIMELOOP   2500        // Minimum timing per iteration
 #define PRIME 2654435761U
 
-#define KB *(1U<<10)
-#define MB *(1U<<20)
+#define KB *(1<<10)
+#define MB *(1<<20)
 #define GB *(1U<<30)
 
 #define MAX_MEM    (2 GB - 64 MB)
@@ -127,18 +137,34 @@ static int g_fn_selection = 1;    // required within main() & usage()
 // Benchmark Functions
 //*********************************************************
 
+#if defined(BMK_LEGACY_TIMER)
+
 static int BMK_GetMilliStart(void)
 {
-    // Supposed to be portable
+  // Based on Legacy ftime()
   // Rolls over every ~ 12.1 days (0x100000/24/60/60)
   // Use GetMilliSpan to correct for rollover
   struct timeb tb;
   int nCount;
   ftime( &tb );
-    nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
+  nCount = (int) (tb.millitm + (tb.time & 0xfffff) * 1000);
   return nCount;
 }
 
+#else
+
+static int BMK_GetMilliStart(void)
+{
+  // Based on newer gettimeofday()
+  // Use GetMilliSpan to correct for rollover
+  struct timeval tv;
+  int nCount;
+  gettimeofday(&tv, NULL);
+  nCount = (int) (tv.tv_usec/1000 + (tv.tv_sec & 0xfffff) * 1000);
+  return nCount;
+}
+
+#endif
 
 static int BMK_GetMilliSpan( int nTimeStart )
 {
@@ -276,7 +302,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x\n", "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)benchedSize, (double)benchedSize / fastestC / 1000., hashResult);
 
             totals += benchedSize;
             totalc += fastestC;
@@ -345,7 +371,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x%08x\n", "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h64>>32), (U32)(h64));
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X%08X\n", "XXH64", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h64>>32), (U32)(h64));
 
             totals += benchedSize;
             totalc += fastestC;
@@ -382,7 +408,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x%08x%08x%08x\n", "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h128[1]>>32), (U32)(h128[1]), (U32)(h128[0]>>32), (U32)(h128[0]));
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X%08X%08X%08X\n", "XXH128", (int)benchedSize, (double)benchedSize / fastestC / 1000., (U32)(h128[1]>>32), (U32)(h128[1]), (U32)(h128[0]>>32), (U32)(h128[0]));
 
             totals += benchedSize;
             totalc += fastestC;
@@ -419,7 +445,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH256", (int)benchedSize, (double)benchedSize / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08x%08x%08x%08x%08x%08x%08x%08x\n", "XXH256", (int)benchedSize, (double)benchedSize / fastestC / 1000.,
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X%08X%08X%08X%08X%08X%08X%08X\n", "XXH256", (int)benchedSize, (double)benchedSize / fastestC / 1000.,
             											(U32)(h256[3]>>32), (U32)(h256[3]), (U32)(h256[2]>>32), (U32)(h256[2]),
             											(U32)(h256[1]>>32), (U32)(h256[1]), (U32)(h256[0]>>32), (U32)(h256[0]));
 
@@ -442,10 +468,10 @@ static void BMK_checkResult(U32 r1, U32 r2)
 {
     static int nbTests = 1;
 
-    if (r1==r2) DISPLAY("\rTest%3i : %08x == %08x   ok   ", nbTests, r1, r2);
+    if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
     else
     {
-        DISPLAY("\rERROR : Test%3i : %08x <> %08x   !!!!!   \n", nbTests, r1, r2);
+        DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
     nbTests++;
@@ -459,7 +485,7 @@ static void BMK_checkResult64(U64 r1, U64 r2)
     if (r1!=r2)
     {
         DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r %08x%08x != %08x%08x \n", (U32)(r1>>32), (U32)r1, (U32)(r2<<32), (U32)r2);
+        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2<<32), (U32)r2);
         exit(1);
     }
     nbTests++;
@@ -651,17 +677,16 @@ static int BMK_hash(const char* fileName, U32 hashNb)
         {
         	U64 h64[2];
             XXH128_digest((XXH128_state_t*)&state, h64);
-            DISPLAYRESULT("%08x%08x%08x%08x   %s     \n",
-            		(U32)(h64[1]>>32), (U32)(h64[1]), (U32)(h64[0]>>32), (U32)(h64[0]), fileName);
+            BMK_display_BigEndian(&h64[0], 16);
+            DISPLAYRESULT("   %s     \n", fileName);
             break;
         }
     case 3:
         {
         	U64 h64[4];
             XXH256_digest((XXH256_state_t*)&state, h64);
-            DISPLAYRESULT("%08x%08x%08x%08x%08x%08x%08x%08x   %s     \n",
-            		(U32)(h64[3]>>32), (U32)(h64[3]), (U32)(h64[2]>>32), (U32)(h64[2]),
-            		(U32)(h64[1]>>32), (U32)(h64[1]), (U32)(h64[0]>>32), (U32)(h64[0]), fileName);
+            BMK_display_BigEndian(&h64[0], 32);
+            DISPLAYRESULT("   %s     \n", fileName);
             break;
         }
     default:

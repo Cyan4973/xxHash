@@ -25,7 +25,7 @@
 
 CC     := $(CC)
 CFLAGS ?= -O3
-CFLAGS += -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes
+CFLAGS += -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Wstrict-prototypes
 
 
 # Define *.exe as extension for Windows systems
@@ -51,6 +51,7 @@ xxhsum32: xxhash.c xxhsum.c
 test: $(TEST_TARGETS)
 
 test: xxhsum
+	./xxhsum < xxhash.c
 	./xxhsum -b xxhash.c
 	valgrind --leak-check=yes ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes ./xxhsum -H0 xxhash.c

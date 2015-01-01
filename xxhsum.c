@@ -1,5 +1,6 @@
 /*
-bench.c - Demo program to benchmark open-source algorithm
+xxhsum - Command line interface for xxh algorithms
+
 Copyright (C) Yann Collet 2012-2015
 
 This program is free software; you can redistribute it and/or modify
@@ -117,33 +118,32 @@ You can contact the author at :
 static const char stdinName[] = "-";
 
 
-//**************************************
-// Display macros
-//**************************************
+/**************************************
+ * Display macros
+ *************************************/
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
 static unsigned g_displayLevel = 1;
 
 
-//**************************************
-// Unit variables
-//**************************************
+/**************************************
+ * Local variables
+ *************************************/
 static int g_nbIterations = NBLOOPS;
-static int g_fn_selection = 1;    // required within main() & usage()
+static int g_fn_selection = 1;    /* required within main() & usage() */
 
 
-//*********************************************************
-// Benchmark Functions
-//*********************************************************
-
+/**************************************
+ * Benchmark Functions
+ *************************************/
 #if defined(BMK_LEGACY_TIMER)
 
 static int BMK_GetMilliStart(void)
 {
-  // Based on Legacy ftime()
-  // Rolls over every ~ 12.1 days (0x100000/24/60/60)
-  // Use GetMilliSpan to correct for rollover
+  /* Based on Legacy ftime()
+   * Rolls over every ~ 12.1 days (0x100000/24/60/60)
+   * Use GetMilliSpan to correct for rollover */
   struct timeb tb;
   int nCount;
   ftime( &tb );
@@ -155,8 +155,8 @@ static int BMK_GetMilliStart(void)
 
 static int BMK_GetMilliStart(void)
 {
-  // Based on newer gettimeofday()
-  // Use GetMilliSpan to correct for rollover
+  /* Based on newer gettimeofday()
+   * Use GetMilliSpan to correct for rollover */
   struct timeval tv;
   int nCount;
   gettimeofday(&tv, NULL);
@@ -207,7 +207,7 @@ static U64 BMK_GetFileSize(char* infilename)
     struct stat statbuf;
     r = stat(infilename, &statbuf);
 #endif
-    if (r || !S_ISREG(statbuf.st_mode)) return 0;   // No good...
+    if (r || !S_ISREG(statbuf.st_mode)) return 0;   /* No good... */
     return (U64)statbuf.st_size;
 }
 
@@ -216,12 +216,9 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
 {
     int fileIdx=0;
     U32 hashResult=0;
-
     U64 totals = 0;
     double totalc = 0.;
 
-
-    // Loop for each file
     while (fileIdx<nbFiles)
     {
         FILE*  inFile;
@@ -232,7 +229,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
         char*  buffer;
         char*  alignedBuffer;
 
-        // Check file existence
+        /* Check file existence */
         inFileName = fileNamesTable[fileIdx++];
         inFile = fopen( inFileName, "rb" );
         if (inFile==NULL)
@@ -241,7 +238,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
             return 11;
         }
 
-        // Memory allocation & restrictions
+        /* Memory allocation & restrictions */
         inFileSize = BMK_GetFileSize(inFileName);
         benchedSize = (size_t) BMK_findMaxMem(inFileSize);
         if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
@@ -257,9 +254,9 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
             fclose(inFile);
             return 12;
         }
-        alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   // align on next 16 bytes boundaries
+        alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
-        // Fill input buffer
+        /* Fill input buffer */
         DISPLAY("\rLoading %s...        \n", inFileName);
         readSize = fread(alignedBuffer, 1, benchedSize, inFile);
         fclose(inFile);
@@ -272,7 +269,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
         }
 
 
-        // Bench XXH32
+        /* XXH32 bench */
         {
             int interationNb;
             double fastestC = 100000000.;

@@ -1,6 +1,7 @@
 # ################################################################
 # xxHash Makefile
-# Copyright (C) Yann Collet 2012-2014
+# Copyright (C) Yann Collet 2012-2015
+#
 # GPL v2 License
 #
 # This program is free software; you can redistribute it and/or modify
@@ -20,10 +21,9 @@
 # You can contact the author at :
 #  - xxHash source repository : http://code.google.com/p/xxhash/
 # ################################################################
-# xxHash.exe : benchmark program, to demonstrate xxHash speed
+# xxhsum : provides 32/64 bits hash of a file or pipe
 # ################################################################
 
-CC     := $(CC)
 CFLAGS ?= -O3
 CFLAGS += -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Wstrict-prototypes
 
@@ -53,9 +53,9 @@ test: $(TEST_TARGETS)
 test: xxhsum
 	./xxhsum < xxhash.c
 	./xxhsum -b xxhash.c
-	valgrind --leak-check=yes ./xxhsum -bi1 xxhash.c
-	valgrind --leak-check=yes ./xxhsum -H0 xxhash.c
-	valgrind --leak-check=yes ./xxhsum -H1 xxhash.c
+	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
+	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c
+	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1 xxhash.c
 
 test-all: test xxhsum32
 	./xxhsum32 -b xxhash.c

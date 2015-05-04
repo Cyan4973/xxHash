@@ -1,7 +1,8 @@
 /*
-xxhsum - Command line interface for xxh algorithms
-
+xxhsum - Command line interface for xxhash algorithms
 Copyright (C) Yann Collet 2012-2015
+
+GPL v2 License
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,14 +19,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 You can contact the author at :
-- xxHash source repository : http://code.google.com/p/xxhash
-- xxHash source mirror : https://github.com/Cyan4973/xxHash
-- public discussion board : https://groups.google.com/forum/#!forum/lz4c
+- xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
-/**************************************
- * Compiler Options
- *************************************/
+/*************************************
+*  Compiler Options
+*************************************/
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
 #  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
@@ -36,9 +35,9 @@ You can contact the author at :
 #define _LARGEFILE64_SOURCE
 
 
-/**************************************
- * Includes
- *************************************/
+/*************************************
+*  Includes
+*************************************/
 #include <stdlib.h>     /* malloc */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
 #include <string.h>     /* strcmp */
@@ -48,9 +47,9 @@ You can contact the author at :
 #include "xxhash.h"
 
 
-/**************************************
- * OS-Specific Includes
- *************************************/
+/*************************************
+*  OS-Specific Includes
+*************************************/
 // Use ftime() if gettimeofday() is not available on your target
 #if defined(BMK_LEGACY_TIMER)
 #  include <sys/timeb.h>   // timeb, ftime
@@ -77,10 +76,10 @@ You can contact the author at :
 #endif
 
 
-/**************************************
- * Basic Types
- *************************************/
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   // C99
+/*************************************
+*  Basic Types
+*************************************/
+#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
 # include <stdint.h>
   typedef  uint8_t BYTE;
   typedef uint16_t U16;
@@ -118,25 +117,25 @@ You can contact the author at :
 static const char stdinName[] = "-";
 
 
-/**************************************
- * Display macros
- *************************************/
+/*************************************
+*  Display macros
+*************************************/
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
 static unsigned g_displayLevel = 1;
 
 
-/**************************************
- * Local variables
- *************************************/
+/*************************************
+*  Local variables
+*************************************/
 static int g_nbIterations = NBLOOPS;
 static int g_fn_selection = 1;    /* required within main() & usage() */
 
 
-/**************************************
- * Benchmark Functions
- *************************************/
+/*************************************
+*  Benchmark Functions
+*************************************/
 #if defined(BMK_LEGACY_TIMER)
 
 static int BMK_GetMilliStart(void)
@@ -274,7 +273,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
             int interationNb;
             double fastestC = 100000000.;
 
-            DISPLAY("\r%79s\r", "");       // Clean display line
+            DISPLAY("\r%79s\r", "");       /* Clean display line */
             for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
             {
                 int nbHashes = 0;
@@ -282,7 +281,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
 
                 DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH32", (int)benchedSize);
 
-                // Hash loop
+                /* Timing loop */
                 milliTime = BMK_GetMilliStart();
                 while(BMK_GetMilliStart() == milliTime);
                 milliTime = BMK_GetMilliStart();
@@ -305,19 +304,19 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
             totalc += fastestC;
         }
 
-        // Bench Unaligned XXH32
+        /* Bench XXH32 on Unaligned input */
         {
             int interationNb;
             double fastestC = 100000000.;
 
-            DISPLAY("\r%79s\r", "");       // Clean display line
+            DISPLAY("\r%79s\r", "");       /* Clean display line */
             for (interationNb = 1; (interationNb <= g_nbIterations) && ((benchedSize>1)); interationNb++)
             {
                 int nbHashes = 0;
                 int milliTime;
 
                 DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "(unaligned)", (int)benchedSize);
-                // Hash loop
+                /* timing loop */
                 milliTime = BMK_GetMilliStart();
                 while(BMK_GetMilliStart() == milliTime);
                 milliTime = BMK_GetMilliStart();
@@ -334,16 +333,16 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
                 if ((double)milliTime < fastestC*nbHashes) fastestC = (double)milliTime/nbHashes;
                 DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", interationNb, "XXH32 (unaligned)", (int)(benchedSize-1), (double)(benchedSize-1) / fastestC / 1000.);
             }
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)benchedSize-1, (double)(benchedSize-1) / fastestC / 1000.);
+            DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)(benchedSize-1), (double)(benchedSize-1) / fastestC / 1000.);
         }
 
-        // Bench XXH64
+        /* Bench XXH64 */
         {
             int interationNb;
             double fastestC = 100000000.;
             unsigned long long h64 = 0;
 
-            DISPLAY("\r%79s\r", "");       // Clean display line
+            DISPLAY("\r%79s\r", "");       /* Clean display line */
             for (interationNb = 1; interationNb <= g_nbIterations; interationNb++)
             {
                 int nbHashes = 0;
@@ -351,7 +350,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
 
                 DISPLAY("%1i-%-14.14s : %10i ->\r", interationNb, "XXH64", (int)benchedSize);
 
-                // Hash loop
+                /* Timing loop */
                 milliTime = BMK_GetMilliStart();
                 while(BMK_GetMilliStart() == milliTime);
                 milliTime = BMK_GetMilliStart();
@@ -486,7 +485,7 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0xCAA65939306F1E21ULL);
 
-    DISPLAY("\r%79s\r", "");       // Clean display line
+    DISPLAY("\r%79s\r", "");       /* Clean display line */
     DISPLAYLEVEL(2, "Sanity check -- all tests ok\n");
 }
 
@@ -590,9 +589,9 @@ static int BMK_hash(const char* fileName, U32 hashNb)
 }
 
 
-//*********************************************************
-//  Main
-//*********************************************************
+/*********************************************************
+*  Main
+*********************************************************/
 
 static int usage(const char* exename)
 {
@@ -624,7 +623,7 @@ int main(int argc, char** argv)
     const char* exename = argv[0];
     U32 benchmarkMode = 0;
 
-    // xxh32sum default to 32 bits checksum
+    /* xxh32sum default to 32 bits checksum */
     if (strstr(exename, "xxh32sum")!=NULL) g_fn_selection=0;
 
     for(i=1; i<argc; i++)

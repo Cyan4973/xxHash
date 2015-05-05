@@ -491,7 +491,7 @@ static void BMK_sanityCheck(void)
 
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
-    const BYTE* p = ptr;
+    const BYTE* p = (const BYTE*)ptr;
     while (length--) DISPLAYRESULT("%02x", *p++);
 }
 

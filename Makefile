@@ -21,11 +21,12 @@
 # You can contact the author at :
 #  - xxHash source repository : http://code.google.com/p/xxhash/
 # ################################################################
-# xxhsum : provides 32/64 bits hash of a file or pipe
+# xxhsum : provides 32/64 bits hash of a file or piped data
 # ################################################################
 
 CFLAGS ?= -O3
-CFLAGS += -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Wstrict-prototypes
+CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Wstrict-prototypes -pedantic
+FLAGS  := -I. $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 
 
 # Define *.exe as extension for Windows systems
@@ -41,24 +42,50 @@ default: xxhsum
 all: xxhsum xxhsum32
 
 xxhsum: xxhash.c xxhsum.c
-	$(CC)      $(CFLAGS) $^ -o $@$(EXT)
+	$(CC)      $(FLAGS) $^ -o $@$(EXT)
 	ln -sf $@ xxh32sum
 	ln -sf $@ xxh64sum
 
 xxhsum32: xxhash.c xxhsum.c
-	$(CC) -m32 $(CFLAGS) $^ -o $@$(EXT)
+	$(CC) -m32 $(FLAGS) $^ -o $@$(EXT)
 
-test: $(TEST_TARGETS)
-
-test: xxhsum
+test: clean xxhsum
 	./xxhsum < xxhash.c
-	./xxhsum -b xxhash.c
+	./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1 xxhash.c
 
-test-all: test xxhsum32
-	./xxhsum32 -b xxhash.c
+test32: clean xxhsum32
+	@echo ---- test 32-bits ----
+	./xxhsum32 -bi1 xxhash.c
+
+armtest:
+	@echo ---- test ARM compilation ----
+	$(MAKE) clean
+	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror"
+
+clangtest: 
+	@echo ---- test clang compilation ----
+	$(MAKE) clean
+	$(MAKE) all CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion"
+
+gpptest:
+	@echo ---- test g++ compilation ----
+	$(MAKE) clean
+	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+
+sanitize:
+	@echo ---- check undefined behavior - sanitize ----
+	$(MAKE) clean
+	$(MAKE) test CC=clang MOREFLAGS="-g -fsanitize=undefined"
+
+staticAnalyze:
+	@echo ---- static analyzer - scan-build ----
+	$(MAKE) clean
+	scan-build --status-bugs -v $(MAKE) all MOREFLAGS=-g
+
+test-all: test test32 armtest clangtest gpptest sanitize staticAnalyze
 
 clean:
 	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxh32sum xxh64sum

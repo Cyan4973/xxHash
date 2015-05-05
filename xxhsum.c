@@ -619,7 +619,7 @@ static int badusage(const char* exename)
 int main(int argc, char** argv)
 {
     int i, filenamesStart=0;
-    const char* input_filename = (char*)stdinName;
+    const char* input_filename = (const char*)stdinName;
     const char* exename = argv[0];
     U32 benchmarkMode = 0;
 

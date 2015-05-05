@@ -177,7 +177,7 @@ static U64 XXH_swap64 (U64 x)
 typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 #ifndef XXH_CPU_LITTLE_ENDIAN   /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example using a compiler switch */
 static const int one = 1;
-#   define XXH_CPU_LITTLE_ENDIAN   (*(char*)(&one))
+#   define XXH_CPU_LITTLE_ENDIAN   (*(const char*)(&one))
 #endif
 
 
@@ -191,7 +191,7 @@ FORCE_INLINE U32 XXH_readLE32_align(const void* ptr, XXH_endianess endian, XXH_a
     if (align==XXH_unaligned)
         return endian==XXH_littleEndian ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));
     else
-        return endian==XXH_littleEndian ? *(U32*)ptr : XXH_swap32(*(U32*)ptr);
+        return endian==XXH_littleEndian ? *(const U32*)ptr : XXH_swap32(*(const U32*)ptr);
 }
 
 FORCE_INLINE U32 XXH_readLE32(const void* ptr, XXH_endianess endian)
@@ -204,7 +204,7 @@ FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_a
     if (align==XXH_unaligned)
         return endian==XXH_littleEndian ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
     else
-        return endian==XXH_littleEndian ? *(U64*)ptr : XXH_swap64(*(U64*)ptr);
+        return endian==XXH_littleEndian ? *(const U64*)ptr : XXH_swap64(*(const U64*)ptr);
 }
 
 FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
@@ -668,9 +668,9 @@ XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t l
 
 FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state_in, XXH_endianess endian)
 {
-    XXH_istate32_t* state = (XXH_istate32_t*) state_in;
+    const XXH_istate32_t* state = (const XXH_istate32_t*) state_in;
     const BYTE * p = (const BYTE*)state->mem32;
-    BYTE* bEnd = (BYTE*)(state->mem32) + state->memsize;
+    const BYTE* bEnd = (const BYTE*)(state->mem32) + state->memsize;
     U32 h32;
 
     if (state->total_len >= 16)
@@ -822,9 +822,9 @@ XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t l
 
 FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state_in, XXH_endianess endian)
 {
-    XXH_istate64_t * state = (XXH_istate64_t *) state_in;
+    const XXH_istate64_t * state = (const XXH_istate64_t *) state_in;
     const BYTE * p = (const BYTE*)state->mem64;
-    BYTE* bEnd = (BYTE*)state->mem64 + state->memsize;
+    const BYTE* bEnd = (const BYTE*)state->mem64 + state->memsize;
     U64 h64;
 
     if (state->total_len >= 32)

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+verify="0"
+while getopts "c:" opt; do
+  case $opt in
+    c)
+      verify="1"
+      fname=$OPTARG
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      ;;
+  esac
+done
+
+if [ "${verify}" == "1" ]
+then
+    while read p; do
+    harr=($p)
+    csum=`xxhsum ${harr[1]}`
+    garr=($csum)
+    if [ "${garr[0]}" != "${harr[0]}" ]
+    then
+        echo "ERROR: '${harr[1]}' - have ${harr[0]} - got ${garr[0]}"
+	     exit 1
+	     fi
+    done < ${fname}
+else
+    for var in "$@"
+    do
+    xxhsum ${var}
+    done
+fi

@@ -256,7 +256,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
         alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
         /* Fill input buffer */
-        DISPLAY("\rLoading %s...        \n", inFileName);
+        //DISPLAY("\rLoading %s...        \n", inFileName);
         readSize = fread(alignedBuffer, 1, benchedSize, inFile);
         fclose(inFile);
 
@@ -544,7 +544,7 @@ static int BMK_hash(const char* fileName, U32 hashNb)
 
 
     // Load file & update hash
-    DISPLAY("\rLoading %s...        \r", fileName);
+    //DISPLAY("\rLoading %s...        \r", fileName);
     readSize = 1;
     while (readSize)
     {

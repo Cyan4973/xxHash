@@ -21,11 +21,11 @@
 # You can contact the author at :
 #  - xxHash source repository : http://code.google.com/p/xxhash/
 # ################################################################
-# xxhsum : provides 32/64 bits hash of a file or piped data
+# xxhsum : provides 32/64 bits hash of a file, or piped data
 # ################################################################
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Wstrict-prototypes -pedantic -Wcast-qual
+CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -pedantic 
 FLAGS  := -I. $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 
 
@@ -51,6 +51,7 @@ xxhsum32: xxhash.c xxhsum.c
 
 test: clean xxhsum
 	./xxhsum < xxhash.c
+	./xxhsum -bi1
 	./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c

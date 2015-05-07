@@ -50,23 +50,23 @@ You can contact the author at :
 /*************************************
 *  OS-Specific Includes
 *************************************/
-// Use ftime() if gettimeofday() is not available on your target
+/* Use ftime() if gettimeofday() is not available on your target */
 #if defined(BMK_LEGACY_TIMER)
-#  include <sys/timeb.h>   // timeb, ftime
+#  include <sys/timeb.h>   /* timeb, ftime */
 #else
-#  include <sys/time.h>    // gettimeofday
+#  include <sys/time.h>    /* gettimeofday */
 #endif
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
-#  include <fcntl.h>    // _O_BINARY
-#  include <io.h>       // _setmode, _isatty
+#  include <fcntl.h>    /* _O_BINARY */
+#  include <io.h>       /* _setmode, _isatty */
 #  ifdef __MINGW32__
-   int _fileno(FILE *stream);   // MINGW somehow forgets to include this windows declaration into <stdio.h>
+   int _fileno(FILE *stream);   /* MINGW somehow forgets to include this windows declaration into <stdio.h> */
 #  endif
 #  define SET_BINARY_MODE(file) _setmode(_fileno(file), _O_BINARY)
 #  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
 #else
-#  include <unistd.h>   // isatty, STDIN_FILENO
+#  include <unistd.h>   /* isatty, STDIN_FILENO */
 #  define SET_BINARY_MODE(file)
 #  define IS_CONSOLE(stdStream) isatty(STDIN_FILENO)
 #endif
@@ -94,22 +94,27 @@ You can contact the author at :
   typedef unsigned long long  U64;
 #endif
 
+static unsigned BMK_isLittleEndian(void)
+{
+    const union { U32 i; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    return one.c[0];
+}
+
 
 /**************************************
- * Constants
- *************************************/
+*  Constants
+**************************************/
 #define PROGRAM_NAME exename
 #define PROGRAM_VERSION ""
 #define COMPILED __DATE__
-#define AUTHOR "Yann Collet"
-#define WELCOME_MESSAGE "*** %s %i-bits %s, by %s (%s) ***\n", PROGRAM_NAME, (int)(sizeof(void*)*8), PROGRAM_VERSION, AUTHOR, COMPILED
+static const char author[] = "Yann Collet";
+#define WELCOME_MESSAGE "*** %s %i-bits %s, by %s (%s) ***\n", PROGRAM_NAME, (int)(sizeof(void*)*8), PROGRAM_VERSION, author, COMPILED
 
-#define NBLOOPS    3           // Default number of benchmark iterations
-#define TIMELOOP   2500        // Minimum timing per iteration
-#define PRIME 2654435761U
+#define NBLOOPS    3           /* Default number of benchmark iterations */
+#define TIMELOOP   2500        /* Minimum timing per iteration */
 
-#define KB *(1<<10)
-#define MB *(1<<20)
+#define KB *( 1<<10)
+#define MB *( 1<<20)
 #define GB *(1U<<30)
 
 #define MAX_MEM    (2 GB - 64 MB)
@@ -315,10 +320,8 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
         }
         {
-            int i;
             DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x", "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
-            for (i=7; i>=0; i--)
-                DISPLAY("%02X", (U32)(h64 >> (i*8)) & 0xFF);
+            DISPLAY("%08X%08X", (U32)(h64 >> 32), (U32)h64);
             DISPLAY("\n");
         }
     }
@@ -432,7 +435,7 @@ static void BMK_checkResult64(U64 r1, U64 r2)
     if (r1!=r2)
     {
         DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2<<32), (U32)r2);
+        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
         exit(1);
     }
     nbTests++;
@@ -460,22 +463,22 @@ static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
 }
 
 
-static void BMK_testSequence(void* sentence, int len, U32 seed, U32 Nresult)
+static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
     U32 Dresult;
     XXH32_state_t state;
-    int index;
+    size_t index;
 
-    Dresult = XXH32(sentence, len, seed);
+    Dresult = XXH32(sequence, len, seed);
     BMK_checkResult(Dresult, Nresult);
 
     XXH32_reset(&state, seed);
-    XXH32_update(&state, sentence, len);
+    XXH32_update(&state, sequence, len);
     Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 
     XXH32_reset(&state, seed);
-    for (index=0; index<len; index++) XXH32_update(&state, ((char*)sentence)+index, 1);
+    for (index=0; index<len; index++) XXH32_update(&state, ((const char*)sequence)+index, 1);
     Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 }
@@ -486,31 +489,33 @@ static void BMK_sanityCheck(void)
 {
     BYTE sanityBuffer[SANITY_BUFFER_SIZE];
     int i;
-    U32 prime = PRIME;
+    static const U32 prime = 2654435761U;
+    U32 byteGen = prime;
+
 
     for (i=0; i<SANITY_BUFFER_SIZE; i++)
     {
-        sanityBuffer[i] = (BYTE)(prime>>24);
-        prime *= prime;
+        sanityBuffer[i] = (BYTE)(byteGen>>24);
+        byteGen *= byteGen;
     }
 
     BMK_testSequence(NULL,          0, 0,     0x02CC5D05);
-    BMK_testSequence(NULL,          0, PRIME, 0x36B78AE7);
+    BMK_testSequence(NULL,          0, prime, 0x36B78AE7);
     BMK_testSequence(sanityBuffer,  1, 0,     0xB85CBEE5);
-    BMK_testSequence(sanityBuffer,  1, PRIME, 0xD5845D64);
+    BMK_testSequence(sanityBuffer,  1, prime, 0xD5845D64);
     BMK_testSequence(sanityBuffer, 14, 0,     0xE5AA0AB4);
-    BMK_testSequence(sanityBuffer, 14, PRIME, 0x4481951D);
+    BMK_testSequence(sanityBuffer, 14, prime, 0x4481951D);
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
-    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0x498EC8E2);
+    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x498EC8E2);
 
     BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
-    BMK_testSequence64(NULL        ,  0, PRIME, 0xAC75FDA2929B17EFULL);
+    BMK_testSequence64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
     BMK_testSequence64(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
-    BMK_testSequence64(sanityBuffer,  1, PRIME, 0x739840CB819FA723ULL);
+    BMK_testSequence64(sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
     BMK_testSequence64(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
-    BMK_testSequence64(sanityBuffer, 14, PRIME, 0x5B9611585EFCC9CBULL);
+    BMK_testSequence64(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
-    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, PRIME, 0xCAA65939306F1E21ULL);
+    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0xCAA65939306F1E21ULL);
 
     DISPLAY("\r%79s\r", "");       /* Clean display line */
     DISPLAYLEVEL(2, "Sanity check -- all tests ok\n");
@@ -520,7 +525,9 @@ static void BMK_sanityCheck(void)
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    while (length--) DISPLAYRESULT("%02x", *p++);
+    size_t index = BMK_isLittleEndian() ? length-1 : 0;
+    int incr = BMK_isLittleEndian() ? -1 : 1;
+    while (index<length) { DISPLAYRESULT("%02x", p[index]); index += incr; }   /* intentional underflow to negative to detect end */
 }
 
 
@@ -675,11 +682,11 @@ int main(int argc, char** argv)
         {
             switch(*argument)
             {
-            // Display help on usage
+            /* Display help on usage */
             case 'h':
                 return usage(exename);
 
-            // select hash algorithm
+            /* select hash algorithm */
             case 'H':
                 g_fn_selection = argument[1] - '0';
                 argument+=2;
@@ -691,7 +698,7 @@ int main(int argc, char** argv)
                 benchmarkMode=1;
                 break;
 
-            // Modify Nb Iterations (benchmark only)
+            /* Modify Nb Iterations (benchmark only) */
             case 'i':
                 g_nbIterations = argument[1] - '0';
                 argument+=2;

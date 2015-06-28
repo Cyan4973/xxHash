@@ -36,6 +36,7 @@ else
 EXT =
 endif
 
+.PHONY: clean all
 
 default: xxhsum
 
@@ -61,29 +62,24 @@ test32: clean xxhsum32
 	@echo ---- test 32-bits ----
 	./xxhsum32 -bi1 xxhash.c
 
-armtest:
+armtest: clean
 	@echo ---- test ARM compilation ----
-	$(MAKE) clean
 	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror"
 
-clangtest: 
+clangtest: clean
 	@echo ---- test clang compilation ----
-	$(MAKE) clean
 	$(MAKE) all CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion"
 
-gpptest:
+gpptest: clean
 	@echo ---- test g++ compilation ----
-	$(MAKE) clean
 	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
 
-sanitize:
+sanitize: clean
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) clean
 	$(MAKE) test CC=clang MOREFLAGS="-g -fsanitize=undefined"
 
-staticAnalyze:
+staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
-	$(MAKE) clean
 	scan-build --status-bugs -v $(MAKE) all MOREFLAGS=-g
 
 test-all: test test32 armtest clangtest gpptest sanitize staticAnalyze

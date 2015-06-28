@@ -179,25 +179,28 @@ static int BMK_GetMilliSpan( int nTimeStart )
 }
 
 
-static size_t BMK_findMaxMem(U64 requestedMem)
+static size_t BMK_findMaxMem(U64 requiredMem)
 {
-    size_t step = (64 MB);
-    size_t allocatedMemory;
+    size_t step = 64 MB;
     BYTE* testmem=NULL;
 
-    requestedMem += 3*step;
-    requestedMem -= (size_t)requestedMem & (step-1);
-    if (requestedMem > MAX_MEM) requestedMem = MAX_MEM;
-    allocatedMemory = (size_t)requestedMem;
+    requiredMem = (((requiredMem >> 26) + 1) << 26);
+    requiredMem += 2*step;
+    if (requiredMem > MAX_MEM) requiredMem = MAX_MEM;
 
     while (!testmem)
     {
-        allocatedMemory -= step;
-        testmem = (BYTE*) malloc((size_t)allocatedMemory);
+        if (requiredMem > step) requiredMem -= step;
+        else requiredMem >>= 1;
+        testmem = (BYTE*) malloc ((size_t)requiredMem);
     }
     free (testmem);
 
-    return (size_t) (allocatedMemory - step);
+    /* keep some space available */
+    if (requiredMem > step) requiredMem -= step;
+    else requiredMem >>= 1;
+
+    return (size_t)requiredMem;
 }
 
 
@@ -225,9 +228,10 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
     {
         int iterationNb;
         double fastestH = 100000000.;
-        U32 hashResult;
+        U32 hashResult = 0;
 
         DISPLAY("\r%79s\r", "");       /* Clean display line */
+        if (g_nbIterations<1) g_nbIterations=1;
         for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
         {
             int nbHashes = 0;
@@ -345,7 +349,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
         /* Check file existence */
         inFileName = fileNamesTable[fileIdx++];
         inFile = fopen( inFileName, "rb" );
-        if (inFile==NULL)
+        if ((inFile==NULL) || (inFileName==NULL))
         {
             DISPLAY( "Pb opening %s\n", inFileName);
             return 11;

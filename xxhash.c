@@ -115,16 +115,16 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 
 static U32 XXH_read32(const void* memPtr)
 {
-    U32 val32;
-    memcpy(&val32, memPtr, 4);
-    return val32;
+    U32 val;
+    memcpy(&val, memPtr, sizeof(val));
+    return val;
 }
 
 static U64 XXH_read64(const void* memPtr)
 {
-    U64 val64;
-    memcpy(&val64, memPtr, 8);
-    return val64;
+    U64 val;
+    memcpy(&val, memPtr, sizeof(val));
+    return val;
 }
 
 
@@ -315,7 +315,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
 }
 
 
-unsigned XXH32 (const void* input, size_t len, unsigned seed)
+unsigned int XXH32 (const void* input, size_t len, unsigned seed)
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
@@ -538,7 +538,7 @@ XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 
 /*** Hash feed ***/
 
-XXH_errorcode XXH32_reset(XXH32_state_t* state_in, U32 seed)
+XXH_errorcode XXH32_reset(XXH32_state_t* state_in, unsigned seed)
 {
     XXH_istate32_t* state = (XXH_istate32_t*) state_in;
     state->seed = seed;
@@ -708,7 +708,7 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state_in, XXH_endiane
 }
 
 
-U32 XXH32_digest (const XXH32_state_t* state_in)
+unsigned int XXH32_digest (const XXH32_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 

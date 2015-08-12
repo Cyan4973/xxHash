@@ -681,7 +681,7 @@ int main(int argc, const char** argv)
     const char* exename = argv[0];
     U32 benchmarkMode = 0;
 
-    /* xxh32sum default to 32 bits checksum */
+    /* special case : xxh32sum default to 32 bits checksum */
     if (strstr(exename, "xxh32sum")!=NULL) g_fn_selection=0;
 
     for(i=1; i<argc; i++)

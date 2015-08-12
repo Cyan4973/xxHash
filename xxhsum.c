@@ -136,6 +136,7 @@ static unsigned g_displayLevel = 1;
 *************************************/
 static int g_nbIterations = NBLOOPS;
 static int g_fn_selection = 1;    /* required within main() & usage() */
+static size_t g_sampleSize = 100 KB;
 
 
 /*************************************
@@ -237,7 +238,7 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             int nbHashes = 0;
             int milliTime;
 
-            DISPLAY("%1i-%-14.14s : %10i ->\r", iterationNb, "XXH32", (int)bufferSize);
+            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "XXH32", (int)bufferSize);
 
             /* Timing loop */
             milliTime = BMK_GetMilliStart();
@@ -254,24 +255,25 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             }
             milliTime = BMK_GetMilliSpan(milliTime);
             if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
         }
-        DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000., hashResult);
+        DISPLAY("%-19.19s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000., hashResult);
     }
 
     /* Bench XXH32 on Unaligned input */
+    if (bufferSize>1)
     {
         int iterationNb;
         double fastestH = 100000000.;
 
         DISPLAY("\r%79s\r", "");       /* Clean display line */
-        for (iterationNb = 1; (iterationNb <= g_nbIterations) && ((bufferSize>1)); iterationNb++)
+        for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
         {
             int nbHashes = 0;
             int milliTime;
             const char* charPtr = (const char*)buffer;
 
-            DISPLAY("%1i-%-14.14s : %10i ->\r", iterationNb, "(unaligned)", (int)(bufferSize-1));
+            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "(unaligned)", (int)(bufferSize-1));
             /* timing loop */
             milliTime = BMK_GetMilliStart();
             while(BMK_GetMilliStart() == milliTime);
@@ -287,9 +289,9 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             }
             milliTime = BMK_GetMilliSpan(milliTime);
             if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
+            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
         }
-        DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
+        DISPLAY("%-19.19s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
     }
 
     /* Bench XXH64 */
@@ -304,7 +306,7 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             int nbHashes = 0;
             int milliTime;
 
-            DISPLAY("%1i-%-14.14s : %10i ->\r", iterationNb, "XXH64", (int)bufferSize);
+            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "XXH64", (int)bufferSize);
 
             /* Timing loop */
             milliTime = BMK_GetMilliStart();
@@ -321,10 +323,10 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             }
             milliTime = BMK_GetMilliSpan(milliTime);
             if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
         }
         {
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x", "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+            DISPLAY("%-19.19s : %10i -> %7.1f MB/s   0x", "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
             DISPLAY("%08X%08X", (U32)(h64 >> 32), (U32)h64);
             DISPLAY("\n");
         }
@@ -398,7 +400,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 
 static int BMK_benchInternal(void)
 {
-    static const size_t benchedSize = 100 KB;
+    const size_t benchedSize = g_sampleSize;
     void*  buffer;
 
     buffer = malloc(benchedSize);
@@ -721,6 +723,14 @@ int main(int argc, const char** argv)
             case 'i':
                 g_nbIterations = argument[1] - '0';
                 argument+=2;
+                break;
+
+            /* Modify Block size (benchmark only) */
+            case 'B':
+                argument++;
+                g_sampleSize = 0;
+                while (argument[0]>='0' && argument[0]<='9')
+                    g_sampleSize *= 10, g_sampleSize += argument[0]-'0', argument++;
                 break;
 
             default:

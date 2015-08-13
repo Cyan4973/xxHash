@@ -136,6 +136,7 @@ static unsigned g_displayLevel = 1;
 *************************************/
 static int g_nbIterations = NBLOOPS;
 static int g_fn_selection = 1;    /* required within main() & usage() */
+static size_t g_sampleSize = 100 KB;
 
 
 /*************************************
@@ -204,7 +205,7 @@ static size_t BMK_findMaxMem(U64 requiredMem)
 }
 
 
-static U64 BMK_GetFileSize(char* infilename)
+static U64 BMK_GetFileSize(const char* infilename)
 {
     int r;
 #if defined(_MSC_VER)
@@ -237,7 +238,7 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             int nbHashes = 0;
             int milliTime;
 
-            DISPLAY("%1i-%-14.14s : %10i ->\r", iterationNb, "XXH32", (int)bufferSize);
+            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "XXH32", (int)bufferSize);
 
             /* Timing loop */
             milliTime = BMK_GetMilliStart();
@@ -254,24 +255,25 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             }
             milliTime = BMK_GetMilliSpan(milliTime);
             if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
         }
-        DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000., hashResult);
+        DISPLAY("%-19.19s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000., hashResult);
     }
 
     /* Bench XXH32 on Unaligned input */
+    if (bufferSize>1)
     {
         int iterationNb;
         double fastestH = 100000000.;
 
         DISPLAY("\r%79s\r", "");       /* Clean display line */
-        for (iterationNb = 1; (iterationNb <= g_nbIterations) && ((bufferSize>1)); iterationNb++)
+        for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
         {
             int nbHashes = 0;
             int milliTime;
             const char* charPtr = (const char*)buffer;
 
-            DISPLAY("%1i-%-14.14s : %10i ->\r", iterationNb, "(unaligned)", (int)(bufferSize-1));
+            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "(unaligned)", (int)(bufferSize-1));
             /* timing loop */
             milliTime = BMK_GetMilliStart();
             while(BMK_GetMilliStart() == milliTime);
@@ -287,9 +289,9 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             }
             milliTime = BMK_GetMilliSpan(milliTime);
             if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
+            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
         }
-        DISPLAY("%-16.16s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
+        DISPLAY("%-19.19s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
     }
 
     /* Bench XXH64 */
@@ -304,7 +306,7 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             int nbHashes = 0;
             int milliTime;
 
-            DISPLAY("%1i-%-14.14s : %10i ->\r", iterationNb, "XXH64", (int)bufferSize);
+            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "XXH64", (int)bufferSize);
 
             /* Timing loop */
             milliTime = BMK_GetMilliStart();
@@ -321,10 +323,10 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             }
             milliTime = BMK_GetMilliSpan(milliTime);
             if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-14.14s : %10i -> %7.1f MB/s\r", iterationNb, "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
         }
         {
-            DISPLAY("%-16.16s : %10i -> %7.1f MB/s   0x", "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+            DISPLAY("%-19.19s : %10i -> %7.1f MB/s   0x", "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
             DISPLAY("%08X%08X", (U32)(h64 >> 32), (U32)h64);
             DISPLAY("\n");
         }
@@ -332,14 +334,14 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
 }
 
 
-static int BMK_benchFile(char** fileNamesTable, int nbFiles)
+static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 {
     int fileIdx=0;
 
     while (fileIdx<nbFiles)
     {
         FILE*  inFile;
-        char*  inFileName;
+        const char* inFileName;
         U64    inFileSize;
         size_t benchedSize;
         size_t readSize;
@@ -398,7 +400,7 @@ static int BMK_benchFile(char** fileNamesTable, int nbFiles)
 
 static int BMK_benchInternal(void)
 {
-    static const size_t benchedSize = 100 KB;
+    const size_t benchedSize = g_sampleSize;
     void*  buffer;
 
     buffer = malloc(benchedSize);
@@ -540,8 +542,8 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     FILE*  inFile;
     size_t const blockSize = 64 KB;
     size_t readSize;
-    char*  buffer;
-    XXH64_state_t state;
+    void*  buffer;
+    XXH64_state_t state;   /* sizeof >= XXH32_state_t */
 
     /* Check file existence */
     if (fileName == stdinName)
@@ -558,7 +560,7 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     }
 
     /* Memory allocation & restrictions */
-    buffer = (char*)malloc(blockSize);
+    buffer = malloc(blockSize);
     if(!buffer)
     {
         DISPLAY("\nError: not enough memory!\n");
@@ -611,14 +613,14 @@ static int BMK_hash(const char* fileName, U32 hashNb)
         {
             U32 h32 = XXH32_digest((XXH32_state_t*)&state);
             BMK_display_BigEndian(&h32, 4);
-            DISPLAYRESULT("   %s           \n", fileName);
+            DISPLAYRESULT("  %s        \n", fileName);
             break;
         }
     case 1:
         {
             U64 h64 = XXH64_digest(&state);
             BMK_display_BigEndian(&h64, 8);
-            DISPLAYRESULT("   %s     \n", fileName);
+            DISPLAYRESULT("  %s    \n", fileName);
             break;
         }
     default:
@@ -626,6 +628,23 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     }
 
     return 0;
+}
+
+
+static int BMK_hashFiles(const char** fnList, int fnTotal, U32 hashNb)
+{
+    int fnNb;
+    int result = 0;
+    if (fnTotal==0)
+    {
+        result = BMK_hash(stdinName, hashNb);
+    }
+    else
+    {
+        for (fnNb=0; fnNb<fnTotal; fnNb++)
+            result |= BMK_hash(fnList[fnNb], hashNb);
+    }
+    return result;
 }
 
 
@@ -656,26 +675,24 @@ static int badusage(const char* exename)
 }
 
 
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
     int i, filenamesStart=0;
-    const char* input_filename = (const char*)stdinName;
     const char* exename = argv[0];
     U32 benchmarkMode = 0;
 
-    /* xxh32sum default to 32 bits checksum */
+    /* special case : xxh32sum default to 32 bits checksum */
     if (strstr(exename, "xxh32sum")!=NULL) g_fn_selection=0;
 
     for(i=1; i<argc; i++)
     {
-        char* argument = argv[i];
+        const char* argument = argv[i];
 
         if(!argument) continue;   /* Protection, if argument empty */
 
         if (*argument!='-')
         {
-            input_filename=argument;
-            if (filenamesStart==0) filenamesStart=i;
+            if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
             continue;
         }
 
@@ -708,6 +725,14 @@ int main(int argc, char** argv)
                 argument+=2;
                 break;
 
+            /* Modify Block size (benchmark only) */
+            case 'B':
+                argument++;
+                g_sampleSize = 0;
+                while (argument[0]>='0' && argument[0]<='9')
+                    g_sampleSize *= 10, g_sampleSize += argument[0]-'0', argument++;
+                break;
+
             default:
                 return badusage(exename);
             }
@@ -720,13 +745,14 @@ int main(int argc, char** argv)
         DISPLAY( WELCOME_MESSAGE );
         BMK_sanityCheck();
         if (filenamesStart==0) return BMK_benchInternal();
-        return BMK_benchFile(argv+filenamesStart, argc-filenamesStart);
+        return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart);
     }
 
     /* Check if input is defined as console; trigger an error in this case */
-    if ((input_filename == stdinName) && IS_CONSOLE(stdin) ) return badusage(exename);
+    if ( (filenamesStart==0) && IS_CONSOLE(stdin) ) return badusage(exename);
 
     if(g_fn_selection < 0 || g_fn_selection > 1) return badusage(exename);
 
-    return BMK_hash(input_filename, g_fn_selection);
+    if (filenamesStart==0) filenamesStart = argc;
+    return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, g_fn_selection);
 }

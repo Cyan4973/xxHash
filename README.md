@@ -57,7 +57,17 @@ The reference system uses a Core i5-3340M @2.7GHz
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
 
+
+### License
+
+The library files `xxhash.c` and `xxhash.h` are BSD licensed.
+The utility `xxhsum` is GPL licensed.
+
+
+### Other languages
+
 Beyond the C reference version,
 xxHash is also available on many programming languages,
 thanks to great contributors.
 They are [listed here](https://code.google.com/p/xxhash/).
+

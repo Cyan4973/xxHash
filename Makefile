@@ -21,7 +21,7 @@
 # You can contact the author at :
 #  - xxHash source repository : http://code.google.com/p/xxhash/
 # ################################################################
-# xxhsum : provides 32/64 bits hash of a file, or piped data
+# xxhsum : provides 32/64 bits hash of one or multiple files, or stdin
 # ################################################################
 
 CFLAGS ?= -O3
@@ -51,9 +51,15 @@ xxhsum32: xxhash.c xxhsum.c
 	$(CC) -m32 $(FLAGS) $^ -o $@$(EXT)
 
 test: clean xxhsum
+	# stdin
 	./xxhsum < xxhash.c
+	# multiple files
+	./xxhsum *
+	# internal bench
 	./xxhsum -bi1
+	# file bench
 	./xxhsum -bi1 xxhash.c
+	# memory tests
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1 xxhash.c

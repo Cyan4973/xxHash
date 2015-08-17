@@ -3,7 +3,7 @@ cmake_policy(VERSION 2.6)
 
 project(xxhash)
 
-set(XXHASH_LIB_VERSION "0.41.0")
+set(XXHASH_LIB_VERSION "0.42.0")
 set(XXHASH_LIB_SOVERSION "0")
 
 set(BUILD_STATIC_LIBS ON CACHE BOOL "Set to ON to build static libraries")
@@ -18,5 +18,5 @@ set_target_properties(xxhash PROPERTIES
  VERSION "${XXHASH_LIB_VERSION}"
  SOVERSION "${XXHASH_LIB_SOVERSION}")
 
-INSTALL(FILES xxhash.h DESTINATION "include/xxHash")
+INSTALL(FILES ../xxhash.h DESTINATION include)
 INSTALL(TARGETS xxhash DESTINATION lib)

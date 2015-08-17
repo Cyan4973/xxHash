@@ -35,7 +35,7 @@ You can contact the author at :
 /**************************************
 *  Tuning parameters
 **************************************/
-/* XXH_FORCE_DIRECT_UNALIGNED_MEMORY_ACCESS
+/* XXH_FORCE_DIRECT_MEMORY_ACCESS
  * Unaligned memory access is automatically enabled for "common" CPU, such as x86/x64.
  * For others CPU, the compiler will be more cautious, and insert extra code to ensure proper working with unaligned memory accesses.
  * If you know your target CPU efficiently supports unaligned memory accesses, you can force this option manually.
@@ -66,9 +66,9 @@ You can contact the author at :
 /* XXH_USELESS_ALIGN_BRANCH :
  * This is a minor performance trick, only useful with lots of very small keys.
  * It means : don't make a test between aligned/unaligned, because performance will be the same.
- * It avoids one initial branch per hash.
+ * It saves one initial branch per hash.
  */
-#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64) || defined(XXH_FORCE_DIRECT_MEMORY_ACCESS)
+#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64) || (defined(XXH_FORCE_DIRECT_MEMORY_ACCESS) && (XXH_FORCE_DIRECT_MEMORY_ACCESS==1))
 #  define XXH_USELESS_ALIGN_BRANCH 1
 #endif
 
@@ -125,7 +125,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #endif
 
 
-#if defined(XXH_FORCE_DIRECT_MEMORY_ACCESS)
+#if defined(XXH_FORCE_DIRECT_MEMORY_ACCESS) && (XXH_FORCE_DIRECT_MEMORY_ACCESS==1)
 
 static U32 XXH_read32(const void* memPtr) { return *(const U32*) memPtr; }
 static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
@@ -146,7 +146,7 @@ static U64 XXH_read64(const void* memPtr)
     return val;
 }
 
-#endif // defined
+#endif // XXH_FORCE_DIRECT_MEMORY_ACCESS
 
 
 /******************************************

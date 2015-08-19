@@ -144,13 +144,12 @@ static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
-/* __pack instructions are safer, but compiler specific, hence potentially problematic */
+/* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
 /* currently only defined for gcc and icc */
-typedef struct  __attribute__ ((__packed__)) { U32 v; } uu32;
-typedef struct  __attribute__ ((__packed__)) { U64 v; } uu64;
+typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign;
 
-static U32 XXH_read32(const void* ptr) { return ((const uu32*)ptr)->v; }
-static U64 XXH_read64(const void* ptr) { return ((const uu64*)ptr)->v; }
+static U32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
+static U64 XXH_read64(const void* ptr) { return ((const unalign*)ptr)->u64; }
 
 #else
 

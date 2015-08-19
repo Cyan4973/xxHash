@@ -106,9 +106,13 @@ static unsigned BMK_isLittleEndian(void)
 **************************************/
 #define PROGRAM_NAME exename
 #define PROGRAM_VERSION ""
+static const int g_nbBits = (int)(sizeof(void*)*8);
+static const char g_lename[] = "little endian";
+static const char g_bename[] = "big endian";
+#define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 #define COMPILED __DATE__
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE "*** %s %i-bits %s, by %s (%s) ***\n", PROGRAM_NAME, (int)(sizeof(void*)*8), PROGRAM_VERSION, author, COMPILED
+#define WELCOME_MESSAGE "%s %s (%i-bits %s), by %s (%s) \n", PROGRAM_NAME, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author, COMPILED
 
 #define NBLOOPS    3           /* Default number of benchmark iterations */
 #define TIMELOOP   2500        /* Minimum timing per iteration */
@@ -649,6 +653,10 @@ int main(int argc, const char** argv)
         {
             switch(*argument)
             {
+            /* Display version */
+            case 'V':
+                DISPLAY(WELCOME_MESSAGE); return 0;
+
             /* Display help on usage */
             case 'h':
                 return usage(exename);

@@ -106,9 +106,13 @@ static unsigned BMK_isLittleEndian(void)
 **************************************/
 #define PROGRAM_NAME exename
 #define PROGRAM_VERSION ""
+static const int g_nbBits = (int)(sizeof(void*)*8);
+static const char g_lename[] = "little endian";
+static const char g_bename[] = "big endian";
+#define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 #define COMPILED __DATE__
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE "*** %s %i-bits %s, by %s (%s) ***\n", PROGRAM_NAME, (int)(sizeof(void*)*8), PROGRAM_VERSION, author, COMPILED
+#define WELCOME_MESSAGE "%s %s (%i-bits %s), by %s (%s) \n", PROGRAM_NAME, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author, COMPILED
 
 #define NBLOOPS    3           /* Default number of benchmark iterations */
 #define TIMELOOP   2500        /* Minimum timing per iteration */
@@ -219,118 +223,64 @@ static U64 BMK_GetFileSize(const char* infilename)
     return (U64)statbuf.st_size;
 }
 
+typedef void (*hashFunction)(const void* buffer, size_t bufferSize);
+
+static void localXXH32(const void* buffer, size_t bufferSize) { XXH32(buffer, bufferSize, 0); }
+
+static void localXXH64(const void* buffer, size_t bufferSize) { XXH64(buffer, bufferSize, 0); }
+
+static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
+{
+    static const int nbh_perloop = 100;
+    int iterationNb;
+    double fastestH = 100000000.;
+
+    DISPLAY("\r%79s\r", "");       /* Clean display line */
+    if (g_nbIterations<1) g_nbIterations=1;
+    for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
+    {
+        int nbHashes = 0;
+        int milliTime;
+
+        DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, hName, (int)bufferSize);
+
+        /* Timing loop */
+        milliTime = BMK_GetMilliStart();
+        while(BMK_GetMilliStart() == milliTime);
+        milliTime = BMK_GetMilliStart();
+        while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
+        {
+            int i;
+            for (i=0; i<nbh_perloop; i++)
+            {
+                h(buffer, bufferSize);
+            }
+            nbHashes += nbh_perloop;
+        }
+        milliTime = BMK_GetMilliSpan(milliTime);
+        if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
+        DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, hName, (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+    }
+    DISPLAY("%-19.19s : %10i -> %7.1f MB/s  \n", hName, (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+}
+
 
 /* Note : buffer is supposed malloc'ed, hence aligned */
 static void BMK_benchMem(const void* buffer, size_t bufferSize)
 {
-    static const int nbh_perloop = 100;
-
     /* XXH32 bench */
-    {
-        int iterationNb;
-        double fastestH = 100000000.;
-        U32 hashResult = 0;
-
-        DISPLAY("\r%79s\r", "");       /* Clean display line */
-        if (g_nbIterations<1) g_nbIterations=1;
-        for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
-        {
-            int nbHashes = 0;
-            int milliTime;
-
-            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "XXH32", (int)bufferSize);
-
-            /* Timing loop */
-            milliTime = BMK_GetMilliStart();
-            while(BMK_GetMilliStart() == milliTime);
-            milliTime = BMK_GetMilliStart();
-            while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
-            {
-                int i;
-                for (i=0; i<nbh_perloop; i++)
-                {
-                    hashResult = XXH32(buffer, bufferSize, 0);
-                }
-                nbHashes += nbh_perloop;
-            }
-            milliTime = BMK_GetMilliSpan(milliTime);
-            if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
-        }
-        DISPLAY("%-19.19s : %10i -> %7.1f MB/s   0x%08X\n", "XXH32", (int)bufferSize, (double)bufferSize / fastestH / 1000., hashResult);
-    }
+    BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
 
     /* Bench XXH32 on Unaligned input */
     if (bufferSize>1)
-    {
-        int iterationNb;
-        double fastestH = 100000000.;
-
-        DISPLAY("\r%79s\r", "");       /* Clean display line */
-        for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
-        {
-            int nbHashes = 0;
-            int milliTime;
-            const char* charPtr = (const char*)buffer;
-
-            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "(unaligned)", (int)(bufferSize-1));
-            /* timing loop */
-            milliTime = BMK_GetMilliStart();
-            while(BMK_GetMilliStart() == milliTime);
-            milliTime = BMK_GetMilliStart();
-            while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
-            {
-                int i;
-                for (i=0; i<nbh_perloop; i++)
-                {
-                    XXH32(charPtr+1, bufferSize-1, 0);
-                }
-                nbHashes += nbh_perloop;
-            }
-            milliTime = BMK_GetMilliSpan(milliTime);
-            if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
-        }
-        DISPLAY("%-19.19s : %10i -> %7.1f MB/s \n", "XXH32 (unaligned)", (int)(bufferSize-1), (double)(bufferSize-1) / fastestH / 1000.);
-    }
+        BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize-1);
 
     /* Bench XXH64 */
-    {
-        int iterationNb;
-        double fastestH = 100000000.;
-        unsigned long long h64 = 0;
+    BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
 
-        DISPLAY("\r%79s\r", "");       /* Clean display line */
-        for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
-        {
-            int nbHashes = 0;
-            int milliTime;
-
-            DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, "XXH64", (int)bufferSize);
-
-            /* Timing loop */
-            milliTime = BMK_GetMilliStart();
-            while(BMK_GetMilliStart() == milliTime);
-            milliTime = BMK_GetMilliStart();
-            while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
-            {
-                int i;
-                for (i=0; i<nbh_perloop; i++)
-                {
-                    h64 = XXH64(buffer, bufferSize, 0);
-                }
-                nbHashes+=nbh_perloop;
-            }
-            milliTime = BMK_GetMilliSpan(milliTime);
-            if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-            DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
-        }
-        {
-            DISPLAY("%-19.19s : %10i -> %7.1f MB/s   0x", "XXH64", (int)bufferSize, (double)bufferSize / fastestH / 1000.);
-            DISPLAY("%08X%08X", (U32)(h64 >> 32), (U32)h64);
-            DISPLAY("\n");
-        }
-    }
+    /* Bench XXH64 on Unaligned input */
+    if (bufferSize>1)
+        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+1, bufferSize-1);
 }
 
 
@@ -703,6 +653,10 @@ int main(int argc, const char** argv)
         {
             switch(*argument)
             {
+            /* Display version */
+            case 'V':
+                DISPLAY(WELCOME_MESSAGE); return 0;
+
             /* Display help on usage */
             case 'h':
                 return usage(exename);

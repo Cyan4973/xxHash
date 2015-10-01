@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>xxHash - Extremely fast non-cryptographic hash algorithm</title>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" href="js/bootstrap-patch.css">
+    <style>
+      .list-inline li a img {
+        height: 50px;
+      }
+    </style>
+  </head>
+
+  <body style="padding-top:0; padding-bottom:0; ">
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="/xxHash/">xxHash</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <ul class="nav navbar-nav navbar-nav">
+            <li><a href="https://github.com/Cyan4973/xxHash/releases/latest">Latest Release</a></li>
+            <li><a href="#other-languages">Versions</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Index<span class="caret"></span></a>
+              <ul class="dropdown-menu" role="menu">
+                <li><a href="#benchmarks">Benchmarks</a></li>
+                <li><a href="#other-languages">Other Source versions</a></li>
+                <li><a href="#references">Reference usages</a></li>
+              </ul>
+            </li>
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li><a href="https://groups.google.com/forum/#!forum/lz4c">Public discussion forum</a></li>
+            <li><a href="https://github.com/Cyan4973/xxHash/issues">Issue Tracker</a></li>
+            <li><a href="https://github.com/Cyan4973/xxHash"><i class="fa fa-lg fa-github"></i> GitHub</a></li>
+          </ul>
+        </div><!-- /.navbar-collapse -->
+      </div><!-- /.container-fluid -->
+    </nav>
+
+    <a name="summary"></a>
+    <div class="container">
+      <div class="page-header jumbotron text-justify" style="padding-top:1em;padding-bottom:2em;">
+        <h1>xxHash</h1>
+        <iframe src="https://ghbtns.com/github-btn.html?user=Cyan4973&repo=xxHash&type=star&count=true&size=large&v=2" frameborder="0" scrolling="0" width="160px" height="30px"></iframe>
+        <p>
+        xxHash is an extremely fast non-cryptographic Hash algorithm, working at speeds close to RAM limits.
+        It's proposed in 2 versions, 32 and 64 bits.
+      </div>
+    </div>
+
+
+
+<xmp theme="sandstone" style="display:none;">
+<a name="benchmarks"></a>
+Benchmarks
+----------
+
+The benchmark uses the
+[Open-Source SMHasher program by Austin Appleby](http://code.google.com/p/smhasher/wiki/SMHasher)
+compiled with Visual C on Windows Seven 64-bits in single-thread mode.
+The reference system uses a Core 2 Duo @3.0GHz.
+
+| Name          |   Speed  | Quality | Author           |
+|---------------|----------|:-------:|------------------|
+| xxHash        | 5.4 GB/s |   10    | Y.C.             |
+| MurmurHash 3a | 2.7 GB/s |   10    | Austin Appleby   |
+| SBox          | 1.4 GB/s |    9    | Bret Mulvey      |
+| Lookup3       | 1.2 GB/s |    9    | Bob Jenkins      |
+| CityHash64    | 1.05 GB/s|   10    | Pike & Alakuijala|
+| FNV           | 0.55 GB/s|    5    | Fowler, Noll, Vo |
+| CRC32         | 0.43 GB/s|    9    |                  |
+| MD5-32        | 0.33 GB/s|   10    | Ronald L.Rivest  |
+| SHA1-32       | 0.28 GB/s|   10    |                  |
+
+Q.Score is a measure of quality of the hash function.
+It depends on successfully passing SMHasher test set.
+10 is a perfect score.
+Algorithms with a score < 5 are not listed on this table.
+
+A new version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash)'s contribution, 
+which offers superior speed and dispersion for 64-bits systems. 
+Note however that 32-bits applications will still run faster using the 32-bits version.
+
+SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
+The reference system uses a Core i5-3340M @2.7GHz
+
+| Version    | Speed on 64-bits | Speed on 32-bits |
+|------------|------------------|------------------|
+| XXH64      | 13.8 GB/s        |  1.9 GB/s        |
+| XXH32      |  6.8 GB/s        |  6.0 GB/s        |
+
+
+<br/>
+<a name="other-languages"></a>
+## Multiple languages
+The following versions produce xxHash-compatible results in different languages.
+
+|Language				|Author			|URL									|
+|--					|--			|--									|
+|__Java__ (XXH32)			|Adrien Grand		|https://github.com/jpountz/lz4-java					|
+|__Java__ (XXH64)			|Vsevolod Tolstopyatov	|https://github.com/OpenHFT/Zero-Allocation-Hashing			|
+|__Javascript__ (pure)			|Pierre Curto		|https://npmjs.org/package/xxhashjs					|
+|__Javascript__ (nodeJS)		|Brian White		|https://npmjs.org/package/xxhash					|
+|__JSX__ (static Javascript)		|Yoshiki Shibukawa	|https://www.npmjs.org/package/xxhash.jsx				|
+|__C#__ (XXH32)				|Seok-ju Yun		|https://github.com/noricube/xxHashSharp				|
+|__C#__ (XXH64)				|Brandon Dahler		|http://www.nuget.org/packages/System.Data.HashFunction.xxHash		|
+|__Python__ (XXH32)			|Ewen Cheslack-Postava	|https://pypi.python.org/pypi/pyhashxx/					|
+|__Python__ (XXH64)			|Yue Du			|https://pypi.python.org/pypi/xxhash/					|
+|__PHP__				|Stuart Herbert		|https://github.com/stuartherbert/php-xxhash				|
+|__Perl__				|Sanko Robinson		|https://metacpan.org/module/Digest::xxHash				|
+|__Ruby__ (pure)			|Justin W Smith		|http://rubygems.org/gems/ruby-xxHash					|
+|__Ruby__ (wrapper)			|Vasiliy Ermolovich	|https://rubygems.org/gems/xxhash					|
+|__Pascal__				|Vojtěch Čihák		|http://sourceforge.net/projects/xxhashfpc				|
+|__D__					|Masahiro Nakagawa	|https://github.com/repeatedly/xxhash-d					|
+|__Lua__ (binding)			|Masatoshi Teruya	|https://github.com/mah0x211/lua-xxhash					|
+|__Lua__ (jit)				|szensk			|https://github.com/szensk/luaxxhash					|
+|__Erlang__				|Pierre Matri		|https://github.com/pierresforge/erlang-xxhash				|
+|__Haskell__				|Christian Marie	|http://hackage.haskell.org/package/xxhash				|
+|__Go__ (XXH32)				|Stéphane Bunel		|https://bitbucket.org/StephaneBunel/xxhash-go				|
+|__Go__ (XXH64)				|Ahmed Waheed		|https://github.com/OneOfOne/xxhash					|
+|__Rust__				|Jake Goulding		|https://libraries.io/cargo/twox-hash					|
+
+
+
+<br/>
+<a name="references"></a>
+## xxHash is used by
+
+#### Databases
+<div id="xxhashusedby_databases" class="container">
+  <ul id="icons" class="list-inline">
+<li><a href="http://prestodb.io/"				><img src="images/logo50/prestoDB.png"	/><span> PrestoDB</span></a></li>
+<li><a href="https://rocksdb.org/"				><img src="images/logo50/rocksdb.png"	/><span> RocksDB</span></a></li>
+<li><a href="https://www.arangodb.org/"				><img src="images/logo50/arangoDB.png"	/><span> ArangoDB</span></a></li>
+  </ul>
+</div>
+
+#### Security
+<div id="xxhashusedby_security" class="container">
+  <ul id="icons" class="list-inline">
+<li><a href="https://www.pfsense.org/"				><img src="images/logo50/pfsense.png"	/><span> pfSense</span></a></li>
+<li><a href="https://rspamd.com/"				><img src="images/logo50/rspamd.png"	/><span> Rspamd</span></a></li>
+  </ul>
+</div>
+
+#### Games
+<div id="xxhashusedby_games" class="container">
+  <ul id="icons" class="list-inline">
+<li><a href="http://www.cocos2d.org/"				><img src="images/logo50/cocos2D.png"	/><span> Cocos2D</span></a></li>
+<li><a href="http://ppsspp.org/"				><img src="images/logo50/ppsspp.png"	/><span> PPSSPP</span></a></li>
+<li><a href="https://dolphin-emu.org/"				><img src="images/logo50/dolphin.png"	/><span> Dolphin</span></a></li>
+  </ul>
+</div>
+
+#### Filters
+<div id="xxhashusedby_filters" class="container">
+  <ul id="icons" class="list-inline">
+<li><a href="http://www.lz4.org/"				><img src="images/logo50/lz4.png"		/><span> LZ4</span></a></li>
+<li><a href="http://freecode.com/projects/fio/"			><img src="images/logo50/placeholder.png"	/><span> fio</span></a></li>
+<li><a href="https://npmjs.org/package/bloomxx/"		><img src="images/logo50/placeholder.png"	/><span> bloomxx</span></a></li>
+<li><a href="http://devisedbydavid.com/open_source/bloom_filter"><img src="images/logo50/placeholder.png"	/><span> C & Python Bloom Filter</span></a></li>
+<li><a href="https://github.com/mozilla-services/lua_bloom_filter"><img src="images/logo50/mozilla.png"		/><span> LUA Bloom Filter</span></a></li>
+  </ul>
+</div>
+
+#### Other
+<div id="xxhashusedby_other" class="container">
+  <ul id="icons" class="list-inline">
+<li><a href="https://wiki.freebsd.org/pkgng"			><img src="images/logo50/freebsd.png"		/><span> PKG</span></a></li>
+<li><a href="http://www.teamviewer.com/"			><img src="images/logo50/teamviewer.png"	/><span> TeamViewer</span></a></li>
+<li><a href="http://nvlabs.github.io/nvbio/index.html"		><img src="images/logo50/factor.png"		/><span> nVBio</span></a></li>
+<li><a href="http://factorcode.org/"				><img src="images/logo50/nvbio.png"		/><span> Factor</span></a></li>
+<li><a href="http://pomfort.com/silverstack/"			><img src="images/logo50/silverstack.png"	/><span> Silverstack</span></a></li>
+<li><a href="http://www.lespace.co.jp/file_bl/rapidcopy/rapidcopy.html"><img src="images/logo50/rapidcopy.png"	/><span> Rapidcopy</span></a></li>
+  </ul>
+</div>
+
+
+### Special Thanks to
+
+[Takayuki Matsuoka](https://github.com/t-mat/)
+who created the canvas for this webpage (based on [lz4](http://www.lz4.org/))
+
+---
+</xmp>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+    <script src="strapdown/v/0.2/strapdown.js"></script>
+
+    <!-- Chart -->
+    <script src="https://www.google.com/jsapi"></script>
+    <script src="js/rendercharts.js"></script>
+  </body>
+</html>

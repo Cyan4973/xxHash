@@ -69,5 +69,5 @@ The utility `xxhsum` is GPL licensed.
 Beyond the C reference version,
 xxHash is also available on many programming languages,
 thanks to great contributors.
-They are [listed here](https://code.google.com/p/xxhash/).
+They are [listed here](http://cyan4973.github.io/xxHash/).
 

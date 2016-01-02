@@ -25,8 +25,8 @@
 # ################################################################
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -pedantic 
-FLAGS  := -I. $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
+CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -pedantic 
+FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 
 
 # Define *.exe as extension for Windows systems

@@ -42,7 +42,7 @@ You can contact the author at :
  * Method 0 (default) : use `memcpy()`. Safe and portable.
  * Method 1 : `__packed` statement. It depends on compiler extension (ie, not portable).
  *            This method is safe if your compiler supports it, and *generally* as fast or faster than `memcpy`.
- * Method 2 : direct access. This method is portable but violate C standard.
+ * Method 2 : direct access. This method doesn't depend on compiler but violate C standard.
  *            It can generate buggy code on targets which generate assembly depending on alignment.
  *            But in some circumstances, it's the only known way to get the most performance (ie GCC + ARMv6)
  * See http://stackoverflow.com/a/32095106/646947 for details.
@@ -535,7 +535,7 @@ unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed
 ****************************************************/
 
 /*** Allocation ***/
-typedef struct
+struct XXH32_state_s
 {
     U64 total_len;
     U32 seed;
@@ -545,9 +545,9 @@ typedef struct
     U32 v4;
     U32 mem32[4];   /* defined as U32 for alignment */
     U32 memsize;
-} XXH_istate32_t;
+};   /* typedef'd to XXH32_state_t within xxhash.h */
 
-typedef struct
+struct XXH64_state_s
 {
     U64 total_len;
     U64 seed;
@@ -557,12 +557,12 @@ typedef struct
     U64 v4;
     U64 mem64[4];   /* defined as U64 for alignment */
     U32 memsize;
-} XXH_istate64_t;
+};   /* typedef'd to XXH64_state_t within xxhash.h */
 
 
 XXH32_state_t* XXH32_createState(void)
 {
-    XXH_STATIC_ASSERT(sizeof(XXH32_state_t) >= sizeof(XXH_istate32_t));   /* A compilation error here means XXH32_state_t is not large enough */
+    XXH_STATIC_ASSERT(sizeof(XXH32_stateBody_t) >= sizeof(XXH32_state_t));   /* A compilation error here means XXH32_state_t is not large enough */
     return (XXH32_state_t*)XXH_malloc(sizeof(XXH32_state_t));
 }
 XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
@@ -573,7 +573,7 @@ XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 
 XXH64_state_t* XXH64_createState(void)
 {
-    XXH_STATIC_ASSERT(sizeof(XXH64_state_t) >= sizeof(XXH_istate64_t));   /* A compilation error here means XXH64_state_t is not large enough */
+    XXH_STATIC_ASSERT(sizeof(XXH64_stateBody_t) >= sizeof(XXH64_state_t));   /* A compilation error here means XXH64_state_t is not large enough */
     return (XXH64_state_t*)XXH_malloc(sizeof(XXH64_state_t));
 }
 XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
@@ -585,9 +585,8 @@ XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 
 /*** Hash feed ***/
 
-XXH_errorcode XXH32_reset(XXH32_state_t* state_in, unsigned int seed)
+XXH_errorcode XXH32_reset(XXH32_state_t* state, unsigned int seed)
 {
-    XXH_istate32_t* state = (XXH_istate32_t*) state_in;
     state->seed = seed;
     state->v1 = seed + PRIME32_1 + PRIME32_2;
     state->v2 = seed + PRIME32_2;
@@ -598,9 +597,8 @@ XXH_errorcode XXH32_reset(XXH32_state_t* state_in, unsigned int seed)
     return XXH_OK;
 }
 
-XXH_errorcode XXH64_reset(XXH64_state_t* state_in, unsigned long long seed)
+XXH_errorcode XXH64_reset(XXH64_state_t* state, unsigned long long seed)
 {
-    XXH_istate64_t* state = (XXH_istate64_t*) state_in;
     state->seed = seed;
     state->v1 = seed + PRIME64_1 + PRIME64_2;
     state->v2 = seed + PRIME64_2;
@@ -612,9 +610,8 @@ XXH_errorcode XXH64_reset(XXH64_state_t* state_in, unsigned long long seed)
 }
 
 
-FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state_in, const void* input, size_t len, XXH_endianess endian)
+FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
-    XXH_istate32_t* state = (XXH_istate32_t *) state_in;
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
@@ -713,9 +710,8 @@ XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t l
 
 
 
-FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state_in, XXH_endianess endian)
+FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess endian)
 {
-    const XXH_istate32_t* state = (const XXH_istate32_t*) state_in;
     const BYTE * p = (const BYTE*)state->mem32;
     const BYTE* bEnd = (const BYTE*)(state->mem32) + state->memsize;
     U32 h32;
@@ -766,9 +762,8 @@ unsigned int XXH32_digest (const XXH32_state_t* state_in)
 }
 
 
-FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state_in, const void* input, size_t len, XXH_endianess endian)
+FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
-    XXH_istate64_t * state = (XXH_istate64_t *) state_in;
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
@@ -867,9 +862,8 @@ XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t l
 
 
 
-FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state_in, XXH_endianess endian)
+FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess endian)
 {
-    const XXH_istate64_t * state = (const XXH_istate64_t *) state_in;
     const BYTE * p = (const BYTE*)state->mem64;
     const BYTE* bEnd = (const BYTE*)state->mem64 + state->memsize;
     U64 h64;

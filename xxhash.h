@@ -116,7 +116,7 @@ They will be automatically translated by this header.
 *  Simple Hash Functions
 *****************************/
 
-unsigned int       XXH32 (const void* input, size_t length, unsigned seed);
+unsigned int       XXH32 (const void* input, size_t length, unsigned int seed);
 unsigned long long XXH64 (const void* input, size_t length, unsigned long long seed);
 
 /*
@@ -136,15 +136,22 @@ XXH64() :
 /*****************************
 *  Advanced Hash Functions
 *****************************/
-typedef struct { long long ll[ 6]; } XXH32_state_t;
-typedef struct { long long ll[11]; } XXH64_state_t;
+typedef struct XXH32_state_s XXH32_state_t;   /* incomplete */
+typedef struct XXH64_state_s XXH64_state_t;   /* incomplete */
 
-/*
-These structures allow static allocation of XXH states.
-States must then be initialized using XXHnn_reset() before first use.
 
-If you prefer dynamic allocation, please refer to functions below.
-*/
+/* Static allocation
+   For static linking only, do not use in the context of DLL */
+typedef struct { long long ll[ 6]; } XXH32_stateBody_t;
+typedef struct { long long ll[11]; } XXH64_stateBody_t;
+
+#define XXH32_CREATESTATE_STATIC(name) XXH32_stateBody_t name ## body; XXH32_state_t* name = (XXH32_state_t*)(&(name ## body));
+#define XXH64_CREATESTATE_STATIC(name) XXH64_stateBody_t name ## body; XXH64_state_t* name = (XXH64_state_t*)(&(name ## body));
+
+
+
+/* Dynamic allocation
+   To be preferred in the context of DLL */
 
 XXH32_state_t* XXH32_createState(void);
 XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
@@ -154,11 +161,11 @@ XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 
 /*
 These functions create and release memory for XXH state.
-States must then be initialized using XXHnn_reset() before first use.
+States must be initialized using XXHnn_reset() before first use.
 */
 
 
-XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned seed);
+XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned int seed);
 XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
 unsigned int  XXH32_digest (const XXH32_state_t* statePtr);
 

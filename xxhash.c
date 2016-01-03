@@ -32,10 +32,10 @@ You can contact the author at :
 */
 
 
-/**************************************
+/* *************************************
 *  Tuning parameters
-**************************************/
-/* XXH_FORCE_MEMORY_ACCESS
+***************************************/
+/*!XXH_FORCE_MEMORY_ACCESS
  * By default, access to unaligned memory is controlled by `memcpy()`, which is safe and portable.
  * Unfortunately, on some target/compiler combinations, the generated assembly is sub-optimal.
  * The below switch allow to select different access method for improved performance.
@@ -43,7 +43,7 @@ You can contact the author at :
  * Method 1 : `__packed` statement. It depends on compiler extension (ie, not portable).
  *            This method is safe if your compiler supports it, and *generally* as fast or faster than `memcpy`.
  * Method 2 : direct access. This method doesn't depend on compiler but violate C standard.
- *            It can generate buggy code on targets which generate assembly depending on alignment.
+ *            It can generate buggy code on targets which do not support unaligned memory accesses.
  *            But in some circumstances, it's the only known way to get the most performance (ie GCC + ARMv6)
  * See http://stackoverflow.com/a/32095106/646947 for details.
  * Prefer these methods in priority order (0 > 1 > 2)
@@ -57,14 +57,14 @@ You can contact the author at :
 #  endif
 #endif
 
-/* XXH_ACCEPT_NULL_INPUT_POINTER :
+/*!XXH_ACCEPT_NULL_INPUT_POINTER :
  * If the input pointer is a null pointer, xxHash default behavior is to trigger a memory access error, since it is a bad pointer.
  * When this option is enabled, xxHash output for null input pointers will be the same as a null-length input.
  * By default, this option is disabled. To enable it, uncomment below define :
  */
 /* #define XXH_ACCEPT_NULL_INPUT_POINTER 1 */
 
-/* XXH_FORCE_NATIVE_FORMAT :
+/*!XXH_FORCE_NATIVE_FORMAT :
  * By default, xxHash library provides endian-independant Hash values, based on little-endian convention.
  * Results are therefore identical for little-endian and big-endian CPU.
  * This comes at a performance cost for big-endian CPU, since some swapping is required to emulate little-endian format.
@@ -74,9 +74,9 @@ You can contact the author at :
  */
 #define XXH_FORCE_NATIVE_FORMAT 0
 
-/* XXH_USELESS_ALIGN_BRANCH :
+/*!XXH_USELESS_ALIGN_BRANCH :
  * This is a minor performance trick, only useful with lots of very small keys.
- * It means : don't make a test between aligned/unaligned, because performance will be the same.
+ * It means : don't check for aligned/unaligned input, because performance will be the same.
  * It saves one initial branch per hash.
  */
 #if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
@@ -106,7 +106,6 @@ You can contact the author at :
 /**************************************
 *  Includes & Memory related functions
 ***************************************/
-#include "xxhash.h"
 /* Modify the local functions below should you wish to use some other memory routines */
 /* for malloc(), free() */
 #include <stdlib.h>
@@ -115,6 +114,8 @@ static void  XXH_free  (void* p)  { free(p); }
 /* for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
+
+#include "xxhash.h"
 
 
 /**************************************
@@ -221,7 +222,7 @@ static U64 XXH_swap64 (U64 x)
 ***************************************/
 typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
-/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example one the compiler command line */
+/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
     static const int one = 1;
 #   define XXH_CPU_LITTLE_ENDIAN   (*(const char*)(&one))
@@ -280,6 +281,8 @@ FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
 #define PRIME64_3  1609587929392839161ULL
 #define PRIME64_4  9650029242287828579ULL
 #define PRIME64_5  2870177450012600261ULL
+
+unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
 /*****************************
@@ -530,7 +533,7 @@ unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed
 #endif
 }
 
-/****************************************************
+/* **************************************************
 *  Advanced Hash Functions
 ****************************************************/
 

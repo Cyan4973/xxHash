@@ -105,7 +105,10 @@ static unsigned BMK_isLittleEndian(void)
 *  Constants
 **************************************/
 #define PROGRAM_NAME exename
-#define PROGRAM_VERSION ""
+#define LIB_VERSION XXH_VERSION_MAJOR.XXH_VERSION_MINOR.XXH_VERSION_RELEASE
+#define QUOTE(str) #str
+#define EXPAND_AND_QUOTE(str) QUOTE(str)
+#define PROGRAM_VERSION EXPAND_AND_QUOTE(LIB_VERSION)
 static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";

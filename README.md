@@ -29,7 +29,7 @@ The reference system uses a Core 2 Duo @3GHz
 
 | Name          |   Speed  | Quality | Author           |
 |---------------|----------|:-------:|------------------|
-| xxHash        | 5.4 GB/s |   10    | Y.C.             |
+| [xxHash]      | 5.4 GB/s |   10    | Y.C.             |
 | MurmurHash 3a | 2.7 GB/s |   10    | Austin Appleby   |
 | SBox          | 1.4 GB/s |    9    | Bret Mulvey      |
 | Lookup3       | 1.2 GB/s |    9    | Bob Jenkins      |
@@ -39,15 +39,17 @@ The reference system uses a Core 2 Duo @3GHz
 | MD5-32        | 0.33 GB/s|   10    | Ronald L.Rivest  |
 | SHA1-32       | 0.28 GB/s|   10    |                  |
 
+[xxHash]: http://www.xxhash.com
 
 Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 Algorithms with a score < 5 are not listed on this table.
 
-A new version, XXH64, has been created thanks to Mathias Westerdahl's contribution, 
+A new version, XXH64, has been created thanks to [Mathias Westerdahl]'s contribution, 
 which offers superior speed and dispersion for 64-bits systems. 
 Note however that 32-bits applications will still run faster using the 32-bits version.
+[Mathias Westerdahl]: https://github.com/JCash
 
 SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
 The reference system uses a Core i5-3340M @2.7GHz
@@ -69,5 +71,5 @@ The utility `xxhsum` is GPL licensed.
 Beyond the C reference version,
 xxHash is also available on many programming languages,
 thanks to great contributors.
-They are [listed here](http://cyan4973.github.io/xxHash/).
+They are [listed here](http://www.xxhash.com).
 

@@ -264,7 +264,7 @@ FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
 /***************************************
 *  Macros
 ***************************************/
-#define XXH_STATIC_ASSERT(c)   { enum { XXH_static_assert = 1/(!!(c)) }; }    /* use only *after* variable declarations */
+#define XXH_STATIC_ASSERT(c)   { enum { XXH_static_assert = 1/(int)(!!(c)) }; }    /* use only *after* variable declarations */
 
 
 /***************************************

@@ -176,8 +176,8 @@ typedef struct XXH64_state_s XXH64_state_t;   /* incomplete */
 typedef struct { long long ll[ 6]; } XXH32_stateBody_t;
 typedef struct { long long ll[11]; } XXH64_stateBody_t;
 
-#define XXH32_CREATESTATE_STATIC(name) XXH32_stateBody_t name##xxhbody; void* name##xxhvoid = (void*)(&(name##xxhbody)); XXH32_state_t* name = (XXH32_state_t*)(name##xxhvoid)   /* no final ; */
-#define XXH64_CREATESTATE_STATIC(name) XXH64_stateBody_t name##xxhbody; void* name##xxhvoid = (void*)(&(name##xxhbody)); XXH64_state_t* name = (XXH64_state_t*)(name##xxhvoid)   /* no final ; */
+#define XXH32_CREATESTATE_STATIC(name) XXH32_stateBody_t name##xxhbody; void* name##xxhvoid = &(name##xxhbody); XXH32_state_t* name = (XXH32_state_t*)(name##xxhvoid)   /* no final ; */
+#define XXH64_CREATESTATE_STATIC(name) XXH64_stateBody_t name##xxhbody; void* name##xxhvoid = &(name##xxhbody); XXH64_state_t* name = (XXH64_state_t*)(name##xxhvoid)   /* no final ; */
 
 
 /*!Dynamic allocation

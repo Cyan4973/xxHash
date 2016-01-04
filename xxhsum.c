@@ -498,7 +498,7 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
 }
 
 
-static int BMK_hash(const char* fileName, U32 hashNb)
+static int BMK_hash(const char* fileName, const U32 hashNb)
 {
     FILE*  inFile;
     size_t const blockSize = 64 KB;
@@ -531,21 +531,8 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     }
 
     /* Init */
-    switch(hashNb)
-    {
-    case 0:
-        XXH32_reset(state32, 0);
-        break;
-    case 1:
-        XXH64_reset(state64, 0);
-        break;
-    default:
-        DISPLAY("Error : bad hash algorithm ID\n");
-        fclose(inFile);
-        free(buffer);
-        return -1;
-    }
-
+    XXH32_reset(state32, 0);
+    XXH64_reset(state64, 0);
 
     /* Load file & update hash */
     DISPLAY("\rLoading %s...        \r", fileName);

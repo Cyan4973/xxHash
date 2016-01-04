@@ -71,16 +71,6 @@ extern "C" {
 #endif
 
 
-/* *************************************
-*  Version
-***************************************/
-#define XXH_VERSION_MAJOR    0    /* for breaking interface changes  */
-#define XXH_VERSION_MINOR    5    /* for new (non-breaking) interface capabilities */
-#define XXH_VERSION_RELEASE  0    /* for tweaks, bug-fixes, or development */
-#define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
-unsigned XXH_versionNumber (void);
-
-
 /* ****************************
 *  Definitions
 ******************************/
@@ -94,11 +84,10 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 /* Motivations :
 
 If you need to include xxHash into your library,
-but wish to avoid xxHash symbols to be present on your library interface
-in an effort to avoid potential name collision if another library also includes xxHash,
+but wish to avoid symbol collisions with another library which also includes xxHash,
 
 you can use XXH_NAMESPACE, which will automatically prefix any symbol from xxHash
-with the value of XXH_NAMESPACE (so avoid to keep it NULL, and avoid numeric values).
+with the value of XXH_NAMESPACE (so avoid to keep it NULL and avoid numeric values).
 
 Note that no change is required within the calling program :
 it can still call xxHash functions using their regular name.
@@ -109,6 +98,7 @@ They will be automatically translated by this header.
 #  define XXH_NAME2(A,B) XXH_CAT(A,B)
 #  define XXH32 XXH_NAME2(XXH_NAMESPACE, XXH32)
 #  define XXH64 XXH_NAME2(XXH_NAMESPACE, XXH64)
+#  define XXH_versionNumber XXH_NAME2(XXH_NAMESPACE, XXH_versionNumber)
 #  define XXH32_createState XXH_NAME2(XXH_NAMESPACE, XXH32_createState)
 #  define XXH64_createState XXH_NAME2(XXH_NAMESPACE, XXH64_createState)
 #  define XXH32_freeState XXH_NAME2(XXH_NAMESPACE, XXH32_freeState)
@@ -120,6 +110,16 @@ They will be automatically translated by this header.
 #  define XXH32_digest XXH_NAME2(XXH_NAMESPACE, XXH32_digest)
 #  define XXH64_digest XXH_NAME2(XXH_NAMESPACE, XXH64_digest)
 #endif
+
+
+/* *************************************
+*  Version
+***************************************/
+#define XXH_VERSION_MAJOR    0    /* for breaking interface changes  */
+#define XXH_VERSION_MINOR    5    /* for new (non-breaking) interface capabilities */
+#define XXH_VERSION_RELEASE  0    /* for tweaks, bug-fixes, or development */
+#define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
+unsigned XXH_versionNumber (void);
 
 
 /* ****************************

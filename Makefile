@@ -91,7 +91,7 @@ staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	scan-build --status-bugs -v $(MAKE) all MOREFLAGS=-g
 
-test-all: all test test32 armtest clangtest gpptest sanitize staticAnalyze
+test-all: clean all test test32 armtest clangtest gpptest sanitize staticAnalyze
 
 clean:
 	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_privateXXH$(EXT) xxh32sum xxh64sum

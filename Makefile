@@ -40,7 +40,7 @@ endif
 
 default: xxhsum
 
-all: xxhsum xxhsum32
+all: xxhsum xxhsum32 xxhsum_privateXXH
 
 xxhsum: xxhash.c xxhsum.c
 	$(CC)      $(FLAGS) $^ -o $@$(EXT)
@@ -49,6 +49,9 @@ xxhsum: xxhash.c xxhsum.c
 
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) -m32 $(FLAGS) $^ -o $@$(EXT)
+
+xxhsum_privateXXH: xxhsum.c
+	$(CC) $(FLAGS) -DXXHSUM_INCLUDE_XXHC $^ -o $@$(EXT)
 
 test: clean xxhsum
 	# stdin
@@ -88,10 +91,10 @@ staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	scan-build --status-bugs -v $(MAKE) all MOREFLAGS=-g
 
-test-all: test test32 armtest clangtest gpptest sanitize staticAnalyze
+test-all: all test test32 armtest clangtest gpptest sanitize staticAnalyze
 
 clean:
-	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxh32sum xxh64sum
+	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_privateXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
 
 

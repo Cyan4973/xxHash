@@ -1,6 +1,6 @@
 /*
 xxHash - Fast Hash algorithm
-Copyright (C) 2012-2015, Yann Collet
+Copyright (C) 2012-2016, Yann Collet
 
 BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
 
@@ -121,19 +121,22 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 /**************************************
 *  Basic Types
 ***************************************/
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
-# include <stdint.h>
-  typedef uint8_t  BYTE;
-  typedef uint16_t U16;
-  typedef uint32_t U32;
-  typedef  int32_t S32;
-  typedef uint64_t U64;
-#else
-  typedef unsigned char      BYTE;
-  typedef unsigned short     U16;
-  typedef unsigned int       U32;
-  typedef   signed int       S32;
-  typedef unsigned long long U64;
+#ifndef MEM_MODULE
+# define MEM_MODULE
+# if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
+#   include <stdint.h>
+    typedef uint8_t  BYTE;
+    typedef uint16_t U16;
+    typedef uint32_t U32;
+    typedef  int32_t S32;
+    typedef uint64_t U64;
+#  else
+    typedef unsigned char      BYTE;
+    typedef unsigned short     U16;
+    typedef unsigned int       U32;
+    typedef   signed int       S32;
+    typedef unsigned long long U64;
+#  endif
 #endif
 
 
@@ -224,8 +227,8 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
-    static const int one = 1;
-#   define XXH_CPU_LITTLE_ENDIAN   (*(const char*)(&one))
+    static const int g_one = 1;
+#   define XXH_CPU_LITTLE_ENDIAN   (*(const char*)(&g_one))
 #endif
 
 
@@ -282,7 +285,7 @@ FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
 #define PRIME64_4  9650029242287828579ULL
 #define PRIME64_5  2870177450012600261ULL
 
-unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
+XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
 /*****************************
@@ -365,7 +368,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
 }
 
 
-unsigned int XXH32 (const void* input, size_t len, unsigned int seed)
+XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int seed)
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
@@ -505,7 +508,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
 }
 
 
-unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
+XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
@@ -563,23 +566,23 @@ struct XXH64_state_s
 };   /* typedef'd to XXH64_state_t within xxhash.h */
 
 
-XXH32_state_t* XXH32_createState(void)
+XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 {
     XXH_STATIC_ASSERT(sizeof(XXH32_stateBody_t) >= sizeof(XXH32_state_t));   /* A compilation error here means XXH32_state_t is not large enough */
     return (XXH32_state_t*)XXH_malloc(sizeof(XXH32_state_t));
 }
-XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
+XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 {
     XXH_free(statePtr);
     return XXH_OK;
 }
 
-XXH64_state_t* XXH64_createState(void)
+XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_stateBody_t) >= sizeof(XXH64_state_t));   /* A compilation error here means XXH64_state_t is not large enough */
     return (XXH64_state_t*)XXH_malloc(sizeof(XXH64_state_t));
 }
-XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
+XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 {
     XXH_free(statePtr);
     return XXH_OK;
@@ -588,7 +591,7 @@ XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 
 /*** Hash feed ***/
 
-XXH_errorcode XXH32_reset(XXH32_state_t* state, unsigned int seed)
+XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* state, unsigned int seed)
 {
     state->seed = seed;
     state->v1 = seed + PRIME32_1 + PRIME32_2;
@@ -600,7 +603,7 @@ XXH_errorcode XXH32_reset(XXH32_state_t* state, unsigned int seed)
     return XXH_OK;
 }
 
-XXH_errorcode XXH64_reset(XXH64_state_t* state, unsigned long long seed)
+XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* state, unsigned long long seed)
 {
     state->seed = seed;
     state->v1 = seed + PRIME64_1 + PRIME64_2;
@@ -701,7 +704,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
     return XXH_OK;
 }
 
-XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t len)
+XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -754,7 +757,7 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess 
 }
 
 
-unsigned int XXH32_digest (const XXH32_state_t* state_in)
+XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -853,7 +856,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
     return XXH_OK;
 }
 
-XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t len)
+XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -946,7 +949,7 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
 }
 
 
-unsigned long long XXH64_digest (const XXH64_state_t* state_in)
+XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 

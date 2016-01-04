@@ -1,6 +1,6 @@
 /*
 xxhsum - Command line interface for xxhash algorithms
-Copyright (C) Yann Collet 2012-2015
+Copyright (C) Yann Collet 2012-2016
 
 GPL v2 License
 
@@ -22,9 +22,9 @@ You can contact the author at :
 - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
-/*************************************
+/* ************************************
 *  Compiler Options
-*************************************/
+**************************************/
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
 #  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
@@ -35,22 +35,27 @@ You can contact the author at :
 #define _LARGEFILE64_SOURCE
 
 
-/*************************************
+/* ************************************
 *  Includes
-*************************************/
+**************************************/
 #include <stdlib.h>     /* malloc */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
 #include <string.h>     /* strcmp */
 #include <sys/types.h>  /* stat64 */
 #include <sys/stat.h>   /* stat64 */
 
-#include "xxhash.h"
+#if defined(XXHSUM_INCLUDE_XXHC)   /* for tests */
+#  define XXH_PRIVATE_API
+#  include "xxhash.c"
+#else
+#  include "xxhash.h"
+#endif
 
 
-/*************************************
+/* ************************************
 *  OS-Specific Includes
-*************************************/
-/* Use ftime() if gettimeofday() is not available on your target */
+**************************************/
+/*!Use ftime() if gettimeofday() is not available on your target */
 #if defined(BMK_LEGACY_TIMER)
 #  include <sys/timeb.h>   /* timeb, ftime */
 #else
@@ -76,22 +81,25 @@ You can contact the author at :
 #endif
 
 
-/*************************************
+/* ************************************
 *  Basic Types
-*************************************/
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
-# include <stdint.h>
-  typedef  uint8_t BYTE;
-  typedef uint16_t U16;
-  typedef uint32_t U32;
-  typedef  int32_t S32;
-  typedef uint64_t U64;
-#else
-  typedef unsigned char       BYTE;
-  typedef unsigned short      U16;
-  typedef unsigned int        U32;
-  typedef   signed int        S32;
-  typedef unsigned long long  U64;
+**************************************/
+#ifndef MEM_MODULE
+# define MEM_MODULE
+# if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
+#   include <stdint.h>
+    typedef uint8_t  BYTE;
+    typedef uint16_t U16;
+    typedef uint32_t U32;
+    typedef  int32_t S32;
+    typedef uint64_t U64;
+#  else
+    typedef unsigned char      BYTE;
+    typedef unsigned short     U16;
+    typedef unsigned int       U32;
+    typedef   signed int       S32;
+    typedef unsigned long long U64;
+#  endif
 #endif
 
 static unsigned BMK_isLittleEndian(void)
@@ -101,11 +109,14 @@ static unsigned BMK_isLittleEndian(void)
 }
 
 
-/**************************************
+/* *************************************
 *  Constants
-**************************************/
+***************************************/
 #define PROGRAM_NAME exename
-#define PROGRAM_VERSION ""
+#define LIB_VERSION XXH_VERSION_MAJOR.XXH_VERSION_MINOR.XXH_VERSION_RELEASE
+#define QUOTE(str) #str
+#define EXPAND_AND_QUOTE(str) QUOTE(str)
+#define PROGRAM_VERSION EXPAND_AND_QUOTE(LIB_VERSION)
 static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
@@ -126,26 +137,26 @@ static const char author[] = "Yann Collet";
 static const char stdinName[] = "-";
 
 
-/*************************************
+/* ************************************
 *  Display macros
-*************************************/
+**************************************/
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
 static unsigned g_displayLevel = 1;
 
 
-/*************************************
+/* ************************************
 *  Local variables
-*************************************/
+**************************************/
 static int g_nbIterations = NBLOOPS;
 static int g_fn_selection = 1;    /* required within main() & usage() */
 static size_t g_sampleSize = 100 KB;
 
 
-/*************************************
+/* ************************************
 *  Benchmark Functions
-*************************************/
+**************************************/
 #if defined(BMK_LEGACY_TIMER)
 
 static int BMK_GetMilliStart(void)
@@ -400,42 +411,42 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 
 static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
 {
+    XXH64_CREATESTATE_STATIC(state);
     U64 Dresult;
-    XXH64_state_t state;
     int index;
 
     Dresult = XXH64(sentence, len, seed);
     BMK_checkResult64(Dresult, Nresult);
 
-    XXH64_reset(&state, seed);
-    XXH64_update(&state, sentence, len);
-    Dresult = XXH64_digest(&state);
+    XXH64_reset(state, seed);
+    XXH64_update(state, sentence, len);
+    Dresult = XXH64_digest(state);
     BMK_checkResult64(Dresult, Nresult);
 
-    XXH64_reset(&state, seed);
-    for (index=0; index<len; index++) XXH64_update(&state, ((char*)sentence)+index, 1);
-    Dresult = XXH64_digest(&state);
+    XXH64_reset(state, seed);
+    for (index=0; index<len; index++) XXH64_update(state, ((char*)sentence)+index, 1);
+    Dresult = XXH64_digest(state);
     BMK_checkResult64(Dresult, Nresult);
 }
 
 
 static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
+    XXH32_CREATESTATE_STATIC(state);
     U32 Dresult;
-    XXH32_state_t state;
     size_t index;
 
     Dresult = XXH32(sequence, len, seed);
     BMK_checkResult(Dresult, Nresult);
 
-    XXH32_reset(&state, seed);
-    XXH32_update(&state, sequence, len);
-    Dresult = XXH32_digest(&state);
+    XXH32_reset(state, seed);
+    XXH32_update(state, sequence, len);
+    Dresult = XXH32_digest(state);
     BMK_checkResult(Dresult, Nresult);
 
-    XXH32_reset(&state, seed);
-    for (index=0; index<len; index++) XXH32_update(&state, ((const char*)sequence)+index, 1);
-    Dresult = XXH32_digest(&state);
+    XXH32_reset(state, seed);
+    for (index=0; index<len; index++) XXH32_update(state, ((const char*)sequence)+index, 1);
+    Dresult = XXH32_digest(state);
     BMK_checkResult(Dresult, Nresult);
 }
 
@@ -493,7 +504,8 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     size_t const blockSize = 64 KB;
     size_t readSize;
     void*  buffer;
-    XXH64_state_t state;   /* sizeof >= XXH32_state_t */
+    XXH64_CREATESTATE_STATIC(state64);
+    XXH32_CREATESTATE_STATIC(state32);
 
     /* Check file existence */
     if (fileName == stdinName)
@@ -522,10 +534,10 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     switch(hashNb)
     {
     case 0:
-        XXH32_reset((XXH32_state_t*)&state, 0);
+        XXH32_reset(state32, 0);
         break;
     case 1:
-        XXH64_reset(&state, 0);
+        XXH64_reset(state64, 0);
         break;
     default:
         DISPLAY("Error : bad hash algorithm ID\n");
@@ -544,10 +556,10 @@ static int BMK_hash(const char* fileName, U32 hashNb)
         switch(hashNb)
         {
         case 0:
-            XXH32_update((XXH32_state_t*)&state, buffer, readSize);
+            XXH32_update(state32, buffer, readSize);
             break;
         case 1:
-            XXH64_update(&state, buffer, readSize);
+            XXH64_update(state64, buffer, readSize);
             break;
         default:
             break;
@@ -561,14 +573,14 @@ static int BMK_hash(const char* fileName, U32 hashNb)
     {
     case 0:
         {
-            U32 h32 = XXH32_digest((XXH32_state_t*)&state);
+            U32 h32 = XXH32_digest(state32);
             BMK_display_BigEndian(&h32, 4);
             DISPLAYRESULT("  %s        \n", fileName);
             break;
         }
     case 1:
         {
-            U64 h64 = XXH64_digest(&state);
+            U64 h64 = XXH64_digest(state64);
             BMK_display_BigEndian(&h64, 8);
             DISPLAYRESULT("  %s    \n", fileName);
             break;
@@ -598,9 +610,9 @@ static int BMK_hashFiles(const char** fnList, int fnTotal, U32 hashNb)
 }
 
 
-/*********************************************************
+/* ********************************************************
 *  Main
-*********************************************************/
+**********************************************************/
 
 static int usage(const char* exename)
 {

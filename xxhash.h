@@ -64,7 +64,8 @@ XXH64       13.8 GB/s            1.9 GB/s
 XXH32        6.8 GB/s            6.0 GB/s
 */
 
-#pragma once
+#ifndef XXHASH_H_5627135585666179
+#define XXHASH_H_5627135585666179 1
 
 #if defined (__cplusplus)
 extern "C" {
@@ -224,3 +225,5 @@ When done, free XXH state space if it was allocated dynamically.
 #if defined (__cplusplus)
 }
 #endif
+
+#endif /* XXHASH_H_5627135585666179 */

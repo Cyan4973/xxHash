@@ -22,6 +22,12 @@ You can contact the author at :
 - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
+/*! xxhsum
+ * Provides hash value of a file content, or a list of files, or stdin
+ * Display convention is Big Endian, for both 32 and 64 bits algorithms
+ */
+
+
 /* ************************************
 *  Compiler Options
 **************************************/
@@ -605,7 +611,7 @@ static int usage(const char* exename)
 {
     DISPLAY( WELCOME_MESSAGE );
     DISPLAY( "Usage :\n");
-    DISPLAY( "      %s [arg] [filename]\n", exename);
+    DISPLAY( "      %s [arg] [filenames]\n", exename);
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
     DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", g_fn_selection);

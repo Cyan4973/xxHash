@@ -553,8 +553,20 @@ static int BMK_hash(const char* fileName,
     XXH32_reset(state32, 0);
     XXH64_reset(state64, 0);
 
+    /* loading notification */
+    {
+        const size_t fileNameSize = strlen(fileName);
+        const char* const fileNameEnd = fileName + fileNameSize;
+        const size_t maxInfoFilenameSize = fileNameSize > 30 ? 30 : fileNameSize;
+        size_t infoFilenameSize = 1;
+        while ( (infoFilenameSize < maxInfoFilenameSize)
+              &&(fileNameEnd[-infoFilenameSize-1] != '/')
+              &&(fileNameEnd[-infoFilenameSize-1] != '\\') )
+              infoFilenameSize++;
+        DISPLAY("\rLoading %s...                        \r", fileNameEnd - infoFilenameSize);
+    }
+
     /* Load file & update hash */
-    DISPLAY("\rLoading %s...        \r", fileName);
     readSize = 1;
     while (readSize)
     {
@@ -581,14 +593,14 @@ static int BMK_hash(const char* fileName,
         {
             U32 h32 = XXH32_digest(state32);
             displayEndianess==big_endian ? BMK_display_BigEndian(&h32, 4) : BMK_display_LittleEndian(&h32, 4);
-            DISPLAYRESULT("  %s           \n", fileName);
+            DISPLAYRESULT("  %s\n", fileName);
             break;
         }
     case algo_xxh64:
         {
             U64 h64 = XXH64_digest(state64);
             displayEndianess==big_endian ? BMK_display_BigEndian(&h64, 8) : BMK_display_LittleEndian(&h64, 8);
-            DISPLAYRESULT("  %s       \n", fileName);
+            DISPLAYRESULT("  %s\n", fileName);
             break;
         }
     default:
@@ -610,6 +622,7 @@ static int BMK_hashFiles(const char** fnList, int fnTotal,
 
     for (fnNb=0; fnNb<fnTotal; fnNb++)
         result += BMK_hash(fnList[fnNb], hashType, displayEndianess);
+    DISPLAY("\r%70s\r", "");
     return result;
 }
 

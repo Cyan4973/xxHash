@@ -25,7 +25,7 @@
 # ################################################################
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -pedantic 
+CFLAGS += -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -Wswitch-enum -Wundef -pedantic 
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 
 
@@ -89,7 +89,7 @@ sanitize: clean
 
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
-	scan-build --status-bugs -v $(MAKE) all MOREFLAGS=-g
+	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
 
 test-all: clean all test test32 armtest clangtest gpptest sanitize staticAnalyze
 

@@ -168,12 +168,16 @@ XXH64() :
 /* ****************************
 *  Advanced Hash Functions
 ******************************/
-typedef struct XXH32_state_s XXH32_state_t;   /* incomplete */
-typedef struct XXH64_state_s XXH64_state_t;   /* incomplete */
+typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
+typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
 
 
-/*!Static allocation
-   For static linking only, do not use in the context of DLL ! */
+/*! Static allocation
+    For static linking only, do not use in the context of DLL !
+        XXHnn_CREATESTATE_STATIC(name);
+            is static-allocation equivalent of :
+        XXHnn_state_t* name = XXHnn_createState();
+*/
 typedef struct { long long ll[ 6]; } XXH32_stateBody_t;
 typedef struct { long long ll[11]; } XXH64_stateBody_t;
 

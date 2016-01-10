@@ -372,10 +372,10 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH32_state_t state;
-    XXH32_reset(&state, seed);
-    XXH32_update(&state, input, len);
-    return XXH32_digest(&state);
+    XXH32_CREATESTATE_STATIC(state);
+    XXH32_reset(state, seed);
+    XXH32_update(state, input, len);
+    return XXH32_digest(state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -512,10 +512,10 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH64_state_t state;
-    XXH64_reset(&state, seed);
-    XXH64_update(&state, input, len);
-    return XXH64_digest(&state);
+    XXH64_CREATESTATE_STATIC(state);
+    XXH64_reset(state, seed);
+    XXH64_update(state, input, len);
+    return XXH64_digest(state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 

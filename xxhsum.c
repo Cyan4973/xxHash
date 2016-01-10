@@ -141,6 +141,8 @@ static const char author[] = "Yann Collet";
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
+typedef enum { algo_xxh32, algo_xxh64 } algoType;
+static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 
 /* ************************************
@@ -155,9 +157,8 @@ static unsigned g_displayLevel = 1;
 /* ************************************
 *  Local variables
 **************************************/
-static int g_nbIterations = NBLOOPS;
-static int g_fn_selection = 1;    /* required within main() & usage() */
 static size_t g_sampleSize = 100 KB;
+static int g_nbIterations = NBLOOPS;
 
 
 /* ************************************
@@ -495,6 +496,15 @@ static void BMK_sanityCheck(void)
 }
 
 
+static void BMK_display_LittleEndian(const void* ptr, size_t length)
+{
+    const BYTE* p = (const BYTE*)ptr;
+    size_t index = BMK_isLittleEndian() ? 0 : length-1 ;
+    int incr = BMK_isLittleEndian() ? 1 : -1;
+    while (index<length) { DISPLAYRESULT("%02x", p[index]); index += incr; }   /* intentional underflow to negative to detect end */
+}
+
+
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
@@ -503,8 +513,11 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
     while (index<length) { DISPLAYRESULT("%02x", p[index]); index += incr; }   /* intentional underflow to negative to detect end */
 }
 
+typedef enum { big_endian, little_endian} endianess;
 
-static int BMK_hash(const char* fileName, const U32 hashNb)
+static int BMK_hash(const char* fileName,
+                    const algoType hashType,
+                    const endianess displayEndianess)
 {
     FILE*  inFile;
     size_t const blockSize = 64 KB;
@@ -524,7 +537,7 @@ static int BMK_hash(const char* fileName, const U32 hashNb)
     if (inFile==NULL)
     {
         DISPLAY( "Pb opening %s\n", fileName);
-        return 11;
+        return 1;
     }
 
     /* Memory allocation & restrictions */
@@ -533,7 +546,7 @@ static int BMK_hash(const char* fileName, const U32 hashNb)
     {
         DISPLAY("\nError: not enough memory!\n");
         fclose(inFile);
-        return 12;
+        return 1;
     }
 
     /* Init */
@@ -546,12 +559,12 @@ static int BMK_hash(const char* fileName, const U32 hashNb)
     while (readSize)
     {
         readSize = fread(buffer, 1, blockSize, inFile);
-        switch(hashNb)
+        switch(hashType)
         {
-        case 0:
+        case algo_xxh32:
             XXH32_update(state32, buffer, readSize);
             break;
-        case 1:
+        case algo_xxh64:
             XXH64_update(state64, buffer, readSize);
             break;
         default:
@@ -562,20 +575,20 @@ static int BMK_hash(const char* fileName, const U32 hashNb)
     free(buffer);
 
     /* display Hash */
-    switch(hashNb)
+    switch(hashType)
     {
-    case 0:
+    case algo_xxh32:
         {
             U32 h32 = XXH32_digest(state32);
-            BMK_display_BigEndian(&h32, 4);
-            DISPLAYRESULT("  %s        \n", fileName);
+            displayEndianess==big_endian ? BMK_display_BigEndian(&h32, 4) : BMK_display_LittleEndian(&h32, 4);
+            DISPLAYRESULT("  %s           \n", fileName);
             break;
         }
-    case 1:
+    case algo_xxh64:
         {
             U64 h64 = XXH64_digest(state64);
-            BMK_display_BigEndian(&h64, 8);
-            DISPLAYRESULT("  %s    \n", fileName);
+            displayEndianess==big_endian ? BMK_display_BigEndian(&h64, 8) : BMK_display_LittleEndian(&h64, 8);
+            DISPLAYRESULT("  %s       \n", fileName);
             break;
         }
     default:
@@ -586,19 +599,17 @@ static int BMK_hash(const char* fileName, const U32 hashNb)
 }
 
 
-static int BMK_hashFiles(const char** fnList, int fnTotal, U32 hashNb)
+static int BMK_hashFiles(const char** fnList, int fnTotal,
+                         algoType hashType, endianess displayEndianess)
 {
     int fnNb;
     int result = 0;
+
     if (fnTotal==0)
-    {
-        result = BMK_hash(stdinName, hashNb);
-    }
-    else
-    {
-        for (fnNb=0; fnNb<fnTotal; fnNb++)
-            result |= BMK_hash(fnList[fnNb], hashNb);
-    }
+        return BMK_hash(stdinName, hashType, displayEndianess);
+
+    for (fnNb=0; fnNb<fnTotal; fnNb++)
+        result += BMK_hash(fnList[fnNb], hashType, displayEndianess);
     return result;
 }
 
@@ -614,13 +625,21 @@ static int usage(const char* exename)
     DISPLAY( "      %s [arg] [filenames]\n", exename);
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default %i)\n", g_fn_selection);
-    DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
-    DISPLAY( " -h  : help (this text)\n");
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default: %i)\n", (int)g_defaultAlgo);
+    DISPLAY( " -h  : help (this text) \n");
     return 0;
 }
 
+
+static int usage_advanced(const char* exename)
+{
+    usage(exename);
+    DISPLAY( "Advanced :\n");
+    DISPLAY( " -b  : benchmark mode \n");
+    DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
+    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian)\n");
+    return 0;
+}
 
 static int badusage(const char* exename)
 {
@@ -635,15 +654,19 @@ int main(int argc, const char** argv)
     int i, filenamesStart=0;
     const char* exename = argv[0];
     U32 benchmarkMode = 0;
+    algoType algo = g_defaultAlgo;
+    endianess displayEndianess = big_endian;
 
     /* special case : xxh32sum default to 32 bits checksum */
-    if (strstr(exename, "xxh32sum")!=NULL) g_fn_selection=0;
+    if (strstr(exename, "xxh32sum") != NULL) algo = algo_xxh32;
 
     for(i=1; i<argc; i++)
     {
         const char* argument = argv[i];
 
         if(!argument) continue;   /* Protection, if argument empty */
+
+        if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
 
         if (*argument!='-')
         {
@@ -664,11 +687,11 @@ int main(int argc, const char** argv)
 
             /* Display help on usage */
             case 'h':
-                return usage(exename);
+                return usage_advanced(exename);
 
             /* select hash algorithm */
             case 'H':
-                g_fn_selection = argument[1] - '0';
+                algo = (algoType)(argument[1] - '0');
                 argument+=2;
                 break;
 
@@ -710,8 +733,6 @@ int main(int argc, const char** argv)
     /* Check if input is defined as console; trigger an error in this case */
     if ( (filenamesStart==0) && IS_CONSOLE(stdin) ) return badusage(exename);
 
-    if(g_fn_selection < 0 || g_fn_selection > 1) return badusage(exename);
-
     if (filenamesStart==0) filenamesStart = argc;
-    return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, g_fn_selection);
+    return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
 }

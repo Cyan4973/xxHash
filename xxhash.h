@@ -218,11 +218,24 @@ Obviously, input must be valid, hence allocated and read accessible.
 The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
 
 Finally, a hash value can be produced anytime, by using XXHnn_digest().
-This function returns the nn-bits hash.
-It's nonetheless possible to continue inserting input into the hash state
+This function returns the nn-bits hash as an int or long long.
+
+It's still possible to continue inserting input into the hash state after a digest,
 and later on generate some new hashes, by calling again XXHnn_digest().
 
 When done, free XXH state space if it was allocated dynamically.
+*/
+
+
+XXH_PUBLIC_API XXH_errorcode XXH32_canonicalDigest (const XXH32_state_t* statePtr, void* buffer, size_t bufferSize);
+XXH_PUBLIC_API XXH_errorcode XXH64_canonicalDigest (const XXH64_state_t* statePtr, void* buffer, size_t bufferSize);
+
+/*! same as XXHnn_digest() equivalents, but write result into a buffer, as opposed to basic type.
+*   This is likely slower than using direct integer.
+*   Result is endian-independent.
+*   It is equivalent to XXHnn_digest() written using big-endian format.
+*   XXH32_canonicalDigest() will write 4 bytes, XXH64_canonicalDigest() will write 8 bytes.
+*   Function will return an error if buffer is not large enough.
 */
 
 

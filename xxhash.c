@@ -175,7 +175,7 @@ static U64 XXH_read64(const void* memPtr)
     return val;
 }
 
-#endif // XXH_FORCE_DIRECT_MEMORY_ACCESS
+#endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
 
 
 /* ****************************************
@@ -771,6 +771,21 @@ XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 }
 
 
+XXH_PUBLIC_API XXH_errorcode XXH32_canonicalDigest (const XXH32_state_t* statePtr, void* buffer, size_t bufferSize)
+{
+    U32 hash = XXH32_digest(statePtr);
+    BYTE* b = (BYTE*)buffer;
+    if (bufferSize < 4) return XXH_ERROR;
+    b[0] = (BYTE)(hash >> 24);
+    b[1] = (BYTE)(hash >> 16);
+    b[2] = (BYTE)(hash >>  8);
+    b[3] = (BYTE)(hash >>  0);
+    return XXH_OK;
+}
+
+
+/* **** XXH64 **** */
+
 FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
     const BYTE* p = (const BYTE*)input;
@@ -962,4 +977,19 @@ XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)
         return XXH64_digest_endian(state_in, XXH_bigEndian);
 }
 
+XXH_PUBLIC_API XXH_errorcode XXH64_canonicalDigest (const XXH64_state_t* statePtr, void* buffer, size_t bufferSize)
+{
+    U64 hash = XXH64_digest(statePtr);
+    BYTE* b = (BYTE*)buffer;
+    if (bufferSize < 8) return XXH_ERROR;
+    b[0] = (BYTE)(hash >> 56);
+    b[1] = (BYTE)(hash >> 48);
+    b[2] = (BYTE)(hash >> 40);
+    b[3] = (BYTE)(hash >> 32);
+    b[4] = (BYTE)(hash >> 24);
+    b[5] = (BYTE)(hash >> 16);
+    b[6] = (BYTE)(hash >>  8);
+    b[7] = (BYTE)(hash >>  0);
+    return XXH_OK;
+}
 

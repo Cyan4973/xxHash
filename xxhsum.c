@@ -496,6 +496,10 @@ static void BMK_sanityCheck(void)
 }
 
 
+/* ********************************************************
+*  File Hashing
+**********************************************************/
+
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;

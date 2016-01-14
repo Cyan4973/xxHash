@@ -268,7 +268,7 @@ FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
     return XXH_readLE64_align(ptr, endian, XXH_unaligned);
 }
 
-static U32 XXH_readBE64(const void* ptr)
+static U64 XXH_readBE64(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
 }

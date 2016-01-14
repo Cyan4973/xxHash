@@ -38,7 +38,9 @@ You can contact the author at :
 #endif
 
 /* Under Linux at least, pull in the *64 commands */
-#define _LARGEFILE64_SOURCE
+#ifndef _LARGEFILE64_SOURCE
+#  define _LARGEFILE64_SOURCE
+#endif
 
 
 /* ************************************
@@ -503,19 +505,19 @@ static void BMK_sanityCheck(void)
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    size_t index = BMK_isLittleEndian() ? 0 : length-1 ;
-    int incr = BMK_isLittleEndian() ? 1 : -1;
-    while (index<length) { DISPLAYRESULT("%02x", p[index]); index += incr; }   /* intentional underflow to negative to detect end */
+    size_t index;
+    for (index=length-1; index<length; index--)    /* intentional underflow to negative to detect end */
+        DISPLAYRESULT("%02x", p[index]);
 }
-
 
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    size_t index = BMK_isLittleEndian() ? length-1 : 0;
-    int incr = BMK_isLittleEndian() ? -1 : 1;
-    while (index<length) { DISPLAYRESULT("%02x", p[index]); index += incr; }   /* intentional underflow to negative to detect end */
+    size_t index;
+    for (index=0; index<length; index++)
+        DISPLAYRESULT("%02x", p[index]);
 }
+
 
 typedef enum { big_endian, little_endian} endianess;
 
@@ -596,14 +598,20 @@ static int BMK_hash(const char* fileName,
     case algo_xxh32:
         {
             U32 h32 = XXH32_digest(state32);
-            displayEndianess==big_endian ? BMK_display_BigEndian(&h32, 4) : BMK_display_LittleEndian(&h32, 4);
+            XXH32_canonical_t hcbe32;
+            XXH32_canonicalFromHash(&hcbe32, h32);
+            displayEndianess==big_endian ?
+                BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
             DISPLAYRESULT("  %s\n", fileName);
             break;
         }
     case algo_xxh64:
         {
             U64 h64 = XXH64_digest(state64);
-            displayEndianess==big_endian ? BMK_display_BigEndian(&h64, 8) : BMK_display_LittleEndian(&h64, 8);
+            XXH64_canonical_t hcbe64;
+            XXH64_canonicalFromHash(&hcbe64, h64);
+            displayEndianess==big_endian ?
+                BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
             DISPLAYRESULT("  %s\n", fileName);
             break;
         }
@@ -643,7 +651,7 @@ static int usage(const char* exename)
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
     DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default: %i)\n", (int)g_defaultAlgo);
-    DISPLAY( " -h  : help (this text) \n");
+    DISPLAY( " -h  : help \n");
     return 0;
 }
 
@@ -652,9 +660,9 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
+    DISPLAY( "--little-endian : hash printed using little endian convention (default: big endian)\n");
     DISPLAY( " -b  : benchmark mode \n");
     DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
-    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian)\n");
     return 0;
 }
 

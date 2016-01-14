@@ -250,6 +250,11 @@ FORCE_INLINE U32 XXH_readLE32(const void* ptr, XXH_endianess endian)
     return XXH_readLE32_align(ptr, endian, XXH_unaligned);
 }
 
+static U32 XXH_readBE32(const void* ptr)
+{
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
+}
+
 FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
 {
     if (align==XXH_unaligned)
@@ -261,6 +266,11 @@ FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_a
 FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
 {
     return XXH_readLE64_align(ptr, endian, XXH_unaligned);
+}
+
+static U32 XXH_readBE64(const void* ptr)
+{
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
 }
 
 
@@ -771,18 +781,6 @@ XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 }
 
 
-XXH_PUBLIC_API XXH_errorcode XXH32_canonicalDigest (const XXH32_state_t* statePtr, void* buffer, size_t bufferSize)
-{
-    U32 hash = XXH32_digest(statePtr);
-    BYTE* b = (BYTE*)buffer;
-    if (bufferSize < 4) return XXH_ERROR;
-    b[0] = (BYTE)(hash >> 24);
-    b[1] = (BYTE)(hash >> 16);
-    b[2] = (BYTE)(hash >>  8);
-    b[3] = (BYTE)(hash >>  0);
-    return XXH_OK;
-}
-
 
 /* **** XXH64 **** */
 
@@ -977,19 +975,36 @@ XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)
         return XXH64_digest_endian(state_in, XXH_bigEndian);
 }
 
-XXH_PUBLIC_API XXH_errorcode XXH64_canonicalDigest (const XXH64_state_t* statePtr, void* buffer, size_t bufferSize)
+
+/* **************************
+*  Canonical representation
+****************************/
+
+/*! Default XXH result types are basic unsigned 32 and 64 bits.
+*   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
+*   These functions allow transformation of hash result into and from its canonical format.
+*   This way, hash values can be written into a file or buffer, and remain comparable across different systems and programs.
+*/
+
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
 {
-    U64 hash = XXH64_digest(statePtr);
-    BYTE* b = (BYTE*)buffer;
-    if (bufferSize < 8) return XXH_ERROR;
-    b[0] = (BYTE)(hash >> 56);
-    b[1] = (BYTE)(hash >> 48);
-    b[2] = (BYTE)(hash >> 40);
-    b[3] = (BYTE)(hash >> 32);
-    b[4] = (BYTE)(hash >> 24);
-    b[5] = (BYTE)(hash >> 16);
-    b[6] = (BYTE)(hash >>  8);
-    b[7] = (BYTE)(hash >>  0);
-    return XXH_OK;
+    if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
+    memcpy(dst, &hash, sizeof(*dst));
+}
+
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash)
+{
+    if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
+    memcpy(dst, &hash, sizeof(*dst));
+}
+
+XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src)
+{
+    return XXH_readBE32(src);
+}
+
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src)
+{
+    return XXH_readBE64(src);
 }
 

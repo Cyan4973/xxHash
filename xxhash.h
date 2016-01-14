@@ -148,9 +148,11 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 /* ****************************
 *  Simple Hash Functions
 ******************************/
+typedef unsigned int       XXH32_hash_t;
+typedef unsigned long long XXH64_hash_t;
 
-XXH_PUBLIC_API unsigned int       XXH32 (const void* input, size_t length, unsigned int seed);
-XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t length, unsigned long long seed);
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, unsigned int seed);
+XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, unsigned long long seed);
 
 /*!
 XXH32() :
@@ -166,7 +168,7 @@ XXH64() :
 
 
 /* ****************************
-*  Advanced Hash Functions
+*  Streaming Hash Functions
 ******************************/
 typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
@@ -199,11 +201,11 @@ XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 
 XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned int seed);
 XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API unsigned int  XXH32_digest (const XXH32_state_t* statePtr);
+XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
 
-XXH_PUBLIC_API XXH_errorcode      XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
-XXH_PUBLIC_API XXH_errorcode      XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
+XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 
 /*!
 These functions generate the xxHash of an input provided in multiple segments,
@@ -227,15 +229,22 @@ When done, free XXH state space if it was allocated dynamically.
 */
 
 
-XXH_PUBLIC_API XXH_errorcode XXH32_canonicalDigest (const XXH32_state_t* statePtr, void* buffer, size_t bufferSize);
-XXH_PUBLIC_API XXH_errorcode XXH64_canonicalDigest (const XXH64_state_t* statePtr, void* buffer, size_t bufferSize);
+/* **************************
+*  Canonical representation
+****************************/
+typedef struct { unsigned char digest[4]; } XXH32_canonical_t;
+typedef struct { unsigned char digest[8]; } XXH64_canonical_t;
 
-/*! same as XXHnn_digest() equivalents, but write result into a buffer, as opposed to basic type.
-*   This is likely slower than using direct integer.
-*   Result is endian-independent.
-*   It is equivalent to XXHnn_digest() written using big-endian format.
-*   XXH32_canonicalDigest() will write 4 bytes, XXH64_canonicalDigest() will write 8 bytes.
-*   Function will return an error if buffer is not large enough.
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash);
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
+
+XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
+
+/*! Default result type for XXH functions are primitive unsigned 32 and 64 bits.
+*   The canonical representation uses human-readable write convention, aka big-endian (large digits first).
+*   These functions allow transformation of hash result into and from its canonical format.
+*   This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
 */
 
 

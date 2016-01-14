@@ -175,7 +175,7 @@ static U64 XXH_read64(const void* memPtr)
     return val;
 }
 
-#endif // XXH_FORCE_DIRECT_MEMORY_ACCESS
+#endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
 
 
 /* ****************************************
@@ -250,6 +250,11 @@ FORCE_INLINE U32 XXH_readLE32(const void* ptr, XXH_endianess endian)
     return XXH_readLE32_align(ptr, endian, XXH_unaligned);
 }
 
+static U32 XXH_readBE32(const void* ptr)
+{
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
+}
+
 FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
 {
     if (align==XXH_unaligned)
@@ -261,6 +266,11 @@ FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_a
 FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
 {
     return XXH_readLE64_align(ptr, endian, XXH_unaligned);
+}
+
+static U64 XXH_readBE64(const void* ptr)
+{
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
 }
 
 
@@ -372,10 +382,10 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH32_state_t state;
-    XXH32_reset(&state, seed);
-    XXH32_update(&state, input, len);
-    return XXH32_digest(&state);
+    XXH32_CREATESTATE_STATIC(state);
+    XXH32_reset(state, seed);
+    XXH32_update(state, input, len);
+    return XXH32_digest(state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -512,10 +522,10 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH64_state_t state;
-    XXH64_reset(&state, seed);
-    XXH64_update(&state, input, len);
-    return XXH64_digest(&state);
+    XXH64_CREATESTATE_STATIC(state);
+    XXH64_reset(state, seed);
+    XXH64_update(state, input, len);
+    return XXH64_digest(state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -771,6 +781,9 @@ XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 }
 
 
+
+/* **** XXH64 **** */
+
 FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
     const BYTE* p = (const BYTE*)input;
@@ -962,4 +975,36 @@ XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)
         return XXH64_digest_endian(state_in, XXH_bigEndian);
 }
 
+
+/* **************************
+*  Canonical representation
+****************************/
+
+/*! Default XXH result types are basic unsigned 32 and 64 bits.
+*   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
+*   These functions allow transformation of hash result into and from its canonical format.
+*   This way, hash values can be written into a file or buffer, and remain comparable across different systems and programs.
+*/
+
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
+{
+    if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
+    memcpy(dst, &hash, sizeof(*dst));
+}
+
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash)
+{
+    if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
+    memcpy(dst, &hash, sizeof(*dst));
+}
+
+XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src)
+{
+    return XXH_readBE32(src);
+}
+
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src)
+{
+    return XXH_readBE64(src);
+}
 

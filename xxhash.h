@@ -148,9 +148,11 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 /* ****************************
 *  Simple Hash Functions
 ******************************/
+typedef unsigned int       XXH32_hash_t;
+typedef unsigned long long XXH64_hash_t;
 
-XXH_PUBLIC_API unsigned int       XXH32 (const void* input, size_t length, unsigned int seed);
-XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t length, unsigned long long seed);
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, unsigned int seed);
+XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, unsigned long long seed);
 
 /*!
 XXH32() :
@@ -166,14 +168,18 @@ XXH64() :
 
 
 /* ****************************
-*  Advanced Hash Functions
+*  Streaming Hash Functions
 ******************************/
-typedef struct XXH32_state_s XXH32_state_t;   /* incomplete */
-typedef struct XXH64_state_s XXH64_state_t;   /* incomplete */
+typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
+typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
 
 
-/*!Static allocation
-   For static linking only, do not use in the context of DLL ! */
+/*! Static allocation
+    For static linking only, do not use in the context of DLL !
+        XXHnn_CREATESTATE_STATIC(name);
+            is static-allocation equivalent of :
+        XXHnn_state_t* name = XXHnn_createState();
+*/
 typedef struct { long long ll[ 6]; } XXH32_stateBody_t;
 typedef struct { long long ll[11]; } XXH64_stateBody_t;
 
@@ -195,11 +201,11 @@ XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 
 XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned int seed);
 XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API unsigned int  XXH32_digest (const XXH32_state_t* statePtr);
+XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
 
-XXH_PUBLIC_API XXH_errorcode      XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
-XXH_PUBLIC_API XXH_errorcode      XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
+XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 
 /*!
 These functions generate the xxHash of an input provided in multiple segments,
@@ -214,11 +220,31 @@ Obviously, input must be valid, hence allocated and read accessible.
 The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
 
 Finally, a hash value can be produced anytime, by using XXHnn_digest().
-This function returns the nn-bits hash.
-It's nonetheless possible to continue inserting input into the hash state
+This function returns the nn-bits hash as an int or long long.
+
+It's still possible to continue inserting input into the hash state after a digest,
 and later on generate some new hashes, by calling again XXHnn_digest().
 
 When done, free XXH state space if it was allocated dynamically.
+*/
+
+
+/* **************************
+*  Canonical representation
+****************************/
+typedef struct { unsigned char digest[4]; } XXH32_canonical_t;
+typedef struct { unsigned char digest[8]; } XXH64_canonical_t;
+
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash);
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
+
+XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
+
+/*! Default result type for XXH functions are primitive unsigned 32 and 64 bits.
+*   The canonical representation uses human-readable write convention, aka big-endian (large digits first).
+*   These functions allow transformation of hash result into and from its canonical format.
+*   This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
 */
 
 

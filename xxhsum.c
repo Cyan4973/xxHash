@@ -520,6 +520,53 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
         DISPLAYRESULT("%02x", p[index]);
 }
 
+static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* inFile, void* buffer, size_t blockSize)
+{
+    XXH64_CREATESTATE_STATIC(state64);
+    XXH32_CREATESTATE_STATIC(state32);
+    size_t readSize;
+
+    /* Init */
+    XXH32_reset(state32, XXHSUM32_DEFAULT_SEED);
+    XXH64_reset(state64, XXHSUM64_DEFAULT_SEED);
+
+    /* Load file & update hash */
+    readSize = 1;
+    while (readSize)
+    {
+        readSize = fread(buffer, 1, blockSize, inFile);
+        switch(hashType)
+        {
+        case algo_xxh32:
+            XXH32_update(state32, buffer, readSize);
+            break;
+        case algo_xxh64:
+            XXH64_update(state64, buffer, readSize);
+            break;
+        default:
+            break;
+        }
+    }
+
+    switch(hashType)
+    {
+    case algo_xxh32:
+        {
+            U32 h32 = XXH32_digest(state32);
+            memcpy(xxhHashValue, &h32, sizeof(h32));
+            break;
+        }
+    case algo_xxh64:
+        {
+            U64 h64 = XXH64_digest(state64);
+            memcpy(xxhHashValue, &h64, sizeof(h64));
+            break;
+        }
+    default:
+            break;
+    }
+}
+
 
 typedef enum { big_endian, little_endian} endianess;
 
@@ -529,10 +576,9 @@ static int BMK_hash(const char* fileName,
 {
     FILE*  inFile;
     size_t const blockSize = 64 KB;
-    size_t readSize;
     void*  buffer;
-    XXH64_CREATESTATE_STATIC(state64);
-    XXH32_CREATESTATE_STATIC(state32);
+    U32    h32 = 0;
+    U64    h64 = 0;
 
     /* Check file existence */
     if (fileName == stdinName)
@@ -557,10 +603,6 @@ static int BMK_hash(const char* fileName,
         return 1;
     }
 
-    /* Init */
-    XXH32_reset(state32, XXHSUM32_DEFAULT_SEED);
-    XXH64_reset(state64, XXHSUM64_DEFAULT_SEED);
-
     /* loading notification */
     {
         const size_t fileNameSize = strlen(fileName);
@@ -575,22 +617,18 @@ static int BMK_hash(const char* fileName,
     }
 
     /* Load file & update hash */
-    readSize = 1;
-    while (readSize)
+    switch(hashType)
     {
-        readSize = fread(buffer, 1, blockSize, inFile);
-        switch(hashType)
-        {
-        case algo_xxh32:
-            XXH32_update(state32, buffer, readSize);
-            break;
-        case algo_xxh64:
-            XXH64_update(state64, buffer, readSize);
-            break;
-        default:
-            break;
-        }
+    case algo_xxh32:
+        BMK_hashStream(&h32, hashType, inFile, buffer, blockSize);
+        break;
+    case algo_xxh64:
+        BMK_hashStream(&h64, hashType, inFile, buffer, blockSize);
+        break;
+    default:
+        break;
     }
+
     fclose(inFile);
     free(buffer);
 
@@ -599,7 +637,6 @@ static int BMK_hash(const char* fileName,
     {
     case algo_xxh32:
         {
-            U32 h32 = XXH32_digest(state32);
             XXH32_canonical_t hcbe32;
             XXH32_canonicalFromHash(&hcbe32, h32);
             displayEndianess==big_endian ?
@@ -609,7 +646,6 @@ static int BMK_hash(const char* fileName,
         }
     case algo_xxh64:
         {
-            U64 h64 = XXH64_digest(state64);
             XXH64_canonical_t hcbe64;
             XXH64_canonicalFromHash(&hcbe64, h64);
             displayEndianess==big_endian ?

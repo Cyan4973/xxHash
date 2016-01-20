@@ -135,6 +135,8 @@ static const char author[] = "Yann Collet";
 
 #define NBLOOPS    3           /* Default number of benchmark iterations */
 #define TIMELOOP   2500        /* Minimum timing per iteration */
+#define XXHSUM32_DEFAULT_SEED 0 /* Default seed for algo_xxh32 */
+#define XXHSUM64_DEFAULT_SEED 0 /* Default seed for algo_xxh64 */
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)
@@ -556,8 +558,8 @@ static int BMK_hash(const char* fileName,
     }
 
     /* Init */
-    XXH32_reset(state32, 0);
-    XXH64_reset(state64, 0);
+    XXH32_reset(state32, XXHSUM32_DEFAULT_SEED);
+    XXH64_reset(state64, XXHSUM64_DEFAULT_SEED);
 
     /* loading notification */
     {

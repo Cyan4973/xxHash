@@ -919,7 +919,6 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
  */
 static void parseFile1(ParseFileArg* parseFileArg)
 {
-    FILE* const inFile = parseFileArg->inFile;
     const char* const inFileName = parseFileArg->inFileName;
     ParseFileReport* const report = &parseFileArg->report;
 

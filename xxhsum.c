@@ -148,22 +148,12 @@ static const char stdinName[] = "-";
 typedef enum { algo_xxh32, algo_xxh64 } algoType;
 static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
-#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
-#  if defined(MAX_PATH)
-#    define IMPL_PATH_MAX ((MAX_PATH) + 1)
-#  endif
-#else
-#  if defined(PATH_MAX)
-#    define IMPL_PATH_MAX ((PATH_MAX) + 1)
-#  endif
-#endif
+/* <16 hex char> <SPC> <SPC> <filename> <'\0'>
+ * '4096' is typical Linux PATH_MAX configuration. */
+#define DEFAULT_LINE_LENGTH (sizeof(XXH64_hash_t) * 2 + 2 + 4096 + 1)
 
-#if !defined(IMPL_PATH_MAX)
-#  define IMPL_PATH_MAX (260 + 1)
-#endif
-
-/* <8 or 16 hex char> <SPC> <SPC> <filename> <'\0'> */
-#define MAX_LINE_LENGTH (sizeof(XXH64_hash_t) * 2 + 2 + (IMPL_PATH_MAX) + 1)
+/* Maximum acceptable line length. */
+#define MAX_LINE_LENGTH (32 KB)
 
 
 /* ************************************
@@ -695,6 +685,13 @@ static int BMK_hashFiles(const char** fnList, int fnTotal,
 
 
 typedef enum {
+    GetLine_ok,
+    GetLine_eof,
+    GetLine_exceedMaxLineLength,
+    GetLine_outOfMemory,
+} GetLineResult;
+
+typedef enum {
     CanonicalFromString_ok,
     CanonicalFromString_invalidFormat,
 } CanonicalFromStringResult;
@@ -734,7 +731,7 @@ typedef struct {
 typedef struct {
     const char*     inFileName;
     FILE*           inFile;
-    size_t          lineMax;
+    int             lineMax;
     char*           lineBuf;
     size_t          blockSize;
     char*           blockBuf;
@@ -746,20 +743,65 @@ typedef struct {
 } ParseFileArg;
 
 
-/*  fgets() with tail chop.
+/*  Read line from stream.
+    Returns GetLine_ok, if it reads line successfully.
+    Returns GetLine_eof, if stream reaches EOF.
+    Returns GetLine_exceedMaxLineLength, if line length is longer than MAX_LINE_LENGTH.
+    Returns GetLine_outOfMemory, if line buffer memory allocation failed.
  */
-static char* getLine(char* buf, size_t n, FILE* fp)
+static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
 {
-    char* const r = fgets(buf, (int) n, fp);
-    if (r)
+    GetLineResult result = GetLine_ok;
+    int len = 0;
+
+    if (*lineBuf == NULL || *lineMax < 1)
     {
-        const size_t l = strlen(r);
-        if (l && r[l-1] == '\n')
-        {
-            r[l-1] = '\0';
-        }
+        *lineMax = DEFAULT_LINE_LENGTH;
+        *lineBuf = (char*) realloc(*lineBuf, *lineMax);
+        if(*lineBuf == NULL) return GetLine_outOfMemory;
     }
-    return r;
+
+    for (;;)
+    {
+        const int c = fgetc(inFile);
+        if (c == EOF)
+        {
+            /* If we meet EOF before first character, returns GetLine_eof,
+             * otherwise GetLine_ok.
+             */
+            if (len == 0)
+            {
+                result = GetLine_eof;
+            }
+            break;
+        }
+
+        /* Make enough space for len+1 (for final NUL) bytes. */
+        if (len+1 >= *lineMax)
+        {
+            char* newLineBuf = NULL;
+            int newBufSize = *lineMax;
+
+            newBufSize += (newBufSize/2) + 1; /* x 1.5 */
+            if (newBufSize > MAX_LINE_LENGTH) newBufSize = MAX_LINE_LENGTH;
+            if (len+1 >= newBufSize) return GetLine_exceedMaxLineLength;
+
+            newLineBuf = (char*) realloc(*lineBuf, newBufSize);
+            if (newLineBuf == NULL) return GetLine_outOfMemory;
+
+            *lineBuf = newLineBuf;
+            *lineMax = newBufSize;
+        }
+
+        if (c == '\n')
+        {
+            break;
+        }
+        (*lineBuf)[len++] = (char) c;
+    }
+
+    (*lineBuf)[len] = '\0';
+    return result;
 }
 
 
@@ -879,17 +921,16 @@ static void parseFile1(ParseFileArg* parseFileArg)
 {
     FILE* const inFile = parseFileArg->inFile;
     const char* const inFileName = parseFileArg->inFileName;
-    const size_t lineMax = parseFileArg->lineMax;
-    char* const lineBuf = parseFileArg->lineBuf;
     ParseFileReport* const report = &parseFileArg->report;
 
     unsigned long lineNumber = 0;
     memset(report, 0, sizeof(*report));
 
-    while (!report->quit && getLine(lineBuf, lineMax, inFile))
+    while (!report->quit)
     {
         FILE* fp = NULL;
         LineStatus lineStatus = LineStatus_hashFailed;
+        GetLineResult getLineResult;
         ParsedLine parsedLine;
         memset(&parsedLine, 0, sizeof(parsedLine));
 
@@ -903,7 +944,34 @@ static void parseFile1(ParseFileArg* parseFileArg)
             break;
         }
 
-        if (parseLine(&parsedLine, lineBuf) != ParseLine_ok)
+        getLineResult = getLine(&parseFileArg->lineBuf, &parseFileArg->lineMax,
+                                parseFileArg->inFile);
+        if (getLineResult != GetLine_ok)
+        {
+            if (getLineResult == GetLine_eof)
+            {
+                break;
+            }
+
+            switch (getLineResult)
+            {
+            default:
+                DISPLAY("%s : %lu: unknown error\n", inFileName, lineNumber);
+                break;
+
+            case GetLine_exceedMaxLineLength:
+                DISPLAY("%s : %lu: too long line\n", inFileName, lineNumber);
+                break;
+
+            case GetLine_outOfMemory:
+                DISPLAY("%s : %lu: out of memory\n", inFileName, lineNumber);
+                break;
+            }
+            report->quit = 1;
+            break;
+        }
+
+        if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok)
         {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn)
@@ -1070,8 +1138,8 @@ static int checkFile(const char* inFileName,
 
     parseFileArg->inFileName    = inFileName;
     parseFileArg->inFile        = inFile;
-    parseFileArg->lineMax       = MAX_LINE_LENGTH;
-    parseFileArg->lineBuf       = (char*) malloc(parseFileArg->lineMax);
+    parseFileArg->lineMax       = DEFAULT_LINE_LENGTH;
+    parseFileArg->lineBuf       = (char*) malloc((size_t) parseFileArg->lineMax);
     parseFileArg->blockSize     = 64 * 1024;
     parseFileArg->blockBuf      = (char*) malloc(parseFileArg->blockSize);
     parseFileArg->strictMode    = strictMode;

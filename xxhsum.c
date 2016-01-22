@@ -908,7 +908,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn)
             {
-                DISPLAY("%s : %ul: improperly formatted XXHASH checksum line\n"
+                DISPLAY("%s : %lu: improperly formatted XXHASH checksum line\n"
                     , inFileName, lineNumber);
             }
             continue;
@@ -921,7 +921,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nMixedFormatLines++;
             if (parseFileArg->warn)
             {
-                DISPLAY("%s : %ul: improperly formatted XXHASH checksum line (XXH32/64)\n"
+                DISPLAY("%s : %lu: improperly formatted XXHASH checksum line (XXH32/64)\n"
                     , inFileName, lineNumber);
             }
             continue;
@@ -982,7 +982,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nOpenOrReadFailures++;
             if (!parseFileArg->statusOnly)
             {
-                DISPLAYRESULT("%s : %ul: FAILED open or read %s\n"
+                DISPLAYRESULT("%s : %lu: FAILED open or read %s\n"
                     , inFileName, lineNumber, parsedLine.filename);
             }
             break;
@@ -1099,19 +1099,19 @@ static int checkFile(const char* inFileName,
     {
         if (report->nImproperlyFormattedLines)
         {
-            DISPLAYRESULT("%ul lines are improperly formatted\n"
+            DISPLAYRESULT("%lu lines are improperly formatted\n"
                 , report->nImproperlyFormattedLines);
         }
 
         if (report->nOpenOrReadFailures)
         {
-            DISPLAYRESULT("%ul listed files could not be read\n"
+            DISPLAYRESULT("%lu listed files could not be read\n"
                 , report->nOpenOrReadFailures);
         }
 
         if (report->nMismatchedChecksums)
         {
-            DISPLAYRESULT("%ul computed checksums did NOT match\n"
+            DISPLAYRESULT("%lu computed checksums did NOT match\n"
                 , report->nMismatchedChecksums);
         }
     }

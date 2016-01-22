@@ -1050,7 +1050,7 @@ static int checkFile(const char* inFileName,
     {
         /* Don't accept little endian */
         DISPLAY( "Check file mode doesn't support little endian" );
-        return 1;
+        return 0;
     }
 
     if (strcmp(inFileName, stdinName) == 0)
@@ -1066,7 +1066,7 @@ static int checkFile(const char* inFileName,
     if (inFile == NULL)
     {
         DISPLAY( "Pb opening %s\n", inFileName);
-        return 1;
+        return 0;
     }
 
     parseFileArg->inFileName    = inFileName;

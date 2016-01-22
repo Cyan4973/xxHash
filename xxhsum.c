@@ -954,6 +954,12 @@ static void parseFile1(ParseFileArg* parseFileArg)
 
             switch (getLineResult)
             {
+            case GetLine_ok:
+            case GetLine_eof:
+                /* These cases never happen.  See above getLineResult related "if"s.
+                   They exist just for make gcc's -Wswitch-enum happy. */
+                break;
+
             default:
                 DISPLAY("%s : %lu: unknown error\n", inFileName, lineNumber);
                 break;

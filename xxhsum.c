@@ -49,7 +49,6 @@ You can contact the author at :
 #include <stdlib.h>     /* malloc */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
 #include <string.h>     /* strcmp */
-#include <inttypes.h>   /* PRIuMAX */
 #include <sys/types.h>  /* stat64 */
 #include <sys/stat.h>   /* stat64 */
 
@@ -723,13 +722,13 @@ typedef struct {
 } ParsedLine;
 
 typedef struct {
-    size_t  nProperlyFormattedLines;
-    size_t  nImproperlyFormattedLines;
-    size_t  nMismatchedChecksums;
-    size_t  nOpenOrReadFailures;
-    size_t  nMixedFormatLines;
-    int     xxhBits;
-    int     quit;
+    unsigned long   nProperlyFormattedLines;
+    unsigned long   nImproperlyFormattedLines;
+    unsigned long   nMismatchedChecksums;
+    unsigned long   nOpenOrReadFailures;
+    unsigned long   nMixedFormatLines;
+    int             xxhBits;
+    int             quit;
 } ParseFileReport;
 
 typedef struct {
@@ -884,7 +883,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
     char* const lineBuf = parseFileArg->lineBuf;
     ParseFileReport* const report = &parseFileArg->report;
 
-    size_t lineNumber = 0;
+    unsigned long lineNumber = 0;
     memset(report, 0, sizeof(*report));
 
     while (!report->quit && getLine(lineBuf, lineMax, inFile))
@@ -894,7 +893,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
         ParsedLine parsedLine;
         memset(&parsedLine, 0, sizeof(parsedLine));
 
-        ++lineNumber;
+        lineNumber++;
         if (lineNumber == 0)
         {
             /* This is unlikely happen, but md5sum.c has this
@@ -909,8 +908,8 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn)
             {
-                DISPLAY("%s : %" PRIuMAX ": improperly formatted XXHASH checksum line\n"
-                    , inFileName, (uintmax_t) lineNumber);
+                DISPLAY("%s : %ul: improperly formatted XXHASH checksum line\n"
+                    , inFileName, lineNumber);
             }
             continue;
         }
@@ -922,8 +921,8 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nMixedFormatLines++;
             if (parseFileArg->warn)
             {
-                DISPLAY("%s : %" PRIuMAX ": improperly formatted XXHASH checksum line (XXH32/64)\n"
-                    , inFileName, (uintmax_t) lineNumber);
+                DISPLAY("%s : %ul: improperly formatted XXHASH checksum line (XXH32/64)\n"
+                    , inFileName, lineNumber);
             }
             continue;
         }
@@ -983,8 +982,8 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nOpenOrReadFailures++;
             if (!parseFileArg->statusOnly)
             {
-                DISPLAYRESULT("%s : %" PRIuMAX ": FAILED open or read %s\n"
-                    , inFileName, (uintmax_t) lineNumber, parsedLine.filename);
+                DISPLAYRESULT("%s : %ul: FAILED open or read %s\n"
+                    , inFileName, lineNumber, parsedLine.filename);
             }
             break;
 
@@ -1049,7 +1048,7 @@ static int checkFile(const char* inFileName,
     if (displayEndianess != big_endian)
     {
         /* Don't accept little endian */
-        DISPLAY( "Check file mode doesn't support little endian" );
+        DISPLAY( "Check file mode doesn't support little endian\n" );
         return 0;
     }
 
@@ -1094,26 +1093,26 @@ static int checkFile(const char* inFileName,
      */
     if (report->nProperlyFormattedLines == 0)
     {
-        DISPLAY("%s: no properly formatted XXHASH checksum lines found", inFileName);
+        DISPLAY("%s: no properly formatted XXHASH checksum lines found\n", inFileName);
     }
     else if (!statusOnly)
     {
         if (report->nImproperlyFormattedLines)
         {
-            DISPLAYRESULT("%" PRIuMAX " lines are improperly formatted\n"
-                , (uintmax_t) report->nImproperlyFormattedLines);
+            DISPLAYRESULT("%ul lines are improperly formatted\n"
+                , report->nImproperlyFormattedLines);
         }
 
         if (report->nOpenOrReadFailures)
         {
-            DISPLAYRESULT("%" PRIuMAX " listed files could not be read\n"
-                , (uintmax_t) report->nOpenOrReadFailures);
+            DISPLAYRESULT("%ul listed files could not be read\n"
+                , report->nOpenOrReadFailures);
         }
 
         if (report->nMismatchedChecksums)
         {
-            DISPLAYRESULT("%" PRIuMAX " computed checksums did NOT match\n"
-                , (uintmax_t) report->nMismatchedChecksums);
+            DISPLAYRESULT("%ul computed checksums did NOT match\n"
+                , report->nMismatchedChecksums);
         }
     }
 

@@ -1125,10 +1125,12 @@ static int checkFile(const char* inFileName,
         return 0;
     }
 
-    if (strcmp(inFileName, stdinName) == 0)
+    /* note : stdinName is special constant pointer.  It is not a string. */
+    if (inFileName == stdinName)
     {
+        /* note : Since we expect text input for xxhash -c mode,
+         * Don't set binary mode for stdin */
         inFile = stdin;
-        SET_BINARY_MODE(stdin);
     }
     else
     {
@@ -1207,10 +1209,20 @@ static int checkFiles(const char** fnList, int fnTotal,
                       U32 warn,
                       U32 quiet)
 {
-    int fnNb;
     int ok = 1;
-    for (fnNb=0; fnNb<fnTotal; fnNb++)
-        ok &= checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, warn, quiet);
+
+    /* Special case for stdinName "-",
+     * note: stdinName is not a string.  It's special pointer. */
+    if (fnTotal==0)
+    {
+        ok &= checkFile(stdinName, displayEndianess, strictMode, statusOnly, warn, quiet);
+    }
+    else
+    {
+        int fnNb;
+        for (fnNb=0; fnNb<fnTotal; fnNb++)
+            ok &= checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, warn, quiet);
+    }
     return ok ? 0 : 1;
 }
 

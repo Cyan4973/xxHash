@@ -28,6 +28,8 @@ CFLAGS ?= -O3
 CFLAGS += -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -Wswitch-enum -Wundef -pedantic 
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 
+MD2ROFF  =ronn
+MD2ROFF_FLAGS  = --roff --warnings
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -114,6 +116,17 @@ sanitize: clean
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
+
+xxhsum.1: xxhsum.1.md
+	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
+
+man: xxhsum.1
+
+clean-man:
+	rm xxhsum.1
+
+preview-man: clean-man man
+	man ./xxhsum.1
 
 test-all: clean all test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
 

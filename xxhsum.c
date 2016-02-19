@@ -1239,6 +1239,7 @@ static int usage(const char* exename)
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
     DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default: %i)\n", (int)g_defaultAlgo);
+    DISPLAY( " -c  : read xxHash sums from the [filenames] and check them\n");
     DISPLAY( " -h  : help \n");
     return 0;
 }
@@ -1251,6 +1252,12 @@ static int usage_advanced(const char* exename)
     DISPLAY( "--little-endian : hash printed using little endian convention (default: big endian)\n");
     DISPLAY( " -b  : benchmark mode \n");
     DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
+    DISPLAY( "\n");
+    DISPLAY( "The following four options are useful only when verifying checksums (-c):\n");
+    DISPLAY( "--strict : don't print OK for each successfully verified file\n");
+    DISPLAY( "--status : don't output anything, status code shows success\n");
+    DISPLAY( "--quiet  : exit non-zero for improperly formatted checksum lines\n");
+    DISPLAY( "--warn   : warn about improperly formatted checksum lines\n");
     return 0;
 }
 

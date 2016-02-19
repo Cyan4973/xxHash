@@ -71,6 +71,30 @@ test32: clean xxhsum32
 	@echo ---- test 32-bits ----
 	./xxhsum32 -bi1 xxhash.c
 
+test-xxhsum-c: xxhsum
+	# xxhsum to/from pipe
+	./xxhsum * | ./xxhsum -c -
+	./xxhsum -H0 * | ./xxhsum -c -
+	# xxhsum to/from file, shell redirection
+	./xxhsum * > .test.xxh64
+	./xxhsum -H0 * > .test.xxh32
+	./xxhsum -c .test.xxh64
+	./xxhsum -c .test.xxh32
+	./xxhsum -c < .test.xxh64
+	./xxhsum -c < .test.xxh32
+	# xxhsum -c warns improperly format lines.
+	cat .test.xxh64 .test.xxh32 | ./xxhsum -c -
+	cat .test.xxh32 .test.xxh64 | ./xxhsum -c -
+	# Expects "FAILED"
+	echo "0000000000000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
+	echo "00000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
+	# Expects "FAILED open or read"
+	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
+	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
+
+clean-xxhsum-c:
+	@rm -f .test.xxh32 .test.xxh64
+
 armtest: clean
 	@echo ---- test ARM compilation ----
 	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror"
@@ -91,9 +115,9 @@ staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
 
-test-all: clean all test test32 armtest clangtest gpptest sanitize staticAnalyze
+test-all: clean all test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
 
-clean:
+clean: clean-xxhsum-c
 	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_privateXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
 

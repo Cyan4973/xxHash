@@ -1,5 +1,5 @@
-xxhsum(1) -- print or check xxHash checksums
-============================================
+xxhsum(1) -- print or check xxHash non-cryptographic checksums
+==============================================================
 
 SYNOPSIS
 --------
@@ -17,6 +17,9 @@ md5sum(1).  Differences are: `xxhsum` doesn't have text/binary mode switch
 (`-b`, `-t`);  `xxhsum` always treats file as binary file;  `xxhsum` doesn't
 have short option switch for warning (`-w`).  `xxhsum` has hash bit width
 switch (`-H`);
+
+Since xxHash is non-cryptographic checksum algorithm, `xxhsum` should not be
+used any more for security related purposes.
 
 OPTIONS
 -------

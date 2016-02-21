@@ -21,12 +21,29 @@ switch (`-H`);
 OPTIONS
 -------
 
+* `-b`:
+  Benchmark mode
+
+* `-B`<BLOCKSIZE>:
+  <BLOCKSIZE> specifies benchmark mode's test data block size in bytes.
+  Default value is 102400
+
 * `-c`, `--check`:
   Read xxHash sums from the <FILE>s and check them
+
+* `-h`:
+  Display help and exit
 
 * `-H`<HASHTYPE>:
   Hash selection.  <HASHTYPE> means `0`=32bits, `1`=64bits.
   Default value is `1` (64bits)
+
+* `--little-endian`:
+  Set output hexadecimal checksum value as little endian convention.
+  By default, value is displayed as big endian
+
+* `-V`:
+  Display xxhsum version
 
 **The following four options are useful only when verifying checksums (`-c`)**
 

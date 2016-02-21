@@ -75,14 +75,15 @@ Output xxHash (64bit) checksum values of specific files to standard output
 
     $ xxhsum -H1 foo bar baz
 
-Output xxHash (32bit) checksum values of specific files to standard output,
-and redirect it to `xyz.xxhash`
+Output xxHash (32bit and 64bit) checksum values of specific files to standard
+output, and redirect it to `xyz.xxh32` and `qux.xxh64`
 
-    $ xxhsum -H0 foo bar baz > xyz.xxhash
+    $ xxhsum -H0 foo bar baz > xyz.xxh32
+    $ xxhsum -H1 foo bar baz > qux.xxh64
 
-Read xxHash sums from specific file and check them
+Read xxHash sums from specific files and check them
 
-    $ xxhsum -c xyz.xxhash
+    $ xxhsum -c xyz.xxh32 qux.xxh64
 
 BUGS
 ----

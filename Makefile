@@ -27,9 +27,9 @@
 CFLAGS ?= -O3
 CFLAGS += -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -Wswitch-enum -Wundef -pedantic 
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
-
+XXHSUM_VERSION=0.5.1
 MD2ROFF  =ronn
-MD2ROFF_FLAGS  = --roff --warnings
+MD2ROFF_FLAGS  = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))

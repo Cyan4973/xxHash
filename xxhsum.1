@@ -1,5 +1,5 @@
 .
-.TH "XXHSUM" "1" "February 2016" "" ""
+.TH "XXHSUM" "1" "February 2016" "xxhsum 0.5.1" "User Commands"
 .
 .SH "NAME"
 \fBxxhsum\fR \- print or check xxHash checksums
@@ -11,7 +11,7 @@
 Print or check xxHash (32 or 64bit) checksums\. When \fIFILE\fR is \fB\-\fR, read standard input\.
 .
 .P
-\fBxxhsum\fR supports a command line syntax similar but not indentical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch; \fBxxhsum\fR always treats file as binary file; \fBxxhsum\fR have hash bit width switch (\fB\-H\fR)\.
+\fBxxhsum\fR supports a command line syntax similar but not indentical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch (\fB\-b\fR, \fB\-t\fR); \fBxxhsum\fR always treats file as binary file; \fBxxhsum\fR doesn\'t have short option switch for warning (\fB\-w\fR)\. \fBxxhsum\fR has hash bit width switch (\fB\-H\fR);
 .
 .SH "OPTIONS"
 .
@@ -24,7 +24,11 @@ Read xxHash sums from the \fIFILE\fRs and check them
 Hash selection\. \fIHASHTYPE\fR means \fB0\fR=32bits, \fB1\fR=64bits\. Default value is \fB1\fR (64bits)
 .
 .P
-The following four options are useful only when verifying checksums (\fB\-c\fR)
+\fBThe following four options are useful only when verifying checksums (\fB\-c\fR)\fR
+.
+.TP
+\fB\-\-quiet\fR
+Exit non\-zero for improperly formatted checksum lines
 .
 .TP
 \fB\-\-strict\fR
@@ -35,12 +39,50 @@ Don\'t print OK for each successfully verified file
 Don\'t output anything, status code shows success
 .
 .TP
-\fB\-\-quiet\fR
-Exit non\-zero for improperly formatted checksum lines
-.
-.TP
 \fB\-\-warn\fR
 Warn about improperly formatted checksum lines
+.
+.SH "EXIT STATUS"
+\fBxxhsum\fR exit \fB0\fR on success, \fB1\fR if at least one file couldn\'t be read or doesn\'t have the same checksum as the \fB\-c\fR option\.
+.
+.SH "EXAMPLES"
+Output xxHash (64bit) checksum values of specific files to standard output
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum \-H1 foo bar baz
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Output xxHash (32bit) checksum values of specific files to standard output, and redirect it to \fBxyz\.xxhash\fR
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum \-H0 foo bar baz > xyz\.xxhash
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Read xxHash sums from specific file and check them
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum \-c xyz\.xxhash
+.
+.fi
+.
+.IP "" 0
 .
 .SH "BUGS"
 Report bugs at: https://github\.com/Cyan4973/xxHash/issues/

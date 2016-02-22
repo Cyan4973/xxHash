@@ -1297,6 +1297,8 @@ int main(int argc, const char** argv)
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--quiet")) { quiet = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
+        if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
+        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE); return 0; }
 
         if (*argument!='-')
         {

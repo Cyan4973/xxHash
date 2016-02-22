@@ -33,7 +33,7 @@ OPTIONS
 * `-c`, `--check`:
   Read xxHash sums from the <FILE>s and check them
 
-* `-h`:
+* `-h`, `--help`:
   Display help and exit
 
 * `-H`<HASHTYPE>:
@@ -44,7 +44,7 @@ OPTIONS
   Set output hexadecimal checksum value as little endian convention.
   By default, value is displayed as big endian
 
-* `-V`:
+* `-V`, `--version`:
   Display xxhsum version
 
 **The following four options are useful only when verifying checksums (`-c`)**

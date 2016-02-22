@@ -33,7 +33,7 @@ LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 CFLAGS ?= -O3
 CFLAGS += -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -Wswitch-enum -Wundef -pedantic 
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
-XXHSUM_VERSION=0.5.1
+XXHSUM_VERSION=$(LIBVER)
 MD2ROFF  =ronn
 MD2ROFF_FLAGS  = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 

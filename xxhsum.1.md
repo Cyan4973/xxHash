@@ -14,9 +14,8 @@ standard input.
 
 `xxhsum` supports a command line syntax similar but not indentical to
 md5sum(1).  Differences are: `xxhsum` doesn't have text/binary mode switch
-(`-b`, `-t`);  `xxhsum` always treats file as binary file;  `xxhsum` doesn't
-have short option switch for warning (`-w`).  `xxhsum` has hash bit width
-switch (`-H`);
+(`-b`, `-t`);  `xxhsum` always treats file as binary file;  `xxhsum` has hash
+bit width switch (`-H`);
 
 Since xxHash is non-cryptographic checksum algorithm, `xxhsum` should not be
 used any more for security related purposes.
@@ -59,7 +58,7 @@ OPTIONS
 * `--status`:
   Don't output anything, status code shows success
 
-* `--warn`:
+* `-w`, `--warn`:
   Warn about improperly formatted checksum lines
 
 EXIT STATUS

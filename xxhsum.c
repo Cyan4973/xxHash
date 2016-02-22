@@ -1331,6 +1331,12 @@ int main(int argc, const char** argv)
                 argument++;
                 break;
 
+            /* Warning mode (file check mode only, alias of "--warning") */
+            case 'w':
+                warn=1;
+                argument++;
+                break;
+
             /* Trigger benchmark mode */
             case 'b':
                 argument++;

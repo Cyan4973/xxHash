@@ -1249,7 +1249,9 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
-    DISPLAY( "--little-endian : hash printed using little endian convention (default: big endian)\n");
+    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian)\n");
+    DISPLAY( " -V, --version   : display version\n");
+    DISPLAY( " -h, --help      : display long help and exit\n");
     DISPLAY( " -b  : benchmark mode \n");
     DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
     DISPLAY( "\n");

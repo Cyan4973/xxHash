@@ -4,7 +4,8 @@ xxhsum(1) -- print or check xxHash non-cryptographic checksums
 SYNOPSIS
 --------
 
-`xxhsum` [<OPTION>] ... [<FILE>] ...
+`xxhsum` [<OPTION>] ... [<FILE>] ...<br/>
+`xxhsum -b` [<OPTION>] ...
 
 DESCRIPTION
 -----------
@@ -20,15 +21,10 @@ bit width switch (`-H`);
 Since xxHash is non-cryptographic checksum algorithm, `xxhsum` should not be
 used any more for security related purposes.
 
+`xxhsum -b` invokes benchmark mode. See [OPTIONS](#OPTIONS) and [EXAMPLES](#EXAMPLES) for details.
+
 OPTIONS
 -------
-
-* `-b`:
-  Benchmark mode
-
-* `-B`<BLOCKSIZE>:
-  <BLOCKSIZE> specifies benchmark mode's test data block size in bytes.
-  Default value is 102400
 
 * `-c`, `--check`:
   Read xxHash sums from the <FILE>s and check them
@@ -61,6 +57,21 @@ OPTIONS
 * `-w`, `--warn`:
   Warn about improperly formatted checksum lines
 
+**The following options are useful only benchmark purpose**
+
+* `-b`:
+  Benchmark mode.  See [EXAMPLES](#EXAMPLES) for details.
+
+* `-B`<BLOCKSIZE>:
+  Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
+  <BLOCKSIZE> specifies benchmark mode's test data block size in bytes.
+  Default value is 102400
+
+* `-i`<ITERATIONS>:
+  Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
+  <ITERATIONS> specifies number of iterations in benchmark. Single iteration
+  takes at least 2500 milliseconds. Default value is 3
+
 EXIT STATUS
 -----------
 
@@ -84,6 +95,14 @@ Read xxHash sums from specific files and check them
 
     $ xxhsum -c xyz.xxh32 qux.xxh64
 
+Benchmark xxHash algorithm for 16384 bytes data in 10 times. `xxhsum`
+benchmarks xxHash algorithm for 32-bit and 64-bit and output results to
+standard output.  First column means algorithm, second column is source data
+size in bytes, last column means hash generation speed in mega-bytes per
+seconds.
+
+    $ xxhsum -b -i10 -B16384
+
 BUGS
 ----
 
@@ -93,3 +112,8 @@ AUTHOR
 ------
 
 Yann Collet
+
+SEE ALSO
+--------
+
+md5sum(1)

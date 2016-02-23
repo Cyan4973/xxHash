@@ -1249,7 +1249,9 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
-    DISPLAY( "--little-endian : hash printed using little endian convention (default: big endian)\n");
+    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian)\n");
+    DISPLAY( " -V, --version   : display version\n");
+    DISPLAY( " -h, --help      : display long help and exit\n");
     DISPLAY( " -b  : benchmark mode \n");
     DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
     DISPLAY( "\n");
@@ -1297,6 +1299,8 @@ int main(int argc, const char** argv)
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--quiet")) { quiet = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
+        if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
+        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE); return 0; }
 
         if (*argument!='-')
         {
@@ -1328,6 +1332,12 @@ int main(int argc, const char** argv)
             /* File check mode */
             case 'c':
                 fileCheckMode=1;
+                argument++;
+                break;
+
+            /* Warning mode (file check mode only, alias of "--warning") */
+            case 'w':
+                warn=1;
                 argument++;
                 break;
 

@@ -1,5 +1,5 @@
 .
-.TH "XXHSUM" "1" "February 2016" "xxhsum 0.5.1" "User Commands"
+.TH "XXHSUM" "1" "February 2016" "xxhsum 0.5.0" "User Commands"
 .
 .SH "NAME"
 \fBxxhsum\fR \- print or check xxHash non\-cryptographic checksums
@@ -11,7 +11,7 @@
 Print or check xxHash (32 or 64bit) checksums\. When \fIFILE\fR is \fB\-\fR, read standard input\.
 .
 .P
-\fBxxhsum\fR supports a command line syntax similar but not indentical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch (\fB\-b\fR, \fB\-t\fR); \fBxxhsum\fR always treats file as binary file; \fBxxhsum\fR doesn\'t have short option switch for warning (\fB\-w\fR)\. \fBxxhsum\fR has hash bit width switch (\fB\-H\fR);
+\fBxxhsum\fR supports a command line syntax similar but not indentical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch (\fB\-b\fR, \fB\-t\fR); \fBxxhsum\fR always treats file as binary file; \fBxxhsum\fR has hash bit width switch (\fB\-H\fR);
 .
 .P
 Since xxHash is non\-cryptographic checksum algorithm, \fBxxhsum\fR should not be used any more for security related purposes\.
@@ -31,7 +31,7 @@ Benchmark mode
 Read xxHash sums from the \fIFILE\fRs and check them
 .
 .TP
-\fB\-h\fR
+\fB\-h\fR, \fB\-\-help\fR
 Display help and exit
 .
 .TP
@@ -43,7 +43,7 @@ Hash selection\. \fIHASHTYPE\fR means \fB0\fR=32bits, \fB1\fR=64bits\. Default v
 Set output hexadecimal checksum value as little endian convention\. By default, value is displayed as big endian
 .
 .TP
-\fB\-V\fR
+\fB\-V\fR, \fB\-\-version\fR
 Display xxhsum version
 .
 .P
@@ -62,7 +62,7 @@ Don\'t print OK for each successfully verified file
 Don\'t output anything, status code shows success
 .
 .TP
-\fB\-\-warn\fR
+\fB\-w\fR, \fB\-\-warn\fR
 Warn about improperly formatted checksum lines
 .
 .SH "EXIT STATUS"

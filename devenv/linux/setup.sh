@@ -8,6 +8,19 @@ echo "-- begin : xxhash provisioning --"
 # https://www.debian.org/releases/stable/s390x/ch05s02.html.en
 export DEBIAN_FRONTEND=noninteractive
 
+# Add sources.list to select nearest mirror automatically.
+# This mirror selection speeds up apt-get process.
+if [ -f "/etc/apt/sources.list" ]
+then
+    sudo mv /etc/apt/sources.list /etc/apt/sources.list.d/
+fi
+
+sudo echo> /etc/apt/sources.list.d/0.list
+sudo echo 'deb mirror://mirrors.ubuntu.com/mirrors.txt precise main restricted universe multiverse' >> /etc/apt/sources.list.d/0.list
+sudo echo 'deb mirror://mirrors.ubuntu.com/mirrors.txt precise-updates main restricted universe multiverse' >> /etc/apt/sources.list.d/0.list
+sudo echo 'deb mirror://mirrors.ubuntu.com/mirrors.txt precise-backports main restricted universe multiverse' >> /etc/apt/sources.list.d/0.list
+sudo echo 'deb mirror://mirrors.ubuntu.com/mirrors.txt precise-security main restricted universe multiverse' >> /etc/apt/sources.list.d/0.list
+
 # Update package list and install packages
 # note: these commands are same as .travis.yml
 sudo apt-get update -qq

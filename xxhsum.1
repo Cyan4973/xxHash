@@ -1,0 +1,115 @@
+.
+.TH "XXHSUM" "1" "February 2016" "xxhsum 0.5.0" "User Commands"
+.
+.SH "NAME"
+\fBxxhsum\fR \- print or check xxHash non\-cryptographic checksums
+.
+.SH "SYNOPSIS"
+\fBxxhsum\fR [\fIOPTION\fR] \.\.\. [\fIFILE\fR] \.\.\.
+.
+.SH "DESCRIPTION"
+Print or check xxHash (32 or 64bit) checksums\. When \fIFILE\fR is \fB\-\fR, read standard input\.
+.
+.P
+\fBxxhsum\fR supports a command line syntax similar but not indentical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch (\fB\-b\fR, \fB\-t\fR); \fBxxhsum\fR always treats file as binary file; \fBxxhsum\fR has hash bit width switch (\fB\-H\fR);
+.
+.P
+Since xxHash is non\-cryptographic checksum algorithm, \fBxxhsum\fR should not be used any more for security related purposes\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-b\fR
+Benchmark mode
+.
+.TP
+\fB\-B\fR\fIBLOCKSIZE\fR
+\fIBLOCKSIZE\fR specifies benchmark mode\'s test data block size in bytes\. Default value is 102400
+.
+.TP
+\fB\-c\fR, \fB\-\-check\fR
+Read xxHash sums from the \fIFILE\fRs and check them
+.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display help and exit
+.
+.TP
+\fB\-H\fR\fIHASHTYPE\fR
+Hash selection\. \fIHASHTYPE\fR means \fB0\fR=32bits, \fB1\fR=64bits\. Default value is \fB1\fR (64bits)
+.
+.TP
+\fB\-\-little\-endian\fR
+Set output hexadecimal checksum value as little endian convention\. By default, value is displayed as big endian
+.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Display xxhsum version
+.
+.P
+\fBThe following four options are useful only when verifying checksums (\fB\-c\fR)\fR
+.
+.TP
+\fB\-\-quiet\fR
+Exit non\-zero for improperly formatted checksum lines
+.
+.TP
+\fB\-\-strict\fR
+Don\'t print OK for each successfully verified file
+.
+.TP
+\fB\-\-status\fR
+Don\'t output anything, status code shows success
+.
+.TP
+\fB\-w\fR, \fB\-\-warn\fR
+Warn about improperly formatted checksum lines
+.
+.SH "EXIT STATUS"
+\fBxxhsum\fR exit \fB0\fR on success, \fB1\fR if at least one file couldn\'t be read or doesn\'t have the same checksum as the \fB\-c\fR option\.
+.
+.SH "EXAMPLES"
+Output xxHash (64bit) checksum values of specific files to standard output
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum \-H1 foo bar baz
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Output xxHash (32bit and 64bit) checksum values of specific files to standard output, and redirect it to \fBxyz\.xxh32\fR and \fBqux\.xxh64\fR
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum \-H0 foo bar baz > xyz\.xxh32
+$ xxhsum \-H1 foo bar baz > qux\.xxh64
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Read xxHash sums from specific files and check them
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum \-c xyz\.xxh32 qux\.xxh64
+.
+.fi
+.
+.IP "" 0
+.
+.SH "BUGS"
+Report bugs at: https://github\.com/Cyan4973/xxHash/issues/
+.
+.SH "AUTHOR"
+Yann Collet

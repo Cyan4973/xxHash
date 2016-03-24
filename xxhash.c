@@ -76,13 +76,18 @@ You can contact the author at :
 #define XXH_FORCE_NATIVE_FORMAT 0
 #endif
 
-/*!XXH_USELESS_ALIGN_BRANCH :
+/*!XXH_FORCE_ALIGN_CHECK :
  * This is a minor performance trick, only useful with lots of very small keys.
- * It means : don't check for aligned/unaligned input, because performance will be the same.
- * It saves one initial branch per hash.
+ * It means : check for aligned/unaligned input.
+ * The check costs one initial branch per hash; set to 0 when the input data
+ * is guaranteed to be aligned.
  */
+#ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
 #if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-#  define XXH_USELESS_ALIGN_BRANCH 1
+#  define XXH_FORCE_ALIGN_CHECK 0
+#else
+#  define XXH_FORCE_ALIGN_CHECK 1
+#endif
 #endif
 
 
@@ -391,15 +396,16 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
-#  if !defined(XXH_USELESS_ALIGN_BRANCH)
-    if ((((size_t)input) & 3) == 0)   /* Input is 4-bytes aligned, leverage the speed benefit */
+    if (XXH_FORCE_ALIGN_CHECK)
     {
-        if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-            return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
-        else
-            return XXH32_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
+        if ((((size_t)input) & 3) == 0)   /* Input is 4-bytes aligned, leverage the speed benefit */
+        {
+            if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+                return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
+            else
+                return XXH32_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
+        }
     }
-#  endif
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
         return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);
@@ -531,15 +537,16 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
-#  if !defined(XXH_USELESS_ALIGN_BRANCH)
-    if ((((size_t)input) & 7)==0)   /* Input is aligned, let's leverage the speed advantage */
+    if (XXH_FORCE_ALIGN_CHECK)
     {
-        if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-            return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
-        else
-            return XXH64_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
+        if ((((size_t)input) & 7)==0)   /* Input is aligned, let's leverage the speed advantage */
+        {
+            if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+                return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
+            else
+                return XXH64_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
+        }
     }
-#  endif
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
         return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);

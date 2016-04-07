@@ -1,29 +1,29 @@
 /*
-xxhsum - Command line interface for xxhash algorithms
-Copyright (C) Yann Collet 2012-2016
-
-GPL v2 License
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-You can contact the author at :
-- xxHash homepage : http://www.xxhash.com
-- xxHash source repository : https://github.com/Cyan4973/xxHash
+*  xxhsum - Command line interface for xxhash algorithms
+*  Copyright (C) Yann Collet 2012-2016
+*
+*  GPL v2 License
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License along
+*  with this program; if not, write to the Free Software Foundation, Inc.,
+*  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+*
+*  You can contact the author at :
+*  - xxHash homepage : http://www.xxhash.com
+*  - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
-/* xxhsum
+/* xxhsum :
  * Provides hash value of a file content, or a list of files, or stdin
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
@@ -35,7 +35,6 @@ You can contact the author at :
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
 #  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
-#  define BMK_LEGACY_TIMER 1        /* gettimeofday() not supported by MSVC */
 #endif
 
 /* Under Linux at least, pull in the *64 commands */
@@ -52,6 +51,7 @@ You can contact the author at :
 #include <string.h>     /* strcmp */
 #include <sys/types.h>  /* stat64 */
 #include <sys/stat.h>   /* stat64 */
+#include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
 #if defined(XXHSUM_INCLUDE_XXHC)   /* for tests */
 #  define XXH_PRIVATE_API
@@ -61,7 +61,7 @@ You can contact the author at :
 #endif
 
 
-/* ************************************
+/*-************************************
 *  OS-Specific Includes
 **************************************/
 /*!Use ftime() if gettimeofday() is not available on your target */
@@ -121,7 +121,6 @@ static unsigned BMK_isLittleEndian(void)
 /* *************************************
 *  Constants
 ***************************************/
-#define PROGRAM_NAME exename
 #define LIB_VERSION XXH_VERSION_MAJOR.XXH_VERSION_MINOR.XXH_VERSION_RELEASE
 #define QUOTE(str) #str
 #define EXPAND_AND_QUOTE(str) QUOTE(str)
@@ -132,12 +131,13 @@ static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 #define COMPILED __DATE__
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE "%s %s (%i-bits %s), by %s (%s) \n", PROGRAM_NAME, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author, COMPILED
+#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s (%s) \n", exename, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author, COMPILED
 
-#define NBLOOPS    3           /* Default number of benchmark iterations */
-#define TIMELOOP   2500        /* Minimum timing per iteration */
-#define XXHSUM32_DEFAULT_SEED 0 /* Default seed for algo_xxh32 */
-#define XXHSUM64_DEFAULT_SEED 0 /* Default seed for algo_xxh64 */
+#define NBLOOPS    3                              /* Default number of benchmark iterations */
+#define TIMELOOP_S 1
+#define TIMELOOP  (TIMELOOP_S * CLOCKS_PER_SEC)   /* Minimum timing per iteration */
+#define XXHSUM32_DEFAULT_SEED 0                   /* Default seed for algo_xxh32 */
+#define XXHSUM64_DEFAULT_SEED 0                   /* Default seed for algo_xxh64 */
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)
@@ -163,54 +163,22 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
-static unsigned g_displayLevel = 1;
+static U32 g_displayLevel = 1;
 
 
 /* ************************************
 *  Local variables
 **************************************/
 static size_t g_sampleSize = 100 KB;
-static int g_nbIterations = NBLOOPS;
+static U32 g_nbIterations = NBLOOPS;
 
 
 /* ************************************
 *  Benchmark Functions
 **************************************/
-#if defined(BMK_LEGACY_TIMER)
-
-static int BMK_GetMilliStart(void)
+static clock_t BMK_clockSpan( clock_t start )
 {
-  /* Based on Legacy ftime()
-   * Rolls over every ~ 12.1 days (0x100000/24/60/60)
-   * Use GetMilliSpan to correct for rollover */
-  struct timeb tb;
-  int nCount;
-  ftime( &tb );
-  nCount = (int) (tb.millitm + (tb.time & 0xfffff) * 1000);
-  return nCount;
-}
-
-#else
-
-static int BMK_GetMilliStart(void)
-{
-  /* Based on newer gettimeofday()
-   * Use GetMilliSpan to correct for rollover */
-  struct timeval tv;
-  int nCount;
-  gettimeofday(&tv, NULL);
-  nCount = (int) (tv.tv_usec/1000 + (tv.tv_sec & 0xfffff) * 1000);
-  return nCount;
-}
-
-#endif
-
-static int BMK_GetMilliSpan( int nTimeStart )
-{
-    int nSpan = BMK_GetMilliStart() - nTimeStart;
-    if ( nSpan < 0 )
-        nSpan += 0x100000 * 1000;
-    return nSpan;
+    return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
 }
 
 
@@ -261,34 +229,33 @@ static void localXXH64(const void* buffer, size_t bufferSize) { XXH64(buffer, bu
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
-    static const int nbh_perloop = 100;
-    int iterationNb;
+    static const U32 nbh_perloop = 100;
+    U32 iterationNb;
     double fastestH = 100000000.;
 
     DISPLAY("\r%79s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
-        int nbHashes = 0;
-        int milliTime;
+        U32 nbHashes = 0;
+        clock_t cStart;
 
-        DISPLAY("%1i-%-17.17s : %10i ->\r", iterationNb, hName, (int)bufferSize);
+        DISPLAY("%1i-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
+        cStart = clock();
+        while (clock() == cStart);   /* starts clock() at its exact beginning */
+        cStart = clock();
 
-        /* Timing loop */
-        milliTime = BMK_GetMilliStart();
-        while(BMK_GetMilliStart() == milliTime);
-        milliTime = BMK_GetMilliStart();
-        while(BMK_GetMilliSpan(milliTime) < TIMELOOP) {
-            int i;
-            for (i=0; i<nbh_perloop; i++) {
+        while (BMK_clockSpan(cStart) < TIMELOOP) {
+            U32 i;
+            for (i=0; i<nbh_perloop; i++)
                 h(buffer, bufferSize);
-            }
             nbHashes += nbh_perloop;
         }
-        milliTime = BMK_GetMilliSpan(milliTime);
-        if ((double)milliTime < fastestH*nbHashes) fastestH = (double)milliTime/nbHashes;
-        DISPLAY("%1i-%-17.17s : %10i -> %7.1f MB/s\r", iterationNb, hName, (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+        {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbHashes;
+            if (timeS < fastestH) fastestH = timeS;
+            DISPLAY("%1i-%-17.17s : %10u -> %7.1f MB/s\r", iterationNb, hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH );
+        }
     }
-    DISPLAY("%-19.19s : %10i -> %7.1f MB/s  \n", hName, (int)bufferSize, (double)bufferSize / fastestH / 1000.);
+    DISPLAY("%-19.19s : %10u -> %7.1f MB/s  \n", hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH);
 }
 
 
@@ -1141,7 +1108,7 @@ static int checkFiles(const char** fnList, int fnTotal,
 
 static int usage(const char* exename)
 {
-    DISPLAY( WELCOME_MESSAGE );
+    DISPLAY( WELCOME_MESSAGE(exename) );
     DISPLAY( "Usage :\n");
     DISPLAY( "      %s [arg] [filenames]\n", exename);
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
@@ -1207,7 +1174,7 @@ int main(int argc, const char** argv)
         if (!strcmp(argument, "--quiet")) { quiet = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
-        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE); return 0; }
+        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); return 0; }
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
@@ -1222,7 +1189,7 @@ int main(int argc, const char** argv)
             {
             /* Display version */
             case 'V':
-                DISPLAY(WELCOME_MESSAGE); return 0;
+                DISPLAY(WELCOME_MESSAGE(exename)); return 0;
 
             /* Display help on usage */
             case 'h':
@@ -1274,7 +1241,7 @@ int main(int argc, const char** argv)
 
     /* Check benchmark mode */
     if (benchmarkMode) {
-        DISPLAY( WELCOME_MESSAGE );
+        DISPLAY( WELCOME_MESSAGE(exename) );
         BMK_sanityCheck();
         if (filenamesStart==0) return BMK_benchInternal();
         return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart);

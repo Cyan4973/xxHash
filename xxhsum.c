@@ -19,10 +19,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 You can contact the author at :
+- xxHash homepage : http://www.xxhash.com
 - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
-/*! xxhsum
+/* xxhsum
  * Provides hash value of a file content, or a list of files, or stdin
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
@@ -266,8 +267,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 
     DISPLAY("\r%79s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
-    for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++)
-    {
+    for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
         int nbHashes = 0;
         int milliTime;
 
@@ -277,11 +277,9 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         milliTime = BMK_GetMilliStart();
         while(BMK_GetMilliStart() == milliTime);
         milliTime = BMK_GetMilliStart();
-        while(BMK_GetMilliSpan(milliTime) < TIMELOOP)
-        {
+        while(BMK_GetMilliSpan(milliTime) < TIMELOOP) {
             int i;
-            for (i=0; i<nbh_perloop; i++)
-            {
+            for (i=0; i<nbh_perloop; i++) {
                 h(buffer, bufferSize);
             }
             nbHashes += nbh_perloop;
@@ -317,8 +315,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 {
     int fileIdx=0;
 
-    while (fileIdx<nbFiles)
-    {
+    while (fileIdx<nbFiles) {
         FILE*  inFile;
         const char* inFileName;
         U64    inFileSize;
@@ -330,8 +327,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         /* Check file existence */
         inFileName = fileNamesTable[fileIdx++];
         inFile = fopen( inFileName, "rb" );
-        if ((inFile==NULL) || (inFileName==NULL))
-        {
+        if ((inFile==NULL) || (inFileName==NULL)) {
             DISPLAY( "Pb opening %s\n", inFileName);
             return 11;
         }
@@ -340,14 +336,12 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         inFileSize = BMK_GetFileSize(inFileName);
         benchedSize = (size_t) BMK_findMaxMem(inFileSize);
         if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
-        if (benchedSize < inFileSize)
-        {
+        if (benchedSize < inFileSize) {
             DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", inFileName, (int)(benchedSize>>20));
         }
 
         buffer = (char*)malloc((size_t )benchedSize+16);
-        if(!buffer)
-        {
+        if(!buffer) {
             DISPLAY("\nError: not enough memory!\n");
             fclose(inFile);
             return 12;
@@ -359,8 +353,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         readSize = fread(alignedBuffer, 1, benchedSize, inFile);
         fclose(inFile);
 
-        if(readSize != benchedSize)
-        {
+        if(readSize != benchedSize) {
             DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
             free(buffer);
             return 13;
@@ -383,8 +376,7 @@ static int BMK_benchInternal(void)
     void*  buffer;
 
     buffer = malloc(benchedSize);
-    if(!buffer)
-    {
+    if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
     }
@@ -404,8 +396,7 @@ static void BMK_checkResult(U32 r1, U32 r2)
     static int nbTests = 1;
 
     if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
-    else
-    {
+    else {
         DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
@@ -417,8 +408,7 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 {
     static int nbTests = 1;
 
-    if (r1!=r2)
-    {
+    if (r1!=r2) {
         DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
         DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
         exit(1);
@@ -478,8 +468,7 @@ static void BMK_sanityCheck(void)
     U32 byteGen = prime;
 
 
-    for (i=0; i<SANITY_BUFFER_SIZE; i++)
-    {
+    for (i=0; i<SANITY_BUFFER_SIZE; i++) {
         sanityBuffer[i] = (BYTE)(byteGen>>24);
         byteGen *= byteGen;
     }
@@ -539,8 +528,7 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
 
     /* Load file & update hash */
     readSize = 1;
-    while (readSize)
-    {
+    while (readSize) {
         readSize = fread(buffer, 1, blockSize, inFile);
         switch(hashType)
         {
@@ -558,14 +546,12 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
     switch(hashType)
     {
     case algo_xxh32:
-        {
-            U32 h32 = XXH32_digest(state32);
+        {   U32 h32 = XXH32_digest(state32);
             memcpy(xxhHashValue, &h32, sizeof(h32));
             break;
         }
     case algo_xxh64:
-        {
-            U64 h64 = XXH64_digest(state64);
+        {   U64 h64 = XXH64_digest(state64);
             memcpy(xxhHashValue, &h64, sizeof(h64));
             break;
         }
@@ -588,31 +574,27 @@ static int BMK_hash(const char* fileName,
     U64    h64 = 0;
 
     /* Check file existence */
-    if (fileName == stdinName)
-    {
+    if (fileName == stdinName) {
         inFile = stdin;
         SET_BINARY_MODE(stdin);
     }
     else
         inFile = fopen( fileName, "rb" );
-    if (inFile==NULL)
-    {
+    if (inFile==NULL) {
         DISPLAY( "Pb opening %s\n", fileName);
         return 1;
     }
 
     /* Memory allocation & restrictions */
     buffer = malloc(blockSize);
-    if(!buffer)
-    {
+    if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         fclose(inFile);
         return 1;
     }
 
     /* loading notification */
-    {
-        const size_t fileNameSize = strlen(fileName);
+    {   const size_t fileNameSize = strlen(fileName);
         const char* const fileNameEnd = fileName + fileNameSize;
         const size_t maxInfoFilenameSize = fileNameSize > 30 ? 30 : fileNameSize;
         size_t infoFilenameSize = 1;
@@ -643,8 +625,7 @@ static int BMK_hash(const char* fileName,
     switch(hashType)
     {
     case algo_xxh32:
-        {
-            XXH32_canonical_t hcbe32;
+        {   XXH32_canonical_t hcbe32;
             XXH32_canonicalFromHash(&hcbe32, h32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
@@ -652,8 +633,7 @@ static int BMK_hash(const char* fileName,
             break;
         }
     case algo_xxh64:
-        {
-            XXH64_canonical_t hcbe64;
+        {   XXH64_canonical_t hcbe64;
             XXH64_canonicalFromHash(&hcbe64, h64);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
@@ -754,31 +734,24 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
     GetLineResult result = GetLine_ok;
     int len = 0;
 
-    if (*lineBuf == NULL || *lineMax < 1)
-    {
+    if (*lineBuf == NULL || *lineMax < 1) {
         *lineMax = DEFAULT_LINE_LENGTH;
         *lineBuf = (char*) realloc(*lineBuf, *lineMax);
         if(*lineBuf == NULL) return GetLine_outOfMemory;
     }
 
-    for (;;)
-    {
+    for (;;) {
         const int c = fgetc(inFile);
-        if (c == EOF)
-        {
+        if (c == EOF) {
             /* If we meet EOF before first character, returns GetLine_eof,
              * otherwise GetLine_ok.
              */
-            if (len == 0)
-            {
-                result = GetLine_eof;
-            }
+            if (len == 0) result = GetLine_eof;
             break;
         }
 
         /* Make enough space for len+1 (for final NUL) bytes. */
-        if (len+1 >= *lineMax)
-        {
+        if (len+1 >= *lineMax) {
             char* newLineBuf = NULL;
             int newBufSize = *lineMax;
 
@@ -793,10 +766,7 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
             *lineMax = newBufSize;
         }
 
-        if (c == '\n')
-        {
-            break;
-        }
+        if (c == '\n') break;
         (*lineBuf)[len++] = (char) c;
     }
 
@@ -827,25 +797,18 @@ static int charToHex(char c)
  *  Returns CANONICAL_FROM_STRING_OK, if hashStr is parsed successfully.
  */
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
-                                                     size_t dstSize, 
+                                                     size_t dstSize,
                                                      const char* hashStr)
 {
     size_t i;
-    for (i = 0; i < dstSize; ++i)
-    {
+    for (i = 0; i < dstSize; ++i) {
         int h0, h1;
 
         h0 = charToHex(hashStr[i*2 + 0]);
-        if (h0 < 0)
-        {
-            return CanonicalFromString_invalidFormat;
-        }
+        if (h0 < 0) return CanonicalFromString_invalidFormat;
 
         h1 = charToHex(hashStr[i*2 + 1]);
-        if (h1 < 0)
-        {
-            return CanonicalFromString_invalidFormat;
-        }
+        if (h1 < 0) return CanonicalFromString_invalidFormat;
 
         dst[i] = (unsigned char) ((h0 << 4) | h1);
     }
@@ -874,19 +837,14 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
     parsedLine->filename = NULL;
     parsedLine->xxhBits = 0;
 
-    if (firstSpace == NULL || *secondSpace != ' ')
-    {
-        return ParseLine_invalidFormat;
-    }
+    if (firstSpace == NULL || *secondSpace != ' ') return ParseLine_invalidFormat;
 
     switch (firstSpace - line)
     {
     case 8:
-        {
-            XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
+        {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
             if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
-                != CanonicalFromString_ok)
-            {
+                != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
             parsedLine->xxhBits = 32;
@@ -894,11 +852,9 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
         }
 
     case 16:
-        {
-            XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
+        {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
             if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
-                != CanonicalFromString_ok)
-            {
+                != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
             parsedLine->xxhBits = 64;
@@ -925,8 +881,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
     unsigned long lineNumber = 0;
     memset(report, 0, sizeof(*report));
 
-    while (!report->quit)
-    {
+    while (!report->quit) {
         FILE* fp = NULL;
         LineStatus lineStatus = LineStatus_hashFailed;
         GetLineResult getLineResult;
@@ -934,8 +889,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
         memset(&parsedLine, 0, sizeof(parsedLine));
 
         lineNumber++;
-        if (lineNumber == 0)
-        {
+        if (lineNumber == 0) {
             /* This is unlikely happen, but md5sum.c has this
              * error check. */
             DISPLAY("%s : too many checksum lines\n", inFileName);
@@ -945,12 +899,8 @@ static void parseFile1(ParseFileArg* parseFileArg)
 
         getLineResult = getLine(&parseFileArg->lineBuf, &parseFileArg->lineMax,
                                 parseFileArg->inFile);
-        if (getLineResult != GetLine_ok)
-        {
-            if (getLineResult == GetLine_eof)
-            {
-                break;
-            }
+        if (getLineResult != GetLine_ok) {
+            if (getLineResult == GetLine_eof) break;
 
             switch (getLineResult)
             {
@@ -976,24 +926,20 @@ static void parseFile1(ParseFileArg* parseFileArg)
             break;
         }
 
-        if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok)
-        {
+        if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
-            if (parseFileArg->warn)
-            {
+            if (parseFileArg->warn) {
                 DISPLAY("%s : %lu: improperly formatted XXHASH checksum line\n"
                     , inFileName, lineNumber);
             }
             continue;
         }
 
-        if (report->xxhBits != 0 && report->xxhBits != parsedLine.xxhBits)
-        {
+        if (report->xxhBits != 0 && report->xxhBits != parsedLine.xxhBits) {
             /* Don't accept xxh32/xxh64 mixed file */
             report->nImproperlyFormattedLines++;
             report->nMixedFormatLines++;
-            if (parseFileArg->warn)
-            {
+            if (parseFileArg->warn) {
                 DISPLAY("%s : %lu: improperly formatted XXHASH checksum line (XXH32/64)\n"
                     , inFileName, lineNumber);
             }
@@ -1001,14 +947,12 @@ static void parseFile1(ParseFileArg* parseFileArg)
         }
 
         report->nProperlyFormattedLines++;
-        if (report->xxhBits == 0)
-        {
+        if (report->xxhBits == 0) {
             report->xxhBits = parsedLine.xxhBits;
         }
 
         fp = fopen(parsedLine.filename, "rb");
-        if (fp == NULL)
-        {
+        if (fp == NULL) {
             lineStatus = LineStatus_failedToOpen;
         }
         else
@@ -1017,25 +961,19 @@ static void parseFile1(ParseFileArg* parseFileArg)
             switch (parsedLine.xxhBits)
             {
             case 32:
-                {
-                    XXH32_hash_t xxh;
+                {   XXH32_hash_t xxh;
                     BMK_hashStream(&xxh, algo_xxh32, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
-                    if (xxh == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32))
-                    {
+                    if (xxh == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
                         lineStatus = LineStatus_hashOk;
-                    }
-                }
+                }   }
                 break;
 
             case 64:
-                {
-                    XXH64_hash_t xxh;
+                {   XXH64_hash_t xxh;
                     BMK_hashStream(&xxh, algo_xxh64, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
-                    if (xxh == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64))
-                    {
+                    if (xxh == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
                         lineStatus = LineStatus_hashOk;
-                    }
-                }
+                }   }
                 break;
 
             default:
@@ -1053,8 +991,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
 
         case LineStatus_failedToOpen:
             report->nOpenOrReadFailures++;
-            if (!parseFileArg->statusOnly)
-            {
+            if (!parseFileArg->statusOnly) {
                 DISPLAYRESULT("%s : %lu: FAILED open or read %s\n"
                     , inFileName, lineNumber, parsedLine.filename);
             }
@@ -1062,27 +999,18 @@ static void parseFile1(ParseFileArg* parseFileArg)
 
         case LineStatus_hashOk:
         case LineStatus_hashFailed:
-            {
-                int b = 1;
-                if (lineStatus == LineStatus_hashOk)
-                {
+            {   int b = 1;
+                if (lineStatus == LineStatus_hashOk) {
                     /* If --quiet is specified, don't display "OK" */
-                    if (parseFileArg->quiet)
-                    {
-                        b = 0;
-                    }
-                }
-                else
-                {
+                    if (parseFileArg->quiet) b = 0;
+                } else {
                     report->nMismatchedChecksums++;
                 }
 
-                if (b && !parseFileArg->statusOnly)
-                {
+                if (b && !parseFileArg->statusOnly) {
                     DISPLAYRESULT("%s: %s\n", parsedLine.filename
                         , lineStatus == LineStatus_hashOk ? "OK" : "FAILED");
-                }
-            }
+            }   }
             break;
         }
     }
@@ -1118,27 +1046,22 @@ static int checkFile(const char* inFileName,
     ParseFileArg* const parseFileArg = &parseFileArgBody;
     ParseFileReport* const report = &parseFileArg->report;
 
-    if (displayEndianess != big_endian)
-    {
+    if (displayEndianess != big_endian) {
         /* Don't accept little endian */
         DISPLAY( "Check file mode doesn't support little endian\n" );
         return 0;
     }
 
     /* note : stdinName is special constant pointer.  It is not a string. */
-    if (inFileName == stdinName)
-    {
+    if (inFileName == stdinName) {
         /* note : Since we expect text input for xxhash -c mode,
          * Don't set binary mode for stdin */
         inFile = stdin;
-    }
-    else
-    {
+    } else {
         inFile = fopen( inFileName, "rt" );
     }
 
-    if (inFile == NULL)
-    {
+    if (inFile == NULL) {
         DISPLAY( "Pb opening %s\n", inFileName);
         return 0;
     }
@@ -1159,37 +1082,25 @@ static int checkFile(const char* inFileName,
     free(parseFileArg->blockBuf);
     free(parseFileArg->lineBuf);
 
-    if (inFile != stdin)
-    {
-        fclose(inFile);
-    }
+    if (inFile != stdin) fclose(inFile);
 
     /* Show error/warning messages.  All messages are copied from md5sum.c
      */
-    if (report->nProperlyFormattedLines == 0)
-    {
+    if (report->nProperlyFormattedLines == 0) {
         DISPLAY("%s: no properly formatted XXHASH checksum lines found\n", inFileName);
-    }
-    else if (!statusOnly)
-    {
-        if (report->nImproperlyFormattedLines)
-        {
+    } else if (!statusOnly) {
+        if (report->nImproperlyFormattedLines) {
             DISPLAYRESULT("%lu lines are improperly formatted\n"
                 , report->nImproperlyFormattedLines);
         }
-
-        if (report->nOpenOrReadFailures)
-        {
+        if (report->nOpenOrReadFailures) {
             DISPLAYRESULT("%lu listed files could not be read\n"
                 , report->nOpenOrReadFailures);
         }
-
-        if (report->nMismatchedChecksums)
-        {
+        if (report->nMismatchedChecksums) {
             DISPLAYRESULT("%lu computed checksums did NOT match\n"
                 , report->nMismatchedChecksums);
-        }
-    }
+    }   }
 
     /* Result (exit) code logic is copied from
      * gnu coreutils/src/md5sum.c digest_check() */
@@ -1213,12 +1124,9 @@ static int checkFiles(const char** fnList, int fnTotal,
 
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
-    if (fnTotal==0)
-    {
+    if (fnTotal==0) {
         ok &= checkFile(stdinName, displayEndianess, strictMode, statusOnly, warn, quiet);
-    }
-    else
-    {
+    } else {
         int fnNb;
         for (fnNb=0; fnNb<fnTotal; fnNb++)
             ok &= checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, warn, quiet);
@@ -1285,8 +1193,7 @@ int main(int argc, const char** argv)
     /* special case : xxh32sum default to 32 bits checksum */
     if (strstr(exename, "xxh32sum") != NULL) algo = algo_xxh32;
 
-    for(i=1; i<argc; i++)
-    {
+    for(i=1; i<argc; i++) {
         const char* argument = argv[i];
 
         if(!argument) continue;   /* Protection, if argument empty */
@@ -1298,8 +1205,7 @@ int main(int argc, const char** argv)
         if (!strcmp(argument, "--quiet")) { quiet = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
 
-        if (*argument!='-')
-        {
+        if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
             continue;
         }
@@ -1307,8 +1213,7 @@ int main(int argc, const char** argv)
         /* command selection */
         argument++;   /* note : *argument=='-' */
 
-        while (*argument!=0)
-        {
+        while (*argument!=0) {
             switch(*argument)
             {
             /* Display version */
@@ -1355,11 +1260,10 @@ int main(int argc, const char** argv)
                 return badusage(exename);
             }
         }
-    }
+    }   /* for(i=1; i<argc; i++) */
 
     /* Check benchmark mode */
-    if (benchmarkMode)
-    {
+    if (benchmarkMode) {
         DISPLAY( WELCOME_MESSAGE );
         BMK_sanityCheck();
         if (filenamesStart==0) return BMK_benchInternal();
@@ -1370,12 +1274,9 @@ int main(int argc, const char** argv)
     if ( (filenamesStart==0) && IS_CONSOLE(stdin) ) return badusage(exename);
 
     if (filenamesStart==0) filenamesStart = argc;
-    if (fileCheckMode)
-    {
+    if (fileCheckMode) {
         return checkFiles(argv+filenamesStart, argc-filenamesStart, displayEndianess, strictMode, statusOnly, warn, quiet);
-    }
-    else
-    {
+    } else {
         return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
     }
 }

@@ -4,7 +4,8 @@ xxhsum(1) -- print or check xxHash non-cryptographic checksums
 SYNOPSIS
 --------
 
-`xxhsum` [<OPTION>] ... [<FILE>] ...
+`xxhsum` [<OPTION>] ... [<FILE>] ...<br/>
+`xxhsum -b` [<OPTION>] ...
 
 DESCRIPTION
 -----------
@@ -14,27 +15,21 @@ standard input.
 
 `xxhsum` supports a command line syntax similar but not indentical to
 md5sum(1).  Differences are: `xxhsum` doesn't have text/binary mode switch
-(`-b`, `-t`);  `xxhsum` always treats file as binary file;  `xxhsum` doesn't
-have short option switch for warning (`-w`).  `xxhsum` has hash bit width
-switch (`-H`);
+(`-b`, `-t`);  `xxhsum` always treats file as binary file;  `xxhsum` has hash
+bit width switch (`-H`);
 
 Since xxHash is non-cryptographic checksum algorithm, `xxhsum` should not be
 used any more for security related purposes.
 
+`xxhsum -b` invokes benchmark mode. See [OPTIONS](#OPTIONS) and [EXAMPLES](#EXAMPLES) for details.
+
 OPTIONS
 -------
-
-* `-b`:
-  Benchmark mode
-
-* `-B`<BLOCKSIZE>:
-  <BLOCKSIZE> specifies benchmark mode's test data block size in bytes.
-  Default value is 102400
 
 * `-c`, `--check`:
   Read xxHash sums from the <FILE>s and check them
 
-* `-h`:
+* `-h`, `--help`:
   Display help and exit
 
 * `-H`<HASHTYPE>:
@@ -45,7 +40,7 @@ OPTIONS
   Set output hexadecimal checksum value as little endian convention.
   By default, value is displayed as big endian
 
-* `-V`:
+* `-V`, `--version`:
   Display xxhsum version
 
 **The following four options are useful only when verifying checksums (`-c`)**
@@ -59,8 +54,23 @@ OPTIONS
 * `--status`:
   Don't output anything, status code shows success
 
-* `--warn`:
+* `-w`, `--warn`:
   Warn about improperly formatted checksum lines
+
+**The following options are useful only benchmark purpose**
+
+* `-b`:
+  Benchmark mode.  See [EXAMPLES](#EXAMPLES) for details.
+
+* `-B`<BLOCKSIZE>:
+  Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
+  <BLOCKSIZE> specifies benchmark mode's test data block size in bytes.
+  Default value is 102400
+
+* `-i`<ITERATIONS>:
+  Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
+  <ITERATIONS> specifies number of iterations in benchmark. Single iteration
+  takes at least 2500 milliseconds. Default value is 3
 
 EXIT STATUS
 -----------
@@ -85,6 +95,14 @@ Read xxHash sums from specific files and check them
 
     $ xxhsum -c xyz.xxh32 qux.xxh64
 
+Benchmark xxHash algorithm for 16384 bytes data in 10 times. `xxhsum`
+benchmarks xxHash algorithm for 32-bit and 64-bit and output results to
+standard output.  First column means algorithm, second column is source data
+size in bytes, last column means hash generation speed in mega-bytes per
+seconds.
+
+    $ xxhsum -b -i10 -B16384
+
 BUGS
 ----
 
@@ -94,3 +112,8 @@ AUTHOR
 ------
 
 Yann Collet
+
+SEE ALSO
+--------
+
+md5sum(1)

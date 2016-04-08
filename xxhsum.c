@@ -429,12 +429,11 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
 #define SANITY_BUFFER_SIZE 101
 static void BMK_sanityCheck(void)
 {
-    BYTE sanityBuffer[SANITY_BUFFER_SIZE];
-    int i;
     static const U32 prime = 2654435761U;
+    BYTE sanityBuffer[SANITY_BUFFER_SIZE];
     U32 byteGen = prime;
 
-
+    int i;
     for (i=0; i<SANITY_BUFFER_SIZE; i++) {
         sanityBuffer[i] = (BYTE)(byteGen>>24);
         byteGen *= byteGen;

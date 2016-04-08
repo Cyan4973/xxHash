@@ -1,41 +1,42 @@
 /*
-xxHash - Fast Hash algorithm
-Copyright (C) 2012-2016, Yann Collet
-
-BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-* Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-* Redistributions in binary form must reproduce the above
-copyright notice, this list of conditions and the following disclaimer
-in the documentation and/or other materials provided with the
-distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-You can contact the author at :
-- xxHash source repository : https://github.com/Cyan4973/xxHash
+*  xxHash - Fast Hash algorithm
+*  Copyright (C) 2012-2016, Yann Collet
+*
+*  BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
+*
+*  Redistribution and use in source and binary forms, with or without
+*  modification, are permitted provided that the following conditions are
+*  met:
+*
+*  * Redistributions of source code must retain the above copyright
+*  notice, this list of conditions and the following disclaimer.
+*  * Redistributions in binary form must reproduce the above
+*  copyright notice, this list of conditions and the following disclaimer
+*  in the documentation and/or other materials provided with the
+*  distribution.
+*
+*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+*  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+*  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+*  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+*  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+*  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+*  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+*  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+*  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+*  You can contact the author at :
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
 
 /* *************************************
 *  Tuning parameters
 ***************************************/
-/*!XXH_FORCE_MEMORY_ACCESS
+/*!XXH_FORCE_MEMORY_ACCESS :
  * By default, access to unaligned memory is controlled by `memcpy()`, which is safe and portable.
  * Unfortunately, on some target/compiler combinations, the generated assembly is sub-optimal.
  * The below switch allow to select different access method for improved performance.
@@ -323,16 +324,14 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
     }
 #endif
 
-    if (len>=16)
-    {
+    if (len>=16) {
         const BYTE* const limit = bEnd - 16;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
         U32 v2 = seed + PRIME32_2;
         U32 v3 = seed + 0;
         U32 v4 = seed - PRIME32_1;
 
-        do
-        {
+        do {
             v1 += XXH_get32bits(p) * PRIME32_2;
             v1 = XXH_rotl32(v1, 13);
             v1 *= PRIME32_1;
@@ -353,23 +352,19 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
         while (p<=limit);
 
         h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
-    }
-    else
-    {
+    } else {
         h32  = seed + PRIME32_5;
     }
 
     h32 += (U32) len;
 
-    while (p+4<=bEnd)
-    {
+    while (p+4<=bEnd) {
         h32 += XXH_get32bits(p) * PRIME32_3;
         h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
         p+=4;
     }
 
-    while (p<bEnd)
-    {
+    while (p<bEnd) {
         h32 += (*p) * PRIME32_5;
         h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
         p++;
@@ -396,16 +391,13 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
-    if (XXH_FORCE_ALIGN_CHECK)
-    {
-        if ((((size_t)input) & 3) == 0)   /* Input is 4-bytes aligned, leverage the speed benefit */
-        {
+    if (XXH_FORCE_ALIGN_CHECK) {
+        if ((((size_t)input) & 3) == 0) {   /* Input is 4-bytes aligned, leverage the speed benefit */
             if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
                 return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
             else
                 return XXH32_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
-        }
-    }
+    }   }
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
         return XXH32_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);
@@ -422,23 +414,20 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
 #define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
 
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (p==NULL)
-    {
+    if (p==NULL) {
         len=0;
         bEnd=p=(const BYTE*)(size_t)32;
     }
 #endif
 
-    if (len>=32)
-    {
+    if (len>=32) {
         const BYTE* const limit = bEnd - 32;
         U64 v1 = seed + PRIME64_1 + PRIME64_2;
         U64 v2 = seed + PRIME64_2;
         U64 v3 = seed + 0;
         U64 v4 = seed - PRIME64_1;
 
-        do
-        {
+        do {
             v1 += XXH_get64bits(p) * PRIME64_2;
             p+=8;
             v1 = XXH_rotl64(v1, 31);
@@ -455,8 +444,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
             p+=8;
             v4 = XXH_rotl64(v4, 31);
             v4 *= PRIME64_1;
-        }
-        while (p<=limit);
+        } while (p<=limit);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
 
@@ -483,16 +471,13 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
         v4 *= PRIME64_1;
         h64 ^= v4;
         h64 = h64 * PRIME64_1 + PRIME64_4;
-    }
-    else
-    {
+    } else {
         h64  = seed + PRIME64_5;
     }
 
     h64 += (U64) len;
 
-    while (p+8<=bEnd)
-    {
+    while (p+8<=bEnd) {
         U64 k1 = XXH_get64bits(p);
         k1 *= PRIME64_2;
         k1 = XXH_rotl64(k1,31);
@@ -502,15 +487,13 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
         p+=8;
     }
 
-    if (p+4<=bEnd)
-    {
+    if (p+4<=bEnd) {
         h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1;
         h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
         p+=4;
     }
 
-    while (p<bEnd)
-    {
+    while (p<bEnd) {
         h64 ^= (*p) * PRIME64_5;
         h64 = XXH_rotl64(h64, 11) * PRIME64_1;
         p++;
@@ -537,16 +520,13 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
-    if (XXH_FORCE_ALIGN_CHECK)
-    {
-        if ((((size_t)input) & 7)==0)   /* Input is aligned, let's leverage the speed advantage */
-        {
+    if (XXH_FORCE_ALIGN_CHECK) {
+        if ((((size_t)input) & 7)==0) {  /* Input is aligned, let's leverage the speed advantage */
             if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
                 return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
             else
                 return XXH64_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
-        }
-    }
+    }   }
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
         return XXH64_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);
@@ -649,18 +629,15 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
 
     state->total_len += len;
 
-    if (state->memsize + len < 16)   /* fill in tmp buffer */
-    {
+    if (state->memsize + len < 16)  {   /* fill in tmp buffer */
         XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, len);
         state->memsize += (U32)len;
         return XXH_OK;
     }
 
-    if (state->memsize)   /* some data left from previous update */
-    {
+    if (state->memsize) {   /* some data left from previous update */
         XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, 16-state->memsize);
-        {
-            const U32* p32 = state->mem32;
+        {   const U32* p32 = state->mem32;
             state->v1 += XXH_readLE32(p32, endian) * PRIME32_2;
             state->v1 = XXH_rotl32(state->v1, 13);
             state->v1 *= PRIME32_1;
@@ -682,16 +659,14 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
         state->memsize = 0;
     }
 
-    if (p <= bEnd-16)
-    {
+    if (p <= bEnd-16) {
         const BYTE* const limit = bEnd - 16;
         U32 v1 = state->v1;
         U32 v2 = state->v2;
         U32 v3 = state->v3;
         U32 v4 = state->v4;
 
-        do
-        {
+        do {
             v1 += XXH_readLE32(p, endian) * PRIME32_2;
             v1 = XXH_rotl32(v1, 13);
             v1 *= PRIME32_1;
@@ -708,8 +683,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
             v4 = XXH_rotl32(v4, 13);
             v4 *= PRIME32_1;
             p+=4;
-        }
-        while (p<=limit);
+        } while (p<=limit);
 
         state->v1 = v1;
         state->v2 = v2;
@@ -717,8 +691,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
         state->v4 = v4;
     }
 
-    if (p < bEnd)
-    {
+    if (p < bEnd) {
         XXH_memcpy(state->mem32, p, bEnd-p);
         state->memsize = (int)(bEnd-p);
     }
@@ -744,26 +717,21 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess 
     const BYTE* bEnd = (const BYTE*)(state->mem32) + state->memsize;
     U32 h32;
 
-    if (state->total_len >= 16)
-    {
+    if (state->total_len >= 16) {
         h32 = XXH_rotl32(state->v1, 1) + XXH_rotl32(state->v2, 7) + XXH_rotl32(state->v3, 12) + XXH_rotl32(state->v4, 18);
-    }
-    else
-    {
+    } else {
         h32  = state->seed + PRIME32_5;
     }
 
     h32 += (U32) state->total_len;
 
-    while (p+4<=bEnd)
-    {
+    while (p+4<=bEnd) {
         h32 += XXH_readLE32(p, endian) * PRIME32_3;
         h32  = XXH_rotl32(h32, 17) * PRIME32_4;
         p+=4;
     }
 
-    while (p<bEnd)
-    {
+    while (p<bEnd) {
         h32 += (*p) * PRIME32_5;
         h32 = XXH_rotl32(h32, 11) * PRIME32_1;
         p++;
@@ -804,18 +772,15 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
 
     state->total_len += len;
 
-    if (state->memsize + len < 32)   /* fill in tmp buffer */
-    {
+    if (state->memsize + len < 32) {  /* fill in tmp buffer */
         XXH_memcpy(((BYTE*)state->mem64) + state->memsize, input, len);
         state->memsize += (U32)len;
         return XXH_OK;
     }
 
-    if (state->memsize)   /* some data left from previous update */
-    {
+    if (state->memsize) {   /* some data left from previous update */
         XXH_memcpy(((BYTE*)state->mem64) + state->memsize, input, 32-state->memsize);
-        {
-            const U64* p64 = state->mem64;
+        {   const U64* p64 = state->mem64;
             state->v1 += XXH_readLE64(p64, endian) * PRIME64_2;
             state->v1 = XXH_rotl64(state->v1, 31);
             state->v1 *= PRIME64_1;
@@ -837,16 +802,14 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
         state->memsize = 0;
     }
 
-    if (p+32 <= bEnd)
-    {
+    if (p+32 <= bEnd) {
         const BYTE* const limit = bEnd - 32;
         U64 v1 = state->v1;
         U64 v2 = state->v2;
         U64 v3 = state->v3;
         U64 v4 = state->v4;
 
-        do
-        {
+        do {
             v1 += XXH_readLE64(p, endian) * PRIME64_2;
             v1 = XXH_rotl64(v1, 31);
             v1 *= PRIME64_1;
@@ -863,8 +826,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
             v4 = XXH_rotl64(v4, 31);
             v4 *= PRIME64_1;
             p+=8;
-        }
-        while (p<=limit);
+        } while (p<=limit);
 
         state->v1 = v1;
         state->v2 = v2;
@@ -872,8 +834,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
         state->v4 = v4;
     }
 
-    if (p < bEnd)
-    {
+    if (p < bEnd) {
         XXH_memcpy(state->mem64, p, bEnd-p);
         state->memsize = (int)(bEnd-p);
     }
@@ -899,8 +860,7 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
     const BYTE* bEnd = (const BYTE*)state->mem64 + state->memsize;
     U64 h64;
 
-    if (state->total_len >= 32)
-    {
+    if (state->total_len >= 32) {
         U64 v1 = state->v1;
         U64 v2 = state->v2;
         U64 v3 = state->v3;
@@ -931,16 +891,13 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
         v4 *= PRIME64_1;
         h64 ^= v4;
         h64 = h64*PRIME64_1 + PRIME64_4;
-    }
-    else
-    {
+    } else {
         h64  = state->seed + PRIME64_5;
     }
 
     h64 += (U64) state->total_len;
 
-    while (p+8<=bEnd)
-    {
+    while (p+8<=bEnd) {
         U64 k1 = XXH_readLE64(p, endian);
         k1 *= PRIME64_2;
         k1 = XXH_rotl64(k1,31);
@@ -950,15 +907,13 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
         p+=8;
     }
 
-    if (p+4<=bEnd)
-    {
+    if (p+4<=bEnd) {
         h64 ^= (U64)(XXH_readLE32(p, endian)) * PRIME64_1;
         h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
         p+=4;
     }
 
-    while (p<bEnd)
-    {
+    while (p<bEnd) {
         h64 ^= (*p) * PRIME64_5;
         h64 = XXH_rotl64(h64, 11) * PRIME64_1;
         p++;

@@ -73,7 +73,7 @@
  * to improve speed for Big-endian CPU.
  * This option has no impact on Little_Endian CPU.
  */
-#ifndef XXH_FORCE_NATIVE_FORMAT /* can be defined externally */
+#ifndef XXH_FORCE_NATIVE_FORMAT   /* can be defined externally */
 #define XXH_FORCE_NATIVE_FORMAT 0
 #endif
 
@@ -93,6 +93,21 @@
 
 
 /* *************************************
+*  Includes & Memory related functions
+***************************************/
+/* Modify the local functions below should you wish to use some other memory routines */
+/* for malloc(), free() */
+#include <stdlib.h>
+static void* XXH_malloc(size_t s) { return malloc(s); }
+static void  XXH_free  (void* p)  { free(p); }
+/* for memcpy() */
+#include <string.h>
+static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
+
+#include "xxhash.h"
+
+
+/* *************************************
 *  Compiler Specific Options
 ***************************************/
 #ifdef _MSC_VER    /* Visual Studio */
@@ -109,21 +124,6 @@
 #    define FORCE_INLINE static
 #  endif /* __STDC_VERSION__ */
 #endif
-
-
-/* *************************************
-*  Includes & Memory related functions
-***************************************/
-/* Modify the local functions below should you wish to use some other memory routines */
-/* for malloc(), free() */
-#include <stdlib.h>
-static void* XXH_malloc(size_t s) { return malloc(s); }
-static void  XXH_free  (void* p)  { free(p); }
-/* for memcpy() */
-#include <string.h>
-static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
-
-#include "xxhash.h"
 
 
 /* *************************************
@@ -403,18 +403,26 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 }
 
 
-static U64 XXH64_round(U64 seed, U64 input)
+static U64 XXH64_round(U64 acc, U64 input)
 {
-    seed += input * PRIME64_2;
-    seed  = XXH_rotl64(seed, 31);
-    seed *= PRIME64_1;
-    return seed;
+    acc += input * PRIME64_2;
+    acc  = XXH_rotl64(acc, 31);
+    acc *= PRIME64_1;
+    return acc;
+}
+
+static U64 XXH64_mergeRound(U64 acc, U64 val)
+{
+    val  = XXH64_round(0, val);
+    acc ^= val;
+    acc  = acc * PRIME64_1 + PRIME64_4;
+    return acc;
 }
 
 FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
-    const BYTE* bEnd = p + len;
+    const BYTE* const bEnd = p + len;
     U64 h64;
 #define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
 
@@ -440,30 +448,11 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
         } while (p<=limit);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
+        h64 = XXH64_mergeRound(h64, v1);
+        h64 = XXH64_mergeRound(h64, v2);
+        h64 = XXH64_mergeRound(h64, v3);
+        h64 = XXH64_mergeRound(h64, v4);
 
-        v1 *= PRIME64_2;
-        v1  = XXH_rotl64(v1, 31);
-        v1 *= PRIME64_1;
-        h64 ^= v1;
-        h64  = h64 * PRIME64_1 + PRIME64_4;
-
-        v2 *= PRIME64_2;
-        v2  = XXH_rotl64(v2, 31);
-        v2 *= PRIME64_1;
-        h64 ^= v2;
-        h64  = h64 * PRIME64_1 + PRIME64_4;
-
-        v3 *= PRIME64_2;
-        v3  = XXH_rotl64(v3, 31);
-        v3 *= PRIME64_1;
-        h64 ^= v3;
-        h64  = h64 * PRIME64_1 + PRIME64_4;
-
-        v4 *= PRIME64_2;
-        v4  = XXH_rotl64(v4, 31);
-        v4 *= PRIME64_1;
-        h64 ^= v4;
-        h64  = h64 * PRIME64_1 + PRIME64_4;
     } else {
         h64  = seed + PRIME64_5;
     }
@@ -471,10 +460,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
     h64 += (U64) len;
 
     while (p+8<=bEnd) {
-        U64 k1 = XXH_get64bits(p);
-        k1 *= PRIME64_2;
-        k1  = XXH_rotl64(k1,31);
-        k1 *= PRIME64_1;
+        U64 const k1 = XXH64_round(0, XXH_get64bits(p));
         h64 ^= k1;
         h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
         p+=8;
@@ -527,6 +513,7 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
         return XXH64_endian_align(input, len, seed, XXH_bigEndian, XXH_unaligned);
 #endif
 }
+
 
 /* **************************************************
 *  Advanced Hash Functions
@@ -812,30 +799,10 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
         U64 v4 = state->v4;
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
-
-        v1 *= PRIME64_2;
-        v1 = XXH_rotl64(v1, 31);
-        v1 *= PRIME64_1;
-        h64 ^= v1;
-        h64 = h64*PRIME64_1 + PRIME64_4;
-
-        v2 *= PRIME64_2;
-        v2 = XXH_rotl64(v2, 31);
-        v2 *= PRIME64_1;
-        h64 ^= v2;
-        h64 = h64*PRIME64_1 + PRIME64_4;
-
-        v3 *= PRIME64_2;
-        v3 = XXH_rotl64(v3, 31);
-        v3 *= PRIME64_1;
-        h64 ^= v3;
-        h64 = h64*PRIME64_1 + PRIME64_4;
-
-        v4 *= PRIME64_2;
-        v4 = XXH_rotl64(v4, 31);
-        v4 *= PRIME64_1;
-        h64 ^= v4;
-        h64 = h64*PRIME64_1 + PRIME64_4;
+        h64 = XXH64_mergeRound(h64, v1);
+        h64 = XXH64_mergeRound(h64, v2);
+        h64 = XXH64_mergeRound(h64, v3);
+        h64 = XXH64_mergeRound(h64, v4);
     } else {
         h64  = state->seed + PRIME64_5;
     }
@@ -843,10 +810,7 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
     h64 += (U64) state->total_len;
 
     while (p+8<=bEnd) {
-        U64 k1 = XXH_readLE64(p, endian);
-        k1 *= PRIME64_2;
-        k1 = XXH_rotl64(k1,31);
-        k1 *= PRIME64_1;
+        U64 const k1 = XXH64_round(0, XXH_readLE64(p, endian));
         h64 ^= k1;
         h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
         p+=8;
@@ -918,4 +882,3 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 {
     return XXH_readBE64(src);
 }
-

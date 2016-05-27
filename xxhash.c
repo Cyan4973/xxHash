@@ -74,7 +74,7 @@
  * This option has no impact on Little_Endian CPU.
  */
 #ifndef XXH_FORCE_NATIVE_FORMAT   /* can be defined externally */
-#define XXH_FORCE_NATIVE_FORMAT 0
+#  define XXH_FORCE_NATIVE_FORMAT 0
 #endif
 
 /*!XXH_FORCE_ALIGN_CHECK :
@@ -84,11 +84,11 @@
  * is guaranteed to be aligned.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-#  define XXH_FORCE_ALIGN_CHECK 0
-#else
-#  define XXH_FORCE_ALIGN_CHECK 1
-#endif
+#  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#    define XXH_FORCE_ALIGN_CHECK 0
+#  else
+#    define XXH_FORCE_ALIGN_CHECK 1
+#  endif
 #endif
 
 
@@ -670,7 +670,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* 
 FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess endian)
 {
     const BYTE * p = (const BYTE*)state->mem32;
-    const BYTE* bEnd = (const BYTE*)(state->mem32) + state->memsize;
+    const BYTE* const bEnd = (const BYTE*)(state->mem32) + state->memsize;
     U32 h32;
 
     if (state->total_len >= 16) {
@@ -789,14 +789,14 @@ XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* 
 FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess endian)
 {
     const BYTE * p = (const BYTE*)state->mem64;
-    const BYTE* bEnd = (const BYTE*)state->mem64 + state->memsize;
+    const BYTE* const bEnd = (const BYTE*)state->mem64 + state->memsize;
     U64 h64;
 
     if (state->total_len >= 32) {
-        U64 v1 = state->v1;
-        U64 v2 = state->v2;
-        U64 v3 = state->v3;
-        U64 v4 = state->v4;
+        U64 const v1 = state->v1;
+        U64 const v2 = state->v2;
+        U64 const v3 = state->v3;
+        U64 const v4 = state->v4;
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
         h64 = XXH64_mergeRound(h64, v1);

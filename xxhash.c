@@ -104,6 +104,7 @@ static void  XXH_free  (void* p)  { free(p); }
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
+#define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
 
 
@@ -326,8 +327,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
 #define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
 
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (p==NULL)
-    {
+    if (p==NULL) {
         len=0;
         bEnd=p=(const BYTE*)(size_t)16;
     }
@@ -519,35 +519,8 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 *  Advanced Hash Functions
 ****************************************************/
 
-/*** Allocation ***/
-struct XXH32_state_s
-{
-    U64 total_len;
-    U32 seed;
-    U32 v1;
-    U32 v2;
-    U32 v3;
-    U32 v4;
-    U32 mem32[4];   /* defined as U32 for alignment */
-    U32 memsize;
-};   /* typedef'd to XXH32_state_t within xxhash.h */
-
-struct XXH64_state_s
-{
-    U64 total_len;
-    U64 seed;
-    U64 v1;
-    U64 v2;
-    U64 v3;
-    U64 v4;
-    U64 mem64[4];   /* defined as U64 for alignment */
-    U32 memsize;
-};   /* typedef'd to XXH64_state_t within xxhash.h */
-
-
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 {
-    XXH_STATIC_ASSERT(sizeof(XXH32_stateBody_t) >= sizeof(XXH32_state_t));   /* A compilation error here means XXH32_state_t is not large enough */
     return (XXH32_state_t*)XXH_malloc(sizeof(XXH32_state_t));
 }
 XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
@@ -558,7 +531,6 @@ XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 {
-    XXH_STATIC_ASSERT(sizeof(XXH64_stateBody_t) >= sizeof(XXH64_state_t));   /* A compilation error here means XXH64_state_t is not large enough */
     return (XXH64_state_t*)XXH_malloc(sizeof(XXH64_state_t));
 }
 XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
@@ -734,14 +706,12 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
         return XXH_OK;
     }
 
-    if (state->memsize) {   /* some data left from previous update */
+    if (state->memsize) {   /* tmp buffer is full */
         XXH_memcpy(((BYTE*)state->mem64) + state->memsize, input, 32-state->memsize);
-        {   const U64* p64 = state->mem64;
-            state->v1 = XXH64_round(state->v1, XXH_readLE64(p64, endian)); p64++;
-            state->v2 = XXH64_round(state->v2, XXH_readLE64(p64, endian)); p64++;
-            state->v3 = XXH64_round(state->v3, XXH_readLE64(p64, endian)); p64++;
-            state->v4 = XXH64_round(state->v4, XXH_readLE64(p64, endian)); p64++;
-        }
+        state->v1 = XXH64_round(state->v1, XXH_readLE64(state->mem64+0, endian));
+        state->v2 = XXH64_round(state->v2, XXH_readLE64(state->mem64+1, endian));
+        state->v3 = XXH64_round(state->v3, XXH_readLE64(state->mem64+2, endian));
+        state->v4 = XXH64_round(state->v4, XXH_readLE64(state->mem64+3, endian));
         p += 32-state->memsize;
         state->memsize = 0;
     }

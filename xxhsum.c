@@ -53,6 +53,7 @@
 #include <sys/stat.h>   /* stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
+#define XXH_STATIC_LINKING_ONLY
 #if defined(XXHSUM_INCLUDE_XXHC)   /* for tests */
 #  define XXH_PRIVATE_API
 #  include "xxhash.c"
@@ -113,7 +114,7 @@
 
 static unsigned BMK_isLittleEndian(void)
 {
-    const union { U32 i; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
     return one.c[0];
 }
 
@@ -184,15 +185,14 @@ static clock_t BMK_clockSpan( clock_t start )
 
 static size_t BMK_findMaxMem(U64 requiredMem)
 {
-    size_t step = 64 MB;
-    BYTE* testmem=NULL;
+    size_t const step = 64 MB;
+    BYTE* testmem = NULL;
 
     requiredMem = (((requiredMem >> 26) + 1) << 26);
     requiredMem += 2*step;
     if (requiredMem > MAX_MEM) requiredMem = MAX_MEM;
 
-    while (!testmem)
-    {
+    while (!testmem) {
         if (requiredMem > step) requiredMem -= step;
         else requiredMem >>= 1;
         testmem = (BYTE*) malloc ((size_t)requiredMem);
@@ -285,9 +285,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
     while (fileIdx<nbFiles) {
         FILE*  inFile;
         const char* inFileName;
-        U64    inFileSize;
         size_t benchedSize;
-        size_t readSize;
         char*  buffer;
         char*  alignedBuffer;
 
@@ -300,12 +298,12 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         }
 
         /* Memory allocation & restrictions */
-        inFileSize = BMK_GetFileSize(inFileName);
-        benchedSize = (size_t) BMK_findMaxMem(inFileSize);
-        if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
-        if (benchedSize < inFileSize) {
-            DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", inFileName, (int)(benchedSize>>20));
-        }
+        {   U64 const inFileSize = BMK_GetFileSize(inFileName);
+            benchedSize = (size_t) BMK_findMaxMem(inFileSize);
+            if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
+            if (benchedSize < inFileSize) {
+                DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", inFileName, (int)(benchedSize>>20));
+        }   }
 
         buffer = (char*)malloc((size_t )benchedSize+16);
         if(!buffer) {
@@ -317,14 +315,13 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 
         /* Fill input buffer */
         DISPLAY("\rLoading %s...        \n", inFileName);
-        readSize = fread(alignedBuffer, 1, benchedSize, inFile);
-        fclose(inFile);
-
-        if(readSize != benchedSize) {
-            DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
-            free(buffer);
-            return 13;
-        }
+        {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
+            fclose(inFile);
+            if(readSize != benchedSize) {
+                DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
+                free(buffer);
+                return 13;
+        }   }
 
         /* bench */
         BMK_benchMem(alignedBuffer, benchedSize);
@@ -339,10 +336,8 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 
 static int BMK_benchInternal(void)
 {
-    const size_t benchedSize = g_sampleSize;
-    void*  buffer;
-
-    buffer = malloc(benchedSize);
+    size_t const benchedSize = g_sampleSize;
+    void* buffer = malloc(benchedSize);
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
@@ -353,7 +348,6 @@ static int BMK_benchInternal(void)
     BMK_benchMem(buffer, benchedSize);
 
     free(buffer);
-
     return 0;
 }
 
@@ -361,7 +355,6 @@ static int BMK_benchInternal(void)
 static void BMK_checkResult(U32 r1, U32 r2)
 {
     static int nbTests = 1;
-
     if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
     else {
         DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
@@ -374,7 +367,6 @@ static void BMK_checkResult(U32 r1, U32 r2)
 static void BMK_checkResult64(U64 r1, U64 r2)
 {
     static int nbTests = 1;
-
     if (r1!=r2) {
         DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
         DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
@@ -386,42 +378,42 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 
 static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
 {
-    XXH64_CREATESTATE_STATIC(state);
+    XXH64_state_t state;
     U64 Dresult;
     int index;
 
     Dresult = XXH64(sentence, len, seed);
     BMK_checkResult64(Dresult, Nresult);
 
-    XXH64_reset(state, seed);
-    XXH64_update(state, sentence, len);
-    Dresult = XXH64_digest(state);
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, sentence, len);
+    Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 
-    XXH64_reset(state, seed);
-    for (index=0; index<len; index++) XXH64_update(state, ((char*)sentence)+index, 1);
-    Dresult = XXH64_digest(state);
+    XXH64_reset(&state, seed);
+    for (index=0; index<len; index++) XXH64_update(&state, ((char*)sentence)+index, 1);
+    Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 }
 
 
 static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
-    XXH32_CREATESTATE_STATIC(state);
+    XXH32_state_t state;
     U32 Dresult;
     size_t index;
 
     Dresult = XXH32(sequence, len, seed);
     BMK_checkResult(Dresult, Nresult);
 
-    XXH32_reset(state, seed);
-    XXH32_update(state, sequence, len);
-    Dresult = XXH32_digest(state);
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, sequence, len);
+    Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 
-    XXH32_reset(state, seed);
-    for (index=0; index<len; index++) XXH32_update(state, ((const char*)sequence)+index, 1);
-    Dresult = XXH32_digest(state);
+    XXH32_reset(&state, seed);
+    for (index=0; index<len; index++) XXH32_update(&state, ((const char*)sequence)+index, 1);
+    Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 }
 
@@ -484,13 +476,13 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
 
 static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* inFile, void* buffer, size_t blockSize)
 {
-    XXH64_CREATESTATE_STATIC(state64);
-    XXH32_CREATESTATE_STATIC(state32);
+    XXH64_state_t state64;
+    XXH32_state_t state32;
     size_t readSize;
 
     /* Init */
-    XXH32_reset(state32, XXHSUM32_DEFAULT_SEED);
-    XXH64_reset(state64, XXHSUM64_DEFAULT_SEED);
+    XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
+    XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
 
     /* Load file & update hash */
     readSize = 1;
@@ -499,10 +491,10 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
         switch(hashType)
         {
         case algo_xxh32:
-            XXH32_update(state32, buffer, readSize);
+            XXH32_update(&state32, buffer, readSize);
             break;
         case algo_xxh64:
-            XXH64_update(state64, buffer, readSize);
+            XXH64_update(&state64, buffer, readSize);
             break;
         default:
             break;
@@ -512,12 +504,12 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
     switch(hashType)
     {
     case algo_xxh32:
-        {   U32 h32 = XXH32_digest(state32);
+        {   U32 const h32 = XXH32_digest(&state32);
             memcpy(xxhHashValue, &h32, sizeof(h32));
             break;
         }
     case algo_xxh64:
-        {   U64 h64 = XXH64_digest(state64);
+        {   U64 const h64 = XXH64_digest(&state64);
             memcpy(xxhHashValue, &h64, sizeof(h64));
             break;
         }
@@ -575,10 +567,10 @@ static int BMK_hash(const char* fileName,
     switch(hashType)
     {
     case algo_xxh32:
-        BMK_hashStream(&h32, hashType, inFile, buffer, blockSize);
+        BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
         break;
     case algo_xxh64:
-        BMK_hashStream(&h64, hashType, inFile, buffer, blockSize);
+        BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
         break;
     default:
         break;
@@ -654,8 +646,8 @@ typedef enum {
 } LineStatus;
 
 typedef union {
-    XXH32_canonical_t   xxh32;
-    XXH64_canonical_t   xxh64;
+    XXH32_canonical_t xxh32;
+    XXH64_canonical_t xxh64;
 } Canonical;
 
 typedef struct {
@@ -837,7 +829,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 }
 
 
-/*  Parse xxHash checksum file.
+/*!  Parse xxHash checksum file.
  */
 static void parseFile1(ParseFileArg* parseFileArg)
 {
@@ -920,9 +912,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
         fp = fopen(parsedLine.filename, "rb");
         if (fp == NULL) {
             lineStatus = LineStatus_failedToOpen;
-        }
-        else
-        {
+        } else {
             lineStatus = LineStatus_hashFailed;
             switch (parsedLine.xxhBits)
             {
@@ -979,7 +969,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             }   }
             break;
         }
-    }
+    }   /* while (!report->quit) */
 }
 
 

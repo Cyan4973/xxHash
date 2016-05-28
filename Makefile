@@ -139,5 +139,3 @@ test-all: clean all test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest g
 clean: clean-xxhsum-c
 	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_privateXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
-
-

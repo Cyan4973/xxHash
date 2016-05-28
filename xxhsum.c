@@ -54,7 +54,7 @@
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
 #define XXH_STATIC_LINKING_ONLY
-#if defined(XXHSUM_INCLUDE_XXHC)   /* for tests */
+#if defined(XXHSUM_INCLUDE_XXHC)   /* compile xxhsum with xxhash as private (no public symbol) */
 #  define XXH_PRIVATE_API
 #  include "xxhash.c"
 #else
@@ -65,13 +65,6 @@
 /*-************************************
 *  OS-Specific Includes
 **************************************/
-/*!Use ftime() if gettimeofday() is not available on your target */
-#if defined(BMK_LEGACY_TIMER)
-#  include <sys/timeb.h>   /* timeb, ftime */
-#else
-#  include <sys/time.h>    /* gettimeofday */
-#endif
-
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>    /* _O_BINARY */
 #  include <io.h>       /* _setmode, _isatty */

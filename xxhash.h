@@ -139,8 +139,8 @@ regular symbol name will be automatically translated by this header.
 *  Version
 ***************************************/
 #define XXH_VERSION_MAJOR    0
-#define XXH_VERSION_MINOR    5
-#define XXH_VERSION_RELEASE  1
+#define XXH_VERSION_MINOR    6
+#define XXH_VERSION_RELEASE  0
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -173,22 +173,8 @@ XXH64() :
 typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
 
-
-/*! Static allocation
-    For static linking only, do not use in the context of DLL !
-        XXHnn_CREATESTATE_STATIC(name);
-            is static-allocation equivalent of :
-        XXHnn_state_t* name = XXHnn_createState();
-*/
-typedef struct { long long ll[ 6]; } XXH32_stateBody_t;
-typedef struct { long long ll[11]; } XXH64_stateBody_t;
-
-#define XXH32_CREATESTATE_STATIC(name) XXH32_stateBody_t name##xxhbody; void* name##xxhvoid = &(name##xxhbody); XXH32_state_t* name = (XXH32_state_t*)(name##xxhvoid)   /* no final ; */
-#define XXH64_CREATESTATE_STATIC(name) XXH64_stateBody_t name##xxhbody; void* name##xxhvoid = &(name##xxhbody); XXH64_state_t* name = (XXH64_state_t*)(name##xxhvoid)   /* no final ; */
-
-
-/*!Dynamic allocation
-   To be preferred in the context of DLL */
+/*! Dynamic allocation of states
+    Compatible with dynamic libraries */
 
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
@@ -246,6 +232,38 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 *   These functions allow transformation of hash result into and from its canonical format.
 *   This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
 */
+
+
+#ifdef XXH_STATIC_LINKING_ONLY
+
+/* This part contains definition which shall only be used with static linking.
+   The prototypes / types defined here are not guaranteed to remain stable.
+   They could change in a future version, becoming incompatible with a different version of the library */
+
+   struct XXH32_state_s {
+       unsigned long long total_len;
+       unsigned seed;
+       unsigned v1;
+       unsigned v2;
+       unsigned v3;
+       unsigned v4;
+       unsigned mem32[4];   /* buffer defined as U32 for alignment */
+       unsigned memsize;
+   };   /* typedef'd to XXH32_state_t */
+
+   struct XXH64_state_s {
+       unsigned long long total_len;
+       unsigned long long seed;
+       unsigned long long v1;
+       unsigned long long v2;
+       unsigned long long v3;
+       unsigned long long v4;
+       unsigned long long mem64[4];   /* buffer defined as U64 for alignment */
+       unsigned memsize;
+   };   /* typedef'd to XXH64_state_t */
+
+
+#endif
 
 
 #if defined (__cplusplus)

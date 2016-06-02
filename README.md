@@ -10,14 +10,6 @@ which evaluates collision, dispersion and randomness qualities of hash functions
 |master      | [![Build Status](https://travis-ci.org/Cyan4973/xxHash.svg?branch=master)](https://travis-ci.org/Cyan4973/xxHash?branch=master) |
 |dev         | [![Build Status](https://travis-ci.org/Cyan4973/xxHash.svg?branch=dev)](https://travis-ci.org/Cyan4973/xxHash?branch=dev) |
 
-> **Branch Policy:**
-
-> - The "master" branch is considered stable, at all times.
-> - The "dev" branch is the one where all contributions must be merged
-    before being promoted to master.
->   + If you plan to propose a patch, please commit into the "dev" branch,
-      or its own feature branch.
-      Direct commit to "master" are not permitted.
 
 
 Benchmarks
@@ -59,6 +51,8 @@ The reference system uses a Core i5-3340M @2.7GHz
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
 
+This project also includes a command line utility, named `xxhsum`, offering similar features as `md5sum`, thanks to [Takayuki Matsuoka](https://github.com/t-mat) contributions.
+
 
 ### License
 
@@ -73,3 +67,12 @@ xxHash is also available on many programming languages,
 thanks to great contributors.
 They are [listed here](http://www.xxhash.com/#other-languages).
 
+
+### Branch Policy:
+
+> - The "master" branch is considered stable, at all times.
+> - The "dev" branch is the one where all contributions must be merged
+    before being promoted to master.
+>   + If you plan to propose a patch, please commit into the "dev" branch,
+      or its own feature branch.
+      Direct commit to "master" are not permitted.

@@ -68,7 +68,7 @@ thanks to great contributors.
 They are [listed here](http://www.xxhash.com/#other-languages).
 
 
-### Branch Policy:
+### Branch Policy
 
 > - The "master" branch is considered stable, at all times.
 > - The "dev" branch is the one where all contributions must be merged

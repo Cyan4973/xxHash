@@ -82,16 +82,19 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 /* ****************************
 *  API modifier
 ******************************/
-/*!XXH_PRIVATE_API
-*  Transforms all publics symbols within `xxhash.c` into private ones.
-*  Methodology :
-*  instead of : #include "xxhash.h"
-*  do :
-*     #define XXH_PRIVATE_API
-*     #include "xxhash.c"   // note the .c , instead of .h
-*  also : don't compile and link xxhash.c separately
+/** XXH_INCLUDE_BODY
+*   This is useful if you want to include xxhash functions in `static` mode
+*   in order to inline them, and remove their symbol from the public list.
+*   Methodology :
+*     #define XXH_INCLUDE_BODY
+*     #include "xxhash.h"
+*   `xxhash.c` will also be included, so this file is still needed,
+*   but it's not useful to compile and link it anymore.
 */
-#ifdef XXH_PRIVATE_API
+#ifdef XXH_INCLUDE_BODY
+#  ifndef XXH_STATIC_LINKING_ONLY
+#    define XXH_STATIC_LINKING_ONLY
+#  endif
 #  if defined(__GNUC__)
 #    define XXH_PUBLIC_API static __attribute__((unused))
 #  elif defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
@@ -103,7 +106,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  endif
 #else
 #  define XXH_PUBLIC_API   /* do nothing */
-#endif
+#endif /* XXH_INCLUDE_BODY */
 
 /*!XXH_NAMESPACE, aka Namespace Emulation :
 
@@ -262,6 +265,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
        unsigned memsize;
    };   /* typedef'd to XXH64_state_t */
 
+
+#ifdef XXH_INCLUDE_BODY
+#  include "xxhash.c"
+#endif
 
 #endif
 

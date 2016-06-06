@@ -297,6 +297,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         /* Checks */
         if ((inFile==NULL) || (inFileName==NULL)) {
             DISPLAY( "Pb opening %s\n", inFileName);
+            free(buffer);
             return 11;
         }
         if(!buffer) {

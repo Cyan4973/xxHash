@@ -59,7 +59,7 @@ xxhsum32: xxhash.c xxhsum.c
 	$(CC) -m32 $(FLAGS) $^ -o $@$(EXT)
 
 xxhsum_inlinedXXH: xxhsum.c
-	$(CC) $(FLAGS) -DXXHSUM_INCLUDE_XXHC $^ -o $@$(EXT)
+	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
 
 test: clean xxhsum
 	# stdin

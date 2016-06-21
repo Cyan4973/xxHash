@@ -82,16 +82,16 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 /* ****************************
 *  API modifier
 ******************************/
-/** XXH_INCLUDE_BODY
+/** XXH_PRIVATE_API
 *   This is useful if you want to include xxhash functions in `static` mode
 *   in order to inline them, and remove their symbol from the public list.
 *   Methodology :
-*     #define XXH_INCLUDE_BODY
+*     #define XXH_PRIVATE_API
 *     #include "xxhash.h"
 *   `xxhash.c` will also be included, so this file is still needed,
 *   but it's not useful to compile and link it anymore.
 */
-#ifdef XXH_INCLUDE_BODY
+#ifdef XXH_PRIVATE_API
 #  ifndef XXH_STATIC_LINKING_ONLY
 #    define XXH_STATIC_LINKING_ONLY
 #  endif
@@ -106,7 +106,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  endif
 #else
 #  define XXH_PUBLIC_API   /* do nothing */
-#endif /* XXH_INCLUDE_BODY */
+#endif /* XXH_PRIVATE_API */
 
 /*!XXH_NAMESPACE, aka Namespace Emulation :
 
@@ -176,8 +176,7 @@ XXH64() :
 typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
 
-/*! Dynamic allocation of states
-    Compatible with dynamic libraries */
+/*! State allocation, compatible with dynamic libraries */
 
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
@@ -196,27 +195,33 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, unsigned lon
 XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 
-/*!
-These functions generate the xxHash of an input of any length provided in multiple segments.
-Note that they are slower than single-direct-call functions, due to state management.
-For small keys with known size, prefer `XXH32()` and `XXH64()` .
+/*
+These functions generate the xxHash of an input provided in multiple segments.
+Note that, for small input, they are slower than single-call functions, due to state management.
+For small input, prefer `XXH32()` and `XXH64()` .
 
-XXH state must first be allocated, using XXHnn_createState() .
+XXH state must first be allocated, using XXH*_createState() .
 
-Start a new hash by initializing state with a seed, using XXHnn_reset().
+Start a new hash by initializing state with a seed, using XXH*_reset().
 
-Then, feed the hash state by calling XXHnn_update() as many times as necessary.
+Then, feed the hash state by calling XXH*_update() as many times as necessary.
 Obviously, input must be allocated and read accessible.
 The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
 
-Finally, a hash value can be produced anytime, by using XXHnn_digest().
+Finally, a hash value can be produced anytime, by using XXH*_digest().
 This function returns the nn-bits hash as an int or long long.
 
 It's still possible to continue inserting input into the hash state after a digest,
-and generate some new hashes later on, by calling again XXHnn_digest().
+and generate some new hashes later on, by calling again XXH*_digest().
 
 When done, free XXH state space if it was allocated dynamically.
 */
+
+
+/* **************************
+*  Utils
+****************************/
+
 
 
 /* **************************
@@ -231,10 +236,10 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
 
-/*! Default result type for XXH functions are primitive unsigned 32 and 64 bits.
-*   The canonical representation uses human-readable write convention, aka big-endian (large digits first).
-*   These functions allow transformation of hash result into and from its canonical format.
-*   This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
+/* Default result type for XXH functions are primitive unsigned 32 and 64 bits.
+*  The canonical representation uses human-readable write convention, aka big-endian (large digits first).
+*  These functions allow transformation of hash result into and from its canonical format.
+*  This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
 */
 
 
@@ -269,7 +274,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
    };   /* typedef'd to XXH64_state_t */
 
 
-#  ifdef XXH_INCLUDE_BODY
+#  ifdef XXH_PRIVATE_API
 #    include "xxhash.c"   /* include xxhash functions as `static`, for inlining */
 #  endif
 

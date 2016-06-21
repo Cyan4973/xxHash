@@ -221,7 +221,12 @@ When done, free XXH state space if it was allocated dynamically.
 /* **************************
 *  Utils
 ****************************/
+#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))   /* ! C99 */
+#  define restrict   /* disable restrict */
+#endif
 
+XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* restrict dst_state, const XXH32_state_t* restrict src_state);
+XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* restrict dst_state, const XXH64_state_t* restrict src_state);
 
 
 /* **************************
@@ -245,11 +250,13 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 
 #ifdef XXH_STATIC_LINKING_ONLY
 
-/* This section contains definitions which are not guaranteed to remain stable.
+/* ================================================================================================
+   This section contains definitions which are not guaranteed to remain stable.
    They could change in a future version, becoming incompatible with a different version of the library.
-   They shall only be used with static linking. */
+   They shall only be used with static linking.
+=================================================================================================== */
 
-/* These definitions allow allocating XXH state statically */
+/* These definitions allow allocating XXH state statically (on stack) */
 
    struct XXH32_state_s {
        unsigned long long total_len;

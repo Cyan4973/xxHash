@@ -28,6 +28,8 @@
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
 
+#ifndef XXHASH_C_2097394837
+#define XXHASH_C_2097394837
 
 /* ************************************
 *  Compiler Options
@@ -53,13 +55,12 @@
 #include <sys/stat.h>   /* stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
-#define XXH_STATIC_LINKING_ONLY
-#if defined(XXHSUM_INCLUDE_XXHC)   /* compile xxhsum with xxhash as private (no public symbol) */
-#  define XXH_PRIVATE_API
-#  include "xxhash.c"
+#ifdef XXHSUM_INCLUDE_XXHC    /* compile xxhsum with xxhash as private (no public symbol) */
+#  define XXH_INCLUDE_BODY
 #else
-#  include "xxhash.h"
+#  define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #endif
+#include "xxhash.h"
 
 
 /*-************************************
@@ -179,7 +180,7 @@ static clock_t BMK_clockSpan( clock_t start )
 static size_t BMK_findMaxMem(U64 requiredMem)
 {
     size_t const step = 64 MB;
-    BYTE* testmem = NULL;
+    void* testmem = NULL;
 
     requiredMem = (((requiredMem >> 26) + 1) << 26);
     requiredMem += 2*step;
@@ -188,7 +189,7 @@ static size_t BMK_findMaxMem(U64 requiredMem)
     while (!testmem) {
         if (requiredMem > step) requiredMem -= step;
         else requiredMem >>= 1;
-        testmem = (BYTE*) malloc ((size_t)requiredMem);
+        testmem = malloc ((size_t)requiredMem);
     }
     free (testmem);
 
@@ -214,11 +215,11 @@ static U64 BMK_GetFileSize(const char* infilename)
     return (U64)statbuf.st_size;
 }
 
-typedef void (*hashFunction)(const void* buffer, size_t bufferSize);
+typedef U32 (*hashFunction)(const void* buffer, size_t bufferSize, U32 seed);
 
-static void localXXH32(const void* buffer, size_t bufferSize) { XXH32(buffer, bufferSize, 0); }
+static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return XXH32(buffer, bufferSize, seed); }
 
-static void localXXH64(const void* buffer, size_t bufferSize) { XXH64(buffer, bufferSize, 0); }
+static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
@@ -229,7 +230,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
     DISPLAY("\r%79s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
-        U32 nbHashes = 0;
+        U32 nbHashes = 0, r=0;
         clock_t cStart;
 
         DISPLAY("%1i-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
@@ -240,9 +241,10 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         while (BMK_clockSpan(cStart) < TIMELOOP) {
             U32 i;
             for (i=0; i<nbh_perloop; i++)
-                h(buffer, bufferSize);
+                r += h(buffer, bufferSize, i);
             nbHashes += nbh_perloop;
         }
+        if (r==0) DISPLAY(".\r");   /* need to do something with r to avoid compiler optimizing away the hash function */
         {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbHashes;
             if (timeS < fastestH) fastestH = timeS;
             DISPLAY("%1i-%-17.17s : %10u -> %7.1f MB/s\r", iterationNb, hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH );
@@ -271,40 +273,38 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
 }
 
 
+static size_t BMK_selectBenchedSize(const char* fileName)
+{   U64 const inFileSize = BMK_GetFileSize(fileName);
+    size_t benchedSize = (size_t) BMK_findMaxMem(inFileSize);
+    if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
+    if (benchedSize < inFileSize) {
+        DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", fileName, (int)(benchedSize>>20));
+    }
+    return benchedSize;
+}
+
+
 static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 {
-    int fileIdx=0;
+    int fileIdx;
+    for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
+        const char* const inFileName = fileNamesTable[fileIdx];
+        FILE* const inFile = fopen( inFileName, "rb" );
+        size_t const benchedSize = BMK_selectBenchedSize(inFileName);
+        char* const buffer = (char*)malloc(benchedSize+16);
+        void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
-    while (fileIdx<nbFiles) {
-        FILE*  inFile;
-        const char* inFileName;
-        size_t benchedSize;
-        char*  buffer;
-        char*  alignedBuffer;
-
-        /* Check file existence */
-        inFileName = fileNamesTable[fileIdx++];
-        inFile = fopen( inFileName, "rb" );
+        /* Checks */
         if ((inFile==NULL) || (inFileName==NULL)) {
             DISPLAY( "Pb opening %s\n", inFileName);
+            free(buffer);
             return 11;
         }
-
-        /* Memory allocation & restrictions */
-        {   U64 const inFileSize = BMK_GetFileSize(inFileName);
-            benchedSize = (size_t) BMK_findMaxMem(inFileSize);
-            if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
-            if (benchedSize < inFileSize) {
-                DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", inFileName, (int)(benchedSize>>20));
-        }   }
-
-        buffer = (char*)malloc((size_t )benchedSize+16);
         if(!buffer) {
             DISPLAY("\nError: not enough memory!\n");
             fclose(inFile);
             return 12;
         }
-        alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
         /* Fill input buffer */
         DISPLAY("\rLoading %s...        \n", inFileName);
@@ -330,7 +330,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 static int BMK_benchInternal(void)
 {
     size_t const benchedSize = g_sampleSize;
-    void* buffer = malloc(benchedSize);
+    void* const buffer = malloc(benchedSize);
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
@@ -1239,3 +1239,5 @@ int main(int argc, const char** argv)
         return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
     }
 }
+
+#endif /* XXHASH_C_2097394837 */

@@ -307,6 +307,20 @@ static const U64 PRIME64_5 =  2870177450012600261ULL;
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
+/* **************************
+*  Utils
+****************************/
+XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* restrict dstState, const XXH32_state_t* restrict srcState)
+{
+    memcpy(dstState, srcState, sizeof(*dstState));
+}
+
+XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* restrict dstState, const XXH64_state_t* restrict srcState)
+{
+    memcpy(dstState, srcState, sizeof(*dstState));
+}
+
+
 /* ***************************
 *  Simple Hash Functions
 *****************************/

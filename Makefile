@@ -31,7 +31,7 @@ LIBVER_PATCH:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -Wcast-align -Wstrict-prototypes -Wstrict-aliasing=1 -Wswitch-enum -Wundef -pedantic 
+CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -pedantic
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
 MD2ROFF  =ronn
@@ -48,7 +48,7 @@ endif
 
 default: xxhsum
 
-all: xxhsum xxhsum32 xxhsum_privateXXH
+all: xxhsum xxhsum32 xxhsum_inlinedXXH
 
 xxhsum: xxhash.c xxhsum.c
 	$(CC)      $(FLAGS) $^ -o $@$(EXT)
@@ -58,8 +58,8 @@ xxhsum: xxhash.c xxhsum.c
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) -m32 $(FLAGS) $^ -o $@$(EXT)
 
-xxhsum_privateXXH: xxhsum.c
-	$(CC) $(FLAGS) -DXXHSUM_INCLUDE_XXHC $^ -o $@$(EXT)
+xxhsum_inlinedXXH: xxhsum.c
+	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
 
 test: clean xxhsum
 	# stdin
@@ -137,5 +137,5 @@ preview-man: clean-man man
 test-all: clean all test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
 
 clean: clean-xxhsum-c
-	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_privateXXH$(EXT) xxh32sum xxh64sum
+	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed

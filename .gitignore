@@ -2,4 +2,6 @@
 xxh32sum
 xxh64sum
 xxhsum
+xxhsum32
 xxhsum_privateXXH
+xxhsum_inlinedXXH

@@ -88,7 +88,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 *   Methodology :
 *     #define XXH_PRIVATE_API
 *     #include "xxhash.h"
-*   `xxhash.c` will also be included, so this file is still needed,
+*   `xxhash.c` is automatically included, so the file is still needed,
 *   but it's not useful to compile and link it anymore.
 */
 #ifdef XXH_PRIVATE_API
@@ -113,10 +113,10 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 If you want to include _and expose_ xxHash functions from within your own library,
 but also want to avoid symbol collisions with another library which also includes xxHash,
 
-you can use XXH_NAMESPACE, to automatically prefix any public symbol from `xxhash.c`
+you can use XXH_NAMESPACE, to automatically prefix any public symbol from xxhash library
 with the value of XXH_NAMESPACE (so avoid to keep it NULL and avoid numeric values).
 
-Note that no change is required within the calling program as long as it also includes `xxhash.h` :
+Note that no change is required within the calling program as long as it includes `xxhash.h` :
 regular symbol name will be automatically translated by this header.
 */
 #ifdef XXH_NAMESPACE
@@ -135,6 +135,8 @@ regular symbol name will be automatically translated by this header.
 #  define XXH64_update XXH_NAME2(XXH_NAMESPACE, XXH64_update)
 #  define XXH32_digest XXH_NAME2(XXH_NAMESPACE, XXH32_digest)
 #  define XXH64_digest XXH_NAME2(XXH_NAMESPACE, XXH64_digest)
+#  define XXH32_copyState XXH_NAME2(XXH_NAMESPACE, XXH32_copyState)
+#  define XXH64_copyState XXH_NAME2(XXH_NAMESPACE, XXH64_copyState)
 #endif
 
 
@@ -166,7 +168,7 @@ XXH32() :
 XXH64() :
     Calculate the 64-bits hash of sequence of length "len" stored at memory address "input".
     "seed" can be used to alter the result predictably.
-    This function runs faster on 64-bits systems, but slower on 32-bits systems (see benchmark).
+    This function runs 2x faster on 64-bits systems, but slower on 32-bits systems (see benchmark).
 */
 
 

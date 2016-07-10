@@ -88,8 +88,8 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 *   Methodology :
 *     #define XXH_PRIVATE_API
 *     #include "xxhash.h"
-*   `xxhash.c` is automatically included, so the file is still needed,
-*   but it's not useful to compile and link it anymore.
+*   `xxhash.c` is automatically included.
+*   It's not useful to compile and link it as a separate module anymore.
 */
 #ifdef XXH_PRIVATE_API
 #  ifndef XXH_STATIC_LINKING_ONLY
@@ -137,6 +137,10 @@ regular symbol name will be automatically translated by this header.
 #  define XXH64_digest XXH_NAME2(XXH_NAMESPACE, XXH64_digest)
 #  define XXH32_copyState XXH_NAME2(XXH_NAMESPACE, XXH32_copyState)
 #  define XXH64_copyState XXH_NAME2(XXH_NAMESPACE, XXH64_copyState)
+#  define XXH32_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH32_canonicalFromHash)
+#  define XXH64_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH64_canonicalFromHash)
+#  define XXH32_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH32_hashFromCanonical)
+#  define XXH64_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH64_hashFromCanonical)
 #endif
 
 
@@ -145,7 +149,7 @@ regular symbol name will be automatically translated by this header.
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    6
-#define XXH_VERSION_RELEASE  1
+#define XXH_VERSION_RELEASE  2
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 

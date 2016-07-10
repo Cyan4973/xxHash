@@ -144,7 +144,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
     typedef unsigned short     U16;
     typedef unsigned int       U32;
     typedef   signed int       S32;
-    typedef unsigned long long U64;
+    typedef unsigned long long U64;   /* if your compiler doesn't support unsigned long long, replace by another 64-bit type here. Note that xxhash.h will also need to be updated. */
 #  endif
 #endif
 

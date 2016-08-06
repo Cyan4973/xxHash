@@ -280,13 +280,13 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 
    struct XXH64_state_s {
        unsigned long long total_len;
-       unsigned long long seed;
        unsigned long long v1;
        unsigned long long v2;
        unsigned long long v3;
        unsigned long long v4;
        unsigned long long mem64[4];   /* buffer defined as U64 for alignment */
        unsigned memsize;
+       unsigned reserved[2];          /* never read nor write, will be removed in a future version */
    };   /* typedef'd to XXH64_state_t */
 
 

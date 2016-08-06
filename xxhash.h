@@ -258,11 +258,14 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 
 /* ================================================================================================
    This section contains definitions which are not guaranteed to remain stable.
-   They could change in a future version, becoming incompatible with a different version of the library.
+   They may change in future versions, becoming incompatible with a different version of the library.
    They shall only be used with static linking.
+   Never use these definitions in association with dynamic linking !
 =================================================================================================== */
 
-/* These definitions allow allocating XXH state statically (on stack) */
+/* These definitions are only meant to allow allocation of XXH state
+   statically, on stack, or in a struct for example.
+   Do not use members directly. */
 
    struct XXH32_state_s {
        unsigned long long total_len;

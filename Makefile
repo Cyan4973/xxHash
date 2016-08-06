@@ -31,11 +31,13 @@ LIBVER_PATCH:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -pedantic
+CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+          -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+		  -Wstrict-prototypes -Wundef -pedantic
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
-MD2ROFF  =ronn
-MD2ROFF_FLAGS  = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
+MD2ROFF = ronn
+MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))

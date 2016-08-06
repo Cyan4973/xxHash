@@ -55,11 +55,7 @@
 #include <sys/stat.h>   /* stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
-#ifdef XXHSUM_INCLUDE_XXHC    /* compile xxhsum with xxhash as private (no public symbol) */
-#  define XXH_INCLUDE_BODY
-#else
-#  define XXH_STATIC_LINKING_ONLY   /* *_state_t */
-#endif
+#define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #include "xxhash.h"
 
 

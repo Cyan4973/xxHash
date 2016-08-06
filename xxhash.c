@@ -559,7 +559,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int seed)
 {
     XXH32_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state));
+    memset(&state, 0, sizeof(state)-4);   /* do not write into reserved, for future removal */
     state.v1 = seed + PRIME32_1 + PRIME32_2;
     state.v2 = seed + PRIME32_2;
     state.v3 = seed + 0;
@@ -572,7 +572,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int s
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long long seed)
 {
     XXH64_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state));
+    memset(&state, 0, sizeof(state)-8);   /* do not write into reserved, for future removal */
     state.v1 = seed + PRIME64_1 + PRIME64_2;
     state.v2 = seed + PRIME64_2;
     state.v3 = seed + 0;
@@ -591,7 +591,8 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
     if (input==NULL) return XXH_ERROR;
 #endif
 
-    state->total_len += len;
+    state->total_len_32 += len;
+    state->large_len |= (len>=16) | (state->total_len_32>=16);
 
     if (state->memsize + len < 16)  {   /* fill in tmp buffer */
         XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, len);
@@ -657,13 +658,13 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess 
     const BYTE* const bEnd = (const BYTE*)(state->mem32) + state->memsize;
     U32 h32;
 
-    if (state->total_len >= 16) {
+    if (state->large_len) {
         h32 = XXH_rotl32(state->v1, 1) + XXH_rotl32(state->v2, 7) + XXH_rotl32(state->v3, 12) + XXH_rotl32(state->v4, 18);
     } else {
         h32 = state->v3 /* == seed */ + PRIME32_5;
     }
 
-    h32 += (U32) state->total_len;
+    h32 += state->total_len_32;
 
     while (p+4<=bEnd) {
         h32 += XXH_readLE32(p, endian) * PRIME32_3;

@@ -268,7 +268,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
    Do not use members directly. */
 
    struct XXH32_state_s {
-       unsigned long long total_len;
+       unsigned total_len_32;
+       unsigned large_len;
        unsigned v1;
        unsigned v2;
        unsigned v3;

@@ -364,11 +364,11 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 }
 
 
-static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
+static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
     U64 Dresult;
-    int index;
+    size_t index;
 
     Dresult = XXH64(sentence, len, seed);
     BMK_checkResult64(Dresult, Nresult);

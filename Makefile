@@ -31,9 +31,9 @@ LIBVER_PATCH:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
           -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-		  -Wstrict-prototypes -Wundef -pedantic
+		  -Wstrict-prototypes -Wundef
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
 MD2ROFF = ronn
@@ -116,6 +116,11 @@ clangtest: clean
 gpptest: clean
 	@echo ---- test g++ compilation ----
 	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+
+c90test: clean
+	@echo ---- test strict C90 compilation [xxh32 only] ----
+	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
+	$(RM) xxhash.o
 
 sanitize: clean
 	@echo ---- check undefined behavior - sanitize ----

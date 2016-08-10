@@ -6,11 +6,14 @@ project(xxhash)
 set(XXHASH_LIB_VERSION "0.42.0")
 set(XXHASH_LIB_SOVERSION "0")
 
-add_library(xxhash SHARED ../xxhash.c)
-set_target_properties(xxhash PROPERTIES COMPILE_DEFINITIONS "XXHASH_EXPORT"
-                       VERSION "${XXHASH_LIB_VERSION}"
-                       SOVERSION "${XXHASH_LIB_SOVERSION}")
-set(install_libs xxhash)
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Set to ON to build shared libraries")
+if(BUILD_SHARED_LIBS)
+  add_library(xxhash SHARED ../xxhash.c)
+  set_target_properties(xxhash PROPERTIES COMPILE_DEFINITIONS "XXHASH_EXPORT"
+                         VERSION "${XXHASH_LIB_VERSION}"
+                         SOVERSION "${XXHASH_LIB_SOVERSION}")
+  LIST(APPEND install_libs xxhash)
+endif(BUILD_SHARED_LIBS)
 
 set(BUILD_STATIC_LIBS ON CACHE BOOL "Set to ON to build static libraries")
 if(BUILD_STATIC_LIBS)
@@ -21,4 +24,9 @@ endif(BUILD_STATIC_LIBS)
 
 
 INSTALL(FILES ../xxhash.h DESTINATION include)
-INSTALL(TARGETS ${install_libs} DESTINATION lib)
+INSTALL(
+    TARGETS ${install_libs}
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+)

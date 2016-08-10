@@ -55,11 +55,7 @@
 #include <sys/stat.h>   /* stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 
-#ifdef XXHSUM_INCLUDE_XXHC    /* compile xxhsum with xxhash as private (no public symbol) */
-#  define XXH_INCLUDE_BODY
-#else
-#  define XXH_STATIC_LINKING_ONLY   /* *_state_t */
-#endif
+#define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #include "xxhash.h"
 
 
@@ -124,9 +120,8 @@ static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
-#define COMPILED __DATE__
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s (%s) \n", exename, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author, COMPILED
+#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s \n", exename, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author
 
 #define NBLOOPS    3                              /* Default number of benchmark iterations */
 #define TIMELOOP_S 1
@@ -1131,7 +1126,7 @@ static int badusage(const char* exename)
 int main(int argc, const char** argv)
 {
     int i, filenamesStart=0;
-    const char* exename = argv[0];
+    const char* const exename = argv[0];
     U32 benchmarkMode = 0;
     U32 fileCheckMode = 0;
     U32 strictMode    = 0;

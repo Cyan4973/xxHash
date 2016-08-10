@@ -31,11 +31,13 @@ LIBVER_PATCH:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -pedantic
+CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+          -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+		  -Wstrict-prototypes -Wundef -pedantic
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
-MD2ROFF  =ronn
-MD2ROFF_FLAGS  = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
+MD2ROFF = ronn
+MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -101,7 +103,7 @@ test-xxhsum-c: xxhsum
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 
 clean-xxhsum-c:
-	@rm -f .test.xxh32 .test.xxh64
+	@$(RM) -f .test.xxh32 .test.xxh64
 
 armtest: clean
 	@echo ---- test ARM compilation ----
@@ -123,19 +125,25 @@ staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
 
+namespaceTest:
+	$(CC) -c xxhash.c
+	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
+	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(RM) *.o xxhsum2  # clean
+
 xxhsum.1: xxhsum.1.md
 	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 
 man: xxhsum.1
 
 clean-man:
-	rm xxhsum.1
+	$(RM) xxhsum.1
 
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test-all: clean all test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
+test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
 
 clean: clean-xxhsum-c
-	@rm -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
+	@$(RM) -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed

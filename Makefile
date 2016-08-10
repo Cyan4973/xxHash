@@ -107,7 +107,7 @@ clean-xxhsum-c:
 
 armtest: clean
 	@echo ---- test ARM compilation ----
-	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror"
+	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static"
 
 clangtest: clean
 	@echo ---- test clang compilation ----

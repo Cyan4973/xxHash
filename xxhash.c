@@ -95,12 +95,12 @@
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
-/* Modify the local functions below should you wish to use some other memory routines */
-/* for malloc(), free() */
+/*! Modify the local functions below should you wish to use some other memory routines
+*   for malloc(), free() */
 #include <stdlib.h>
 static void* XXH_malloc(size_t s) { return malloc(s); }
 static void  XXH_free  (void* p)  { free(p); }
-/* for memcpy() */
+/*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
@@ -543,7 +543,6 @@ static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
 /* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign64;
-
 static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
 
 #else

@@ -449,17 +449,17 @@ static void BMK_sanityCheck(void)
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    size_t index;
-    for (index=length-1; index<length; index--)    /* intentional underflow to negative to detect end */
-        DISPLAYRESULT("%02x", p[index]);
+    size_t idx;
+    for (idx=length-1; idx<length; idx--)    /* intentional underflow to negative to detect end */
+        DISPLAYRESULT("%02x", p[idx]);
 }
 
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    size_t index;
-    for (index=0; index<length; index++)
-        DISPLAYRESULT("%02x", p[index]);
+    size_t idx;
+    for (idx=0; idx<length; idx++)
+        DISPLAYRESULT("%02x", p[idx]);
 }
 
 static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* inFile, void* buffer, size_t blockSize)

@@ -2,8 +2,9 @@ xxHash - Extremely fast hash algorithm
 ======================================
 
 xxHash is an Extremely fast Hash algorithm, running at RAM speed limits.
-It successfully completes the [SMHasher](http://code.google.com/p/smhasher/wiki/SMHasher) test suite 
+It successfully completes the [SMHasher](http://code.google.com/p/smhasher/wiki/SMHasher) test suite
 which evaluates collision, dispersion and randomness qualities of hash functions.
+Code is highly portable, and hashes are identical on all platforms (little / big endian).
 
 |Branch      |Status   |
 |------------|---------|
@@ -38,8 +39,8 @@ It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 Algorithms with a score < 5 are not listed on this table.
 
-A new version, XXH64, has been created thanks to [Mathias Westerdahl]'s contribution, 
-which offers superior speed and dispersion for 64-bits systems. 
+A new version, XXH64, has been created thanks to [Mathias Westerdahl]'s contribution,
+which offers superior speed and dispersion for 64-bits systems.
 Note however that 32-bits applications will still run faster using the 32-bits version.
 [Mathias Westerdahl]: https://github.com/JCash
 
@@ -58,6 +59,28 @@ This project also includes a command line utility, named `xxhsum`, offering simi
 
 The library files `xxhash.c` and `xxhash.h` are BSD licensed.
 The utility `xxhsum` is GPL licensed.
+
+
+### Build modifiers
+
+The following macros influence xxhash behavior. They are all disabled by default.
+
+- `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation,
+                              resulting in system-specific results.
+                              Breaks consistency with little-endian results.
+- `XXH_ACCEPT_NULL_INPUT_POINTER` : if presented with a null-pointer,
+                              xxhash result is the same as a null-length key,
+                              instead of a dereference segfault.
+- `XXH_NO_LONG_LONG` : removes support for XXH64,
+                       useful for targets without 64-bits support.
+- `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
+                      Incompatible with dynamic linking, due to risks of ABI changes.
+- `XXH_PRIVATE_API` : Make all functions `static` and accessible through `xxhash.h` for inlining.
+                      Do not compile `xxhash.c` as a separate module in this case.
+- `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`,
+                    in order to evade symbol naming collisions,
+                    in case of multiple inclusions of xxHash library
+                    (typically via intermediate libraries).
 
 
 ### Other languages

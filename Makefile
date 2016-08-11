@@ -31,9 +31,9 @@ LIBVER_PATCH:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 CFLAGS ?= -O3
-CFLAGS += -std=c99 -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
           -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-		  -Wstrict-prototypes -Wundef -pedantic
+		  -Wstrict-prototypes -Wundef
 FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
 MD2ROFF = ronn
@@ -107,7 +107,7 @@ clean-xxhsum-c:
 
 armtest: clean
 	@echo ---- test ARM compilation ----
-	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror"
+	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static"
 
 clangtest: clean
 	@echo ---- test clang compilation ----
@@ -117,7 +117,12 @@ gpptest: clean
 	@echo ---- test g++ compilation ----
 	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
 
-sanitize: clean
+c90test: clean
+	@echo ---- test strict C90 compilation [xxh32 only] ----
+	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
+	$(RM) xxhash.o
+
+usan: clean
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) test CC=clang MOREFLAGS="-g -fsanitize=undefined"
 
@@ -142,7 +147,8 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
+test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
+	armtest clangtest gpptest c90test usan staticAnalyze
 
 clean: clean-xxhsum-c
 	@$(RM) -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum

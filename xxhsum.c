@@ -364,11 +364,11 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 }
 
 
-static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
+static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
     U64 Dresult;
-    int index;
+    size_t pos;
 
     Dresult = XXH64(sentence, len, seed);
     BMK_checkResult64(Dresult, Nresult);
@@ -379,7 +379,7 @@ static void BMK_testSequence64(void* sentence, int len, U64 seed, U64 Nresult)
     BMK_checkResult64(Dresult, Nresult);
 
     XXH64_reset(&state, seed);
-    for (index=0; index<len; index++) XXH64_update(&state, ((char*)sentence)+index, 1);
+    for (pos=0; pos<len; pos++) XXH64_update(&state, ((char*)sentence)+pos, 1);
     Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 }
@@ -389,7 +389,7 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
 {
     XXH32_state_t state;
     U32 Dresult;
-    size_t index;
+    size_t pos;
 
     Dresult = XXH32(sequence, len, seed);
     BMK_checkResult(Dresult, Nresult);
@@ -400,7 +400,7 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
     BMK_checkResult(Dresult, Nresult);
 
     XXH32_reset(&state, seed);
-    for (index=0; index<len; index++) XXH32_update(&state, ((const char*)sequence)+index, 1);
+    for (pos=0; pos<len; pos++) XXH32_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 }
@@ -449,17 +449,17 @@ static void BMK_sanityCheck(void)
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    size_t index;
-    for (index=length-1; index<length; index--)    /* intentional underflow to negative to detect end */
-        DISPLAYRESULT("%02x", p[index]);
+    size_t idx;
+    for (idx=length-1; idx<length; idx--)    /* intentional underflow to negative to detect end */
+        DISPLAYRESULT("%02x", p[idx]);
 }
 
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
     const BYTE* p = (const BYTE*)ptr;
-    size_t index;
-    for (index=0; index<length; index++)
-        DISPLAYRESULT("%02x", p[index]);
+    size_t idx;
+    for (idx=0; idx<length; idx++)
+        DISPLAYRESULT("%02x", p[idx]);
 }
 
 static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* inFile, void* buffer, size_t blockSize)

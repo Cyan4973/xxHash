@@ -61,6 +61,28 @@ The library files `xxhash.c` and `xxhash.h` are BSD licensed.
 The utility `xxhsum` is GPL licensed.
 
 
+### Build modifiers
+
+The following macros influence xxhash behavior. They are all disabled by default.
+
+- `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation,
+                              resulting in system-specific results.
+                              Breaks consistency with little-endian results.
+- `XXH_ACCEPT_NULL_INPUT_POINTER` : if presented with a null-pointer,
+                              xxhash result is the same as a null-length key,
+                              instead of a dereference segfault.
+- `XXH_NO_LONG_LONG` : removes support for XXH64,
+                       useful for targets without 64-bits support.
+- `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
+                      Incompatible with dynamic linking, due to risks of ABI changes.
+- `XXH_PRIVATE_API` : Make all functions `static` and accessible through `xxhash.h` for inlining.
+                      Do not compile `xxhash.c` as a separate module in this case.
+- `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`,
+                    in order to evade symbol naming collisions,
+                    in case of multiple inclusions of xxHash library
+                    (typically via intermediate libraries).
+
+
 ### Other languages
 
 Beyond the C reference version,

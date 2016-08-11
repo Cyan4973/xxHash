@@ -130,22 +130,17 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 /* *************************************
 *  Basic Types
 ***************************************/
-#ifndef MEM_MODULE
-# define MEM_MODULE
-# if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+#if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 #   include <stdint.h>
     typedef uint8_t  BYTE;
     typedef uint16_t U16;
     typedef uint32_t U32;
     typedef  int32_t S32;
-    typedef uint64_t U64;
-#  else
+#else
     typedef unsigned char      BYTE;
     typedef unsigned short     U16;
     typedef unsigned int       U32;
     typedef   signed int       S32;
-    typedef unsigned long long U64;   /* if your compiler doesn't support unsigned long long, replace by another 64-bit type here. Note that xxhash.h will also need to be updated. */
-#  endif
 #endif
 
 
@@ -153,33 +148,22 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
 static U32 XXH_read32(const void* memPtr) { return *(const U32*) memPtr; }
-static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
 /* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
 /* currently only defined for gcc and icc */
-typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign;
-
+typedef union { U32 u32; } __attribute__((packed)) unalign;
 static U32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
-static U64 XXH_read64(const void* ptr) { return ((const unalign*)ptr)->u64; }
 
 #else
 
 /* portable and safe solution. Generally efficient.
  * see : http://stackoverflow.com/a/32095106/646947
  */
-
 static U32 XXH_read32(const void* memPtr)
 {
     U32 val;
-    memcpy(&val, memPtr, sizeof(val));
-    return val;
-}
-
-static U64 XXH_read64(const void* memPtr)
-{
-    U64 val;
     memcpy(&val, memPtr, sizeof(val));
     return val;
 }
@@ -203,10 +187,8 @@ static U64 XXH_read64(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap32 _byteswap_ulong
-#  define XXH_swap64 _byteswap_uint64
 #elif GCC_VERSION >= 403
 #  define XXH_swap32 __builtin_bswap32
-#  define XXH_swap64 __builtin_bswap64
 #else
 static U32 XXH_swap32 (U32 x)
 {
@@ -214,17 +196,6 @@ static U32 XXH_swap32 (U32 x)
             ((x <<  8) & 0x00ff0000 ) |
             ((x >>  8) & 0x0000ff00 ) |
             ((x >> 24) & 0x000000ff );
-}
-static U64 XXH_swap64 (U64 x)
-{
-    return  ((x << 56) & 0xff00000000000000ULL) |
-            ((x << 40) & 0x00ff000000000000ULL) |
-            ((x << 24) & 0x0000ff0000000000ULL) |
-            ((x << 8)  & 0x000000ff00000000ULL) |
-            ((x >> 8)  & 0x00000000ff000000ULL) |
-            ((x >> 24) & 0x0000000000ff0000ULL) |
-            ((x >> 40) & 0x000000000000ff00ULL) |
-            ((x >> 56) & 0x00000000000000ffULL);
 }
 #endif
 
@@ -262,24 +233,6 @@ FORCE_INLINE U32 XXH_readLE32(const void* ptr, XXH_endianess endian)
 static U32 XXH_readBE32(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
-}
-
-FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
-{
-    if (align==XXH_unaligned)
-        return endian==XXH_littleEndian ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
-    else
-        return endian==XXH_littleEndian ? *(const U64*)ptr : XXH_swap64(*(const U64*)ptr);
-}
-
-FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
-{
-    return XXH_readLE64_align(ptr, endian, XXH_unaligned);
-}
-
-static U64 XXH_readBE64(const void* ptr)
-{
-    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
 }
 
 
@@ -393,6 +346,7 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 
 
 /*======   Hash streaming   ======*/
+
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 {
     return (XXH32_state_t*)XXH_malloc(sizeof(XXH32_state_t));
@@ -538,9 +492,7 @@ XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 }
 
 
-/* **************************
-*  Canonical representation
-****************************/
+/*======   Canonical representation   ======*/
 
 /*! Default XXH result types are basic unsigned 32 and 64 bits.
 *   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
@@ -561,9 +513,89 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 }
 
 
+#ifndef XXH_NO_LONG_LONG
+
 /* *******************************************************************
 *  64-bits hash functions
 *********************************************************************/
+
+/*======   Memory access   ======*/
+
+#if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+#   include <stdint.h>
+    typedef uint64_t U64;
+#else
+    typedef unsigned long long U64;   /* if your compiler doesn't support unsigned long long, replace by another 64-bit type here. Note that xxhash.h will also need to be updated. */
+#endif
+
+
+#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
+
+/* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
+static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
+
+#elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
+
+/* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
+/* currently only defined for gcc and icc */
+typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign64;
+
+static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
+
+#else
+
+/* portable and safe solution. Generally efficient.
+ * see : http://stackoverflow.com/a/32095106/646947
+ */
+
+static U64 XXH_read64(const void* memPtr)
+{
+    U64 val;
+    memcpy(&val, memPtr, sizeof(val));
+    return val;
+}
+
+#endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
+
+#if defined(_MSC_VER)     /* Visual Studio */
+#  define XXH_swap64 _byteswap_uint64
+#elif GCC_VERSION >= 403
+#  define XXH_swap64 __builtin_bswap64
+#else
+static U64 XXH_swap64 (U64 x)
+{
+    return  ((x << 56) & 0xff00000000000000ULL) |
+            ((x << 40) & 0x00ff000000000000ULL) |
+            ((x << 24) & 0x0000ff0000000000ULL) |
+            ((x << 8)  & 0x000000ff00000000ULL) |
+            ((x >> 8)  & 0x00000000ff000000ULL) |
+            ((x >> 24) & 0x0000000000ff0000ULL) |
+            ((x >> 40) & 0x000000000000ff00ULL) |
+            ((x >> 56) & 0x00000000000000ffULL);
+}
+#endif
+
+FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
+{
+    if (align==XXH_unaligned)
+        return endian==XXH_littleEndian ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
+    else
+        return endian==XXH_littleEndian ? *(const U64*)ptr : XXH_swap64(*(const U64*)ptr);
+}
+
+FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
+{
+    return XXH_readLE64_align(ptr, endian, XXH_unaligned);
+}
+
+static U64 XXH_readBE64(const void* ptr)
+{
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
+}
+
+
+/*======   xxh64   ======*/
+
 static const U64 PRIME64_1 = 11400714785074694791ULL;
 static const U64 PRIME64_2 = 14029467366897019727ULL;
 static const U64 PRIME64_3 =  1609587929392839161ULL;
@@ -682,6 +714,7 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 }
 
 /*======   Hash Streaming   ======*/
+
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 {
     return (XXH64_state_t*)XXH_malloc(sizeof(XXH64_state_t));
@@ -836,9 +869,8 @@ XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)
 }
 
 
-/* **************************
-*  Canonical representation
-****************************/
+/*====== Canonical representation   ======*/
+
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_canonical_t) == sizeof(XXH64_hash_t));
@@ -850,3 +882,5 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 {
     return XXH_readBE64(src);
 }
+
+#endif  /* XXH_NO_LONG_LONG */

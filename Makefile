@@ -122,7 +122,7 @@ c90test: clean
 	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
 	$(RM) xxhash.o
 
-sanitize: clean
+usan: clean
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) test CC=clang MOREFLAGS="-g -fsanitize=undefined"
 
@@ -147,7 +147,8 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c armtest clangtest gpptest sanitize staticAnalyze
+test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
+	armtest clangtest gpptest c90test usan staticAnalyze
 
 clean: clean-xxhsum-c
 	@$(RM) -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum

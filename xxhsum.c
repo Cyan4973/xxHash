@@ -48,7 +48,7 @@
 /* ************************************
 *  Includes
 **************************************/
-#include <stdlib.h>     /* malloc */
+#include <stdlib.h>     /* malloc, calloc, free, exit */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
 #include <string.h>     /* strcmp */
 #include <sys/types.h>  /* stat64 */
@@ -284,7 +284,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         const char* const inFileName = fileNamesTable[fileIdx];
         FILE* const inFile = fopen( inFileName, "rb" );
         size_t const benchedSize = BMK_selectBenchedSize(inFileName);
-        char* const buffer = (char*)malloc(benchedSize+16+3);
+        char* const buffer = (char*)calloc(benchedSize+16+3, 1);
         void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
         /* Checks */
@@ -323,7 +323,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 static int BMK_benchInternal(void)
 {
     size_t const benchedSize = g_sampleSize;
-    void* const buffer = malloc(benchedSize+3);
+    void* const buffer = calloc(benchedSize+3, 1);
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;

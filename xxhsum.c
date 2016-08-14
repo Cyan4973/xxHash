@@ -256,15 +256,13 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
     BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
 
     /* Bench XXH32 on Unaligned input */
-    if (bufferSize>1)
-        BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize-1);
+    BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
 
     /* Bench XXH64 */
     BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
 
     /* Bench XXH64 on Unaligned input */
-    if (bufferSize>1)
-        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+1, bufferSize-1);
+    BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
 }
 
 
@@ -286,7 +284,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         const char* const inFileName = fileNamesTable[fileIdx];
         FILE* const inFile = fopen( inFileName, "rb" );
         size_t const benchedSize = BMK_selectBenchedSize(inFileName);
-        char* const buffer = (char*)malloc(benchedSize+16);
+        char* const buffer = (char*)malloc(benchedSize+16+3);
         void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
         /* Checks */
@@ -325,7 +323,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 static int BMK_benchInternal(void)
 {
     size_t const benchedSize = g_sampleSize;
-    void* const buffer = malloc(benchedSize);
+    void* const buffer = malloc(benchedSize+3);
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;

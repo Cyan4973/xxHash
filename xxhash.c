@@ -175,7 +175,7 @@ static U32 XXH_read32(const void* memPtr)
 /* ****************************************
 *  Compiler-specific Functions and Macros
 ******************************************/
-#define GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
+#define XXH_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
 
 /* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */
 #if defined(_MSC_VER)
@@ -188,7 +188,7 @@ static U32 XXH_read32(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap32 _byteswap_ulong
-#elif GCC_VERSION >= 403
+#elif XXH_GCC_VERSION >= 403
 #  define XXH_swap32 __builtin_bswap32
 #else
 static U32 XXH_swap32 (U32 x)
@@ -562,7 +562,7 @@ static U64 XXH_read64(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap64 _byteswap_uint64
-#elif GCC_VERSION >= 403
+#elif XXH_GCC_VERSION >= 403
 #  define XXH_swap64 __builtin_bswap64
 #else
 static U64 XXH_swap64 (U64 x)

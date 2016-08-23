@@ -153,3 +153,36 @@ test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
 clean: clean-xxhsum-c
 	@$(RM) -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
+
+#----------------------------------------------------------------------------------
+#make install is validated only for Linux, OSX, kFreeBSD, Hurd and some BSD targets
+#----------------------------------------------------------------------------------
+ifneq (,$(filter $(shell uname),Linux Darwin GNU FreeBSD DragonFly))
+
+DESTDIR?=
+PREFIX ?= /usr/local
+BINDIR  = $(PREFIX)/bin
+MANDIR  = $(PREFIX)/share/man/man1
+
+install: xxhsum
+	@echo Installing binaries
+	@install -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
+	@install -m 755 xxhsum $(DESTDIR)$(BINDIR)/xxhsum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
+	@echo Installing man pages
+	@install -m 644 xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
+	@ln -sf zstd.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
+	@ln -sf zstd.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@echo xxhsum installation completed
+
+uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/xxh32sum
+	rm -f $(DESTDIR)$(BINDIR)/xxh64sum
+	[ -x $(DESTDIR)$(BINDIR)/xxhsum ] && $(RM) $(DESTDIR)$(BINDIR)/xxhsum
+	rm -f $(DESTDIR)$(MANDIR)/xxh32sum.1
+	rm -f $(DESTDIR)$(MANDIR)/xxh64sum.1
+	[ -f $(DESTDIR)$(MANDIR)/zstd.1 ] && $(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
+	@echo xxhsum successfully uninstalled
+
+endif

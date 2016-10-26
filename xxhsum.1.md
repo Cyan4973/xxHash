@@ -17,7 +17,7 @@ DESCRIPTION
 Print or check xxHash (32 or 64bit) checksums.  When <FILE> is `-`, read
 standard input.
 
-`xxhsum` supports a command line syntax similar but not indentical to
+`xxhsum` supports a command line syntax similar but not identical to
 md5sum(1).  Differences are:
 `xxhsum` doesn't have text/binary mode switch (`-b`, `-t`);
 `xxhsum` always treats file as binary file;

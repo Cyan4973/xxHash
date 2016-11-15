@@ -6,7 +6,9 @@ project(xxhash)
 set(XXHASH_LIB_VERSION "0.42.0")
 set(XXHASH_LIB_SOVERSION "0")
 
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Set to ON to build shared libraries")
+option(BUILD_SHARED_LIBS "Set to ON to build shared libraries" ON)
+option(BUILD_STATIC_LIBS "Set to ON to build static libraries" ON)
+
 if(BUILD_SHARED_LIBS)
   add_library(xxhash SHARED ../xxhash.c)
   set_target_properties(xxhash PROPERTIES COMPILE_DEFINITIONS "XXHASH_EXPORT"
@@ -15,7 +17,6 @@ if(BUILD_SHARED_LIBS)
   LIST(APPEND install_libs xxhash)
 endif(BUILD_SHARED_LIBS)
 
-set(BUILD_STATIC_LIBS ON CACHE BOOL "Set to ON to build static libraries")
 if(BUILD_STATIC_LIBS)
   add_library(xxhashstatic ../xxhash.c)
   set_target_properties(xxhashstatic PROPERTIES OUTPUT_NAME xxhash)

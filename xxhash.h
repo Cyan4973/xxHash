@@ -157,7 +157,7 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 /*-**********************************************************************
 *  32-bits hash
 ************************************************************************/
-typedef unsigned int       XXH32_hash_t;
+typedef unsigned int XXH32_hash_t;
 
 /*! XXH32() :
     Calculate the 32-bits hash of sequence "length" bytes stored at memory address "input".
@@ -250,38 +250,38 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
    Never use these definitions in association with dynamic linking !
 =================================================================================================== */
 
-/* These definitions are only meant to allow allocation of XXH state
-   statically, on stack, or in a struct for example.
-   Do not use members directly. */
+/* These definitions are only meant to make possible
+   static allocation of XXH state, on stack or in a struct for example.
+   Never use members directly. */
 
-   struct XXH32_state_s {
-       unsigned total_len_32;
-       unsigned large_len;
-       unsigned v1;
-       unsigned v2;
-       unsigned v3;
-       unsigned v4;
-       unsigned mem32[4];   /* buffer defined as U32 for alignment */
-       unsigned memsize;
-       unsigned reserved;   /* never read nor write, will be removed in a future version */
-   };   /* typedef'd to XXH32_state_t */
+struct XXH32_state_s {
+   unsigned total_len_32;
+   unsigned large_len;
+   unsigned v1;
+   unsigned v2;
+   unsigned v3;
+   unsigned v4;
+   unsigned mem32[4];   /* buffer defined as U32 for alignment */
+   unsigned memsize;
+   unsigned reserved;   /* never read nor write, will be removed in a future version */
+};   /* typedef'd to XXH32_state_t */
 
-#ifndef XXH_NO_LONG_LONG
-   struct XXH64_state_s {
-       unsigned long long total_len;
-       unsigned long long v1;
-       unsigned long long v2;
-       unsigned long long v3;
-       unsigned long long v4;
-       unsigned long long mem64[4];   /* buffer defined as U64 for alignment */
-       unsigned memsize;
-       unsigned reserved[2];          /* never read nor write, will be removed in a future version */
-   };   /* typedef'd to XXH64_state_t */
+#ifndef XXH_NO_LONG_LONG   /* remove 64-bits support */
+struct XXH64_state_s {
+   unsigned long long total_len;
+   unsigned long long v1;
+   unsigned long long v2;
+   unsigned long long v3;
+   unsigned long long v4;
+   unsigned long long mem64[4];   /* buffer defined as U64 for alignment */
+   unsigned memsize;
+   unsigned reserved[2];          /* never read nor write, will be removed in a future version */
+};   /* typedef'd to XXH64_state_t */
 #endif
 
-#  ifdef XXH_PRIVATE_API
-#    include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */
-#  endif
+#ifdef XXH_PRIVATE_API
+#  include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */
+#endif
 
 #endif /* XXH_STATIC_LINKING_ONLY */
 

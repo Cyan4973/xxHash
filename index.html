@@ -103,8 +103,8 @@ It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 Algorithms with a score < 5 are not listed on this table.
 
-A new version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash)'s contribution, 
-which offers superior speed and dispersion for 64-bits systems. 
+A new version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash)'s contribution,
+which offers superior speed and dispersion for 64-bits systems.
 Note however that 32-bits applications will still run faster using the 32-bits version.
 
 SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
@@ -121,33 +121,34 @@ The reference system uses a Core i5-3340M @2.7GHz
 ## Multiple languages
 The following versions produce xxHash-compatible results in different languages.
 
-|Language				|Author			|URL									|
-|--					|--			|--									|
-|__Java__ (XXH32)			|Adrien Grand		|https://github.com/jpountz/lz4-java					|
-|__Java__ (XXH64)			|Vsevolod Tolstopyatov	|https://github.com/OpenHFT/Zero-Allocation-Hashing			|
-|__Javascript__ (pure)			|Pierre Curto		|https://npmjs.org/package/xxhashjs					|
-|__Javascript__ (nodeJS)		|Brian White		|https://npmjs.org/package/xxhash					|
-|__JSX__ (static Javascript)		|Yoshiki Shibukawa	|https://www.npmjs.org/package/xxhash.jsx				|
-|__C#__ (XXH32)				|Seok-ju Yun		|https://github.com/noricube/xxHashSharp				|
-|__C#__ (XXH64)				|Brandon Dahler		|http://www.nuget.org/packages/System.Data.HashFunction.xxHash		|
-|__Python__ (XXH32)			|Ewen Cheslack-Postava	|https://pypi.python.org/pypi/pyhashxx/					|
-|__Python__ (XXH64)			|Yue Du			|https://pypi.python.org/pypi/xxhash/					|
-|__PHP__				|Nir Heimann		|https://github.com/nheimann1/php-xxhash				|
-|__PHP7__				|Craig R Megasaxon	|https://github.com/Megasaxon/php-xxhash				|
-|__Perl__				|Sanko Robinson		|https://metacpan.org/module/Digest::xxHash				|
-|__Ruby__ (pure)			|Justin W Smith		|http://rubygems.org/gems/ruby-xxHash					|
-|__Ruby__ (wrapper)			|Vasiliy Ermolovich	|https://rubygems.org/gems/xxhash					|
-|__Pascal__				|Vojtěch Čihák		|http://sourceforge.net/projects/xxhashfpc				|
-|__D__					|Masahiro Nakagawa	|https://github.com/repeatedly/xxhash-d					|
-|__Lua__ (binding)			|Masatoshi Teruya	|https://github.com/mah0x211/lua-xxhash					|
-|__Lua__ (jit)				|szensk			|https://github.com/szensk/luaxxhash					|
-|__Erlang__				|Pierre Matri		|https://github.com/pierresforge/erlang-xxhash				|
-|__Haskell__				|Christian Marie	|http://hackage.haskell.org/package/xxhash				|
-|__Go__ (XXH32)				|Stéphane Bunel		|https://bitbucket.org/StephaneBunel/xxhash-go				|
-|__Go__ (XXH64)				|Ahmed Waheed		|https://github.com/OneOfOne/xxhash					|
-|__Rust__				|Jake Goulding		|https://libraries.io/cargo/twox-hash					|
-|__PicoLisp__				|Mike Mihailp		|https://t.co/86cIjhApmj						|
-|__Elixir__				|Mykola Konyk		|https://github.com/ttvd/elixir-xxhash					|
+|Language                   |Author			|URL									|
+|--                         |--			|--									|
+|__Java__ (XXH32)           |Adrien Grand       |https://github.com/jpountz/lz4-java					|
+|__Java__ (XXH64)           |Vsevolod Tolstopyatov|https://github.com/OpenHFT/Zero-Allocation-Hashing			|
+|__Javascript__ (pure)      |Pierre Curto       |https://npmjs.org/package/xxhashjs					|
+|__Javascript__ (nodeJS)    |Brian White        |https://npmjs.org/package/xxhash					|
+|__JSX__ (static Javascript)|Yoshiki Shibukawa  |https://www.npmjs.org/package/xxhash.jsx				|
+|__C#__ (XXH32)             |Seok-ju Yun        |https://github.com/noricube/xxHashSharp				|
+|__C#__ (XXH64)             |Brandon Dahler     |http://www.nuget.org/packages/System.Data.HashFunction.xxHash		|
+|__Python__ (XXH32)         |Ewen Cheslack-Postava|https://pypi.python.org/pypi/pyhashxx/					|
+|__Python__ (XXH64)         |Yue Du             |https://pypi.python.org/pypi/xxhash/					|
+|__PHP__                    |Nir Heimann        |https://github.com/nheimann1/php-xxhash				|
+|__PHP7__                   |Craig R Megasaxon  |https://github.com/Megasaxon/php-xxhash				|
+|__Perl__                   |Sanko Robinson     |https://metacpan.org/module/Digest::xxHash				|
+|__Ruby__ (pure)            |Justin W Smith     |http://rubygems.org/gems/ruby-xxHash					|
+|__Ruby__ (wrapper)         |Vasiliy Ermolovich |https://rubygems.org/gems/xxhash					|
+|__Pascal__                 |Vojtěch Čihák      |http://sourceforge.net/projects/xxhashfpc				|
+|__D__                      |Masahiro Nakagawa  |https://github.com/repeatedly/xxhash-d					|
+|__Lua__ (binding)          |Masatoshi Teruya   |https://github.com/mah0x211/lua-xxhash					|
+|__Lua__ (jit)              |szensk             |https://github.com/szensk/luaxxhash					|
+|__Erlang__                 |Pierre Matri       |https://github.com/pierresforge/erlang-xxhash				|
+|__Haskell__                |Christian Marie    |http://hackage.haskell.org/package/xxhash				|
+|__Go__ (XXH32)             |Stéphane Bunel     |https://bitbucket.org/StephaneBunel/xxhash-go				|
+|__Go__ (XXH64)             |Ahmed Waheed       |https://github.com/OneOfOne/xxhash |
+|__Go + ASM__               |Caleb Spare        |https://github.com/cespare/xxhash  |
+|__Rust__                   |Jake Goulding      |https://libraries.io/cargo/twox-hash					|
+|__PicoLisp__               |Mike Mihailp       |https://t.co/86cIjhApmj						|
+|__Elixir__                 |Mykola Konyk       |https://github.com/ttvd/elixir-xxhash					|
 
 
 

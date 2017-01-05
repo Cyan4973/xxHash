@@ -80,8 +80,9 @@
 /*!XXH_FORCE_ALIGN_CHECK :
  * This is a minor performance trick, only useful with lots of very small keys.
  * It means : check for aligned/unaligned input.
- * The check costs one initial branch per hash; set to 0 when the input data
- * is guaranteed to be aligned.
+ * The check costs one initial branch per hash;
+ * set it to 0 when the input is guaranteed to be aligned,
+ * or when alignment doesn't matter for performance.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
 #  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
@@ -136,12 +137,10 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
     typedef uint8_t  BYTE;
     typedef uint16_t U16;
     typedef uint32_t U32;
-    typedef  int32_t S32;
 # else
     typedef unsigned char      BYTE;
     typedef unsigned short     U16;
     typedef unsigned int       U32;
-    typedef   signed int       S32;
 # endif
 #endif
 

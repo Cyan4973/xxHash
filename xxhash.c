@@ -400,7 +400,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
             state->v1 = XXH32_round(state->v1, XXH_readLE32(p32, endian)); p32++;
             state->v2 = XXH32_round(state->v2, XXH_readLE32(p32, endian)); p32++;
             state->v3 = XXH32_round(state->v3, XXH_readLE32(p32, endian)); p32++;
-            state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian)); p32++;
+            state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian));
         }
         p += 16-state->memsize;
         state->memsize = 0;

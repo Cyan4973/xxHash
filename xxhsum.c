@@ -678,10 +678,12 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
     GetLineResult result = GetLine_ok;
     int len = 0;
 
-    if (*lineBuf == NULL || *lineMax < 1) {
-        *lineMax = DEFAULT_LINE_LENGTH;
-        *lineBuf = (char*) realloc(*lineBuf, *lineMax);
+    if ((*lineBuf == NULL) || (*lineMax<1)) {
+        free(*lineBuf);  /* in case it's != NULL */
+        *lineMax = 0;
+        *lineBuf = (char*)malloc(DEFAULT_LINE_LENGTH);
         if(*lineBuf == NULL) return GetLine_outOfMemory;
+        *lineMax = DEFAULT_LINE_LENGTH;
     }
 
     for (;;) {

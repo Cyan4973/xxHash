@@ -172,8 +172,8 @@ install: xxhsum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
 	@echo Installing man pages
 	@install -m 644 xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
-	@ln -sf zstd.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
-	@ln -sf zstd.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
+	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
 	@echo xxhsum installation completed
 
 uninstall:

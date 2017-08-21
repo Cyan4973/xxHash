@@ -546,24 +546,25 @@ static int BMK_hash(const char* fileName,
               &&(fileNameEnd[-1-infoFilenameSize] != '/')
               &&(fileNameEnd[-1-infoFilenameSize] != '\\') )
               infoFilenameSize++;
-        DISPLAY("\rLoading %s...                        \r", fileNameEnd - infoFilenameSize);
-    }
+        DISPLAY("\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
 
-    /* Load file & update hash */
-    switch(hashType)
-    {
-    case algo_xxh32:
-        BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
-        break;
-    case algo_xxh64:
-        BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
-        break;
-    default:
-        break;
-    }
+        /* Load file & update hash */
+        switch(hashType)
+        {
+        case algo_xxh32:
+            BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
+            break;
+        case algo_xxh64:
+            BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
+            break;
+        default:
+            break;
+        }
 
-    fclose(inFile);
-    free(buffer);
+        fclose(inFile);
+        free(buffer);
+        DISPLAY("%s             \r", fileNameEnd - infoFilenameSize);  /* erase line */
+    }
 
     /* display Hash */
     switch(hashType)

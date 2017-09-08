@@ -154,35 +154,62 @@ clean: clean-xxhsum-c
 	@$(RM) -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
 
-#----------------------------------------------------------------------------------
-#make install is validated only for Linux, OSX, kFreeBSD, Hurd and some BSD targets
-#----------------------------------------------------------------------------------
-ifneq (,$(filter $(shell uname),Linux Darwin GNU FreeBSD DragonFly))
 
-DESTDIR?=
-PREFIX ?= /usr/local
-BINDIR  = $(PREFIX)/bin
-MANDIR  = $(PREFIX)/share/man/man1
+#-----------------------------------------------------------------------------
+# make install is validated only for the following targets
+#-----------------------------------------------------------------------------
+ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
 
+DESTDIR     ?=
+# directory variables : GNU conventions prefer lowercase
+# see https://www.gnu.org/prep/standards/html_node/Makefile-Conventions.html
+# support both lower and uppercase (BSD), use uppercase in script
+prefix      ?= /usr/local
+PREFIX      ?= $(prefix)
+exec_prefix ?= $(PREFIX)
+bindir      ?= $(exec_prefix)/bin
+BINDIR      ?= $(bindir)
+datarootdir ?= $(PREFIX)/share
+mandir      ?= $(datarootdir)/man
+man1dir     ?= $(mandir)/man1
+
+ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
+MANDIR  ?= $(PREFIX)/man/man1
+else
+MANDIR  ?= $(man1dir)
+endif
+
+ifneq (,$(filter $(shell uname),SunOS))
+INSTALL ?= ginstall
+else
+INSTALL ?= install
+endif
+
+INSTALL_PROGRAM ?= $(INSTALL)
+INSTALL_DATA    ?= $(INSTALL) -m 644
+
+
+.PHONY: install
 install: xxhsum
 	@echo Installing binaries
-	@install -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
-	@install -m 755 xxhsum $(DESTDIR)$(BINDIR)/xxhsum
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
+	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
 	@echo Installing man pages
-	@install -m 644 xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
+	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
 	@echo xxhsum installation completed
 
+.PHONY: uninstall
 uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/xxh32sum
-	rm -f $(DESTDIR)$(BINDIR)/xxh64sum
-	[ -x $(DESTDIR)$(BINDIR)/xxhsum ] && $(RM) $(DESTDIR)$(BINDIR)/xxhsum
-	rm -f $(DESTDIR)$(MANDIR)/xxh32sum.1
-	rm -f $(DESTDIR)$(MANDIR)/xxh64sum.1
-	[ -f $(DESTDIR)$(MANDIR)/zstd.1 ] && $(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
+	$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
+	$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
+	$(RM) $(DESTDIR)$(BINDIR)/xxhsum
+	$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
+	$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1
+	$(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
 	@echo xxhsum successfully uninstalled
 
 endif

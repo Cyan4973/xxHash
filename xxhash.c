@@ -380,8 +380,11 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
+    if (input==NULL)
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (input==NULL) return XXH_ERROR;
+        return XXH_OK;
+#else
+        return XXH_ERROR;
 #endif
 
     state->total_len_32 += (unsigned)len;
@@ -749,8 +752,11 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
+    if (input==NULL)
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (input==NULL) return XXH_ERROR;
+        return XXH_OK;
+#else
+        return XXH_ERROR;
 #endif
 
     state->total_len += len;

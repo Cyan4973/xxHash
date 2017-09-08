@@ -71,10 +71,10 @@ test: xxhsum
 	./xxhsum -bi1
 	# file bench
 	./xxhsum -bi1 xxhash.c
-	# memory tests
 
 .PHONY: test-mem
 test-mem: xxhsum
+	# memory tests
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1 xxhash.c

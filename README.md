@@ -39,10 +39,9 @@ It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 Algorithms with a score < 5 are not listed on this table.
 
-A new version, XXH64, has been created thanks to [Mathias Westerdahl]'s contribution,
+A more recent version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash),
 which offers superior speed and dispersion for 64-bits systems.
 Note however that 32-bits applications will still run faster using the 32-bits version.
-[Mathias Westerdahl]: https://github.com/JCash
 
 SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
 The reference system uses a Core i5-3340M @2.7GHz
@@ -52,7 +51,8 @@ The reference system uses a Core i5-3340M @2.7GHz
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
 
-This project also includes a command line utility, named `xxhsum`, offering similar features as `md5sum`, thanks to [Takayuki Matsuoka](https://github.com/t-mat) contributions.
+This project also includes a command line utility, named `xxhsum`, offering similar features as `md5sum`,
+thanks to [Takayuki Matsuoka](https://github.com/t-mat) contributions.
 
 
 ### License

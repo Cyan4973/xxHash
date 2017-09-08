@@ -4,8 +4,12 @@ xxhsum(1) -- print or check xxHash non-cryptographic checksums
 SYNOPSIS
 --------
 
-`xxhsum` [<OPTION>] ... [<FILE>] ...<br/>
-`xxhsum -b` [<OPTION>] ...
+`xxhsum [<OPTION>] ... [<FILE>] ...`  
+`xxhsum -b [<OPTION>] ...`
+
+`xxh32sum` is equivalent to `xxhsum -H0`  
+`xxh64sum` is equivalent to `xxhsum -H1`
+
 
 DESCRIPTION
 -----------
@@ -13,24 +17,22 @@ DESCRIPTION
 Print or check xxHash (32 or 64bit) checksums.  When <FILE> is `-`, read
 standard input.
 
-`xxhsum` supports a command line syntax similar but not indentical to
-md5sum(1).  Differences are: `xxhsum` doesn't have text/binary mode switch
-(`-b`, `-t`);  `xxhsum` always treats file as binary file;  `xxhsum` has hash
-bit width switch (`-H`);
+`xxhsum` supports a command line syntax similar but not identical to
+md5sum(1).  Differences are:
+`xxhsum` doesn't have text/binary mode switch (`-b`, `-t`);
+`xxhsum` always treats file as binary file;
+`xxhsum` has hash bit width switch (`-H`);
 
-Since xxHash is non-cryptographic checksum algorithm, `xxhsum` should not be
-used any more for security related purposes.
+As xxHash is a fast non-cryptographic checksum algorithm,
+`xxhsum` should not be used for security related purposes.
 
 `xxhsum -b` invokes benchmark mode. See [OPTIONS](#OPTIONS) and [EXAMPLES](#EXAMPLES) for details.
 
 OPTIONS
 -------
 
-* `-c`, `--check`:
-  Read xxHash sums from the <FILE>s and check them
-
-* `-h`, `--help`:
-  Display help and exit
+* `-V`, `--version`:
+  Display xxhsum version
 
 * `-H`<HASHTYPE>:
   Hash selection.  <HASHTYPE> means `0`=32bits, `1`=64bits.
@@ -38,12 +40,15 @@ OPTIONS
 
 * `--little-endian`:
   Set output hexadecimal checksum value as little endian convention.
-  By default, value is displayed as big endian
+  By default, value is displayed as big endian.
 
-* `-V`, `--version`:
-  Display xxhsum version
+* `-h`, `--help`:
+  Display help and exit
 
 **The following four options are useful only when verifying checksums (`-c`)**
+
+* `-c`, `--check`:
+  Read xxHash sums from the <FILE>s and check them
 
 * `--quiet`:
   Exit non-zero for improperly formatted checksum lines

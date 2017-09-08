@@ -6,26 +6,34 @@ project(xxhash)
 set(XXHASH_LIB_VERSION "0.42.0")
 set(XXHASH_LIB_SOVERSION "0")
 
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Set to ON to build shared libraries")
-if(BUILD_SHARED_LIBS)
-  add_library(xxhash SHARED ../xxhash.c)
-  set_target_properties(xxhash PROPERTIES COMPILE_DEFINITIONS "XXHASH_EXPORT"
-                         VERSION "${XXHASH_LIB_VERSION}"
-                         SOVERSION "${XXHASH_LIB_SOVERSION}")
-  LIST(APPEND install_libs xxhash)
-endif(BUILD_SHARED_LIBS)
+option(BUILD_XXHSUM "Build the xxhsum binary" ON)
 
-set(BUILD_STATIC_LIBS ON CACHE BOOL "Set to ON to build static libraries")
-if(BUILD_STATIC_LIBS)
-  add_library(xxhashstatic ../xxhash.c)
-  set_target_properties(xxhashstatic PROPERTIES OUTPUT_NAME xxhash)
-  LIST(APPEND install_libs xxhashstatic)
-endif(BUILD_STATIC_LIBS)
+# Make CMake's RPATH handling not be insane. This suff has cmake set rpaths appropriately for
+# where things end up in the install tree. For some reason that's not the default:
+# https://cmake.org/Wiki/CMake_RPATH_handling
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
+# Where we search for shared libraries
+SET(CMAKE_INSTALL_RPATH "./lib")
+
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+add_library(xxhash ../xxhash.c)
+set_target_properties(xxhash PROPERTIES COMPILE_DEFINITIONS "XXHASH_EXPORT"
+                       VERSION "${XXHASH_LIB_VERSION}"
+                       SOVERSION "${XXHASH_LIB_SOVERSION}")
+
+if (BUILD_XXHSUM)
+    add_executable(xxhsum ../xxhsum.c)
+    target_link_libraries(xxhsum xxhash)
+endif()
 
 INSTALL(FILES ../xxhash.h DESTINATION include)
 INSTALL(
-    TARGETS ${install_libs}
+    TARGETS xxhash xxhsum
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib

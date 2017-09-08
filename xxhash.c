@@ -66,10 +66,10 @@
 /* #define XXH_ACCEPT_NULL_INPUT_POINTER 1 */
 
 /*!XXH_FORCE_NATIVE_FORMAT :
- * By default, xxHash library provides endian-independant Hash values, based on little-endian convention.
+ * By default, xxHash library provides endian-independent Hash values, based on little-endian convention.
  * Results are therefore identical for little-endian and big-endian CPU.
  * This comes at a performance cost for big-endian CPU, since some swapping is required to emulate little-endian format.
- * Should endian-independance be of no importance for your application, you may set the #define below to 1,
+ * Should endian-independence be of no importance for your application, you may set the #define below to 1,
  * to improve speed for Big-endian CPU.
  * This option has no impact on Little_Endian CPU.
  */
@@ -80,8 +80,9 @@
 /*!XXH_FORCE_ALIGN_CHECK :
  * This is a minor performance trick, only useful with lots of very small keys.
  * It means : check for aligned/unaligned input.
- * The check costs one initial branch per hash; set to 0 when the input data
- * is guaranteed to be aligned.
+ * The check costs one initial branch per hash;
+ * set it to 0 when the input is guaranteed to be aligned,
+ * or when alignment doesn't matter for performance.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
 #  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
@@ -95,12 +96,12 @@
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
-/* Modify the local functions below should you wish to use some other memory routines */
-/* for malloc(), free() */
+/*! Modify the local functions below should you wish to use some other memory routines
+*   for malloc(), free() */
 #include <stdlib.h>
 static void* XXH_malloc(size_t s) { return malloc(s); }
 static void  XXH_free  (void* p)  { free(p); }
-/* for memcpy() */
+/*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
@@ -115,7 +116,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #  pragma warning(disable : 4127)      /* disable: C4127: conditional expression is constant */
 #  define FORCE_INLINE static __forceinline
 #else
-#  if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
+#  if defined (__cplusplus) || defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
 #    ifdef __GNUC__
 #      define FORCE_INLINE static inline __attribute__((always_inline))
 #    else
@@ -136,12 +137,10 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
     typedef uint8_t  BYTE;
     typedef uint16_t U16;
     typedef uint32_t U32;
-    typedef  int32_t S32;
 # else
     typedef unsigned char      BYTE;
     typedef unsigned short     U16;
     typedef unsigned int       U32;
-    typedef   signed int       S32;
 # endif
 #endif
 
@@ -175,7 +174,7 @@ static U32 XXH_read32(const void* memPtr)
 /* ****************************************
 *  Compiler-specific Functions and Macros
 ******************************************/
-#define GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
+#define XXH_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
 
 /* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */
 #if defined(_MSC_VER)
@@ -188,7 +187,7 @@ static U32 XXH_read32(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap32 _byteswap_ulong
-#elif GCC_VERSION >= 403
+#elif XXH_GCC_VERSION >= 403
 #  define XXH_swap32 __builtin_bswap32
 #else
 static U32 XXH_swap32 (U32 x)
@@ -322,10 +321,10 @@ XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int s
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH32_CREATESTATE_STATIC(state);
-    XXH32_reset(state, seed);
-    XXH32_update(state, input, len);
-    return XXH32_digest(state);
+    XXH32_state_t state;
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, input, len);
+    return XXH32_digest(&state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -358,7 +357,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
     return XXH_OK;
 }
 
-XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* restrict dstState, const XXH32_state_t* restrict srcState)
+XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t* srcState)
 {
     memcpy(dstState, srcState, sizeof(*dstState));
 }
@@ -381,8 +380,11 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
+    if (input==NULL)
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (input==NULL) return XXH_ERROR;
+        return XXH_OK;
+#else
+        return XXH_ERROR;
 #endif
 
     state->total_len_32 += (unsigned)len;
@@ -400,7 +402,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
             state->v1 = XXH32_round(state->v1, XXH_readLE32(p32, endian)); p32++;
             state->v2 = XXH32_round(state->v2, XXH_readLE32(p32, endian)); p32++;
             state->v3 = XXH32_round(state->v3, XXH_readLE32(p32, endian)); p32++;
-            state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian)); p32++;
+            state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian));
         }
         p += 16-state->memsize;
         state->memsize = 0;
@@ -543,7 +545,6 @@ static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
 /* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign64;
-
 static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
 
 #else
@@ -563,7 +564,7 @@ static U64 XXH_read64(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap64 _byteswap_uint64
-#elif GCC_VERSION >= 403
+#elif XXH_GCC_VERSION >= 403
 #  define XXH_swap64 __builtin_bswap64
 #else
 static U64 XXH_swap64 (U64 x)
@@ -625,7 +626,7 @@ static U64 XXH64_mergeRound(U64 acc, U64 val)
 FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
-    const BYTE* const bEnd = p + len;
+    const BYTE* bEnd = p + len;
     U64 h64;
 #define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
 
@@ -695,10 +696,10 @@ XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH64_CREATESTATE_STATIC(state);
-    XXH64_reset(state, seed);
-    XXH64_update(state, input, len);
-    return XXH64_digest(state);
+    XXH64_state_t state;
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, input, len);
+    return XXH64_digest(&state);
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
@@ -729,7 +730,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
     return XXH_OK;
 }
 
-XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* restrict dstState, const XXH64_state_t* restrict srcState)
+XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t* srcState)
 {
     memcpy(dstState, srcState, sizeof(*dstState));
 }
@@ -751,8 +752,11 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
+    if (input==NULL)
 #ifdef XXH_ACCEPT_NULL_INPUT_POINTER
-    if (input==NULL) return XXH_ERROR;
+        return XXH_OK;
+#else
+        return XXH_ERROR;
 #endif
 
     state->total_len += len;

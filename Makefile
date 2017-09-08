@@ -34,7 +34,7 @@ CFLAGS ?= -O3
 CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
           -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
 		  -Wstrict-prototypes -Wundef
-FLAGS  := $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
+FLAGS   = $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
 MD2ROFF = ronn
 MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
@@ -46,24 +46,23 @@ else
 EXT =
 endif
 
-.PHONY: clean all
-
+.PHONY: default
 default: xxhsum
 
+.PHONY: all
 all: xxhsum xxhsum32 xxhsum_inlinedXXH
 
-xxhsum: xxhash.c xxhsum.c
+xxhsum32: CFLAGS += -m32
+xxhsum xxhsum32: xxhash.c xxhsum.c
 	$(CC)      $(FLAGS) $^ -o $@$(EXT)
 	ln -sf $@ xxh32sum
 	ln -sf $@ xxh64sum
 
-xxhsum32: xxhash.c xxhsum.c
-	$(CC) -m32 $(FLAGS) $^ -o $@$(EXT)
-
 xxhsum_inlinedXXH: xxhsum.c
 	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
 
-test: clean xxhsum
+.PHONY: test
+test: xxhsum
 	# stdin
 	./xxhsum < xxhash.c
 	# multiple files
@@ -72,11 +71,15 @@ test: clean xxhsum
 	./xxhsum -bi1
 	# file bench
 	./xxhsum -bi1 xxhash.c
+
+.PHONY: test-mem
+test-mem: xxhsum
 	# memory tests
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1 xxhash.c
 
+.PHONY: test32
 test32: clean xxhsum32
 	@echo ---- test 32-bits ----
 	./xxhsum32 -bi1 xxhash.c
@@ -124,7 +127,7 @@ c90test: clean
 
 usan: clean
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) test CC=clang MOREFLAGS="-g -fsanitize=undefined"
+	$(MAKE) clean test CC=clang MOREFLAGS="-g -fsanitize=undefined"
 
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
@@ -148,8 +151,68 @@ preview-man: clean-man man
 	man ./xxhsum.1
 
 test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
-	armtest clangtest gpptest c90test usan staticAnalyze
+	armtest clangtest gpptest c90test test-mem usan staticAnalyze
 
 clean: clean-xxhsum-c
 	@$(RM) -f core *.o xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
+
+
+#-----------------------------------------------------------------------------
+# make install is validated only for the following targets
+#-----------------------------------------------------------------------------
+ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
+
+DESTDIR     ?=
+# directory variables : GNU conventions prefer lowercase
+# see https://www.gnu.org/prep/standards/html_node/Makefile-Conventions.html
+# support both lower and uppercase (BSD), use uppercase in script
+prefix      ?= /usr/local
+PREFIX      ?= $(prefix)
+exec_prefix ?= $(PREFIX)
+bindir      ?= $(exec_prefix)/bin
+BINDIR      ?= $(bindir)
+datarootdir ?= $(PREFIX)/share
+mandir      ?= $(datarootdir)/man
+man1dir     ?= $(mandir)/man1
+
+ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
+MANDIR  ?= $(PREFIX)/man/man1
+else
+MANDIR  ?= $(man1dir)
+endif
+
+ifneq (,$(filter $(shell uname),SunOS))
+INSTALL ?= ginstall
+else
+INSTALL ?= install
+endif
+
+INSTALL_PROGRAM ?= $(INSTALL)
+INSTALL_DATA    ?= $(INSTALL) -m 644
+
+
+.PHONY: install
+install: xxhsum
+	@echo Installing binaries
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
+	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
+	@echo Installing man pages
+	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
+	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
+	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@echo xxhsum installation completed
+
+.PHONY: uninstall
+uninstall:
+	$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
+	$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
+	$(RM) $(DESTDIR)$(BINDIR)/xxhsum
+	$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
+	$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1
+	$(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
+	@echo xxhsum successfully uninstalled
+
+endif

@@ -48,7 +48,7 @@
 /* ************************************
 *  Includes
 **************************************/
-#include <stdlib.h>     /* malloc */
+#include <stdlib.h>     /* malloc, calloc, free, exit */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
 #include <string.h>     /* strcmp */
 #include <sys/types.h>  /* stat64 */
@@ -256,15 +256,13 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
     BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
 
     /* Bench XXH32 on Unaligned input */
-    if (bufferSize>1)
-        BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize-1);
+    BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
 
     /* Bench XXH64 */
     BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
 
     /* Bench XXH64 on Unaligned input */
-    if (bufferSize>1)
-        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+1, bufferSize-1);
+    BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
 }
 
 
@@ -286,7 +284,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         const char* const inFileName = fileNamesTable[fileIdx];
         FILE* const inFile = fopen( inFileName, "rb" );
         size_t const benchedSize = BMK_selectBenchedSize(inFileName);
-        char* const buffer = (char*)malloc(benchedSize+16);
+        char* const buffer = (char*)calloc(benchedSize+16+3, 1);
         void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
 
         /* Checks */
@@ -325,7 +323,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 static int BMK_benchInternal(void)
 {
     size_t const benchedSize = g_sampleSize;
-    void* const buffer = malloc(benchedSize);
+    void* const buffer = calloc(benchedSize+3, 1);
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
@@ -548,24 +546,25 @@ static int BMK_hash(const char* fileName,
               &&(fileNameEnd[-1-infoFilenameSize] != '/')
               &&(fileNameEnd[-1-infoFilenameSize] != '\\') )
               infoFilenameSize++;
-        DISPLAY("\rLoading %s...                        \r", fileNameEnd - infoFilenameSize);
-    }
+        DISPLAY("\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
 
-    /* Load file & update hash */
-    switch(hashType)
-    {
-    case algo_xxh32:
-        BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
-        break;
-    case algo_xxh64:
-        BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
-        break;
-    default:
-        break;
-    }
+        /* Load file & update hash */
+        switch(hashType)
+        {
+        case algo_xxh32:
+            BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
+            break;
+        case algo_xxh64:
+            BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
+            break;
+        default:
+            break;
+        }
 
-    fclose(inFile);
-    free(buffer);
+        fclose(inFile);
+        free(buffer);
+        DISPLAY("%s             \r", fileNameEnd - infoFilenameSize);  /* erase line */
+    }
 
     /* display Hash */
     switch(hashType)
@@ -680,10 +679,12 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
     GetLineResult result = GetLine_ok;
     int len = 0;
 
-    if (*lineBuf == NULL || *lineMax < 1) {
-        *lineMax = DEFAULT_LINE_LENGTH;
-        *lineBuf = (char*) realloc(*lineBuf, *lineMax);
+    if ((*lineBuf == NULL) || (*lineMax<1)) {
+        free(*lineBuf);  /* in case it's != NULL */
+        *lineMax = 0;
+        *lineBuf = (char*)malloc(DEFAULT_LINE_LENGTH);
         if(*lineBuf == NULL) return GetLine_outOfMemory;
+        *lineMax = DEFAULT_LINE_LENGTH;
     }
 
     for (;;) {

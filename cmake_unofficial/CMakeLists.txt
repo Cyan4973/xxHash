@@ -3,7 +3,7 @@ cmake_policy(VERSION 2.6)
 
 project(xxhash)
 
-set(XXHASH_LIB_VERSION "0.42.0")
+set(XXHASH_LIB_VERSION "0.6.3")
 set(XXHASH_LIB_SOVERSION "0")
 
 option(BUILD_XXHSUM "Build the xxhsum binary" ON)

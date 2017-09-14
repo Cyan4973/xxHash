@@ -7,6 +7,7 @@ set(XXHASH_LIB_VERSION "0.6.3")
 set(XXHASH_LIB_SOVERSION "0")
 
 option(BUILD_XXHSUM "Build the xxhsum binary" ON)
+option(BUILD_SHARED_LIBS "Build shared library" ON)
 
 # Make CMake's RPATH handling not be insane. This suff has cmake set rpaths appropriately for
 # where things end up in the install tree. For some reason that's not the default:

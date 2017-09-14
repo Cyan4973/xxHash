@@ -1,3 +1,9 @@
+# objects
+*.o
+
+# libraries
+libxxhash.*
+
 # Executables
 xxh32sum
 xxh64sum

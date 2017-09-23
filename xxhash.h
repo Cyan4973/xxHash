@@ -244,10 +244,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #ifdef XXH_STATIC_LINKING_ONLY
 
 /* ================================================================================================
-   This section contains definitions which are not guaranteed to remain stable.
+   This section contains declarations which are not guaranteed to remain stable.
    They may change in future versions, becoming incompatible with a different version of the library.
-   They shall only be used with static linking.
-   Never use these definitions in association with dynamic linking !
+   These declarations should only be used with static linking.
+   Never use them in association with dynamic linking !
 =================================================================================================== */
 
 /* These definitions are only meant to make possible

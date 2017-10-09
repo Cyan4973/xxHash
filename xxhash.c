@@ -50,20 +50,26 @@
  * Prefer these methods in priority order (0 > 1 > 2)
  */
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-#  if defined(__GNUC__) && ( defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) )
+#  if defined(__GNUC__) && ( defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
+                        || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
+                        || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) )
 #    define XXH_FORCE_MEMORY_ACCESS 2
 #  elif defined(__INTEL_COMPILER) || \
-  (defined(__GNUC__) && ( defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7S__) ))
+  (defined(__GNUC__) && ( defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) \
+                    || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) \
+                    || defined(__ARM_ARCH_7S__) ))
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif
 
 /*!XXH_ACCEPT_NULL_INPUT_POINTER :
- * If the input pointer is a null pointer, xxHash default behavior is to trigger a memory access error, since it is a bad pointer.
- * When this option is enabled, xxHash output for null input pointers will be the same as a null-length input.
- * By default, this option is disabled. To enable it, uncomment below define :
+ * If input pointer is NULL, xxHash default behavior is to dereference it, triggering a segfault.
+ * When this macro is enabled, xxHash actively checks input for null pointer.
+ * It it is, result for null input pointers is the same as a null-length input.
  */
-/* #define XXH_ACCEPT_NULL_INPUT_POINTER 1 */
+#ifndef XXH_ACCEPT_NULL_INPUT_POINTER   /* can be defined externally */
+#  define XXH_ACCEPT_NULL_INPUT_POINTER 0
+#endif
 
 /*!XXH_FORCE_NATIVE_FORMAT :
  * By default, xxHash library provides endian-independent Hash values, based on little-endian convention.
@@ -267,7 +273,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
     U32 h32;
 #define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
 
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
     if (p==NULL) {
         len=0;
         bEnd=p=(const BYTE*)(size_t)16;
@@ -381,7 +387,7 @@ FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void
     const BYTE* const bEnd = p + len;
 
     if (input==NULL)
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
         return XXH_OK;
 #else
         return XXH_ERROR;
@@ -630,7 +636,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
     U64 h64;
 #define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
 
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
     if (p==NULL) {
         len=0;
         bEnd=p=(const BYTE*)(size_t)32;
@@ -753,7 +759,7 @@ FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void
     const BYTE* const bEnd = p + len;
 
     if (input==NULL)
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
         return XXH_OK;
 #else
         return XXH_ERROR;

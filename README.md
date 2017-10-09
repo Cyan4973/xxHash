@@ -66,7 +66,7 @@ The utility `xxhsum` is GPL licensed.
 The following macros can be set at compilation time,
 they modify xxhash behavior. They are all disabled by default.
 
-- `XXH_ACCEPT_NULL_INPUT_POINTER` : when enabled, if input is a null-pointer,
+- `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
                                     xxhash result is the same as a null-length key,
                                     instead of a dereference segfault.
 - `XXH_FORCE_MEMORY_ACCESS` : default method `0` uses a portable `memcpy()` notation.

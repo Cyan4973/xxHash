@@ -196,6 +196,11 @@ preview-man: clean-man man
 test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
 	armtest clangtest gpptest c90test test-mem usan staticAnalyze
 
+.PHONY: checkL120
+listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
+	find . -type f -name '*.c' -o -name '*.h' | while read -r filename; do awk 'length > 120 {print FILENAME "(" FNR "): " $$0}' $$filename; done
+
+.PHONY: clean
 clean: clean-xxhsum-c
 	@$(RM) core *.o libxxhash.*
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum

@@ -138,7 +138,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 *  Basic Types
 ***************************************/
 #ifndef MEM_MODULE
-# if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+# if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 #   include <stdint.h>
     typedef uint8_t  BYTE;
     typedef uint16_t U16;
@@ -245,7 +247,7 @@ static U32 XXH_readBE32(const void* ptr)
 /* *************************************
 *  Macros
 ***************************************/
-#define XXH_STATIC_ASSERT(c)   { enum { XXH_static_assert = 1/(int)(!!(c)) }; }    /* use only *after* variable declarations */
+#define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }  /* use after variable declarations */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
@@ -376,12 +378,14 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int s
     state.v2 = seed + PRIME32_2;
     state.v3 = seed + 0;
     state.v4 = seed - PRIME32_1;
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));  /* do not write into reserved, for future removal */
+    /* do not write into reserved, planned to be removed in a future version */
+    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
 
 
-FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void* input, size_t len, XXH_endianess endian)
+FORCE_INLINE
+XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
@@ -461,7 +465,10 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess 
     U32 h32;
 
     if (state->large_len) {
-        h32 = XXH_rotl32(state->v1, 1) + XXH_rotl32(state->v2, 7) + XXH_rotl32(state->v3, 12) + XXH_rotl32(state->v4, 18);
+        h32 = XXH_rotl32(state->v1, 1)
+            + XXH_rotl32(state->v2, 7)
+            + XXH_rotl32(state->v3, 12)
+            + XXH_rotl32(state->v4, 18);
     } else {
         h32 = state->v3 /* == seed */ + PRIME32_5;
     }
@@ -506,7 +513,7 @@ XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 /*! Default XXH result types are basic unsigned 32 and 64 bits.
 *   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
 *   These functions allow transformation of hash result into and from its canonical format.
-*   This way, hash values can be written into a file or buffer, and remain comparable across different systems and programs.
+*   This way, hash values can be written into a file or buffer, remaining comparable across different systems.
 */
 
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
@@ -532,11 +539,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 #ifndef MEM_MODULE
 # define MEM_MODULE
-# if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+# if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 #   include <stdint.h>
     typedef uint64_t U64;
 # else
-    typedef unsigned long long U64;   /* if your compiler doesn't support unsigned long long, replace by another 64-bit type here. Note that xxhash.h will also need to be updated. */
+    /* if compiler doesn't support unsigned long long, replace by another 64-bit type */
+    typedef unsigned long long U64;
 # endif
 #endif
 
@@ -749,11 +759,13 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long 
     state.v2 = seed + PRIME64_2;
     state.v3 = seed + 0;
     state.v4 = seed - PRIME64_1;
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));   /* do not write into reserved, for future removal */
+     /* do not write into reserved, planned to be removed in a future version */
+    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
 
-FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
+FORCE_INLINE
+XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;

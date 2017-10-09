@@ -121,7 +121,8 @@ static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s \n", exename, PROGRAM_VERSION,  g_nbBits, ENDIAN_NAME, author
+#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s \n", \
+                    exename, PROGRAM_VERSION, g_nbBits, ENDIAN_NAME, author
 
 #define NBLOOPS    3                              /* Default number of benchmark iterations */
 #define TIMELOOP_S 1
@@ -239,10 +240,11 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                 r += h(buffer, bufferSize, i);
             nbHashes += nbh_perloop;
         }
-        if (r==0) DISPLAY(".\r");   /* need to do something with r to avoid compiler optimizing away the hash function */
+        if (r==0) DISPLAY(".\r");  /* need to do something with r to avoid compiler "optimizing" away hash function */
         {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbHashes;
             if (timeS < fastestH) fastestH = timeS;
-            DISPLAY("%1i-%-17.17s : %10u -> %7.1f MB/s\r", iterationNb, hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH );
+            DISPLAY("%1i-%-17.17s : %10u -> %7.1f MB/s\r",
+                    iterationNb, hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH );
         }
     }
     DISPLAY("%-19.19s : %10u -> %7.1f MB/s  \n", hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH);
@@ -285,7 +287,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         FILE* const inFile = fopen( inFileName, "rb" );
         size_t const benchedSize = BMK_selectBenchedSize(inFileName);
         char* const buffer = (char*)calloc(benchedSize+16+3, 1);
-        void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);   /* align on next 16 bytes boundaries */
+        void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
 
         /* Checks */
         if ((inFile==NULL) || (inFileName==NULL)) {
@@ -1230,7 +1232,8 @@ int main(int argc, const char** argv)
 
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {
-        return checkFiles(argv+filenamesStart, argc-filenamesStart, displayEndianess, strictMode, statusOnly, warn, quiet);
+        return checkFiles(argv+filenamesStart, argc-filenamesStart,
+                          displayEndianess, strictMode, statusOnly, warn, quiet);
     } else {
         return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
     }

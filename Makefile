@@ -248,6 +248,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 .PHONY: install
 install: lib xxhsum
 	@echo Installing libxxhash
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
 	@$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
 	@$(INSTALL_PROGRAM) $(LIBXXH) $(DESTDIR)$(LIBDIR)
 	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)

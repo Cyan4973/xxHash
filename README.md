@@ -63,27 +63,86 @@ The utility `xxhsum` is GPL licensed.
 
 ### Build modifiers
 
-The following macros influence xxhash behavior. They are all disabled by default.
+The following macros can be set at compilation time,
+they modify xxhash behavior. They are all disabled by default.
 
-- `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation,
-                              resulting in system-specific results.
+- `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
+                                    xxhash result is the same as a null-length key,
+                                    instead of a dereference segfault.
+- `XXH_FORCE_MEMORY_ACCESS` : default method `0` uses a portable `memcpy()` notation.
+                              Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
+                              Method `2` forces unaligned reads, which is not standard compliant, but might sometimes be the only way to extract better performance.
+- `XXH_CPU_LITTLE_ENDIAN` : by default, endianess is determined at compile time.
+                            It's possible to skip auto-detection and force format to little-endian, by setting this macro to 1.
+                            Setting it to 0 forces big-endian.
+- `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation.
                               Breaks consistency with little-endian results.
-- `XXH_ACCEPT_NULL_INPUT_POINTER` : if presented with a null-pointer,
-                              xxhash result is the same as a null-length key,
-                              instead of a dereference segfault.
+- `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`.
+                    Useful to evade symbol naming collisions,
+                    in case of multiple inclusions of xxHash library.
+                    Client programs can still use regular function name, symbols are automatically translated through `xxhash.h`.
+- `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
+                              Incompatible with dynamic linking, due to risks of ABI changes.
+- `XXH_PRIVATE_API` : Make all functions `static`, directly accessible through `#include xxhash.h`, for inlining.
+                      Do not compile `xxhash.c` as a separate module in this case.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
                        useful for targets without 64-bits support.
-- `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
-                      Incompatible with dynamic linking, due to risks of ABI changes.
-- `XXH_PRIVATE_API` : Make all functions `static` and accessible through `xxhash.h` for inlining.
-                      Do not compile `xxhash.c` as a separate module in this case.
-- `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`,
-                    in order to evade symbol naming collisions,
-                    in case of multiple inclusions of xxHash library
-                    (typically via intermediate libraries).
 
 
-### Other languages
+### Example
+
+Calling xxhash 64-bits variant from a C program :
+
+```
+#include "xxhash.h"
+
+unsigned long long calcul_hash(const void* buffer, size_t length)
+{
+    unsigned long long const seed = 0;   /* or any other value */
+    unsigned long long const hash = XXH64(buffer, length, seed);
+    return hash;
+}
+```
+
+Using streaming variant is more involved, but makes it possible to provide data in multiple rounds :
+```
+#include "stdlib.h"   /* abort() */
+#include "xxhash.h"
+
+
+unsigned long long calcul_hash_streaming(someCustomType handler)
+{
+    XXH64_state_t* const state = XXH64_createState();
+    if (state==NULL) abort();
+
+    size_t const bufferSize = SOME_VALUE;
+    void* const buffer = malloc(bufferSize);
+    if (buffer==NULL) abort();
+
+    unsigned long long const seed = 0;   /* or any other value */
+    XXH_errorcode const resetResult = XXH64_reset(state, seed);
+    if (resetResult == XXH_ERROR) abort();
+
+    (...)
+    while ( /* any condition */ ) {
+        size_t const length = get_more_data(buffer, bufferSize, handler);   /* undescribed */
+        XXH_errorcode const addResult = XXH64_update(state, buffer, length);
+        if (addResult == XXH_ERROR) abort();
+        (...)
+    }
+
+    (...)
+    unsigned long long const hash = XXH64_digest(state);
+
+    free(buffer);
+    XXH64_freeState(state);
+
+    return hash;
+}
+```
+
+
+### Other programming languages
 
 Beyond the C reference version,
 xxHash is also available on many programming languages,

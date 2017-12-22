@@ -102,7 +102,8 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  elif defined(_MSC_VER)
 #    define XXH_PUBLIC_API static __inline
 #  else
-#    define XXH_PUBLIC_API static   /* this version may generate warnings for unused static functions; disable the relevant warning */
+     /* this version may generate warnings for unused static functions */
+#    define XXH_PUBLIC_API static
 #  endif
 #else
 #  define XXH_PUBLIC_API   /* do nothing */
@@ -149,7 +150,7 @@ regular symbol name will be automatically translated by this header.
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    6
-#define XXH_VERSION_RELEASE  3
+#define XXH_VERSION_RELEASE  4
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -244,10 +245,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #ifdef XXH_STATIC_LINKING_ONLY
 
 /* ================================================================================================
-   This section contains definitions which are not guaranteed to remain stable.
+   This section contains declarations which are not guaranteed to remain stable.
    They may change in future versions, becoming incompatible with a different version of the library.
-   They shall only be used with static linking.
-   Never use these definitions in association with dynamic linking !
+   These declarations should only be used with static linking.
+   Never use them in association with dynamic linking !
 =================================================================================================== */
 
 /* These definitions are only meant to make possible

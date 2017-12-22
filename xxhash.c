@@ -50,20 +50,26 @@
  * Prefer these methods in priority order (0 > 1 > 2)
  */
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-#  if defined(__GNUC__) && ( defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) )
+#  if defined(__GNUC__) && ( defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
+                        || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
+                        || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) )
 #    define XXH_FORCE_MEMORY_ACCESS 2
 #  elif defined(__INTEL_COMPILER) || \
-  (defined(__GNUC__) && ( defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7S__) ))
+  (defined(__GNUC__) && ( defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) \
+                    || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) \
+                    || defined(__ARM_ARCH_7S__) ))
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif
 
 /*!XXH_ACCEPT_NULL_INPUT_POINTER :
- * If the input pointer is a null pointer, xxHash default behavior is to trigger a memory access error, since it is a bad pointer.
- * When this option is enabled, xxHash output for null input pointers will be the same as a null-length input.
- * By default, this option is disabled. To enable it, uncomment below define :
+ * If input pointer is NULL, xxHash default behavior is to dereference it, triggering a segfault.
+ * When this macro is enabled, xxHash actively checks input for null pointer.
+ * It it is, result for null input pointers is the same as a null-length input.
  */
-/* #define XXH_ACCEPT_NULL_INPUT_POINTER 1 */
+#ifndef XXH_ACCEPT_NULL_INPUT_POINTER   /* can be defined externally */
+#  define XXH_ACCEPT_NULL_INPUT_POINTER 0
+#endif
 
 /*!XXH_FORCE_NATIVE_FORMAT :
  * By default, xxHash library provides endian-independent Hash values, based on little-endian convention.
@@ -132,7 +138,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 *  Basic Types
 ***************************************/
 #ifndef MEM_MODULE
-# if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+# if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 #   include <stdint.h>
     typedef uint8_t  BYTE;
     typedef uint16_t U16;
@@ -239,7 +247,7 @@ static U32 XXH_readBE32(const void* ptr)
 /* *************************************
 *  Macros
 ***************************************/
-#define XXH_STATIC_ASSERT(c)   { enum { XXH_static_assert = 1/(int)(!!(c)) }; }    /* use only *after* variable declarations */
+#define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }  /* use after variable declarations */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
@@ -267,7 +275,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
     U32 h32;
 #define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
 
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
     if (p==NULL) {
         len=0;
         bEnd=p=(const BYTE*)(size_t)16;
@@ -365,23 +373,25 @@ XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t
 XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int seed)
 {
     XXH32_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state)-4);   /* do not write into reserved, for future removal */
+    memset(&state, 0, sizeof(state));
     state.v1 = seed + PRIME32_1 + PRIME32_2;
     state.v2 = seed + PRIME32_2;
     state.v3 = seed + 0;
     state.v4 = seed - PRIME32_1;
-    memcpy(statePtr, &state, sizeof(state));
+    /* do not write into reserved, planned to be removed in a future version */
+    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
 
 
-FORCE_INLINE XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void* input, size_t len, XXH_endianess endian)
+FORCE_INLINE
+XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
     if (input==NULL)
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
         return XXH_OK;
 #else
         return XXH_ERROR;
@@ -455,7 +465,10 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess 
     U32 h32;
 
     if (state->large_len) {
-        h32 = XXH_rotl32(state->v1, 1) + XXH_rotl32(state->v2, 7) + XXH_rotl32(state->v3, 12) + XXH_rotl32(state->v4, 18);
+        h32 = XXH_rotl32(state->v1, 1)
+            + XXH_rotl32(state->v2, 7)
+            + XXH_rotl32(state->v3, 12)
+            + XXH_rotl32(state->v4, 18);
     } else {
         h32 = state->v3 /* == seed */ + PRIME32_5;
     }
@@ -500,7 +513,7 @@ XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state_in)
 /*! Default XXH result types are basic unsigned 32 and 64 bits.
 *   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
 *   These functions allow transformation of hash result into and from its canonical format.
-*   This way, hash values can be written into a file or buffer, and remain comparable across different systems and programs.
+*   This way, hash values can be written into a file or buffer, remaining comparable across different systems.
 */
 
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
@@ -526,11 +539,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 #ifndef MEM_MODULE
 # define MEM_MODULE
-# if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+# if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 #   include <stdint.h>
     typedef uint64_t U64;
 # else
-    typedef unsigned long long U64;   /* if your compiler doesn't support unsigned long long, replace by another 64-bit type here. Note that xxhash.h will also need to be updated. */
+    /* if compiler doesn't support unsigned long long, replace by another 64-bit type */
+    typedef unsigned long long U64;
 # endif
 #endif
 
@@ -630,7 +646,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
     U64 h64;
 #define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
 
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
     if (p==NULL) {
         len=0;
         bEnd=p=(const BYTE*)(size_t)32;
@@ -738,22 +754,24 @@ XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long long seed)
 {
     XXH64_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state)-8);   /* do not write into reserved, for future removal */
+    memset(&state, 0, sizeof(state));
     state.v1 = seed + PRIME64_1 + PRIME64_2;
     state.v2 = seed + PRIME64_2;
     state.v3 = seed + 0;
     state.v4 = seed - PRIME64_1;
-    memcpy(statePtr, &state, sizeof(state));
+     /* do not write into reserved, planned to be removed in a future version */
+    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
 
-FORCE_INLINE XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
+FORCE_INLINE
+XXH_errorcode XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* const bEnd = p + len;
 
     if (input==NULL)
-#ifdef XXH_ACCEPT_NULL_INPUT_POINTER
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
         return XXH_OK;
 #else
         return XXH_ERROR;

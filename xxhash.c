@@ -252,7 +252,7 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
 /* *******************************************************************
-*  32-bits hash functions
+*  32-bit hash functions
 *********************************************************************/
 static const U32 PRIME32_1 = 2654435761U;
 static const U32 PRIME32_2 = 2246822519U;
@@ -532,7 +532,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #ifndef XXH_NO_LONG_LONG
 
 /* *******************************************************************
-*  64-bits hash functions
+*  64-bit hash functions
 *********************************************************************/
 
 /*======   Memory access   ======*/

@@ -356,7 +356,7 @@ static void BMK_checkResult64(U64 r1, U64 r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
-        DISPLAY("\rERROR : Test%3i : 64-bits values non equals   !!!!!   \n", nbTests);
+        DISPLAY("\rERROR : Test%3i : 64-bit values non equals   !!!!!   \n", nbTests);
         DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
         exit(1);
     }

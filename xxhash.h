@@ -57,8 +57,8 @@ Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 
-A 64-bits version, named XXH64, is available since r35.
-It offers much better speed, but for 64-bits applications only.
+A 64-bit version, named XXH64, is available since r35.
+It offers much better speed, but for 64-bit applications only.
 Name     Speed on 64 bits    Speed on 32 bits
 XXH64       13.8 GB/s            1.9 GB/s
 XXH32        6.8 GB/s            6.0 GB/s
@@ -156,12 +156,12 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
 
 /*-**********************************************************************
-*  32-bits hash
+*  32-bit hash
 ************************************************************************/
 typedef unsigned int XXH32_hash_t;
 
 /*! XXH32() :
-    Calculate the 32-bits hash of sequence "length" bytes stored at memory address "input".
+    Calculate the 32-bit hash of sequence "length" bytes stored at memory address "input".
     The memory between input & input+length must be valid (allocated and read-accessible).
     "seed" can be used to alter the result predictably.
     Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s */
@@ -214,14 +214,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 #ifndef XXH_NO_LONG_LONG
 /*-**********************************************************************
-*  64-bits hash
+*  64-bit hash
 ************************************************************************/
 typedef unsigned long long XXH64_hash_t;
 
 /*! XXH64() :
-    Calculate the 64-bits hash of sequence of length "len" stored at memory address "input".
+    Calculate the 64-bit hash of sequence of length "len" stored at memory address "input".
     "seed" can be used to alter the result predictably.
-    This function runs faster on 64-bits systems, but slower on 32-bits systems (see benchmark).
+    This function runs faster on 64-bit systems, but slower on 32-bit systems (see benchmark).
 */
 XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, unsigned long long seed);
 
@@ -267,7 +267,7 @@ struct XXH32_state_s {
    unsigned reserved;   /* never read nor write, will be removed in a future version */
 };   /* typedef'd to XXH32_state_t */
 
-#ifndef XXH_NO_LONG_LONG   /* remove 64-bits support */
+#ifndef XXH_NO_LONG_LONG   /* remove 64-bit support */
 struct XXH64_state_s {
    unsigned long long total_len;
    unsigned long long v1;

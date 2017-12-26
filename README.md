@@ -16,7 +16,7 @@ Code is highly portable, and hashes are identical on all platforms (little / big
 Benchmarks
 -------------------------
 
-The benchmark uses SMHasher speed test, compiled with Visual 2010 on a Windows Seven 32-bits box.
+The benchmark uses SMHasher speed test, compiled with Visual 2010 on a Windows Seven 32-bit box.
 The reference system uses a Core 2 Duo @3GHz
 
 
@@ -40,13 +40,13 @@ It depends on successfully passing SMHasher test set.
 Algorithms with a score < 5 are not listed on this table.
 
 A more recent version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash),
-which offers superior speed and dispersion for 64-bits systems.
-Note however that 32-bits applications will still run faster using the 32-bits version.
+which offers superior speed and dispersion for 64-bit systems.
+Note however that 32-bit applications will still run faster using the 32-bit version.
 
-SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
+SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bit.
 The reference system uses a Core i5-3340M @2.7GHz
 
-| Version    | Speed on 64-bits | Speed on 32-bits |
+| Version    | Speed on 64-bit | Speed on 32-bit |
 |------------|------------------|------------------|
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
@@ -86,12 +86,12 @@ they modify xxhash behavior. They are all disabled by default.
 - `XXH_PRIVATE_API` : Make all functions `static`, directly accessible through `#include xxhash.h`, for inlining.
                       Do not compile `xxhash.c` as a separate module in this case.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
-                       useful for targets without 64-bits support.
+                       useful for targets without 64-bit support.
 
 
 ### Example
 
-Calling xxhash 64-bits variant from a C program :
+Calling xxhash 64-bit variant from a C program :
 
 ```
 #include "xxhash.h"

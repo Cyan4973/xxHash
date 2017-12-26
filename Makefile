@@ -124,7 +124,7 @@ test-mem: xxhsum
 
 .PHONY: test32
 test32: clean xxhsum32
-	@echo ---- test 32-bits ----
+	@echo ---- test 32-bit ----
 	./xxhsum32 -bi1 xxhash.c
 
 test-xxhsum-c: xxhsum

@@ -33,10 +33,11 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-CFLAGS ?= -O3
+CFLAGS ?= -O2 -mno-sse4   # ensure auto-vectorization is disabled
 CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
           -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-		  -Wstrict-prototypes -Wundef
+          -Wstrict-prototypes -Wundef
+
 FLAGS   = $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
 MD2ROFF = ronn
@@ -67,7 +68,7 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
 .PHONY: default
-default: lib xxhsum
+default: lib xxhsum_and_links
 
 .PHONY: all
 all: lib xxhsum xxhsum32 xxhsum_inlinedXXH
@@ -75,8 +76,11 @@ all: lib xxhsum xxhsum32 xxhsum_inlinedXXH
 xxhsum32: CFLAGS += -m32
 xxhsum xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ -o $@$(EXT)
-	ln -sf $@ xxh32sum
-	ln -sf $@ xxh64sum
+
+.PHONY: xxhsum_and_links
+xxhsum_and_links: xxhsum
+	ln -sf xxhsum xxh32sum
+	ln -sf xxhsum xxh64sum
 
 xxhsum_inlinedXXH: xxhsum.c
 	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)

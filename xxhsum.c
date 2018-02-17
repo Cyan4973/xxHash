@@ -153,8 +153,8 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 **************************************/
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
-#define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
-static U32 g_displayLevel = 1;
+#define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
+static int g_displayLevel = 2;
 
 
 /* ************************************
@@ -223,13 +223,13 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
     U32 iterationNb;
     double fastestH = 100000000.;
 
-    DISPLAY("\r%79s\r", "");       /* Clean display line */
+    DISPLAYLEVEL(2, "\r%70s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
         U32 nbHashes = 0, r=0;
         clock_t cStart;
 
-        DISPLAY("%1i-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
+        DISPLAYLEVEL(2, "%1i-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
@@ -240,16 +240,16 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                 r += h(buffer, bufferSize, i);
             nbHashes += nbh_perloop;
         }
-        if (r==0) DISPLAY(".\r");  /* need to do something with r to avoid compiler "optimizing" away hash function */
+        if (r==0) DISPLAYLEVEL(3,".\r");  /* need to do something with r to avoid compiler "optimizing" away hash function */
         {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbHashes;
             if (timeS < fastestH) fastestH = timeS;
-            DISPLAY("%1i-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+            DISPLAYLEVEL(2, "%1i-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                     iterationNb, hName, (U32)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
         }
     }
-    DISPLAY("%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s)  \n", hName, (U32)bufferSize,
+    DISPLAY("%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
         (double)1 / fastestH,
         ((double)bufferSize / (1<<20)) / fastestH);
 }
@@ -295,7 +295,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
 
         /* Checks */
         if ((inFile==NULL) || (inFileName==NULL)) {
-            DISPLAY( "Pb opening %s\n", inFileName);
+            DISPLAY("Pb opening %s\n", inFileName);
             free(buffer);
             return 11;
         }
@@ -336,7 +336,7 @@ static int BMK_benchInternal(void)
     }
 
     /* bench */
-    DISPLAY("\rSample of %u KB...        \n", (U32)(benchedSize >> 10));
+    DISPLAY("Sample of %u KB...        \n", (U32)(benchedSize >> 10));
     BMK_benchMem(buffer, benchedSize);
 
     free(buffer);
@@ -347,8 +347,9 @@ static int BMK_benchInternal(void)
 static void BMK_checkResult(U32 r1, U32 r2)
 {
     static int nbTests = 1;
-    if (r1==r2) DISPLAY("\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
-    else {
+    if (r1==r2) {
+        DISPLAYLEVEL(3, "\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
+    } else {
         DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
@@ -383,7 +384,8 @@ static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult
     BMK_checkResult64(Dresult, Nresult);
 
     XXH64_reset(&state, seed);
-    for (pos=0; pos<len; pos++) XXH64_update(&state, ((char*)sentence)+pos, 1);
+    for (pos=0; pos<len; pos++)
+        XXH64_update(&state, ((char*)sentence)+pos, 1);
     Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 }
@@ -404,7 +406,8 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
     BMK_checkResult(Dresult, Nresult);
 
     XXH32_reset(&state, seed);
-    for (pos=0; pos<len; pos++) XXH32_update(&state, ((const char*)sequence)+pos, 1);
+    for (pos=0; pos<len; pos++)
+        XXH32_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 }
@@ -441,8 +444,8 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0xCAA65939306F1E21ULL);
 
-    DISPLAY("\r%79s\r", "");       /* Clean display line */
-    DISPLAYLEVEL(2, "Sanity check -- all tests ok\n");
+    DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
+    DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");
 }
 
 
@@ -1217,6 +1220,12 @@ int main(int argc, const char** argv)
                     g_sampleSize *= 10, g_sampleSize += argument[0]-'0', argument++;
                 break;
 
+            /* Modify verbosity of benchmark output (hidden option) */
+            case 'q':
+                argument++;
+                g_displayLevel--;
+                break;
+
             default:
                 return badusage(exename);
             }
@@ -1225,7 +1234,7 @@ int main(int argc, const char** argv)
 
     /* Check benchmark mode */
     if (benchmarkMode) {
-        DISPLAY( WELCOME_MESSAGE(exename) );
+        DISPLAYLEVEL(2, WELCOME_MESSAGE(exename) );
         BMK_sanityCheck();
         if (filenamesStart==0) return BMK_benchInternal();
         return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart);

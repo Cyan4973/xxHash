@@ -243,11 +243,15 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         if (r==0) DISPLAY(".\r");  /* need to do something with r to avoid compiler "optimizing" away hash function */
         {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbHashes;
             if (timeS < fastestH) fastestH = timeS;
-            DISPLAY("%1i-%-17.17s : %10u -> %7.1f MB/s\r",
-                    iterationNb, hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH );
+            DISPLAY("%1i-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+                    iterationNb, hName, (U32)bufferSize,
+                    (double)1 / fastestH,
+                    ((double)bufferSize / (1<<20)) / fastestH );
         }
     }
-    DISPLAY("%-19.19s : %10u -> %7.1f MB/s  \n", hName, (U32)bufferSize, ((double)bufferSize / (1<<20)) / fastestH);
+    DISPLAY("%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s)  \n", hName, (U32)bufferSize,
+        (double)1 / fastestH,
+        ((double)bufferSize / (1<<20)) / fastestH);
 }
 
 

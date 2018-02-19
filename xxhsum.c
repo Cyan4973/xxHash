@@ -250,9 +250,11 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         assert(fastestH > 2./1000000000);  /* avoid U32 overflow */
         nbh_perIteration = (U32)(1 / fastestH) + 1;  /* adjust nbh_perIteration to last roughtly one second */
     }
-    DISPLAY("%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
+    DISPLAYLEVEL(1, "%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
         (double)1 / fastestH,
         ((double)bufferSize / (1<<20)) / fastestH);
+    if (g_displayLevel<1)
+        DISPLAYLEVEL(0, "%u, ", (U32)((double)1 / fastestH));
 }
 
 
@@ -324,7 +326,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
         }
 
         /* Fill input buffer */
-        DISPLAY("\rLoading %s...        \n", inFileName);
+        DISPLAYLEVEL(1, "\rLoading %s...        \n", inFileName);
         {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
             fclose(inFile);
             if(readSize != benchedSize) {
@@ -353,13 +355,13 @@ static int BMK_benchInternal(size_t keySize, int specificTest)
     }
 
     /* bench */
-    DISPLAY("Sample of ");
+    DISPLAYLEVEL(1, "Sample of ");
     if (keySize > 10 KB) {
-        DISPLAY("%u KB", (U32)(keySize >> 10));
+        DISPLAYLEVEL(1, "%u KB", (U32)(keySize >> 10));
     } else {
-        DISPLAY("%u bytes", (U32)keySize);
+        DISPLAYLEVEL(1, "%u bytes", (U32)keySize);
     }
-    DISPLAY("...        \n");
+    DISPLAYLEVEL(1, "...        \n");
 
     {   int const result = BMK_benchMem(buffer, keySize, specificTest);
         free(buffer);

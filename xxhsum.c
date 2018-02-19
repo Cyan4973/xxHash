@@ -125,15 +125,16 @@ static const char author[] = "Yann Collet";
 #define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s \n", \
                     exename, PROGRAM_VERSION, g_nbBits, ENDIAN_NAME, author
 
+#define KB *( 1<<10)
+#define MB *( 1<<20)
+#define GB *(1U<<30)
+
+static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define NBLOOPS    3                              /* Default number of benchmark iterations */
 #define TIMELOOP_S 1
 #define TIMELOOP  (TIMELOOP_S * CLOCKS_PER_SEC)   /* Minimum timing per iteration */
 #define XXHSUM32_DEFAULT_SEED 0                   /* Default seed for algo_xxh32 */
 #define XXHSUM64_DEFAULT_SEED 0                   /* Default seed for algo_xxh64 */
-
-#define KB *( 1<<10)
-#define MB *( 1<<20)
-#define GB *(1U<<30)
 
 #define MAX_MEM    (2 GB - 64 MB)
 
@@ -161,7 +162,6 @@ static int g_displayLevel = 2;
 /* ************************************
 *  Local variables
 **************************************/
-static size_t g_sampleSize = 100 KB;
 static U32 g_nbIterations = NBLOOPS;
 
 
@@ -256,20 +256,35 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 }
 
 
-/* Note : buffer is supposed malloc'ed, hence aligned */
-static void BMK_benchMem(const void* buffer, size_t bufferSize)
+/* BMK_benchMem():
+ * specificTest : 0 == run all tests, 1+ run only specific test
+ * buffer : is supposed 8-bytes aligned (if malloc'ed, it should be)
+ * @return : 0 on success, 1 if error (invalid mode selected) */
+static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
+    assert((((size_t)buffer) & 8) == 0);  /* ensure alignment */
+
     /* XXH32 bench */
-    BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
+    if ((specificTest==0) | (specificTest==1))
+        BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
 
     /* Bench XXH32 on Unaligned input */
-    BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
+    if ((specificTest==0) | (specificTest==2))
+        BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
 
     /* Bench XXH64 */
-    BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
+    if ((specificTest==0) | (specificTest==3))
+        BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
 
     /* Bench XXH64 on Unaligned input */
-    BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
+    if ((specificTest==0) | (specificTest==4))
+        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
+
+    if (specificTest > 4) {
+        DISPLAY("benchmark mode invalid \n");
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -284,9 +299,11 @@ static size_t BMK_selectBenchedSize(const char* fileName)
 }
 
 
-static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
+static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specificTest)
 {
+    int result = 0;
     int fileIdx;
+
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
         const char* const inFileName = fileNamesTable[fileIdx];
         FILE* const inFile = fopen( inFileName, "rb" );
@@ -317,31 +334,37 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         }   }
 
         /* bench */
-        BMK_benchMem(alignedBuffer, benchedSize);
+        result |= BMK_benchMem(alignedBuffer, benchedSize, specificTest);
 
         free(buffer);
     }
 
-    return 0;
+    return result;
 }
 
 
 
-static int BMK_benchInternal(void)
+static int BMK_benchInternal(size_t keySize, int specificTest)
 {
-    size_t const benchedSize = g_sampleSize;
-    void* const buffer = calloc(benchedSize+3, 1);
+    void* const buffer = calloc(keySize+3, 1);
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
     }
 
     /* bench */
-    DISPLAY("Sample of %u KB...        \n", (U32)(benchedSize >> 10));
-    BMK_benchMem(buffer, benchedSize);
+    DISPLAY("Sample of ");
+    if (keySize > 10 KB) {
+        DISPLAY("%u KB", (U32)(keySize >> 10));
+    } else {
+        DISPLAY("%u bytes", (U32)keySize);
+    }
+    DISPLAY("...        \n");
 
-    free(buffer);
-    return 0;
+    {   int const result = BMK_benchMem(buffer, keySize, specificTest);
+        free(buffer);
+        return result;
+    }
 }
 
 
@@ -1133,6 +1156,26 @@ static int badusage(const char* exename)
     return 1;
 }
 
+/*! readU32FromChar() :
+   @return : unsigned integer value read from input in `char` format,
+             0 is no figure at *stringPtr position.
+    Interprets K, KB, KiB, M, MB and MiB suffix.
+    Modifies `*stringPtr`, advancing it to position where reading stopped.
+    Note : function result can overflow if digit string > MAX_UINT */
+static unsigned readU32FromChar(const char** stringPtr)
+{
+    unsigned result = 0;
+    while ((**stringPtr >='0') && (**stringPtr <='9'))
+        result *= 10, result += **stringPtr - '0', (*stringPtr)++ ;
+    if ((**stringPtr=='K') || (**stringPtr=='M')) {
+        result <<= 10;
+        if (**stringPtr=='M') result <<= 10;
+        (*stringPtr)++ ;
+        if (**stringPtr=='i') (*stringPtr)++;
+        if (**stringPtr=='B') (*stringPtr)++;
+    }
+    return result;
+}
 
 int main(int argc, const char** argv)
 {
@@ -1144,6 +1187,8 @@ int main(int argc, const char** argv)
     U32 statusOnly    = 0;
     U32 warn          = 0;
     U32 quiet         = 0;
+    U32 specificTest  = 0;
+    size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
     algoType algo = g_defaultAlgo;
     endianess displayEndianess = big_endian;
 
@@ -1204,21 +1249,20 @@ int main(int argc, const char** argv)
             /* Trigger benchmark mode */
             case 'b':
                 argument++;
-                benchmarkMode=1;
+                benchmarkMode = 1;
+                specificTest = readU32FromChar(&argument);   /* can select one specific benchmark test (hidden option) */
                 break;
 
             /* Modify Nb Iterations (benchmark only) */
             case 'i':
-                g_nbIterations = argument[1] - '0';
-                argument+=2;
+                argument++;
+                g_nbIterations = readU32FromChar(&argument);
                 break;
 
             /* Modify Block size (benchmark only) */
             case 'B':
                 argument++;
-                g_sampleSize = 0;
-                while (argument[0]>='0' && argument[0]<='9')
-                    g_sampleSize *= 10, g_sampleSize += argument[0]-'0', argument++;
+                keySize = readU32FromChar(&argument);
                 break;
 
             /* Modify verbosity of benchmark output (hidden option) */
@@ -1237,8 +1281,8 @@ int main(int argc, const char** argv)
     if (benchmarkMode) {
         DISPLAYLEVEL(2, WELCOME_MESSAGE(exename) );
         BMK_sanityCheck();
-        if (filenamesStart==0) return BMK_benchInternal();
-        return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart);
+        if (filenamesStart==0) return BMK_benchInternal(keySize, specificTest);
+        return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart, specificTest);
     }
 
     /* Check if input is defined as console; trigger an error in this case */

@@ -49,11 +49,12 @@
 *  Includes
 **************************************/
 #include <stdlib.h>     /* malloc, calloc, free, exit */
-#include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout; when present : _fileno */
+#include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout, _fileno (when present) */
 #include <string.h>     /* strcmp */
-#include <sys/types.h>  /* stat64 */
-#include <sys/stat.h>   /* stat64 */
+#include <sys/types.h>  /* stat, stat64, _stat64 */
+#include <sys/stat.h>   /* stat, stat64, _stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
+#include <assert.h>     /* assert */
 
 #define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #include "xxhash.h"
@@ -219,14 +220,14 @@ static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
-    static const U32 nbh_perloop = 100;
+    U32 nbh_perIteration = ((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
     U32 iterationNb;
     double fastestH = 100000000.;
 
     DISPLAYLEVEL(2, "\r%70s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
-        U32 nbHashes = 0, r=0;
+        U32 r=0;
         clock_t cStart;
 
         DISPLAYLEVEL(2, "%1i-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
@@ -234,20 +235,20 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
 
-        while (BMK_clockSpan(cStart) < TIMELOOP) {
-            U32 i;
-            for (i=0; i<nbh_perloop; i++)
+        {   U32 i;
+            for (i=0; i<nbh_perIteration; i++)
                 r += h(buffer, bufferSize, i);
-            nbHashes += nbh_perloop;
         }
         if (r==0) DISPLAYLEVEL(3,".\r");  /* need to do something with r to avoid compiler "optimizing" away hash function */
-        {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbHashes;
+        {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbh_perIteration;
             if (timeS < fastestH) fastestH = timeS;
             DISPLAYLEVEL(2, "%1i-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                     iterationNb, hName, (U32)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
         }
+        assert(fastestH > 2./1000000000);  /* avoid U32 overflow */
+        nbh_perIteration = (U32)(1 / fastestH) + 1;  /* adjust nbh_perIteration to last roughtly one second */
     }
     DISPLAY("%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
         (double)1 / fastestH,

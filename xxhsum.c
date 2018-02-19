@@ -247,7 +247,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
         }
-        assert(fastestH > 2./1000000000);  /* avoid U32 overflow */
+        assert(fastestH > 1./2000000000);  /* avoid U32 overflow */
         nbh_perIteration = (U32)(1 / fastestH) + 1;  /* adjust nbh_perIteration to last roughtly one second */
     }
     DISPLAYLEVEL(1, "%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,

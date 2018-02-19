@@ -239,7 +239,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
             for (i=0; i<nbh_perIteration; i++)
                 r += h(buffer, bufferSize, i);
         }
-        if (r==0) DISPLAYLEVEL(3,".\r");  /* need to do something with r to avoid compiler "optimizing" away hash function */
+        if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to avoid compiler "optimizing" away hash function */
         {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbh_perIteration;
             if (timeS < fastestH) fastestH = timeS;
             DISPLAYLEVEL(2, "%1i-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
@@ -1252,7 +1252,7 @@ int main(int argc, const char** argv)
             case 'b':
                 argument++;
                 benchmarkMode = 1;
-                specificTest = readU32FromChar(&argument);   /* can select one specific benchmark test (hidden option) */
+                specificTest = readU32FromChar(&argument);   /* select one specific test (hidden option) */
                 break;
 
             /* Modify Nb Iterations (benchmark only) */

@@ -684,12 +684,111 @@ static U64 XXH64_mergeRound(U64 acc, U64 val)
     return acc;
 }
 
-FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_endianess endian, XXH_alignment align)
+static U64 XXH64_avalanche(U64 h64)
+{
+    h64 ^= h64 >> 33;
+    h64 *= PRIME64_2;
+    h64 ^= h64 >> 29;
+    h64 *= PRIME64_3;
+    h64 ^= h64 >> 32;
+    return h64;
+}
+
+
+#define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
+
+static U64
+XXH64_finalize(U64 h64, const void* ptr, size_t len,
+               XXH_endianess endian, XXH_alignment align)
+{
+    const BYTE* p = (const BYTE*)ptr;
+
+#define PROCESS1_64          \
+    h64 ^= (*p) * PRIME64_5; \
+    p++;                     \
+    h64 = XXH_rotl64(h64, 11) * PRIME64_1;
+
+#define PROCESS4_64          \
+    h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1; \
+    p+=4;                    \
+    h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
+
+#define PROCESS8_64 {        \
+    U64 const k1 = XXH64_round(0, XXH_get64bits(p)); \
+    p+=8;                    \
+    h64 ^= k1;               \
+    h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4; \
+}
+
+    switch(len&31) {
+      case 24: PROCESS8_64;
+      case 16: PROCESS8_64;
+      case  8: PROCESS8_64;
+               return XXH64_avalanche(h64);
+
+      case 28: PROCESS8_64;
+      case 20: PROCESS8_64;
+      case 12: PROCESS8_64;
+      case  4: PROCESS4_64;
+               return XXH64_avalanche(h64);
+
+      case 25: PROCESS8_64;
+      case 17: PROCESS8_64;
+      case  9: PROCESS8_64;
+               PROCESS1_64;
+               return XXH64_avalanche(h64);
+
+      case 29: PROCESS8_64;
+      case 21: PROCESS8_64;
+      case 13: PROCESS8_64;
+      case  5: PROCESS4_64;
+               PROCESS1_64;
+               return XXH64_avalanche(h64);
+
+      case 26: PROCESS8_64;
+      case 18: PROCESS8_64;
+      case 10: PROCESS8_64;
+               PROCESS1_64;
+               PROCESS1_64;
+               return XXH64_avalanche(h64);
+
+      case 30: PROCESS8_64;
+      case 22: PROCESS8_64;
+      case 14: PROCESS8_64;
+      case  6: PROCESS4_64;
+               PROCESS1_64;
+               PROCESS1_64;
+               return XXH64_avalanche(h64);
+
+      case 27: PROCESS8_64;
+      case 19: PROCESS8_64;
+      case 11: PROCESS8_64;
+               PROCESS1_64;
+               PROCESS1_64;
+               PROCESS1_64;
+               return XXH64_avalanche(h64);
+
+      case 31: PROCESS8_64;
+      case 23: PROCESS8_64;
+      case 15: PROCESS8_64;
+      case  7: PROCESS4_64;
+      case  3: PROCESS1_64;
+      case  2: PROCESS1_64;
+      case  1: PROCESS1_64;
+      case  0: return XXH64_avalanche(h64);
+    }
+    /* impossible to reach */
+    assert(0);
+
+}
+
+FORCE_INLINE U64
+XXH64_endian_align(const void* input, size_t len, U64 seed,
+                XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
     U64 h64;
-#define XXH_get64bits(p) XXH_readLE64_align(p, endian, align)
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
     if (p==NULL) {
@@ -724,32 +823,7 @@ FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed, XXH
 
     h64 += (U64) len;
 
-    while (p+8<=bEnd) {
-        U64 const k1 = XXH64_round(0, XXH_get64bits(p));
-        h64 ^= k1;
-        h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
-        p+=8;
-    }
-
-    if (p+4<=bEnd) {
-        h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1;
-        h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
-        p+=4;
-    }
-
-    while (p<bEnd) {
-        h64 ^= (*p) * PRIME64_5;
-        h64 = XXH_rotl64(h64, 11) * PRIME64_1;
-        p++;
-    }
-
-    h64 ^= h64 >> 33;
-    h64 *= PRIME64_2;
-    h64 ^= h64 >> 29;
-    h64 *= PRIME64_3;
-    h64 ^= h64 >> 32;
-
-    return h64;
+    return XXH64_finalize(h64, p, len, endian, align);
 }
 
 
@@ -880,8 +954,6 @@ XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* 
 
 FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess endian)
 {
-    const BYTE * p = (const BYTE*)state->mem64;
-    const BYTE* const bEnd = (const BYTE*)state->mem64 + state->memsize;
     U64 h64;
 
     if (state->total_len >= 32) {
@@ -896,37 +968,12 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
         h64 = XXH64_mergeRound(h64, v3);
         h64 = XXH64_mergeRound(h64, v4);
     } else {
-        h64  = state->v3 + PRIME64_5;
+        h64  = state->v3 /*seed*/ + PRIME64_5;
     }
 
     h64 += (U64) state->total_len;
 
-    while (p+8<=bEnd) {
-        U64 const k1 = XXH64_round(0, XXH_readLE64(p, endian));
-        h64 ^= k1;
-        h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;
-        p+=8;
-    }
-
-    if (p+4<=bEnd) {
-        h64 ^= (U64)(XXH_readLE32(p, endian)) * PRIME64_1;
-        h64  = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
-        p+=4;
-    }
-
-    while (p<bEnd) {
-        h64 ^= (*p) * PRIME64_5;
-        h64  = XXH_rotl64(h64, 11) * PRIME64_1;
-        p++;
-    }
-
-    h64 ^= h64 >> 33;
-    h64 *= PRIME64_2;
-    h64 ^= h64 >> 29;
-    h64 *= PRIME64_3;
-    h64 ^= h64 >> 32;
-
-    return h64;
+    return XXH64_finalize(h64, state->mem64, state->total_len, endian, XXH_aligned);
 }
 
 XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)

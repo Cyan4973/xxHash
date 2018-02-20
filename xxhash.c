@@ -111,6 +111,8 @@ static void  XXH_free  (void* p)  { free(p); }
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
+#include <assert.h>   /* assert */
+
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
 
@@ -215,8 +217,12 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
-    static const int g_one = 1;
-#   define XXH_CPU_LITTLE_ENDIAN   (*(const char*)(&g_one))
+static int XXH_isLittleEndian(void)
+{
+    const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    return one.c[0];
+}
+#   define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
 #endif
 
 
@@ -268,12 +274,87 @@ static U32 XXH32_round(U32 seed, U32 input)
     return seed;
 }
 
-FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_endianess endian, XXH_alignment align)
+/* mix all bits */
+static U32 XXH32_avalanche(U32 h32)
+{
+    h32 ^= h32 >> 15;
+    h32 *= PRIME32_2;
+    h32 ^= h32 >> 13;
+    h32 *= PRIME32_3;
+    h32 ^= h32 >> 16;
+    return(h32);
+}
+
+#define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
+
+static U32
+XXH32_finalize(U32 h32, const void* ptr, size_t len,
+                XXH_endianess endian, XXH_alignment align)
+
+{
+    const BYTE* p = (const BYTE*)ptr;
+#define PROCESS1             \
+    h32 += (*p) * PRIME32_5; \
+    p++;                     \
+    h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
+
+#define PROCESS4                         \
+    h32 += XXH_get32bits(p) * PRIME32_3; \
+    p+=4;                                \
+    h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
+
+    switch(len&15)  /* or switch(bEnd - p) */
+    {
+      case 12:      PROCESS4;
+                    /* fallthrough */
+      case 8:       PROCESS4;
+                    /* fallthrough */
+      case 4:       PROCESS4;
+                    return XXH32_avalanche(h32);
+
+      case 13:      PROCESS4;
+                    /* fallthrough */
+      case 9:       PROCESS4;
+                    /* fallthrough */
+      case 5:       PROCESS4;
+                    PROCESS1;
+                    return XXH32_avalanche(h32);
+
+      case 14:      PROCESS4;
+                    /* fallthrough */
+      case 10:      PROCESS4;
+                    /* fallthrough */
+      case 6:       PROCESS4;
+                    PROCESS1;
+                    PROCESS1;
+                    return XXH32_avalanche(h32);
+
+      case 15:      PROCESS4;
+                    /* fallthrough */
+      case 11:      PROCESS4;
+                    /* fallthrough */
+      case 7:       PROCESS4;
+                    /* fallthrough */
+      case 3:       PROCESS1;
+                    /* fallthrough */
+      case 2:       PROCESS1;
+                    /* fallthrough */
+      case 1:       PROCESS1;
+                    /* fallthrough */
+      case 0:       return XXH32_avalanche(h32);
+    }
+    assert(0);
+    return h32;   /* reaching this point is deemed impossible */
+}
+
+
+FORCE_INLINE U32
+XXH32_endian_align(const void* input, size_t len, U32 seed,
+                    XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
     U32 h32;
-#define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
     if (p==NULL) {
@@ -283,7 +364,7 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
 #endif
 
     if (len>=16) {
-        const BYTE* const limit = bEnd - 16;
+        const BYTE* const limit = bEnd - 15;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
         U32 v2 = seed + PRIME32_2;
         U32 v3 = seed + 0;
@@ -294,34 +375,17 @@ FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed, XXH
             v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
             v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
             v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
-        } while (p<=limit);
+        } while (p < limit);
 
-        h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+        h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
+            + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
     } else {
         h32  = seed + PRIME32_5;
     }
 
-    h32 += (U32) len;
+    h32 += (U32)len;
 
-    while (p+4<=bEnd) {
-        h32 += XXH_get32bits(p) * PRIME32_3;
-        h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
-        p+=4;
-    }
-
-    while (p<bEnd) {
-        h32 += (*p) * PRIME32_5;
-        h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
-        p++;
-    }
-
-    h32 ^= h32 >> 15;
-    h32 *= PRIME32_2;
-    h32 ^= h32 >> 13;
-    h32 *= PRIME32_3;
-    h32 ^= h32 >> 16;
-
-    return h32;
+    return XXH32_finalize(h32, p, len&15, endian, align);
 }
 
 
@@ -446,6 +510,7 @@ XXH_errorcode XXH32_update_endian (XXH32_state_t* state, const void* input, size
     return XXH_OK;
 }
 
+
 XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t len)
 {
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
@@ -457,11 +522,9 @@ XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* 
 }
 
 
-
-FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess endian)
+FORCE_INLINE U32
+XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess endian)
 {
-    const BYTE * p = (const BYTE*)state->mem32;
-    const BYTE* const bEnd = (const BYTE*)(state->mem32) + state->memsize;
     U32 h32;
 
     if (state->large_len) {
@@ -475,25 +538,7 @@ FORCE_INLINE U32 XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess 
 
     h32 += state->total_len_32;
 
-    while (p+4<=bEnd) {
-        h32 += XXH_readLE32(p, endian) * PRIME32_3;
-        h32  = XXH_rotl32(h32, 17) * PRIME32_4;
-        p+=4;
-    }
-
-    while (p<bEnd) {
-        h32 += (*p) * PRIME32_5;
-        h32  = XXH_rotl32(h32, 11) * PRIME32_1;
-        p++;
-    }
-
-    h32 ^= h32 >> 15;
-    h32 *= PRIME32_2;
-    h32 ^= h32 >> 13;
-    h32 *= PRIME32_3;
-    h32 ^= h32 >> 16;
-
-    return h32;
+    return XXH32_finalize(h32, state->mem32, state->memsize, endian, XXH_aligned);
 }
 
 

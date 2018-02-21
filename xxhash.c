@@ -973,7 +973,7 @@ FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess 
 
     h64 += (U64) state->total_len;
 
-    return XXH64_finalize(h64, state->mem64, state->total_len, endian, XXH_aligned);
+    return XXH64_finalize(h64, state->mem64, (size_t)state->total_len, endian, XXH_aligned);
 }
 
 XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state_in)

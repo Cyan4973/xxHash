@@ -66,6 +66,13 @@ The utility `xxhsum` is GPL licensed.
 The following macros can be set at compilation time,
 they modify xxhash behavior. They are all disabled by default.
 
+- `XXH_INLINE_ALL` : Make all functions `inline`, with bodies directly included within `xxhash.h`.
+                     There is no need for an `xxhash.o` module in this case.
+                     Inlining functions is generally beneficial for speed on small keys.
+                     It's especially effective when key length is a compile time constant,
+                     with observed performance improvement in the +200% range .
+- `XXH_PRIVATE_API` : same as `XXH_INLINE_ALL`.
+                      name insists on the fact the symbols will not published on library public interface.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
                                     xxhash result is the same as a null-length key,
                                     instead of a dereference segfault.
@@ -79,14 +86,12 @@ they modify xxhash behavior. They are all disabled by default.
                               Breaks consistency with little-endian results.
 - `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`.
                     Useful to evade symbol naming collisions,
-                    in case of multiple inclusions of xxHash library.
-                    Client programs can still use regular function name, symbols are automatically translated through `xxhash.h`.
+                    in case of multiple inclusions of xxHash source code.
+                    Client applications can still use regular function name, symbols are automatically translated through `xxhash.h`.
 - `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
                               Incompatible with dynamic linking, due to risks of ABI changes.
-- `XXH_PRIVATE_API` : Make all functions `static`, directly accessible through `#include xxhash.h`, for inlining.
-                      Do not compile `xxhash.c` as a separate module in this case.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
-                       useful for targets without 64-bit support.
+                       for targets without 64-bit support.
 
 
 ### Example

@@ -82,16 +82,17 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 /* ****************************
 *  API modifier
 ******************************/
-/** XXH_PRIVATE_API
+/** XXH_INLINE_ALL (and XXH_PRIVATE_API)
 *   This is useful to include xxhash functions in `static` mode
 *   in order to inline them, and remove their symbol from the public list.
+*   Inlining can offer dramatic performance improvement on small keys.
 *   Methodology :
-*     #define XXH_PRIVATE_API
+*     #define XXH_INLINE_ALL
 *     #include "xxhash.h"
 *   `xxhash.c` is automatically included.
 *   It's not useful to compile and link it as a separate module.
 */
-#ifdef XXH_PRIVATE_API
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  ifndef XXH_STATIC_LINKING_ONLY
 #    define XXH_STATIC_LINKING_ONLY
 #  endif
@@ -107,7 +108,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  endif
 #else
 #  define XXH_PUBLIC_API   /* do nothing */
-#endif /* XXH_PRIVATE_API */
+#endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
 
 /*!XXH_NAMESPACE, aka Namespace Emulation :
 
@@ -150,7 +151,7 @@ regular symbol name will be automatically translated by this header.
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    6
-#define XXH_VERSION_RELEASE  4
+#define XXH_VERSION_RELEASE  5
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -280,7 +281,7 @@ struct XXH64_state_s {
 };   /* typedef'd to XXH64_state_t */
 #endif
 
-#ifdef XXH_PRIVATE_API
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */
 #endif
 

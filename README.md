@@ -71,8 +71,6 @@ they modify xxhash behavior. They are all disabled by default.
                      Inlining functions is generally beneficial for speed on small keys.
                      It's especially effective when key length is a compile time constant,
                      with observed performance improvement in the +200% range .
-- `XXH_PRIVATE_API` : same as `XXH_INLINE_ALL`.
-                      name insists on the fact the symbols will not published on library public interface.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
                                     xxhash result is the same as a null-length key,
                                     instead of a dereference segfault.
@@ -84,6 +82,8 @@ they modify xxhash behavior. They are all disabled by default.
                             Setting it to 0 forces big-endian.
 - `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation.
                               Breaks consistency with little-endian results.
+- `XXH_PRIVATE_API` : same impact as `XXH_INLINE_ALL`.
+                      Name underlines that symbols will not be published on library public interface.
 - `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`.
                     Useful to evade symbol naming collisions,
                     in case of multiple inclusions of xxHash source code.

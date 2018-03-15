@@ -71,9 +71,10 @@ they modify xxhash behavior. They are all disabled by default.
                      Inlining functions is generally beneficial for speed on small keys.
                      It's especially effective when key length is a compile time constant,
                      with observed performance improvement in the +200% range .
+                     See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
-                                    xxhash result is the same as a null-length key,
-                                    instead of a dereference segfault.
+                                    xxhash result is the same as a zero-length key
+                                    (instead of a dereference segfault).
 - `XXH_FORCE_MEMORY_ACCESS` : default method `0` uses a portable `memcpy()` notation.
                               Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
                               Method `2` forces unaligned reads, which is not standard compliant, but might sometimes be the only way to extract better performance.
@@ -87,8 +88,9 @@ they modify xxhash behavior. They are all disabled by default.
 - `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`.
                     Useful to evade symbol naming collisions,
                     in case of multiple inclusions of xxHash source code.
-                    Client applications can still use regular function name, symbols are automatically translated through `xxhash.h`.
-- `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
+                    Client applications can still use regular function name,
+                    symbols are automatically translated through `xxhash.h`.
+- `XXH_STATIC_LINKING_ONLY` : gives access to state declaration for static allocation.
                               Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
                        for targets without 64-bit support.

@@ -4,10 +4,10 @@ xxhsum(1) -- print or check xxHash non-cryptographic checksums
 SYNOPSIS
 --------
 
-`xxhsum [<OPTION>] ... [<FILE>] ...`  
+`xxhsum [<OPTION>] ... [<FILE>] ...`
 `xxhsum -b [<OPTION>] ...`
 
-`xxh32sum` is equivalent to `xxhsum -H0`  
+`xxh32sum` is equivalent to `xxhsum -H0`
 `xxh64sum` is equivalent to `xxhsum -H1`
 
 

@@ -212,6 +212,10 @@ test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
 	find . -type f -name '*.c' -o -name '*.h' | while read -r filename; do awk 'length > 120 {print FILENAME "(" FNR "): " $$0}' $$filename; done
 
+.PHONY: trailingWhitespace
+trailingWhitespace:
+	! grep -E "`printf '[ \\t]$$'`" *.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
+
 .PHONY: clean
 clean: clean-xxhsum-c
 	@$(RM) core *.o libxxhash.*

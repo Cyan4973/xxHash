@@ -801,9 +801,10 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len,
                     /* fallthrough */
       case  0: return XXH64_avalanche(h64);
     }
+
     /* impossible to reach */
     assert(0);
-
+    return 0;  /* unreachable, but some compilers complain without it */
 }
 
 FORCE_INLINE U64

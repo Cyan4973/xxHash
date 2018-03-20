@@ -573,8 +573,8 @@ static int BMK_hash(const char* fileName,
     /* loading notification */
     {   const size_t fileNameSize = strlen(fileName);
         const char* const fileNameEnd = fileName + fileNameSize;
-        const size_t maxInfoFilenameSize = fileNameSize > 30 ? 30 : fileNameSize;
-        size_t infoFilenameSize = 1;
+        const int maxInfoFilenameSize = (int)(fileNameSize > 30 ? 30 : fileNameSize);
+        int infoFilenameSize = 1;
         while ((infoFilenameSize < maxInfoFilenameSize)
             && (fileNameEnd[-1-infoFilenameSize] != '/')
             && (fileNameEnd[-1-infoFilenameSize] != '\\') )

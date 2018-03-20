@@ -220,6 +220,7 @@ trailingWhitespace:
 
 .PHONY: clean
 clean:
+	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o libxxhash.*
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed

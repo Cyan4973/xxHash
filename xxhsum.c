@@ -258,6 +258,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 /* BMK_benchMem():
  * specificTest : 0 == run all tests, 1+ run only specific test
  * buffer : is supposed 8-bytes aligned (if malloc'ed, it should be)
+ * the real allocated size of buffer is supposed to be >= (bufferSize+3).
  * @return : 0 on success, 1 if error (invalid mode selected) */
 static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
@@ -574,9 +575,9 @@ static int BMK_hash(const char* fileName,
         const char* const fileNameEnd = fileName + fileNameSize;
         const size_t maxInfoFilenameSize = fileNameSize > 30 ? 30 : fileNameSize;
         size_t infoFilenameSize = 1;
-        while ( (infoFilenameSize < maxInfoFilenameSize)
-              &&(fileNameEnd[-1-infoFilenameSize] != '/')
-              &&(fileNameEnd[-1-infoFilenameSize] != '\\') )
+        while ((infoFilenameSize < maxInfoFilenameSize)
+            && (fileNameEnd[-1-infoFilenameSize] != '/')
+            && (fileNameEnd[-1-infoFilenameSize] != '\\') )
               infoFilenameSize++;
         DISPLAY("\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
 

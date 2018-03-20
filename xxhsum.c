@@ -32,8 +32,8 @@
 #define XXHASH_C_2097394837
 
 /* ************************************
-*  Compiler Options
-**************************************/
+ *  Compiler Options
+ **************************************/
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
 #  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
@@ -46,8 +46,8 @@
 
 
 /* ************************************
-*  Includes
-**************************************/
+ *  Includes
+ **************************************/
 #include <stdlib.h>     /* malloc, calloc, free, exit */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout, _fileno (when present) */
 #include <string.h>     /* strcmp */
@@ -60,9 +60,9 @@
 #include "xxhash.h"
 
 
-/*-************************************
-*  OS-Specific Includes
-**************************************/
+/* ************************************
+ *  OS-Specific Includes
+ **************************************/
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>    /* _O_BINARY */
 #  include <io.h>       /* _setmode, _isatty */
@@ -108,8 +108,8 @@ static unsigned BMK_isLittleEndian(void)
 
 
 /* *************************************
-*  Constants
-***************************************/
+ *  Constants
+ ***************************************/
 #define LIB_VERSION XXH_VERSION_MAJOR.XXH_VERSION_MINOR.XXH_VERSION_RELEASE
 #define QUOTE(str) #str
 #define EXPAND_AND_QUOTE(str) QUOTE(str)
@@ -148,8 +148,8 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 
 
 /* ************************************
-*  Display macros
-**************************************/
+ *  Display macros
+ **************************************/
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
@@ -157,14 +157,14 @@ static int g_displayLevel = 2;
 
 
 /* ************************************
-*  Local variables
-**************************************/
+ *  Local variables
+ **************************************/
 static U32 g_nbIterations = NBLOOPS;
 
 
 /* ************************************
-*  Benchmark Functions
-**************************************/
+ *  Benchmark Functions
+ **************************************/
 static clock_t BMK_clockSpan( clock_t start )
 {
     return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */

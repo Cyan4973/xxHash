@@ -116,8 +116,8 @@ lib: libxxhash.a libxxhash
 
 # tests
 
-.PHONY: test
-test: xxhsum
+.PHONY: check
+check: xxhsum
 	# stdin
 	./xxhsum < xxhash.c
 	# multiple files
@@ -159,8 +159,6 @@ test-xxhsum-c: xxhsum
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-
-clean-xxhsum-c:
 	@$(RM) -f .test.xxh32 .test.xxh64
 
 armtest: clean
@@ -205,8 +203,9 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
-	armtest clangtest gpptest c90test test-mem usan staticAnalyze
+test: all namespaceTest check test-xxhsum-c c90test usan staticAnalyze
+
+test-all: test test32 armtest clangtest gpptest listL120 trailingWhitespace
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
@@ -217,7 +216,7 @@ trailingWhitespace:
 	! grep -E "`printf '[ \\t]$$'`" *.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 .PHONY: clean
-clean: clean-xxhsum-c
+clean:
 	@$(RM) core *.o libxxhash.*
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed

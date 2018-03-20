@@ -35,9 +35,9 @@ build_script:
       make -v &&
       echo ----- &&
       if not [%PLATFORM%]==[clang] (
-        MOREFLAGS=-Werror make -B test-all
+        make -B test-all MOREFLAGS=-Werror
       ) ELSE (
-        CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion" make -B test-all
+        make -B test-all CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion" 
       )
     )
   - if [%COMPILER%]==[visual] (

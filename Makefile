@@ -101,7 +101,10 @@ libxxhash.a: xxhash.o
 	@echo compiling static library
 	@$(AR) $(ARFLAGS) $@ $^
 
-$(LIBXXH): LDFLAGS += -shared -fPIC
+$(LIBXXH): LDFLAGS += -shared
+ifneq (,$(filter Windows%,$(OS)))
+$(LIBXXH): LDFLAGS += -fPIC
+endif
 $(LIBXXH): xxhash.c
 	@echo compiling dynamic library $(LIBVER)
 	@$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@

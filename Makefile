@@ -203,9 +203,9 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test: all namespaceTest check test-xxhsum-c c90test usan staticAnalyze
+test: all namespaceTest check test-xxhsum-c c90test staticAnalyze
 
-test-all: test test32 armtest clangtest gpptest listL120 trailingWhitespace
+test-all: test test32 armtest clangtest gpptest usan listL120 trailingWhitespace
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

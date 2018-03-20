@@ -181,9 +181,10 @@ c90test: clean
 	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
 	$(RM) xxhash.o
 
+usan: CC=clang
 usan: clean
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) clean test CC=clang MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
+	$(MAKE) clean test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----

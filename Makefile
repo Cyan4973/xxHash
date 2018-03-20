@@ -79,7 +79,7 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 default: lib xxhsum_and_links
 
 .PHONY: all
-all: lib xxhsum xxhsum32 xxhsum_inlinedXXH
+all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum32: CFLAGS += -m32
 xxhsum xxhsum32: xxhash.c xxhsum.c

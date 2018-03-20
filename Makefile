@@ -121,7 +121,7 @@ check: xxhsum
 	# stdin
 	./xxhsum < xxhash.c
 	# multiple files
-	./xxhsum *
+	./xxhsum xxhash.* xxhsum.*
 	# internal bench
 	./xxhsum -bi1
 	# file bench

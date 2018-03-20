@@ -183,7 +183,7 @@ c90test: clean
 
 usan: clean
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) clean test CC=clang MOREFLAGS="-g -fsanitize=undefined"
+	$(MAKE) clean test CC=clang MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----

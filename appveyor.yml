@@ -68,5 +68,5 @@ test_script:
       xxhsum -h &&
       xxhsum xxhsum.exe &&
       xxhsum -bi1
-      echo ------- xxhsum tested ------- &&
+      echo ------- xxhsum tested -------
     )

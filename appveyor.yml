@@ -67,6 +67,6 @@ test_script:
   - if not [%COMPILER%]==[unknown] (
       xxhsum -h &&
       xxhsum xxhsum.exe &&
-      xxhsum -bi1
+      xxhsum -bi1 &&
       echo ------- xxhsum tested -------
     )

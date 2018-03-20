@@ -40,8 +40,7 @@ build_script:
         make -B test-all CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion"
       )
     )
-  - if [%COMPILER%]==[visual] (
-# not useful now, kept here for reference in case we add Visual tests later on
+  - if [%COMPILER%]==[visual] (  # not useful now, kept here for reference in case we add Visual tests later on
       ECHO *** &&
       ECHO *** Building Visual Studio 2010 %PLATFORM%\%CONFIGURATION% &&
       ECHO *** &&

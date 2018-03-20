@@ -66,9 +66,6 @@
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>    /* _O_BINARY */
 #  include <io.h>       /* _setmode, _isatty */
-#  ifdef __MINGW32__
-   int _fileno(FILE *stream);   /* MINGW somehow forgets to include this windows declaration into <stdio.h> */
-#  endif
 #  define SET_BINARY_MODE(file) _setmode(_fileno(file), _O_BINARY)
 #  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
 #else
@@ -1181,7 +1178,7 @@ static unsigned readU32FromChar(const char** stringPtr)
 
 int main(int argc, const char** argv)
 {
-    int i, filenamesStart=0;
+    int i, filenamesStart = 0;
     const char* const exename = argv[0];
     U32 benchmarkMode = 0;
     U32 fileCheckMode = 0;
@@ -1191,7 +1188,7 @@ int main(int argc, const char** argv)
     U32 quiet         = 0;
     U32 specificTest  = 0;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
-    algoType algo = g_defaultAlgo;
+    algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;
 
     /* special case : xxh32sum default to 32 bits checksum */

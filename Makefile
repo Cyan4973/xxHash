@@ -102,7 +102,7 @@ libxxhash.a: xxhash.o
 	@$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
-ifneq (,$(filter Windows%,$(OS)))
+ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): LDFLAGS += -fPIC
 endif
 $(LIBXXH): xxhash.c

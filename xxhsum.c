@@ -32,8 +32,8 @@
 #define XXHASH_C_2097394837
 
 /* ************************************
-*  Compiler Options
-**************************************/
+ *  Compiler Options
+ **************************************/
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
 #  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
@@ -46,8 +46,8 @@
 
 
 /* ************************************
-*  Includes
-**************************************/
+ *  Includes
+ **************************************/
 #include <stdlib.h>     /* malloc, calloc, free, exit */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout, _fileno (when present) */
 #include <string.h>     /* strcmp */
@@ -60,15 +60,12 @@
 #include "xxhash.h"
 
 
-/*-************************************
-*  OS-Specific Includes
-**************************************/
+/* ************************************
+ *  OS-Specific Includes
+ **************************************/
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>    /* _O_BINARY */
 #  include <io.h>       /* _setmode, _isatty */
-#  ifdef __MINGW32__
-   int _fileno(FILE *stream);   /* MINGW somehow forgets to include this windows declaration into <stdio.h> */
-#  endif
 #  define SET_BINARY_MODE(file) _setmode(_fileno(file), _O_BINARY)
 #  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
 #else
@@ -111,8 +108,8 @@ static unsigned BMK_isLittleEndian(void)
 
 
 /* *************************************
-*  Constants
-***************************************/
+ *  Constants
+ ***************************************/
 #define LIB_VERSION XXH_VERSION_MAJOR.XXH_VERSION_MINOR.XXH_VERSION_RELEASE
 #define QUOTE(str) #str
 #define EXPAND_AND_QUOTE(str) QUOTE(str)
@@ -151,8 +148,8 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 
 
 /* ************************************
-*  Display macros
-**************************************/
+ *  Display macros
+ **************************************/
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
@@ -160,14 +157,14 @@ static int g_displayLevel = 2;
 
 
 /* ************************************
-*  Local variables
-**************************************/
+ *  Local variables
+ **************************************/
 static U32 g_nbIterations = NBLOOPS;
 
 
 /* ************************************
-*  Benchmark Functions
-**************************************/
+ *  Benchmark Functions
+ **************************************/
 static clock_t BMK_clockSpan( clock_t start )
 {
     return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
@@ -261,6 +258,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 /* BMK_benchMem():
  * specificTest : 0 == run all tests, 1+ run only specific test
  * buffer : is supposed 8-bytes aligned (if malloc'ed, it should be)
+ * the real allocated size of buffer is supposed to be >= (bufferSize+3).
  * @return : 0 on success, 1 if error (invalid mode selected) */
 static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
@@ -348,7 +346,8 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 
 static int BMK_benchInternal(size_t keySize, int specificTest)
 {
-    void* const buffer = calloc(keySize+3, 1);
+    void* const buffer = calloc(keySize+16+3, 1);
+    void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
@@ -363,7 +362,7 @@ static int BMK_benchInternal(size_t keySize, int specificTest)
     }
     DISPLAYLEVEL(1, "...        \n");
 
-    {   int const result = BMK_benchMem(buffer, keySize, specificTest);
+    {   int const result = BMK_benchMem(alignedBuffer, keySize, specificTest);
         free(buffer);
         return result;
     }
@@ -575,11 +574,11 @@ static int BMK_hash(const char* fileName,
     /* loading notification */
     {   const size_t fileNameSize = strlen(fileName);
         const char* const fileNameEnd = fileName + fileNameSize;
-        const size_t maxInfoFilenameSize = fileNameSize > 30 ? 30 : fileNameSize;
-        size_t infoFilenameSize = 1;
-        while ( (infoFilenameSize < maxInfoFilenameSize)
-              &&(fileNameEnd[-1-infoFilenameSize] != '/')
-              &&(fileNameEnd[-1-infoFilenameSize] != '\\') )
+        const int maxInfoFilenameSize = (int)(fileNameSize > 30 ? 30 : fileNameSize);
+        int infoFilenameSize = 1;
+        while ((infoFilenameSize < maxInfoFilenameSize)
+            && (fileNameEnd[-1-infoFilenameSize] != '/')
+            && (fileNameEnd[-1-infoFilenameSize] != '\\') )
               infoFilenameSize++;
         DISPLAY("\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
 
@@ -1181,7 +1180,7 @@ static unsigned readU32FromChar(const char** stringPtr)
 
 int main(int argc, const char** argv)
 {
-    int i, filenamesStart=0;
+    int i, filenamesStart = 0;
     const char* const exename = argv[0];
     U32 benchmarkMode = 0;
     U32 fileCheckMode = 0;
@@ -1191,7 +1190,7 @@ int main(int argc, const char** argv)
     U32 quiet         = 0;
     U32 specificTest  = 0;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
-    algoType algo = g_defaultAlgo;
+    algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;
 
     /* special case : xxh32sum default to 32 bits checksum */

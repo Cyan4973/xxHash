@@ -79,7 +79,7 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 default: lib xxhsum_and_links
 
 .PHONY: all
-all: lib xxhsum xxhsum32 xxhsum_inlinedXXH
+all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum32: CFLAGS += -m32
 xxhsum xxhsum32: xxhash.c xxhsum.c
@@ -101,7 +101,10 @@ libxxhash.a: xxhash.o
 	@echo compiling static library
 	@$(AR) $(ARFLAGS) $@ $^
 
-$(LIBXXH): LDFLAGS += -shared -fPIC
+$(LIBXXH): LDFLAGS += -shared
+ifeq (,$(filter Windows%,$(OS)))
+$(LIBXXH): LDFLAGS += -fPIC
+endif
 $(LIBXXH): xxhash.c
 	@echo compiling dynamic library $(LIBVER)
 	@$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
@@ -116,12 +119,12 @@ lib: libxxhash.a libxxhash
 
 # tests
 
-.PHONY: test
-test: xxhsum
+.PHONY: check
+check: xxhsum
 	# stdin
 	./xxhsum < xxhash.c
 	# multiple files
-	./xxhsum *
+	./xxhsum xxhash.* xxhsum.*
 	# internal bench
 	./xxhsum -bi1
 	# file bench
@@ -141,11 +144,11 @@ test32: clean xxhsum32
 
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
-	./xxhsum * | ./xxhsum -c -
-	./xxhsum -H0 * | ./xxhsum -c -
+	./xxhsum xxhsum.* | ./xxhsum -c -
+	./xxhsum -H0 xxhsum.* | ./xxhsum -c -
 	# xxhsum to/from file, shell redirection
-	./xxhsum * > .test.xxh64
-	./xxhsum -H0 * > .test.xxh32
+	./xxhsum xxhsum.* > .test.xxh64
+	./xxhsum -H0 xxhsum.* > .test.xxh32
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
 	./xxhsum -c < .test.xxh64
@@ -159,8 +162,6 @@ test-xxhsum-c: xxhsum
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-
-clean-xxhsum-c:
 	@$(RM) -f .test.xxh32 .test.xxh64
 
 armtest: clean
@@ -180,9 +181,10 @@ c90test: clean
 	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
 	$(RM) xxhash.o
 
+usan: CC=clang
 usan: clean
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) clean test CC=clang MOREFLAGS="-g -fsanitize=undefined"
+	$(MAKE) clean test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
@@ -205,8 +207,9 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
-	armtest clangtest gpptest c90test test-mem usan staticAnalyze
+test: all namespaceTest check test-xxhsum-c c90test
+
+test-all: test test32 armtest clangtest gpptest usan listL120 trailingWhitespace staticAnalyze
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
@@ -217,7 +220,8 @@ trailingWhitespace:
 	! grep -E "`printf '[ \\t]$$'`" *.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 .PHONY: clean
-clean: clean-xxhsum-c
+clean:
+	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o libxxhash.*
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed

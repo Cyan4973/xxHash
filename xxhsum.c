@@ -347,6 +347,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 static int BMK_benchInternal(size_t keySize, int specificTest)
 {
     void* const buffer = calloc(keySize+3, 1);
+    void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
@@ -361,7 +362,7 @@ static int BMK_benchInternal(size_t keySize, int specificTest)
     }
     DISPLAYLEVEL(1, "...        \n");
 
-    {   int const result = BMK_benchMem(buffer, keySize, specificTest);
+    {   int const result = BMK_benchMem(alignedBuffer, keySize, specificTest);
         free(buffer);
         return result;
     }

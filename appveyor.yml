@@ -5,8 +5,6 @@ environment:
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
     PLATFORM: "mingw32"
-  - COMPILER: "gcc"
-    PLATFORM: "clang"
 
 install:
   - ECHO Installing %COMPILER% %PLATFORM% %CONFIGURATION%

@@ -243,6 +243,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #endif  /* XXH_NO_LONG_LONG */
 
 
+
 #ifdef XXH_STATIC_LINKING_ONLY
 
 /* ================================================================================================
@@ -253,8 +254,38 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 =================================================================================================== */
 
 /* These definitions are only meant to make possible
-   static allocation of XXH state, on stack or in a struct for example.
-   Never use members directly. */
+ * static allocation of XXH state, on stack or in a struct for example.
+ * Never **ever** use members directly. */
+
+#if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+#   include <stdint.h>
+
+struct XXH32_state_s {
+   uint32_t total_len_32;
+   uint32_t large_len;
+   uint32_t v1;
+   uint32_t v2;
+   uint32_t v3;
+   uint32_t v4;
+   uint32_t mem32[4];
+   uint32_t memsize;
+   uint32_t reserved;   /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH32_state_t */
+
+struct XXH64_state_s {
+   uint64_t total_len;
+   uint64_t v1;
+   uint64_t v2;
+   uint64_t v3;
+   uint64_t v4;
+   uint64_t mem64[4];
+   uint32_t memsize;
+   uint32_t reserved[2];          /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH64_state_t */
+
+# else
 
 struct XXH32_state_s {
    unsigned total_len_32;
@@ -263,23 +294,26 @@ struct XXH32_state_s {
    unsigned v2;
    unsigned v3;
    unsigned v4;
-   unsigned mem32[4];   /* buffer defined as U32 for alignment */
+   unsigned mem32[4];
    unsigned memsize;
-   unsigned reserved;   /* never read nor write, will be removed in a future version */
+   unsigned reserved;   /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH32_state_t */
 
-#ifndef XXH_NO_LONG_LONG   /* remove 64-bit support */
+#   ifndef XXH_NO_LONG_LONG  /* remove 64-bit support */
 struct XXH64_state_s {
    unsigned long long total_len;
    unsigned long long v1;
    unsigned long long v2;
    unsigned long long v3;
    unsigned long long v4;
-   unsigned long long mem64[4];   /* buffer defined as U64 for alignment */
+   unsigned long long mem64[4];
    unsigned memsize;
-   unsigned reserved[2];          /* never read nor write, will be removed in a future version */
+   unsigned reserved[2];     /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
-#endif
+#    endif
+
+# endif
+
 
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */

@@ -144,11 +144,11 @@ test32: clean xxhsum32
 
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
-	./xxhsum xxhsum.* | ./xxhsum -c -
-	./xxhsum -H0 xxhsum.* | ./xxhsum -c -
+	./xxhsum lib* | ./xxhsum -c -
+	./xxhsum -H0 lib* | ./xxhsum -c -
 	# xxhsum to/from file, shell redirection
-	./xxhsum xxhsum.* > .test.xxh64
-	./xxhsum -H0 xxhsum.* > .test.xxh32
+	./xxhsum lib* > .test.xxh64
+	./xxhsum -H0 lib* > .test.xxh32
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
 	./xxhsum -c < .test.xxh64

@@ -1,13 +1,9 @@
 language: c
 compiler: gcc
-script: CFLAGS=-coverage make -B test-all
+script: make -B test-all
 before_install:
   - sudo apt-get update  -qq
   - sudo apt-get install -qq gcc-arm-linux-gnueabi
   - sudo apt-get install -qq clang
   - sudo apt-get install -qq g++-multilib
   - sudo apt-get install -qq gcc-multilib
-  - sudo apt-get install -qq valgrind
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)

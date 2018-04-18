@@ -80,18 +80,18 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 
 
 /* ****************************
-*  API modifier
-******************************/
+ *  API modifier
+ ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
-*   This is useful to include xxhash functions in `static` mode
-*   in order to inline them, and remove their symbol from the public list.
-*   Inlining can offer dramatic performance improvement on small keys.
-*   Methodology :
-*     #define XXH_INLINE_ALL
-*     #include "xxhash.h"
-*   `xxhash.c` is automatically included.
-*   It's not useful to compile and link it as a separate module.
-*/
+ *  This is useful to include xxhash functions in `static` mode
+ *  in order to inline them, and remove their symbol from the public list.
+ *  Inlining can offer dramatic performance improvement on small keys.
+ *  Methodology :
+ *     #define XXH_INLINE_ALL
+ *     #include "xxhash.h"
+ * `xxhash.c` is automatically included.
+ *  It's not useful to compile and link it as a separate module.
+ */
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  ifndef XXH_STATIC_LINKING_ONLY
 #    define XXH_STATIC_LINKING_ONLY
@@ -110,17 +110,17 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  define XXH_PUBLIC_API   /* do nothing */
 #endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
 
-/*!XXH_NAMESPACE, aka Namespace Emulation :
-
-If you want to include _and expose_ xxHash functions from within your own library,
-but also want to avoid symbol collisions with other libraries which may also include xxHash,
-
-you can use XXH_NAMESPACE, to automatically prefix any public symbol from xxhash library
-with the value of XXH_NAMESPACE (therefore, avoid NULL and numeric values).
-
-Note that no change is required within the calling program as long as it includes `xxhash.h` :
-regular symbol name will be automatically translated by this header.
-*/
+/*! XXH_NAMESPACE, aka Namespace Emulation :
+ *
+ * If you want to include _and expose_ xxHash functions from within your own library,
+ * but also want to avoid symbol collisions with other libraries which may also include xxHash,
+ *
+ * you can use XXH_NAMESPACE, to automatically prefix any public symbol from xxhash library
+ * with the value of XXH_NAMESPACE (therefore, avoid NULL and numeric values).
+ *
+ * Note that no change is required within the calling program as long as it includes `xxhash.h` :
+ * regular symbol name will be automatically translated by this header.
+ */
 #ifdef XXH_NAMESPACE
 #  define XXH_CAT(A,B) A##B
 #  define XXH_NAME2(A,B) XXH_CAT(A,B)
@@ -179,26 +179,25 @@ XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* 
 XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
 
 /*
-These functions generate the xxHash of an input provided in multiple segments.
-Note that, for small input, they are slower than single-call functions, due to state management.
-For small input, prefer `XXH32()` and `XXH64()` .
-
-XXH state must first be allocated, using XXH*_createState() .
-
-Start a new hash by initializing state with a seed, using XXH*_reset().
-
-Then, feed the hash state by calling XXH*_update() as many times as necessary.
-Obviously, input must be allocated and read accessible.
-The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
-
-Finally, a hash value can be produced anytime, by using XXH*_digest().
-This function returns the nn-bits hash as an int or long long.
-
-It's still possible to continue inserting input into the hash state after a digest,
-and generate some new hashes later on, by calling again XXH*_digest().
-
-When done, free XXH state space if it was allocated dynamically.
-*/
+ * Streaming functions generate the xxHash of an input provided in multiple segments.
+ * Note that, for small input, they are slower than single-call functions, due to state management.
+ * For small inputs, prefer `XXH32()` and `XXH64()`, which are better optimized.
+ *
+ * XXH state must first be allocated, using XXH*_createState() .
+ *
+ * Start a new hash by initializing state with a seed, using XXH*_reset().
+ *
+ * Then, feed the hash state by calling XXH*_update() as many times as necessary.
+ * The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
+ *
+ * Finally, a hash value can be produced anytime, by using XXH*_digest().
+ * This function returns the nn-bits hash as an int or long long.
+ *
+ * It's still possible to continue inserting input into the hash state after a digest,
+ * and generate some new hashes later on, by calling again XXH*_digest().
+ *
+ * When done, free XXH state space if it was allocated dynamically.
+ */
 
 /*======   Canonical representation   ======*/
 
@@ -207,10 +206,10 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 /* Default result type for XXH functions are primitive unsigned 32 and 64 bits.
-*  The canonical representation uses human-readable write convention, aka big-endian (large digits first).
-*  These functions allow transformation of hash result into and from its canonical format.
-*  This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
-*/
+ * The canonical representation uses human-readable write convention, aka big-endian (large digits first).
+ * These functions allow transformation of hash result into and from its canonical format.
+ * This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
+ */
 
 
 #ifndef XXH_NO_LONG_LONG
@@ -253,7 +252,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
    Never use them in association with dynamic linking !
 =================================================================================================== */
 
-/* These definitions are only meant to make possible
+/* These definitions are only present to allow
  * static allocation of XXH state, on stack or in a struct for example.
  * Never **ever** use members directly. */
 

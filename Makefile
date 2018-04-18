@@ -33,10 +33,19 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-CFLAGS ?= -O3
+# SSE4 detection
+HAVE_SSE4 := $(shell $(CC) -dM -E - < /dev/null | grep "SSE4" > /dev/null && echo 1 || echo 0)
+ifeq ($(HAVE_SSE4), 1)
+NOSSE4 := -mno-sse4
+else
+NOSSE4 :=
+endif
+
+CFLAGS ?= -O2 $(NOSSE4)   # disables potential auto-vectorization
 CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
           -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-		  -Wstrict-prototypes -Wundef
+          -Wstrict-prototypes -Wundef
+
 FLAGS   = $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION=$(LIBVER)
 MD2ROFF = ronn
@@ -67,16 +76,19 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
 .PHONY: default
-default: lib xxhsum
+default: lib xxhsum_and_links
 
 .PHONY: all
-all: lib xxhsum xxhsum32 xxhsum_inlinedXXH
+all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum32: CFLAGS += -m32
 xxhsum xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ -o $@$(EXT)
-	ln -sf $@ xxh32sum
-	ln -sf $@ xxh64sum
+
+.PHONY: xxhsum_and_links
+xxhsum_and_links: xxhsum
+	ln -sf xxhsum xxh32sum
+	ln -sf xxhsum xxh64sum
 
 xxhsum_inlinedXXH: xxhsum.c
 	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
@@ -89,7 +101,10 @@ libxxhash.a: xxhash.o
 	@echo compiling static library
 	@$(AR) $(ARFLAGS) $@ $^
 
-$(LIBXXH): LDFLAGS += -shared -fPIC
+$(LIBXXH): LDFLAGS += -shared
+ifeq (,$(filter Windows%,$(OS)))
+$(LIBXXH): LDFLAGS += -fPIC
+endif
 $(LIBXXH): xxhash.c
 	@echo compiling dynamic library $(LIBVER)
 	@$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
@@ -104,12 +119,12 @@ lib: libxxhash.a libxxhash
 
 # tests
 
-.PHONY: test
-test: xxhsum
+.PHONY: check
+check: xxhsum
 	# stdin
 	./xxhsum < xxhash.c
 	# multiple files
-	./xxhsum *
+	./xxhsum xxhash.* xxhsum.*
 	# internal bench
 	./xxhsum -bi1
 	# file bench
@@ -119,21 +134,21 @@ test: xxhsum
 test-mem: xxhsum
 	# memory tests
 	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
-	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0 xxhash.c
-	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1 xxhash.c
+	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0  xxhash.c
+	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1  xxhash.c
 
 .PHONY: test32
 test32: clean xxhsum32
-	@echo ---- test 32-bits ----
+	@echo ---- test 32-bit ----
 	./xxhsum32 -bi1 xxhash.c
 
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
-	./xxhsum * | ./xxhsum -c -
-	./xxhsum -H0 * | ./xxhsum -c -
+	./xxhsum lib* | ./xxhsum -c -
+	./xxhsum -H0 lib* | ./xxhsum -c -
 	# xxhsum to/from file, shell redirection
-	./xxhsum * > .test.xxh64
-	./xxhsum -H0 * > .test.xxh32
+	./xxhsum lib* > .test.xxh64
+	./xxhsum -H0 lib* > .test.xxh32
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
 	./xxhsum -c < .test.xxh64
@@ -147,8 +162,6 @@ test-xxhsum-c: xxhsum
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-
-clean-xxhsum-c:
 	@$(RM) -f .test.xxh32 .test.xxh64
 
 armtest: clean
@@ -168,9 +181,10 @@ c90test: clean
 	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
 	$(RM) xxhash.o
 
+usan: CC=clang
 usan: clean
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) clean test CC=clang MOREFLAGS="-g -fsanitize=undefined"
+	$(MAKE) clean test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
@@ -193,15 +207,21 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
-test-all: clean all namespaceTest test test32 test-xxhsum-c clean-xxhsum-c \
-	armtest clangtest gpptest c90test test-mem usan staticAnalyze
+test: all namespaceTest check test-xxhsum-c c90test
+
+test-all: test test32 armtest clangtest gpptest usan listL120 trailingWhitespace staticAnalyze
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
 	find . -type f -name '*.c' -o -name '*.h' | while read -r filename; do awk 'length > 120 {print FILENAME "(" FNR "): " $$0}' $$filename; done
 
+.PHONY: trailingWhitespace
+trailingWhitespace:
+	! grep -E "`printf '[ \\t]$$'`" *.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
+
 .PHONY: clean
-clean: clean-xxhsum-c
+clean:
+	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o libxxhash.*
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
 	@echo cleaning completed
@@ -211,6 +231,10 @@ clean: clean-xxhsum-c
 # make install is validated only for the following targets
 #-----------------------------------------------------------------------------
 ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
+
+.PHONY: list
+list:
+	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
 
 DESTDIR     ?=
 # directory variables : GNU conventions prefer lowercase

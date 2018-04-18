@@ -16,7 +16,7 @@ Code is highly portable, and hashes are identical on all platforms (little / big
 Benchmarks
 -------------------------
 
-The benchmark uses SMHasher speed test, compiled with Visual 2010 on a Windows Seven 32-bits box.
+The benchmark uses SMHasher speed test, compiled with Visual 2010 on a Windows Seven 32-bit box.
 The reference system uses a Core 2 Duo @3GHz
 
 
@@ -40,13 +40,13 @@ It depends on successfully passing SMHasher test set.
 Algorithms with a score < 5 are not listed on this table.
 
 A more recent version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash),
-which offers superior speed and dispersion for 64-bits systems.
-Note however that 32-bits applications will still run faster using the 32-bits version.
+which offers superior speed and dispersion for 64-bit systems.
+Note however that 32-bit applications will still run faster using the 32-bit version.
 
-SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
+SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bit.
 The reference system uses a Core i5-3340M @2.7GHz
 
-| Version    | Speed on 64-bits | Speed on 32-bits |
+| Version    | Speed on 64-bit | Speed on 32-bit |
 |------------|------------------|------------------|
 | XXH64      | 13.8 GB/s        |  1.9 GB/s        |
 | XXH32      |  6.8 GB/s        |  6.0 GB/s        |
@@ -66,9 +66,15 @@ The utility `xxhsum` is GPL licensed.
 The following macros can be set at compilation time,
 they modify xxhash behavior. They are all disabled by default.
 
+- `XXH_INLINE_ALL` : Make all functions `inline`, with bodies directly included within `xxhash.h`.
+                     There is no need for an `xxhash.o` module in this case.
+                     Inlining functions is generally beneficial for speed on small keys.
+                     It's especially effective when key length is a compile time constant,
+                     with observed performance improvement in the +200% range .
+                     See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
-                                    xxhash result is the same as a null-length key,
-                                    instead of a dereference segfault.
+                                    xxhash result is the same as a zero-length key
+                                    (instead of a dereference segfault).
 - `XXH_FORCE_MEMORY_ACCESS` : default method `0` uses a portable `memcpy()` notation.
                               Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
                               Method `2` forces unaligned reads, which is not standard compliant, but might sometimes be the only way to extract better performance.
@@ -77,21 +83,22 @@ they modify xxhash behavior. They are all disabled by default.
                             Setting it to 0 forces big-endian.
 - `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation.
                               Breaks consistency with little-endian results.
+- `XXH_PRIVATE_API` : same impact as `XXH_INLINE_ALL`.
+                      Name underlines that symbols will not be published on library public interface.
 - `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`.
                     Useful to evade symbol naming collisions,
-                    in case of multiple inclusions of xxHash library.
-                    Client programs can still use regular function name, symbols are automatically translated through `xxhash.h`.
-- `XXH_STATIC_LINKING_ONLY` : gives access to state definition for static allocation.
+                    in case of multiple inclusions of xxHash source code.
+                    Client applications can still use regular function name,
+                    symbols are automatically translated through `xxhash.h`.
+- `XXH_STATIC_LINKING_ONLY` : gives access to state declaration for static allocation.
                               Incompatible with dynamic linking, due to risks of ABI changes.
-- `XXH_PRIVATE_API` : Make all functions `static`, directly accessible through `#include xxhash.h`, for inlining.
-                      Do not compile `xxhash.c` as a separate module in this case.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
-                       useful for targets without 64-bits support.
+                       for targets without 64-bit support.
 
 
 ### Example
 
-Calling xxhash 64-bits variant from a C program :
+Calling xxhash 64-bit variant from a C program :
 
 ```
 #include "xxhash.h"

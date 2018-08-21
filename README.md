@@ -100,7 +100,7 @@ they modify xxhash behavior. They are all disabled by default.
 
 Calling xxhash 64-bit variant from a C program :
 
-```
+```c
 #include "xxhash.h"
 
 unsigned long long calcul_hash(const void* buffer, size_t length)
@@ -112,7 +112,7 @@ unsigned long long calcul_hash(const void* buffer, size_t length)
 ```
 
 Using streaming variant is more involved, but makes it possible to provide data in multiple rounds :
-```
+```c
 #include "stdlib.h"   /* abort() */
 #include "xxhash.h"
 

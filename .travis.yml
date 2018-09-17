@@ -7,3 +7,4 @@ before_install:
   - sudo apt-get install -qq clang
   - sudo apt-get install -qq g++-multilib
   - sudo apt-get install -qq gcc-multilib
+  - sudo apt-get install -qq cppcheck

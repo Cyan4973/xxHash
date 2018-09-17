@@ -293,9 +293,9 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
 
 {
     const BYTE* p = (const BYTE*)ptr;
-#define PROCESS1             \
-    h32 += (*p) * PRIME32_5; \
-    p++;                     \
+
+#define PROCESS1               \
+    h32 += (*p++) * PRIME32_5; \
     h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
 
 #define PROCESS4                         \
@@ -704,9 +704,8 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len,
 {
     const BYTE* p = (const BYTE*)ptr;
 
-#define PROCESS1_64          \
-    h64 ^= (*p) * PRIME64_5; \
-    p++;                     \
+#define PROCESS1_64            \
+    h64 ^= (*p++) * PRIME64_5; \
     h64 = XXH_rotl64(h64, 11) * PRIME64_1;
 
 #define PROCESS4_64          \

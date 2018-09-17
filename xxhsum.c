@@ -306,37 +306,40 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
         const char* const inFileName = fileNamesTable[fileIdx];
-        FILE* const inFile = fopen( inFileName, "rb" );
-        size_t const benchedSize = BMK_selectBenchedSize(inFileName);
-        char* const buffer = (char*)calloc(benchedSize+16+3, 1);
-        void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
+        assert(inFileName != NULL);
+        {
+            FILE* const inFile = fopen( inFileName, "rb" );
+            size_t const benchedSize = BMK_selectBenchedSize(inFileName);
+            char* const buffer = (char*)calloc(benchedSize+16+3, 1);
+            void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
 
-        /* Checks */
-        if ((inFile==NULL) || (inFileName==NULL)) {
-            DISPLAY("Pb opening %s\n", inFileName);
-            free(buffer);
-            return 11;
-        }
-        if(!buffer) {
-            DISPLAY("\nError: not enough memory!\n");
-            fclose(inFile);
-            return 12;
-        }
-
-        /* Fill input buffer */
-        DISPLAYLEVEL(1, "\rLoading %s...        \n", inFileName);
-        {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
-            fclose(inFile);
-            if(readSize != benchedSize) {
-                DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
+            /* Checks */
+            if (inFile==NULL){
+                DISPLAY("Pb opening %s\n", inFileName);
                 free(buffer);
-                return 13;
-        }   }
+                return 11;
+            }
+            if(!buffer) {
+                DISPLAY("\nError: not enough memory!\n");
+                fclose(inFile);
+                return 12;
+            }
 
-        /* bench */
-        result |= BMK_benchMem(alignedBuffer, benchedSize, specificTest);
+            /* Fill input buffer */
+            DISPLAYLEVEL(1, "\rLoading %s...        \n", inFileName);
+            {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
+                fclose(inFile);
+                if(readSize != benchedSize) {
+                    DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
+                    free(buffer);
+                    return 13;
+            }   }
 
-        free(buffer);
+            /* bench */
+            result |= BMK_benchMem(alignedBuffer, benchedSize, specificTest);
+
+            free(buffer);
+        }
     }
 
     return result;
@@ -347,24 +350,26 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 static int BMK_benchInternal(size_t keySize, int specificTest)
 {
     void* const buffer = calloc(keySize+16+3, 1);
-    void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
     if(!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
     }
 
-    /* bench */
-    DISPLAYLEVEL(1, "Sample of ");
-    if (keySize > 10 KB) {
-        DISPLAYLEVEL(1, "%u KB", (U32)(keySize >> 10));
-    } else {
-        DISPLAYLEVEL(1, "%u bytes", (U32)keySize);
-    }
-    DISPLAYLEVEL(1, "...        \n");
+    {   void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
 
-    {   int const result = BMK_benchMem(alignedBuffer, keySize, specificTest);
-        free(buffer);
-        return result;
+        /* bench */
+        DISPLAYLEVEL(1, "Sample of ");
+        if (keySize > 10 KB) {
+            DISPLAYLEVEL(1, "%u KB", (U32)(keySize >> 10));
+        } else {
+            DISPLAYLEVEL(1, "%u bytes", (U32)keySize);
+        }
+        DISPLAYLEVEL(1, "...        \n");
+
+        {   int const result = BMK_benchMem(alignedBuffer, keySize, specificTest);
+            free(buffer);
+            return result;
+        }
     }
 }
 
@@ -813,41 +818,43 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
 static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 {
     const char* const firstSpace = strchr(line, ' ');
-    const char* const secondSpace = firstSpace + 1;
+    if (firstSpace == NULL) return ParseLine_invalidFormat;
 
-    parsedLine->filename = NULL;
-    parsedLine->xxhBits = 0;
+    {   const char* const secondSpace = firstSpace + 1;
+        if (*secondSpace != ' ') return ParseLine_invalidFormat;
 
-    if (firstSpace == NULL || *secondSpace != ' ') return ParseLine_invalidFormat;
+        parsedLine->filename = NULL;
+        parsedLine->xxhBits = 0;
 
-    switch (firstSpace - line)
-    {
-    case 8:
-        {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
-                != CanonicalFromString_ok) {
-                return ParseLine_invalidFormat;
+        switch (firstSpace - line)
+        {
+        case 8:
+            {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
+                if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
+                    != CanonicalFromString_ok) {
+                    return ParseLine_invalidFormat;
+                }
+                parsedLine->xxhBits = 32;
+                break;
             }
-            parsedLine->xxhBits = 32;
-            break;
+
+        case 16:
+            {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
+                if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
+                    != CanonicalFromString_ok) {
+                    return ParseLine_invalidFormat;
+                }
+                parsedLine->xxhBits = 64;
+                break;
+            }
+
+        default:
+                return ParseLine_invalidFormat;
+                break;
         }
 
-    case 16:
-        {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
-                != CanonicalFromString_ok) {
-                return ParseLine_invalidFormat;
-            }
-            parsedLine->xxhBits = 64;
-            break;
-        }
-
-    default:
-            return ParseLine_invalidFormat;
-            break;
+        parsedLine->filename = secondSpace + 1;
     }
-
-    parsedLine->filename = secondSpace + 1;
     return ParseLine_ok;
 }
 

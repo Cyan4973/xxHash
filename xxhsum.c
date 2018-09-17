@@ -408,14 +408,14 @@ static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult
     Dresult = XXH64(sentence, len, seed);
     BMK_checkResult64(Dresult, Nresult);
 
-    XXH64_reset(&state, seed);
-    XXH64_update(&state, sentence, len);
+    (void)XXH64_reset(&state, seed);
+    (void)XXH64_update(&state, sentence, len);
     Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 
-    XXH64_reset(&state, seed);
+    (void)XXH64_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        XXH64_update(&state, ((char*)sentence)+pos, 1);
+        (void)XXH64_update(&state, ((char*)sentence)+pos, 1);
     Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 }
@@ -430,14 +430,14 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
     Dresult = XXH32(sequence, len, seed);
     BMK_checkResult(Dresult, Nresult);
 
-    XXH32_reset(&state, seed);
-    XXH32_update(&state, sequence, len);
+    (void)XXH32_reset(&state, seed);
+    (void)XXH32_update(&state, sequence, len);
     Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 
-    XXH32_reset(&state, seed);
+    (void)XXH32_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        XXH32_update(&state, ((const char*)sequence)+pos, 1);
+        (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32_digest(&state);
     BMK_checkResult(Dresult, Nresult);
 }
@@ -506,8 +506,8 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
     size_t readSize;
 
     /* Init */
-    XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
-    XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
+    (void)XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
+    (void)XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
 
     /* Load file & update hash */
     readSize = 1;
@@ -516,10 +516,10 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
         switch(hashType)
         {
         case algo_xxh32:
-            XXH32_update(&state32, buffer, readSize);
+            (void)XXH32_update(&state32, buffer, readSize);
             break;
         case algo_xxh64:
-            XXH64_update(&state64, buffer, readSize);
+            (void)XXH64_update(&state64, buffer, readSize);
             break;
         default:
             break;
@@ -610,7 +610,7 @@ static int BMK_hash(const char* fileName,
     {
     case algo_xxh32:
         {   XXH32_canonical_t hcbe32;
-            XXH32_canonicalFromHash(&hcbe32, h32);
+            (void)XXH32_canonicalFromHash(&hcbe32, h32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
             DISPLAYRESULT("  %s\n", fileName);
@@ -618,7 +618,7 @@ static int BMK_hash(const char* fileName,
         }
     case algo_xxh64:
         {   XXH64_canonical_t hcbe64;
-            XXH64_canonicalFromHash(&hcbe64, h64);
+            (void)XXH64_canonicalFromHash(&hcbe64, h64);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
             DISPLAYRESULT("  %s\n", fileName);

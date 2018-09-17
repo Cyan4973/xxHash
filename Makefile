@@ -41,13 +41,15 @@ else
 NOSSE4 :=
 endif
 
-CFLAGS ?= -O2 $(NOSSE4)   # disables potential auto-vectorization
-CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
-          -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-          -Wstrict-prototypes -Wundef
-
-FLAGS   = $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
-XXHSUM_VERSION=$(LIBVER)
+CFLAGS ?= -O2 $(NOSSE4) # disables potential auto-vectorization
+DEBUGFLAGS+=-Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+            -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+            -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
+            -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
+            -Wredundant-decls -Wstrict-overflow=5
+CFLAGS += $(DEBUGFLAGS)
+FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
+XXHSUM_VERSION = $(LIBVER)
 MD2ROFF = ronn
 MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
@@ -76,6 +78,7 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
 .PHONY: default
+default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
@@ -83,12 +86,13 @@ all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum32: CFLAGS += -m32
 xxhsum xxhsum32: xxhash.c xxhsum.c
-	$(CC) $(FLAGS) $^ -o $@$(EXT)
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum
-	ln -sf xxhsum xxh32sum
-	ln -sf xxhsum xxh64sum
+xxhsum_and_links: xxhsum xxh32sum xxh64sum
+
+xxh32sum xxh64sum: xxhsum
+	ln -sf $^ $@
 
 xxhsum_inlinedXXH: xxhsum.c
 	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
@@ -103,11 +107,11 @@ libxxhash.a: xxhash.o
 
 $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
-$(LIBXXH): LDFLAGS += -fPIC
+$(LIBXXH): CFLAGS += -fPIC
 endif
 $(LIBXXH): xxhash.c
 	@echo compiling dynamic library $(LIBVER)
-	@$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
+	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	@echo creating versioned links
 	@ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
 	@ln -sf $@ libxxhash.$(SHARED_EXT)
@@ -166,15 +170,15 @@ test-xxhsum-c: xxhsum
 
 armtest: clean
 	@echo ---- test ARM compilation ----
-	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static"
+	CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static" $(MAKE) xxhsum
 
 clangtest: clean
 	@echo ---- test clang compilation ----
-	$(MAKE) all CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion"
+	CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion" $(MAKE) all
 
-gpptest: clean
+cxxtest: clean
 	@echo ---- test g++ compilation ----
-	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
 c90test: clean
 	@echo ---- test strict C90 compilation [xxh32 only] ----
@@ -209,7 +213,7 @@ preview-man: clean-man man
 
 test: all namespaceTest check test-xxhsum-c c90test
 
-test-all: test test32 armtest clangtest gpptest usan listL120 trailingWhitespace staticAnalyze
+test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

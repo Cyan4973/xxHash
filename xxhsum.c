@@ -227,7 +227,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1i-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
+        DISPLAYLEVEL(2, "%1u-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
@@ -239,7 +239,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to avoid compiler "optimizing" away hash function */
         {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbh_perIteration;
             if (timeS < fastestH) fastestH = timeS;
-            DISPLAYLEVEL(2, "%1i-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+            DISPLAYLEVEL(2, "%1u-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                     iterationNb, hName, (U32)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
@@ -1140,7 +1140,7 @@ static int usage_advanced(const char* exename)
     DISPLAY( " -V, --version   : display version\n");
     DISPLAY( " -h, --help      : display long help and exit\n");
     DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %i)\n", g_nbIterations);
+    DISPLAY( " -i# : number of iterations (benchmark mode; default %u)\n", g_nbIterations);
     DISPLAY( "\n");
     DISPLAY( "The following four options are useful only when verifying checksums (-c):\n");
     DISPLAY( "--strict : don't print OK for each successfully verified file\n");

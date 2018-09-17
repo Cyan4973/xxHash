@@ -190,9 +190,15 @@ usan: clean
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) clean test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
+.PHONY: staticAnalyze
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
+
+.PHONY: cppcheck
+cppcheck:
+	@echo ---- static analyzer - cppcheck ----
+	cppcheck . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
 namespaceTest:
 	$(CC) -c xxhash.c
@@ -213,7 +219,7 @@ preview-man: clean-man man
 
 test: all namespaceTest check test-xxhsum-c c90test
 
-test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
+test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

@@ -170,15 +170,15 @@ test-xxhsum-c: xxhsum
 
 armtest: clean
 	@echo ---- test ARM compilation ----
-	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static"
+	CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static" $(MAKE) xxhsum
 
 clangtest: clean
 	@echo ---- test clang compilation ----
-	$(MAKE) all CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion"
+	CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion" $(MAKE) all
 
-gpptest: clean
+cxxtest: clean
 	@echo ---- test g++ compilation ----
-	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
 c90test: clean
 	@echo ---- test strict C90 compilation [xxh32 only] ----
@@ -213,7 +213,7 @@ preview-man: clean-man man
 
 test: all namespaceTest check test-xxhsum-c c90test
 
-test-all: test test32 armtest clangtest gpptest usan listL120 trailingWhitespace staticAnalyze
+test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

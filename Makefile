@@ -84,8 +84,10 @@ default: lib xxhsum_and_links
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
+xxhsum : xxhash.o xxhsum.o
+
 xxhsum32: CFLAGS += -m32
-xxhsum xxhsum32: xxhash.c xxhsum.c
+xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 .PHONY: xxhsum_and_links
@@ -116,6 +118,7 @@ $(LIBXXH): xxhash.c
 
 libxxhash : $(LIBXXH)
 
+.PHONY: lib
 lib: libxxhash.a libxxhash
 
 
@@ -175,12 +178,16 @@ clangtest: clean
 	CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion" $(MAKE) all
 
 cxxtest: clean
-	@echo ---- test g++ compilation ----
+	@echo ---- test C++ compilation ----
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
-c90test: clean
+.PHONY: c90test
+c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
+c90test: CFLAGS += -std=c90 -Werror -pedantic
+c90test: xxhash.c
 	@echo ---- test strict C90 compilation [xxh32 only] ----
-	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
+	$(RM) xxhash.o
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
 	$(RM) xxhash.o
 
 usan: CC=clang
@@ -198,6 +205,7 @@ cppcheck:
 	@echo ---- static analyzer - cppcheck ----
 	cppcheck . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
+.PHONY: namespaceTest
 namespaceTest:
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
@@ -207,6 +215,7 @@ namespaceTest:
 xxhsum.1: xxhsum.1.md
 	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 
+.PHONY: man
 man: xxhsum.1
 
 clean-man:

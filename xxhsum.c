@@ -63,15 +63,65 @@
 /* ************************************
  *  OS-Specific Includes
  **************************************/
-#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
-#  include <fcntl.h>    /* _O_BINARY */
-#  include <io.h>       /* _setmode, _isatty */
-#  define SET_BINARY_MODE(file) _setmode(_fileno(file), _O_BINARY)
+#if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__)) /* UNIX-like OS */ \
+   || defined(__midipix__) || defined(__VMS))
+#  if (defined(__APPLE__) && defined(__MACH__)) || defined(__SVR4) || defined(_AIX) || defined(__hpux) /* POSIX.1-2001 (SUSv3) conformant */ \
+     || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)  /* BSD distros */
+#    define PLATFORM_POSIX_VERSION 200112L
+#  else
+#    if defined(__linux__) || defined(__linux)
+#      ifndef _POSIX_C_SOURCE
+#        define _POSIX_C_SOURCE 200112L  /* use feature test macro */
+#      endif
+#    endif
+#    include <unistd.h>  /* declares _POSIX_VERSION */
+#    if defined(_POSIX_VERSION)  /* POSIX compliant */
+#      define PLATFORM_POSIX_VERSION _POSIX_VERSION
+#    else
+#      define PLATFORM_POSIX_VERSION 0
+#    endif
+#  endif
+#endif
+#if !defined(PLATFORM_POSIX_VERSION)
+#  define PLATFORM_POSIX_VERSION -1
+#endif
+
+#if (defined(__linux__) && (PLATFORM_POSIX_VERSION >= 1)) \
+ || (PLATFORM_POSIX_VERSION >= 200112L) \
+ || defined(__DJGPP__) \
+ || defined(__MSYS__)
+#  include <unistd.h>   /* isatty */
+#  define IS_CONSOLE(stdStream) isatty(fileno(stdStream))
+#elif defined(MSDOS) || defined(OS2) || defined(__CYGWIN__)
+#  include <io.h>       /* _isatty */
 #  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
+#elif defined(WIN32) || defined(_WIN32)
+#  include <io.h>      /* _isatty */
+#  include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
+#  include <stdio.h>   /* FILE */
+static __inline int IS_CONSOLE(FILE* stdStream) {
+    DWORD dummy;
+    return _isatty(_fileno(stdStream)) && GetConsoleMode((HANDLE)_get_osfhandle(_fileno(stdStream)), &dummy);
+}
 #else
-#  include <unistd.h>   /* isatty, STDIN_FILENO */
+#  define IS_CONSOLE(stdStream) 0
+#endif
+
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32)
+#  include <fcntl.h>   /* _O_BINARY */
+#  include <io.h>      /* _setmode, _fileno, _get_osfhandle */
+#  if !defined(__DJGPP__)
+#    include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
+#    include <winioctl.h> /* FSCTL_SET_SPARSE */
+#    define SET_BINARY_MODE(file) { int const unused=_setmode(_fileno(file), _O_BINARY); (void)unused; }
+#    define SET_SPARSE_FILE_MODE(file) { DWORD dw; DeviceIoControl((HANDLE) _get_osfhandle(_fileno(file)), FSCTL_SET_SPARSE, 0, 0, 0, 0, &dw, 0); }
+#  else
+#    define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#    define SET_SPARSE_FILE_MODE(file)
+#  endif
+#else
 #  define SET_BINARY_MODE(file)
-#  define IS_CONSOLE(stdStream) isatty(STDIN_FILENO)
+#  define SET_SPARSE_FILE_MODE(file)
 #endif
 
 #if !defined(S_ISREG)

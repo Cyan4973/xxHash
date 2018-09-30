@@ -94,8 +94,9 @@ xxhsum_and_links: xxhsum xxh32sum xxh64sum
 xxh32sum xxh64sum: xxhsum
 	ln -sf $^ $@
 
+xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
 xxhsum_inlinedXXH: xxhsum.c
-	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
+	$(CC) $(FLAGS) $^ -o $@$(EXT)
 
 
 # library

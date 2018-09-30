@@ -103,19 +103,16 @@ xxhsum_inlinedXXH: xxhsum.c
 
 libxxhash.a: ARFLAGS = rcs
 libxxhash.a: xxhash.o
-	@echo compiling static library
-	@$(AR) $(ARFLAGS) $@ $^
+	$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
 $(LIBXXH): xxhash.c
-	@echo compiling dynamic library $(LIBVER)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
-	@echo creating versioned links
-	@ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
-	@ln -sf $@ libxxhash.$(SHARED_EXT)
+	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
+	ln -sf $@ libxxhash.$(SHARED_EXT)
 
 libxxhash : $(LIBXXH)
 

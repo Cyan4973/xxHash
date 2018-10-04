@@ -165,3 +165,6 @@ They are [listed here](http://www.xxhash.com/#other-languages).
 >   + If you plan to propose a patch, please commit into the "dev" branch,
       or its own feature branch.
       Direct commit to "master" are not permitted.
+      
+ 
+ ### Happy Cracking!

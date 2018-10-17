@@ -267,7 +267,7 @@ static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
-    U32 nbh_perIteration = ((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
+    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
     U32 iterationNb;
     double fastestH = 100000000.;
 

@@ -33,15 +33,7 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-# SSE4 detection
-HAVE_SSE4 := $(shell $(CC) -dM -E - < /dev/null | grep "SSE4" > /dev/null && echo 1 || echo 0)
-ifeq ($(HAVE_SSE4), 1)
-NOSSE4 := -mno-sse4
-else
-NOSSE4 :=
-endif
-
-CFLAGS ?= -O2 $(NOSSE4) # disables potential auto-vectorization
+CFLAGS ?= -O2
 DEBUGFLAGS+=-Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \

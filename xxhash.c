@@ -135,6 +135,11 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #  endif /* __STDC_VERSION__ */
 #endif
 
+/* Clang's __has_builtin because checking clang versions is impossible,
+ * thank you Apple. */
+#ifndef __has_builtin
+#  define __has_builtin(x) 0
+#endif
 
 /* *************************************
 *  Basic Types
@@ -380,10 +385,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
     return h32;   /* reaching this point is deemed impossible */
 }
 
-#ifndef __has_builtin
-#  define __has_builtin(x) 0
-#endif
-
 #ifndef XXH_VECTORIZE
 /* Clang and GCC 4.6+ can use vectorization properly.
  * Most importantly, shifting vectors. */
@@ -398,7 +399,7 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
 
 #if XXH_VECTORIZE
 /* __m128i (SSE) or uint32x4_t (NEON). */
-typedef U32 U32x4 __attribute__((vector_size(16)));
+typedef U32 U32x4 __attribute__((__vector_size__(16)));
 /* Two U32x4s. */
 typedef struct { const U32x4 i[2]; } U32x4x2;
 
@@ -407,7 +408,7 @@ FORCE_INLINE U32x4 XXH32_load_unaligned(const U32x4* p)
 {
     struct loader {
         U32x4 v;
-    } __attribute__((packed, may_alias));
+    } __attribute__((__packed__, __may_alias__));
     return ((struct loader*)p)->v;
 }
 /* Same, but loads two vectors. */
@@ -415,7 +416,7 @@ FORCE_INLINE U32x4x2 XXH32_load_double_unaligned(const U32x4* p)
 {
     struct loader {
         U32x4x2 v;
-    } __attribute__((packed, may_alias));
+    } __attribute__((__packed__, __may_alias__));
     return ((struct loader*)p)->v;
 }
 
@@ -424,14 +425,26 @@ FORCE_INLINE void XXH32_store_unaligned(U32x4* p, const U32x4 v)
 {
     struct loader {
         U32x4 v;
-     } __attribute__((packed, may_alias));
+     } __attribute__((__packed__, __may_alias__));
     ((struct loader*)p)->v = v;
 }
 
-/*
- * Clang < 5.0 doesn't support int -> vector conversions.
- * Yuck.
- */
+#if defined(__ARM_NEON__) || defined(__ARM_NEON)
+#include <arm_neon.h>
+/* Neither GCC or Clang can properly optimize the generic version
+ * for Arm NEON.
+ * Instead of the optimal version, which is this:
+ *      vshr.u32        q9, q8, #19
+ *      vsli.32         q9, q8, #13
+ * GCC and Clang will produce this slower version:
+ *      vshr.u32        q9, q8, #19
+ *      vshl.i32        q8, q8, #13
+ *      vorr            q8, q8, q9
+ * This is much faster, and I think one intrinsic is acceptable. */
+#define XXH_rotlvec32(x, r) vsliq_n_u32(vshr_n_u32((x), 32 - (r)), (x), (r))
+#else /* not NEON */
+/* Clang < 5.0 doesn't support int -> vector conversions.
+ * Yuck. */
 FORCE_INLINE U32x4 XXH_rotlvec32(U32x4 x, U32 r)
 {
     const U32x4 left = { r, r, r, r };
@@ -441,7 +454,15 @@ FORCE_INLINE U32x4 XXH_rotlvec32(U32x4 x, U32 r)
         32 - r,
         32 - r
     };
-    return (x << right) | (x >> left);
+    return (x << left) | (x >> right);
+}
+#endif /* not NEON */
+/* Like XXH_rotlvec32, but takes a vector as r. No NEON-optimized
+ * version for this one. */
+FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
+{
+    const U32x4 v32 = { 32, 32, 32, 32 };
+    return (x << r) | (x >> (v32 - r));
 }
 #endif
 
@@ -462,7 +483,14 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
 
 /* SIMD-optimized code */
 #if XXH_VECTORIZE
+/* x86 slows down significantly on unaligned reads with SSE4.1 instructions.
+ * On x86, we want to only do SIMD on aligned pointers.
+ * NEON prefers unaligned reads, so we always use SIMD. */
+#ifdef __SSE4_1__
+    if (len>=32 && align == XXH_aligned) {
+#else
     if (len>=32) {
+#endif
         const BYTE* const limit = bEnd - 31;
         U32 vx1[4] = {
             seed + PRIME32_1 + PRIME32_2,
@@ -474,7 +502,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
             XXH32_load_unaligned((const U32x4*)vx1),
             XXH32_load_unaligned((const U32x4*)vx1)
         };
-        const U32x4 prime1 = { PRIME32_2, PRIME32_1, PRIME32_1, PRIME32_1 };
+        const U32x4 prime1 = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
         const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
 
         /* https://moinakg.wordpress.com/2013/01/19/vectorizing-xxhash-for-fun-and-profit/
@@ -482,7 +510,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
          * performance. It produces a different hash, though. */
 
         /* Aligned reads are faster. We want a 16-byte align. */
-        if (((size_t)p & 15) == 0) {
+        if (((size_t)p&15) == 0) {
 
 #if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
             /* GCC/Clang builtin that tells the compiler that this will be aligned. */
@@ -528,11 +556,18 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         v[0] += v[1] * prime2;
         v[0]  = XXH_rotlvec32(v[0], 13);
         v[0] *= prime1;
+
+        {
+            const U32x4 r = { 1, 7, 12, 18 };
+            v[0] = XXH_rotlvec_vec32(v[0], r);
+        }
+
         XXH32_store_unaligned((U32x4 *)vx1, v[0]);
 
-        h32 = XXH_rotl32(vx1[0], 1) + XXH_rotl32(vx1[1], 7) + XXH_rotl32(vx1[2], 12) + XXH_rotl32(vx1[3], 18);
-    }
-#else /* no SIMD */
+        h32 = vx1[0] + vx1[1] + vx1[2] + vx1[3];
+    } else
+#endif
+#if !XXH_VECTORIZE || defined(__SSE4_1__) /* no SIMD or x86 */
     if (len>=32) {
         const BYTE* const limit = bEnd - 31;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
@@ -563,15 +598,15 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         v4 = XXH32_round(v4, v4A);
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
-    }
+    } else
 #endif
-    else {
+    {
         h32  = seed + PRIME32_5;
     }
 
     h32 += (U32)len;
 
-    return XXH32_finalize(h32, p, len&15, endian, align);
+    return XXH32_finalize(h32, p, len&31, endian, align);
 }
 
 
@@ -992,23 +1027,7 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len,
     assert(0);
     return 0;  /* unreachable, but some compilers complain without it */
 }
-#if XXH_VECTORIZE
-typedef U64 U64x2 __attribute__((vector_size(16)));
-FORCE_INLINE U64x2 XXH64_load_unaligned(const U64x2 *p)
-{
-    struct loader {
-        U64x2 v;
-    } __attribute__((__packed__, __may_alias__));
-    return ((struct loader*)p)->v;
-}
-FORCE_INLINE void XXH64_store_unaligned(U64x2 *p, const U64x2 v)
-{
-    struct loader {
-        U64x2 v;
-    } __attribute__((__packed__, __may_alias__));
-    ((struct loader*)p)->v = v;
-}
-#endif
+
 FORCE_INLINE U64
 XXH64_endian_align(const void* input, size_t len, U64 seed,
                 XXH_endianess endian, XXH_alignment align)
@@ -1023,7 +1042,6 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
         bEnd=p=(const BYTE*)(size_t)32;
     }
 #endif
-#if 1
     if (len>=32) {
         const BYTE* const limit = bEnd - 32;
         U64 v1 = seed + PRIME64_1 + PRIME64_2;
@@ -1044,66 +1062,7 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
         h64 = XXH64_mergeRound(h64, v2);
         h64 = XXH64_mergeRound(h64, v3);
         h64 = XXH64_mergeRound(h64, v4);
-    }
-#else
-    /* Not complete yet. Needs a lot of work. */
-    if (len>=32) {
-        const BYTE* const limit = bEnd - 63;
-        /* We use two individual vectors because most computers only
-         * have 128 bits. */
-        U64 vx1[2] = {
-            PRIME64_1 + PRIME64_2,
-            PRIME64_2
-        };
-        U64 vx2[2] = {
-            0,
-            -PRIME64_1
-        };
-        U64x2 v1 = XXH64_load_unaligned((const U64x2 *)vx1);
-        U64x2 v2 = XXH64_load_unaligned((const U64x2 *)vx2);
-
-        v1 += seed;
-        v2 += seed;
-        if ((size_t)p & 31) {
-            do {
-                U64x2 inp1 = XXH64_load_unaligned((const U64x2 *)p);
-                U64x2 inp2 = XXH64_load_unaligned((const U64x2 *)(p + 16));
-                v1 += inp1 * PRIME64_2;
-                v2 += inp2 * PRIME64_2;
-                v1  = XXH_rotl64(v1, 31);
-                v2  = XXH_rotl64(v2, 31);
-                v1 *= PRIME64_1;
-                v2 *= PRIME64_1;
-
-                p += 32;
-            } while (p < limit);
-        } else {
-            const U64x2 *p_quad = __builtin_assume_aligned(p, 32);
-            do {
-                U64x2 inp1 = *p_quad;
-                U64x2 inp2 = *(p_quad + 1);
-                v1 += inp1 * PRIME64_2;
-                v2 += inp2 * PRIME64_2;
-                v1  = XXH_rotl64(v1, 31);
-                v2  = XXH_rotl64(v2, 31);
-                v1 *= PRIME64_1;
-                v2 *= PRIME64_1;
-                p_quad += 2;
-            } while ((const BYTE *)p_quad < limit);
-            p = (const BYTE *) p_quad;
-        }
-
-        XXH64_store_unaligned((U64x2 *)vx1, v1);
-        XXH64_store_unaligned((U64x2 *)vx2, v2);
-        /* Add them all together */
-        h64 = XXH_rotl64(vx1[0], 1) + XXH_rotl64(vx1[1], 7) + XXH_rotl64(vx2[0], 12) + XXH_rotl64(vx2[1], 18);
-        h64 = XXH64_mergeRound(h64, vx1[0]);
-        h64 = XXH64_mergeRound(h64, vx1[1]);
-        h64 = XXH64_mergeRound(h64, vx2[0]);
-        h64 = XXH64_mergeRound(h64, vx2[1]);
-    }
-#endif
-    else {
+    } else {
         h64  = seed + PRIME64_5;
     }
 

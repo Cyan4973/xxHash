@@ -303,8 +303,16 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
     p+=4;                                \
     h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
 
-    switch(len&15)  /* or switch(bEnd - p) */
+    switch(len&31)  /* or switch(bEnd - p) */
     {
+      case 28:      PROCESS4;
+                    /* fallthrough */
+      case 24:      PROCESS4;
+                    /* fallthrough */
+      case 20:      PROCESS4;
+                    /* fallthrough */
+      case 16:      PROCESS4;
+                    /* fallthrough */
       case 12:      PROCESS4;
                     /* fallthrough */
       case 8:       PROCESS4;
@@ -312,6 +320,14 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
       case 4:       PROCESS4;
                     return XXH32_avalanche(h32);
 
+      case 29:      PROCESS4;
+                    /* fallthrough */
+      case 25:       PROCESS4;
+                    /* fallthrough */
+      case 21:      PROCESS4;
+                    /* fallthrough */
+      case 17:       PROCESS4;
+                    /* fallthrough */
       case 13:      PROCESS4;
                     /* fallthrough */
       case 9:       PROCESS4;
@@ -320,6 +336,15 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
                     PROCESS1;
                     return XXH32_avalanche(h32);
 
+
+      case 30:      PROCESS4;
+                    /* fallthrough */
+      case 26:      PROCESS4;
+                    /* fallthrough */
+      case 22:      PROCESS4;
+                    /* fallthrough */
+      case 18:      PROCESS4;
+                    /* fallthrough */
       case 14:      PROCESS4;
                     /* fallthrough */
       case 10:      PROCESS4;
@@ -329,6 +354,14 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
                     PROCESS1;
                     return XXH32_avalanche(h32);
 
+      case 31:      PROCESS4;
+                    /* fallthrough */
+      case 27:      PROCESS4;
+                    /* fallthrough */
+      case 23:      PROCESS4;
+                    /* fallthrough */
+      case 19:      PROCESS4;
+                    /* fallthrough */
       case 15:      PROCESS4;
                     /* fallthrough */
       case 11:      PROCESS4;
@@ -438,8 +471,8 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
             seed - PRIME32_1
         };
         U32x4 v[2] = {
-            XXH32_load_unaligned((const U32x4 *)vx1),
-            XXH32_load_unaligned((const U32x4 *)vx1)
+            XXH32_load_unaligned((const U32x4*)vx1),
+            XXH32_load_unaligned((const U32x4*)vx1)
         };
         const U32x4 prime1 = { PRIME32_2, PRIME32_1, PRIME32_1, PRIME32_1 };
         const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
@@ -453,9 +486,9 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
 
 #if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
             /* GCC/Clang builtin that tells the compiler that this will be aligned. */
-            const U32x4x2 *p_quad = (const U32x4x2 *)__builtin_assume_aligned(p, 16);
+            const U32x4x2* p_quad = (const U32x4x2*)__builtin_assume_aligned(p, 16);
 #else
-            const U32x4x2 *p_quad = (const U32x4x2 *)p;
+            const U32x4x2* p_quad = (const U32x4x2*)p;
 #endif
 
             do {
@@ -471,11 +504,12 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
                 v[0] *= prime1;
                 v[1] *= prime1;
             } while ((const BYTE*)p_quad < limit);
-            p = (const BYTE *)p_quad;
+            p = (const BYTE*)p_quad;
 
         } else {
             do {
-                U32x4x2 inp = XXH32_load_double_unaligned((const U32x4 *)p);
+                /* Load 32 bytes at a time. */
+                U32x4x2 inp = XXH32_load_double_unaligned((const U32x4*)p);
 
                 /* XXH32_round */
                 v[0] += inp.i[0] * prime2;
@@ -523,10 +557,10 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
             v4A = XXH32_round(v4A, XXH_get32bits(p)); p+=4;
         } while (p < limit);
 
-        v1 += v1A * PRIME32_2; v1 = XXH_rotl32(v1, 13); v1 *= PRIME32_1;
-        v2 += v2A * PRIME32_2; v2 = XXH_rotl32(v2, 13); v2 *= PRIME32_1;
-        v3 += v3A * PRIME32_2; v3 = XXH_rotl32(v3, 13); v3 *= PRIME32_1;
-        v4 += v4A * PRIME32_2; v4 = XXH_rotl32(v4, 13); v4 *= PRIME32_1;
+        v1 = XXH32_round(v1, v1A);
+        v2 = XXH32_round(v2, v2A);
+        v3 = XXH32_round(v3, v3A);
+        v4 = XXH32_round(v4, v4A);
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
     }

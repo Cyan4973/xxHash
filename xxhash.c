@@ -464,7 +464,7 @@ FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
     const U32x4 v32 = { 32, 32, 32, 32 };
     return (x << r) | (x >> (v32 - r));
 }
-#endif
+#endif /* XXH_VECTORIZE */
 
 FORCE_INLINE U32
 XXH32_endian_align(const void* input, size_t len, U32 seed,
@@ -566,7 +566,8 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
 
         h32 = vx1[0] + vx1[1] + vx1[2] + vx1[3];
     } else
-#endif
+#endif /* XXH_VECTORIZE */
+
 #if !XXH_VECTORIZE || defined(__SSE4_1__) /* no SIMD or x86 */
     if (len>=32) {
         const BYTE* const limit = bEnd - 31;
@@ -599,7 +600,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
     } else
-#endif
+#endif /* !XXH_VECTORIZE || __SSE4_1__ */
     {
         h32  = seed + PRIME32_5;
     }

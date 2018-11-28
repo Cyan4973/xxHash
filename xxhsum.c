@@ -186,7 +186,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
-typedef enum { algo_xxh32, algo_xxh64 } algoType;
+typedef enum { algo_xxh32, algo_xxh32a, algo_xxh64 } algoType;
 static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
@@ -263,6 +263,8 @@ typedef U32 (*hashFunction)(const void* buffer, size_t bufferSize, U32 seed);
 
 static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return XXH32(buffer, bufferSize, seed); }
 
+static U32 localXXH32a(const void* buffer, size_t bufferSize, U32 seed) { return XXH32a(buffer, bufferSize, seed); }
+
 static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
@@ -321,6 +323,14 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     /* Bench XXH32 on Unaligned input */
     if ((specificTest==0) | (specificTest==2))
         BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
+
+    /* XXH32a bench */
+    if ((specificTest==0) | (specificTest==5))
+        BMK_benchHash(localXXH32a, "XXH32a", buffer, bufferSize);
+
+    /* Bench XXH32a on Unaligned input */
+    if ((specificTest==0) | (specificTest==6))
+        BMK_benchHash(localXXH32a, "XXH32a unaligned", ((const char*)buffer)+1, bufferSize);
 
     /* Bench XXH64 */
     if ((specificTest==0) | (specificTest==3))
@@ -493,6 +503,28 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
 }
 
 
+static void BMK_testSequence32a(const void* sequence, size_t len, U32 seed, U32 Nresult)
+{
+    XXH32a_state_t state;
+    U32 Dresult;
+    size_t pos;
+
+    Dresult = XXH32a(sequence, len, seed);
+    BMK_checkResult(Dresult, Nresult);
+
+    (void)XXH32a_reset(&state, seed);
+    (void)XXH32a_update(&state, sequence, len);
+    Dresult = XXH32a_digest(&state);
+    BMK_checkResult(Dresult, Nresult);
+
+    (void)XXH32a_reset(&state, seed);
+    for (pos=0; pos<len; pos++)
+        (void)XXH32a_update(&state, ((const char*)sequence)+pos, 1);
+    Dresult = XXH32a_digest(&state);
+
+    BMK_checkResult(Dresult, Nresult);
+}
+
 #define SANITY_BUFFER_SIZE 101
 static void BMK_sanityCheck(void)
 {
@@ -514,6 +546,15 @@ static void BMK_sanityCheck(void)
     BMK_testSequence(sanityBuffer, 14, prime, 0x4481951D);
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x498EC8E2);
+
+    BMK_testSequence32a(NULL,          0, 0,     0x02CC5D05);
+    BMK_testSequence32a(NULL,          0, prime, 0x36B78AE7);
+    BMK_testSequence32a(sanityBuffer,  1, 0,     0xB85CBEE5);
+    BMK_testSequence32a(sanityBuffer,  1, prime, 0xD5845D64);
+    BMK_testSequence32a(sanityBuffer, 14, 0,     0xE5AA0AB4);
+    BMK_testSequence32a(sanityBuffer, 14, prime, 0x4481951D);
+    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x7BDCA81E);
+    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x267C4625);
 
     BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
     BMK_testSequence64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
@@ -552,11 +593,13 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
 static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* inFile, void* buffer, size_t blockSize)
 {
     XXH64_state_t state64;
+    XXH32a_state_t state32a;
     XXH32_state_t state32;
     size_t readSize;
 
     /* Init */
     (void)XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
+    (void)XXH32a_reset(&state32a, XXHSUM32_DEFAULT_SEED);
     (void)XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
 
     /* Load file & update hash */
@@ -567,6 +610,9 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
         {
         case algo_xxh32:
             (void)XXH32_update(&state32, buffer, readSize);
+            break;
+        case algo_xxh32a:
+            (void)XXH32a_update(&state32a, buffer, readSize);
             break;
         case algo_xxh64:
             (void)XXH64_update(&state64, buffer, readSize);
@@ -580,6 +626,11 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
     {
     case algo_xxh32:
         {   U32 const h32 = XXH32_digest(&state32);
+            memcpy(xxhHashValue, &h32, sizeof(h32));
+            break;
+        }
+    case algo_xxh32a:
+        {   U32 const h32 = XXH32a_digest(&state32a);
             memcpy(xxhHashValue, &h32, sizeof(h32));
             break;
         }
@@ -643,6 +694,9 @@ static int BMK_hash(const char* fileName,
         case algo_xxh32:
             BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
             break;
+        case algo_xxh32a:
+            BMK_hashStream(&h32, algo_xxh32a, inFile, buffer, blockSize);
+            break;
         case algo_xxh64:
             BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
             break;
@@ -663,6 +717,14 @@ static int BMK_hash(const char* fileName,
             (void)XXH32_canonicalFromHash(&hcbe32, h32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
+            DISPLAYRESULT("  %s\n", fileName);
+            break;
+        }
+    case algo_xxh32a:
+        {   XXH32a_canonical_t hcbe32a;
+            (void)XXH32a_canonicalFromHash(&hcbe32a, h32);
+            displayEndianess==big_endian ?
+                BMK_display_BigEndian(&hcbe32a, sizeof(hcbe32a)) : BMK_display_LittleEndian(&hcbe32a, sizeof(hcbe32a));
             DISPLAYRESULT("  %s\n", fileName);
             break;
         }
@@ -1252,6 +1314,7 @@ int main(int argc, const char** argv)
 
     /* special case : xxh32sum default to 32 bits checksum */
     if (strstr(exename, "xxh32sum") != NULL) algo = algo_xxh32;
+    if (strstr(exename, "xxh32asum") != NULL) algo = algo_xxh32a;
 
     for(i=1; i<argc; i++) {
         const char* argument = argv[i];

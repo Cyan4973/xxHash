@@ -57,7 +57,7 @@
 #  elif (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
   (defined(__GNUC__) && ( defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) \
                     || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) \
-                    || defined(__ARM_ARCH_7S__) ))
+                    || defined(__ARM_ARCH_7S__) || defined(__ARM_ARCH_V7VE__) ))
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif
@@ -91,7 +91,7 @@
  * or when alignment doesn't matter for performance.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#  if defined(__arm__) || defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
@@ -133,6 +133,21 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #  else
 #    define FORCE_INLINE static
 #  endif /* __STDC_VERSION__ */
+#endif
+
+/* On Thumb 1, GCC decides that shift/add is __always__ faster than
+ * multiplication via a constant, even when it generates 8 times as many
+ * instructions and twice as many CPU cycles.
+ *
+ * If we lie to GCC and tell it that the value is not constant, then it
+ * will disable this "optimization".
+ * Clang, normal ARM, and Thumb-2 are not affected, and Clang even amusingly
+ * converts GCC's shift/add mess back into multiplication.
+ * https://godbolt.org/z/2vc82a */
+#if defined(__thumb__) && !defined(__thumb2__) && defined(__GNUC__) && !defined(__clang__)
+#define CONSTANT __attribute__((visibility("hidden")))
+#else
+#define CONSTANT static const
 #endif
 
 /* Clang's __has_builtin because checking clang versions is impossible,
@@ -261,15 +276,14 @@ static U32 XXH_readBE32(const void* ptr)
 #define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }  /* use after variable declarations */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
-
 /* *******************************************************************
 *  32-bit hash functions
 *********************************************************************/
-static const U32 PRIME32_1 = 2654435761U;   /* 0b10011110001101110111100110110001 */
-static const U32 PRIME32_2 = 2246822519U;   /* 0b10000101111010111100101001110111 */
-static const U32 PRIME32_3 = 3266489917U;   /* 0b11000010101100101010111000111101 */
-static const U32 PRIME32_4 =  668265263U;   /* 0b00100111110101001110101100101111 */
-static const U32 PRIME32_5 =  374761393U;   /* 0b00010110010101100110011110110001 */
+CONSTANT U32 PRIME32_1 = 2654435761U;   /* 0b10011110001101110111100110110001 */
+CONSTANT U32 PRIME32_2 = 2246822519U;   /* 0b10000101111010111100101001110111 */
+CONSTANT U32 PRIME32_3 = 3266489917U;   /* 0b11000010101100101010111000111101 */
+CONSTANT U32 PRIME32_4 =  668265263U;   /* 0b00100111110101001110101100101111 */
+CONSTANT U32 PRIME32_5 =  374761393U;   /* 0b00010110010101100110011110110001 */
 
 static U32 XXH32_round(U32 seed, U32 input)
 {
@@ -308,16 +322,8 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
     p+=4;                                \
     h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
 
-    switch(len&31)  /* or switch(bEnd - p) */
+    switch(len&15)  /* or switch(bEnd - p) */
     {
-      case 28:      PROCESS4;
-                    /* fallthrough */
-      case 24:      PROCESS4;
-                    /* fallthrough */
-      case 20:      PROCESS4;
-                    /* fallthrough */
-      case 16:      PROCESS4;
-                    /* fallthrough */
       case 12:      PROCESS4;
                     /* fallthrough */
       case 8:       PROCESS4;
@@ -325,14 +331,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
       case 4:       PROCESS4;
                     return XXH32_avalanche(h32);
 
-      case 29:      PROCESS4;
-                    /* fallthrough */
-      case 25:       PROCESS4;
-                    /* fallthrough */
-      case 21:      PROCESS4;
-                    /* fallthrough */
-      case 17:       PROCESS4;
-                    /* fallthrough */
       case 13:      PROCESS4;
                     /* fallthrough */
       case 9:       PROCESS4;
@@ -341,15 +339,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
                     PROCESS1;
                     return XXH32_avalanche(h32);
 
-
-      case 30:      PROCESS4;
-                    /* fallthrough */
-      case 26:      PROCESS4;
-                    /* fallthrough */
-      case 22:      PROCESS4;
-                    /* fallthrough */
-      case 18:      PROCESS4;
-                    /* fallthrough */
       case 14:      PROCESS4;
                     /* fallthrough */
       case 10:      PROCESS4;
@@ -359,14 +348,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
                     PROCESS1;
                     return XXH32_avalanche(h32);
 
-      case 31:      PROCESS4;
-                    /* fallthrough */
-      case 27:      PROCESS4;
-                    /* fallthrough */
-      case 23:      PROCESS4;
-                    /* fallthrough */
-      case 19:      PROCESS4;
-                    /* fallthrough */
       case 15:      PROCESS4;
                     /* fallthrough */
       case 11:      PROCESS4;
@@ -385,86 +366,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
     return h32;   /* reaching this point is deemed impossible */
 }
 
-#ifndef XXH_VECTORIZE
-/* Clang and GCC 4.6+ can use vectorization properly.
- * Most importantly, shifting vectors. */
-#  if (defined(__clang__) || XXH_GCC_VERSION >= 406) && \
-        (defined(__SSE4_1__) || defined(__ARM_NEON__) || \
-        defined(__ARM_NEON))
-#    define XXH_VECTORIZE 1
-#  else
-#    define XXH_VECTORIZE 0
-#  endif
-#endif
-
-#if XXH_VECTORIZE
-/* __m128i (SSE) or uint32x4_t (NEON). */
-typedef U32 U32x4 __attribute__((__vector_size__(16)));
-/* Two U32x4s. */
-typedef struct { const U32x4 i[2]; } U32x4x2;
-
-/* emmintrin.h's _mm_loadu_si128 code. */
-FORCE_INLINE U32x4 XXH32_load_unaligned(const U32x4* p)
-{
-    struct loader {
-        U32x4 v;
-    } __attribute__((__packed__, __may_alias__));
-    return ((struct loader*)p)->v;
-}
-/* Same, but loads two vectors. */
-FORCE_INLINE U32x4x2 XXH32_load_double_unaligned(const U32x4* p)
-{
-    struct loader {
-        U32x4x2 v;
-    } __attribute__((__packed__, __may_alias__));
-    return ((struct loader*)p)->v;
-}
-
-/* _mm_storeu_si128 */
-FORCE_INLINE void XXH32_store_unaligned(U32x4* p, const U32x4 v)
-{
-    struct loader {
-        U32x4 v;
-     } __attribute__((__packed__, __may_alias__));
-    ((struct loader*)p)->v = v;
-}
-
-#if defined(__ARM_NEON__) || defined(__ARM_NEON)
-#include <arm_neon.h>
-/* Neither GCC or Clang can properly optimize the generic version
- * for Arm NEON.
- * Instead of the optimal version, which is this:
- *      vshr.u32        q9, q8, #19
- *      vsli.32         q9, q8, #13
- * GCC and Clang will produce this slower version:
- *      vshr.u32        q9, q8, #19
- *      vshl.i32        q8, q8, #13
- *      vorr            q8, q8, q9
- * This is much faster, and I think one intrinsic is acceptable. */
-#define XXH_rotlvec32(x, r) vsliq_n_u32(vshr_n_u32((x), 32 - (r)), (x), (r))
-#else /* not NEON */
-/* Clang < 5.0 doesn't support int -> vector conversions.
- * Yuck. */
-FORCE_INLINE U32x4 XXH_rotlvec32(U32x4 x, U32 r)
-{
-    const U32x4 left = { r, r, r, r };
-    const U32x4 right = {
-        32 - r,
-        32 - r,
-        32 - r,
-        32 - r
-    };
-    return (x << left) | (x >> right);
-}
-#endif /* not NEON */
-/* Like XXH_rotlvec32, but takes a vector as r. No NEON-optimized
- * version for this one. */
-FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
-{
-    const U32x4 v32 = { 32, 32, 32, 32 };
-    return (x << r) | (x >> (v32 - r));
-}
-#endif /* XXH_VECTORIZE */
 
 FORCE_INLINE U32
 XXH32_endian_align(const void* input, size_t len, U32 seed,
@@ -480,134 +381,46 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         bEnd=p=(const BYTE*)(size_t)16;
     }
 #endif
-
-/* SIMD-optimized code */
-#if XXH_VECTORIZE
-/* x86 slows down significantly on unaligned reads with SSE4.1 instructions.
- * On x86, we want to only do SIMD on aligned pointers.
- * NEON prefers unaligned reads, so we always use SIMD. */
-#ifdef __SSE4_1__
-    if (len>=32 && align == XXH_aligned) {
-#else
-    if (len>=32) {
-#endif
-        const BYTE* const limit = bEnd - 31;
-        U32 vx1[4] = {
-            seed + PRIME32_1 + PRIME32_2,
-            seed + PRIME32_2,
-            seed + 0,
-            seed - PRIME32_1
-        };
-        U32x4 v[2] = {
-            XXH32_load_unaligned((const U32x4*)vx1),
-            XXH32_load_unaligned((const U32x4*)vx1)
-        };
-        const U32x4 prime1 = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
-        const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
-
-        /* https://moinakg.wordpress.com/2013/01/19/vectorizing-xxhash-for-fun-and-profit/
-         * shows that performing two parallel hashes at a time is much better for
-         * performance. It produces a different hash, though. */
-
-        /* Aligned reads are faster. We want a 16-byte align. */
-        if (((size_t)p&15) == 0) {
-
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-            /* GCC/Clang builtin that tells the compiler that this will be aligned. */
-            const U32x4x2* p_quad = (const U32x4x2*)__builtin_assume_aligned(p, 16);
-#else
-            const U32x4x2* p_quad = (const U32x4x2*)p;
-#endif
-
-            do {
-                U32x4x2 inp = *p_quad++;
-
-                /* XXH32_round */
-                v[0] += inp.i[0] * prime2;
-                v[1] += inp.i[1] * prime2;
-
-                v[0]  = XXH_rotlvec32(v[0], 13);
-                v[1]  = XXH_rotlvec32(v[1], 13);
-
-                v[0] *= prime1;
-                v[1] *= prime1;
-            } while ((const BYTE*)p_quad < limit);
-            p = (const BYTE*)p_quad;
-
-        } else {
-            do {
-                /* Load 32 bytes at a time. */
-                U32x4x2 inp = XXH32_load_double_unaligned((const U32x4*)p);
-
-                /* XXH32_round */
-                v[0] += inp.i[0] * prime2;
-                v[1] += inp.i[1] * prime2;
-
-                v[0]  = XXH_rotlvec32(v[0], 13);
-                v[1]  = XXH_rotlvec32(v[1], 13);
-
-                v[0] *= prime1;
-                v[1] *= prime1;
-                p += 32;
-            } while (p < limit);
-        }
-
-        /* Add them all together, performing another round. */
-        v[0] += v[1] * prime2;
-        v[0]  = XXH_rotlvec32(v[0], 13);
-        v[0] *= prime1;
-
-        {
-            const U32x4 r = { 1, 7, 12, 18 };
-            v[0] = XXH_rotlvec_vec32(v[0], r);
-        }
-
-        XXH32_store_unaligned((U32x4 *)vx1, v[0]);
-
-        h32 = vx1[0] + vx1[1] + vx1[2] + vx1[3];
-    } else
-#endif /* XXH_VECTORIZE */
-
-#if !XXH_VECTORIZE || defined(__SSE4_1__) /* no SIMD or x86 */
-    if (len>=32) {
-        const BYTE* const limit = bEnd - 31;
+    if (len>=16) {
+        const BYTE* const limit = bEnd - 15;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
         U32 v2 = seed + PRIME32_2;
         U32 v3 = seed + 0;
         U32 v4 = seed - PRIME32_1;
+#if 0
+        /* Avoid branching when we don't have to. This helps out ARM Thumb a lot. */
+        if (align==XXH_aligned && endian==XXH_littleEndian) {
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+            const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
+#else
+            const U32* p_align = (const U32*)p;
+#endif
 
-        U32 v1A = seed + PRIME32_1 + PRIME32_2;
-        U32 v2A = seed + PRIME32_2;
-        U32 v3A = seed + 0;
-        U32 v4A = seed - PRIME32_1;
+            do {
+                v1 = XXH32_round(v1, *p_align++);
+                v2 = XXH32_round(v2, *p_align++);
+                v3 = XXH32_round(v3, *p_align++);
+                v4 = XXH32_round(v4, *p_align++);
+            } while ((const BYTE*)p_align < limit);
+            p = (const BYTE*)p_align;
+        } else
+#endif
+            do {
+                v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
+                v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
+                v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
+                v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
+            } while (p < limit);
 
-        do {
-            v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
-            v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
-            v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
-            v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
-
-            v1A = XXH32_round(v1A, XXH_get32bits(p)); p+=4;
-            v2A = XXH32_round(v2A, XXH_get32bits(p)); p+=4;
-            v3A = XXH32_round(v3A, XXH_get32bits(p)); p+=4;
-            v4A = XXH32_round(v4A, XXH_get32bits(p)); p+=4;
-        } while (p < limit);
-
-        v1 = XXH32_round(v1, v1A);
-        v2 = XXH32_round(v2, v2A);
-        v3 = XXH32_round(v3, v3A);
-        v4 = XXH32_round(v4, v4A);
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
-    } else
-#endif /* !XXH_VECTORIZE || __SSE4_1__ */
-    {
+    } else {
         h32  = seed + PRIME32_5;
     }
 
     h32 += (U32)len;
 
-    return XXH32_finalize(h32, p, len&31, endian, align);
+    return XXH32_finalize(h32, p, len&15, endian, align);
 }
 
 
@@ -710,14 +523,32 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
             U32 v2 = state->v2;
             U32 v3 = state->v3;
             U32 v4 = state->v4;
+#if 0
+            /* Aligned pointers and fewer branches are very helpful and worth the
+             * duplication on ARM. */
+            if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+                const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
+#else
+                const U32* p_align = (const U32*)p;
+#endif
 
-            do {
-                v1 = XXH32_round(v1, XXH_readLE32(p, endian)); p+=4;
-                v2 = XXH32_round(v2, XXH_readLE32(p, endian)); p+=4;
-                v3 = XXH32_round(v3, XXH_readLE32(p, endian)); p+=4;
-                v4 = XXH32_round(v4, XXH_readLE32(p, endian)); p+=4;
-            } while (p<=limit);
+                do {
+                    v1 = XXH32_round(v1, *p_align++);
+                    v2 = XXH32_round(v2, *p_align++);
+                    v3 = XXH32_round(v3, *p_align++);
+                    v4 = XXH32_round(v4, *p_align++);
+                } while ((const BYTE*)p_align <= limit);
+                p = (const BYTE*)p_align;
+            } else
+#endif
 
+                do {
+                    v1 = XXH32_round(v1, XXH_readLE32(p, endian)); p+=4;
+                    v2 = XXH32_round(v2, XXH_readLE32(p, endian)); p+=4;
+                    v3 = XXH32_round(v3, XXH_readLE32(p, endian)); p+=4;
+                    v4 = XXH32_round(v4, XXH_readLE32(p, endian)); p+=4;
+                } while (p<=limit);
             state->v1 = v1;
             state->v2 = v2;
             state->v3 = v3;
@@ -796,6 +627,646 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
     return XXH_readBE32(src);
 }
 
+#ifndef XXH_NO_32A
+/* *******************************************************************
+*  32-bit hash functions (alternative)
+*********************************************************************/
+
+static U32
+XXH32a_finalize(U32 h32, const void* ptr, size_t len,
+                XXH_endianess endian, XXH_alignment align)
+
+{
+    const BYTE* p = (const BYTE*)ptr;
+
+
+    switch(len&31)  /* or switch(bEnd - p) */
+    {
+      case 28:      PROCESS4;
+                    /* fallthrough */
+      case 24:      PROCESS4;
+                    /* fallthrough */
+      case 20:      PROCESS4;
+                    /* fallthrough */
+      case 16:      PROCESS4;
+                    /* fallthrough */
+      case 12:      PROCESS4;
+                    /* fallthrough */
+      case 8:       PROCESS4;
+                    /* fallthrough */
+      case 4:       PROCESS4;
+                    return XXH32_avalanche(h32);
+
+      case 29:      PROCESS4;
+                    /* fallthrough */
+      case 25:       PROCESS4;
+                    /* fallthrough */
+      case 21:      PROCESS4;
+                    /* fallthrough */
+      case 17:       PROCESS4;
+                    /* fallthrough */
+      case 13:      PROCESS4;
+                    /* fallthrough */
+      case 9:       PROCESS4;
+                    /* fallthrough */
+      case 5:       PROCESS4;
+                    PROCESS1;
+                    return XXH32_avalanche(h32);
+
+
+      case 30:      PROCESS4;
+                    /* fallthrough */
+      case 26:      PROCESS4;
+                    /* fallthrough */
+      case 22:      PROCESS4;
+                    /* fallthrough */
+      case 18:      PROCESS4;
+                    /* fallthrough */
+      case 14:      PROCESS4;
+                    /* fallthrough */
+      case 10:      PROCESS4;
+                    /* fallthrough */
+      case 6:       PROCESS4;
+                    PROCESS1;
+                    PROCESS1;
+                    return XXH32_avalanche(h32);
+
+      case 31:      PROCESS4;
+                    /* fallthrough */
+      case 27:      PROCESS4;
+                    /* fallthrough */
+      case 23:      PROCESS4;
+                    /* fallthrough */
+      case 19:      PROCESS4;
+                    /* fallthrough */
+      case 15:      PROCESS4;
+                    /* fallthrough */
+      case 11:      PROCESS4;
+                    /* fallthrough */
+      case 7:       PROCESS4;
+                    /* fallthrough */
+      case 3:       PROCESS1;
+                    /* fallthrough */
+      case 2:       PROCESS1;
+                    /* fallthrough */
+      case 1:       PROCESS1;
+                    /* fallthrough */
+      case 0:       return XXH32_avalanche(h32);
+    }
+    assert(0);
+    return h32;   /* reaching this point is deemed impossible */
+}
+
+#ifndef XXH_VECTORIZE
+/* Clang and GCC 4.6+ can use vectorization properly.
+ * Most importantly, shifting vectors. */
+#  if (defined(__clang__) || XXH_GCC_VERSION >= 406) && \
+    (defined(__SSE4_1__) || defined(__ARM_NEON) || defined(__ARM_NEON__))
+#    define XXH_VECTORIZE 1
+#  else
+#    define XXH_VECTORIZE 0
+#  endif
+#endif
+
+#if XXH_VECTORIZE
+/* __m128i (SSE) or uint32x4_t (NEON). */
+typedef U32 U32x4 __attribute__((__vector_size__(16)));
+/* Two U32x4s. */
+typedef struct { U32x4 i[2]; } U32x4x2;
+
+/* emmintrin.h's _mm_loadu_si128 code. */
+FORCE_INLINE U32x4 XXH32a_load_unaligned(const U32x4* p)
+{
+    struct loader {
+        U32x4 v;
+    } __attribute__((__packed__, __may_alias__));
+    return ((struct loader*)p)->v;
+}
+/* Same, but loads two vectors. */
+FORCE_INLINE U32x4x2 XXH32a_load_double_unaligned(const U32x4x2* p)
+{
+    struct loader {
+        U32x4x2 v;
+    } __attribute__((__packed__, __may_alias__));
+    return ((struct loader*)p)->v;
+}
+
+/* _mm_storeu_si128 */
+FORCE_INLINE void XXH32a_store_unaligned(U32x4* p, const U32x4 v)
+{
+    struct loader {
+        U32x4 v;
+     } __attribute__((__packed__, __may_alias__));
+    ((struct loader*)p)->v = v;
+}
+
+/* _mm_storeu_si128 */
+FORCE_INLINE void XXH32a_store_double_unaligned(U32x4x2* p, const U32x4x2 v)
+{
+    struct loader {
+        U32x4x2 v;
+     } __attribute__((__packed__, __may_alias__));
+    ((struct loader*)p)->v = v;
+}
+
+#if defined(__ARM_NEON__) || defined(__ARM_NEON)
+#include <arm_neon.h>
+/* Neither GCC or Clang can properly optimize the generic version
+ * for Arm NEON.
+ * Instead of the optimal version, which is this:
+ *      vshr.u32        q9, q8, #19
+ *      vsli.32         q9, q8, #13
+ * GCC and Clang will produce this slower version:
+ *      vshr.u32        q9, q8, #19
+ *      vshl.i32        q8, q8, #13
+ *      vorr            q8, q8, q9
+ * This is much faster, and I think one intrinsic is acceptable. */
+#define XXH_rotlvec32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
+#else /* not NEON */
+/* Clang < 5.0 doesn't support int -> vector conversions.
+ * Yuck. */
+FORCE_INLINE U32x4 XXH_rotlvec32(U32x4 x, U32 r)
+{
+    const U32x4 left = { r, r, r, r };
+    const U32x4 right = {
+        32 - r,
+        32 - r,
+        32 - r,
+        32 - r
+    };
+    return (x << left) | (x >> right);
+}
+#endif /* not NEON */
+/* Like XXH_rotlvec32, but takes a vector as r. No NEON-optimized
+ * version for this one. */
+FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
+{
+    const U32x4 v32 = { 32, 32, 32, 32 };
+    return (x << r) | (x >> (v32 - r));
+}
+#endif /* XXH_VECTORIZE */
+
+FORCE_INLINE U32
+XXH32a_endian_align(const void* input, size_t len, U32 seed,
+                    XXH_endianess endian, XXH_alignment align)
+{
+    const BYTE* p = (const BYTE*)input;
+    const BYTE* bEnd = p + len;
+    U32 h32;
+
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
+    if (p==NULL) {
+        len=0;
+        bEnd=p=(const BYTE*)(size_t)16;
+    }
+#endif
+
+/* SIMD-optimized code */
+#if XXH_VECTORIZE
+/* x86 slows down significantly on unaligned reads with SSE4.1 instructions.
+ * On x86, we want to only do SIMD on aligned pointers.
+ * NEON prefers unaligned reads, so we always use SIMD. */
+#ifdef __SSE4_1__
+    if (len>=32 && endian==XXH_littleEndian && align==XXH_aligned) {
+#else
+    if (len>=32 && endian==XXH_littleEndian) {
+#endif
+        const BYTE* const limit = bEnd - 31;
+        U32 vx1[4] = {
+            seed + PRIME32_1 + PRIME32_2,
+            seed + PRIME32_2,
+            seed + 0,
+            seed - PRIME32_1
+        };
+        U32x4 v[2] = {
+            XXH32a_load_unaligned((const U32x4*)vx1),
+            XXH32a_load_unaligned((const U32x4*)vx1)
+        };
+        const U32x4 prime1 = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
+        const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
+
+        /* https://moinakg.wordpress.com/2013/01/19/vectorizing-xxhash-for-fun-and-profit/
+         * shows that performing two parallel hashes at a time is much better for
+         * performance. It produces a different hash, though. */
+
+        /* Aligned reads are faster. We want a 16-byte align. */
+        if (((size_t)p&15) == 0) {
+
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+            /* GCC/Clang builtin that tells the compiler that this will be aligned. */
+            const U32x4x2* p_quad = (const U32x4x2*)__builtin_assume_aligned(p, 16);
+#else
+            const U32x4x2* p_quad = (const U32x4x2*)p;
+#endif
+
+            do {
+                U32x4x2 inp = *p_quad++;
+
+                /* XXH32_round */
+                v[0] += inp.i[0] * prime2;
+                v[1] += inp.i[1] * prime2;
+
+                v[0]  = XXH_rotlvec32(v[0], 13);
+                v[1]  = XXH_rotlvec32(v[1], 13);
+
+                v[0] *= prime1;
+                v[1] *= prime1;
+            } while ((const BYTE*)p_quad < limit);
+            p = (const BYTE*)p_quad;
+
+        } else {
+            do {
+                /* Load 32 bytes at a time. */
+                U32x4x2 inp = XXH32a_load_double_unaligned((const U32x4x2*)p);
+
+                /* XXH32_round */
+                v[0] += inp.i[0] * prime2;
+                v[1] += inp.i[1] * prime2;
+
+                v[0]  = XXH_rotlvec32(v[0], 13);
+                v[1]  = XXH_rotlvec32(v[1], 13);
+
+                v[0] *= prime1;
+                v[1] *= prime1;
+                p += 32;
+
+            } while (p < limit);
+        }
+
+        /* Add them all together, performing another round. */
+        v[0] += v[1] * prime2;
+        v[0]  = XXH_rotlvec32(v[0], 13);
+        v[0] *= prime1;
+
+        {
+            const U32x4 r = { 1, 7, 12, 18 };
+            v[0] = XXH_rotlvec_vec32(v[0], r);
+        }
+
+        XXH32a_store_unaligned((U32x4 *)vx1, v[0]);
+
+        h32 = vx1[0] + vx1[1] + vx1[2] + vx1[3];
+    } else
+#endif /* XXH_VECTORIZE */
+    /* no vectorizing or wrong endian */
+    if (len>=32) {
+        const BYTE* const limit = bEnd - 31;
+        U32 v1 = seed + PRIME32_1 + PRIME32_2;
+        U32 v2 = seed + PRIME32_2;
+        U32 v3 = seed + 0;
+        U32 v4 = seed - PRIME32_1;
+
+        U32 v5 = seed + PRIME32_1 + PRIME32_2;
+        U32 v6 = seed + PRIME32_2;
+        U32 v7 = seed + 0;
+        U32 v8 = seed - PRIME32_1;
+
+#if 0 && !XXH_VECTORIZE /* would never happen because it would be caught above */
+        if (align==XXH_aligned && endian==XXH_littleEndian) {
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+            const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
+#else
+            const U32* p_align = (const U32*)p;
+#endif
+            do {
+                v1 = XXH32_round(v1, *p_align++);
+                v2 = XXH32_round(v2, *p_align++);
+                v3 = XXH32_round(v3, *p_align++);
+                v4 = XXH32_round(v4, *p_align++);
+
+                v5 = XXH32_round(v5, *p_align++);
+                v6 = XXH32_round(v6, *p_align++);
+                v7 = XXH32_round(v7, *p_align++);
+                v8 = XXH32_round(v8, *p_align++);
+            } while ((const BYTE*)p_align < limit);
+            p = (const BYTE*)p_align;
+        } else
+#endif
+            do {
+                v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
+                v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
+                v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
+                v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
+
+                v5 = XXH32_round(v5, XXH_get32bits(p)); p+=4;
+                v6 = XXH32_round(v6, XXH_get32bits(p)); p+=4;
+                v7 = XXH32_round(v7, XXH_get32bits(p)); p+=4;
+                v8 = XXH32_round(v8, XXH_get32bits(p)); p+=4;
+            } while (p < limit);
+
+        v1 = XXH32_round(v1, v5);
+        v2 = XXH32_round(v2, v6);
+        v3 = XXH32_round(v3, v7);
+        v4 = XXH32_round(v4, v8);
+
+        h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
+            + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+    } else {
+        h32  = seed + PRIME32_5;
+    }
+
+    h32 += (U32)len;
+    return XXH32a_finalize(h32, p, len&31, endian, align);
+}
+
+
+XXH_PUBLIC_API unsigned int XXH32a (const void* input, size_t len, unsigned int seed)
+{
+#if 0
+    /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
+    XXH32a_state_t state;
+    XXH32a_reset(&state, seed);
+    XXH32a_update(&state, input, len);
+    return XXH32a_digest(&state);
+#else
+    XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
+
+    if (XXH_FORCE_ALIGN_CHECK) {
+        if ((((size_t)input) & 3) == 0) {   /* Input is 4-bytes aligned, leverage the speed benefit */
+            if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+                return XXH32a_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
+            else
+                return XXH32a_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
+    }   }
+
+    if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+        return XXH32a_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);
+    else
+        return XXH32a_endian_align(input, len, seed, XXH_bigEndian, XXH_unaligned);
+#endif
+}
+
+
+
+/*======   Hash streaming   ======*/
+
+XXH_PUBLIC_API XXH32a_state_t* XXH32a_createState(void)
+{
+    return (XXH32a_state_t*)XXH_malloc(sizeof(XXH32a_state_t));
+}
+XXH_PUBLIC_API XXH_errorcode XXH32a_freeState(XXH32a_state_t* statePtr)
+{
+    XXH_free(statePtr);
+    return XXH_OK;
+}
+
+XXH_PUBLIC_API void XXH32a_copyState(XXH32a_state_t* dstState, const XXH32a_state_t* srcState)
+{
+    memcpy(dstState, srcState, sizeof(*dstState));
+}
+
+XXH_PUBLIC_API XXH_errorcode XXH32a_reset(XXH32a_state_t* statePtr, unsigned int seed)
+{
+    XXH32a_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
+    memset(&state, 0, sizeof(state));
+    state.v1 = state.v5 = seed + PRIME32_1 + PRIME32_2;
+    state.v2 = state.v6 = seed + PRIME32_2;
+    state.v3 = state.v7 = seed + 0;
+    state.v4 = state.v8 = seed - PRIME32_1;
+    /* do not write into reserved, planned to be removed in a future version */
+    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
+    return XXH_OK;
+}
+
+
+FORCE_INLINE XXH_errorcode
+XXH32a_update_endian(XXH32a_state_t* state, const void* input, size_t len, XXH_endianess endian)
+{
+    if (input==NULL)
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
+        return XXH_OK;
+#else
+        return XXH_ERROR;
+#endif
+
+    {   const BYTE* p = (const BYTE*)input;
+        const BYTE* const bEnd = p + len;
+
+        state->total_len_32 += (unsigned)len;
+        state->large_len |= (len>=32) | (state->total_len_32>=32);
+
+        if (state->memsize + len < 32)  {   /* fill in tmp buffer */
+            XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, len);
+            state->memsize += (unsigned)len;
+            return XXH_OK;
+        }
+
+        if (state->memsize) {   /* some data left from previous update */
+            XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, 32-state->memsize);
+            /* Only one round, not worth it to vectorize. */
+            {   const U32* p32 = state->mem32;
+                state->v1 = XXH32_round(state->v1, XXH_readLE32(p32, endian)); p32++;
+                state->v2 = XXH32_round(state->v2, XXH_readLE32(p32, endian)); p32++;
+                state->v3 = XXH32_round(state->v3, XXH_readLE32(p32, endian)); p32++;
+                state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian)); p32++;
+                state->v5 = XXH32_round(state->v5, XXH_readLE32(p32, endian)); p32++;
+                state->v6 = XXH32_round(state->v6, XXH_readLE32(p32, endian)); p32++;
+                state->v7 = XXH32_round(state->v7, XXH_readLE32(p32, endian)); p32++;
+                state->v8 = XXH32_round(state->v8, XXH_readLE32(p32, endian));
+            }
+            p += 32-state->memsize;
+            state->memsize = 0;
+        }
+
+
+/* SIMD-optimized code */
+#if XXH_VECTORIZE
+/* x86 slows down significantly on unaligned reads with SSE4.1 instructions.
+ * On x86, we want to only do SIMD on aligned pointers.
+ * NEON prefers unaligned reads, so we always use SIMD. */
+#ifdef __SSE4_1__
+    if (len>=32 && endian==XXH_littleEndian && ((size_t)p&3)==0) {
+#else
+    if (len>=32 && endian==XXH_littleEndian) {
+#endif
+            const BYTE* const limit = bEnd - 31;
+            U32x4x2 v = *(const U32x4x2 *)&state->v1;
+
+            const U32x4 prime1 = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
+            const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
+
+            /* https://moinakg.wordpress.com/2013/01/19/vectorizing-xxhash-for-fun-and-profit/
+             * shows that performing two parallel hashes at a time is much better for
+             * performance. It produces a different hash, though. */
+
+            /* Aligned reads are faster. We want a 16-byte align. */
+
+           if (((size_t)p&15) == 0) {
+
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+                /* GCC/Clang builtin that tells the compiler that this will be aligned. */
+                const U32x4x2* p_quad = (const U32x4x2*)__builtin_assume_aligned(p, 16);
+#else
+                const U32x4x2* p_quad = (const U32x4x2*)p;
+#endif
+
+                do {
+                    U32x4x2 inp = *p_quad++;
+                    /* XXH32_round */
+                    v.i[0] += inp.i[0] * prime2;
+                    v.i[1] += inp.i[1] * prime2;
+
+                    v.i[0]  = XXH_rotlvec32(v.i[0], 13);
+                    v.i[1]  = XXH_rotlvec32(v.i[1], 13);
+
+                    v.i[0] *= prime1;
+                    v.i[1] *= prime1;
+
+                } while ((const BYTE*)p_quad <= limit);
+                p = (const BYTE*)p_quad;
+            } else {
+                do {
+                    /* Load 32 bytes at a time. */
+                    U32x4x2 inp = XXH32a_load_double_unaligned((const U32x4x2*)p);
+
+                    /* XXH32_round */
+                    v.i[0] += inp.i[0] * prime2;
+                    v.i[1] += inp.i[1] * prime2;
+
+                    v.i[0]  = XXH_rotlvec32(v.i[0], 13);
+                    v.i[1]  = XXH_rotlvec32(v.i[1], 13);
+
+                    v.i[0] *= prime1;
+                    v.i[1] *= prime1;
+                    p += 32;
+
+                } while (p <= limit);
+            }
+            *(U32x4x2*)&state->v1 = v;
+        } else
+#endif /* XXH_VECTORIZE */
+        if (len>=32) {
+            const BYTE* const limit = bEnd - 31;
+            U32 v1 = state->v1;
+            U32 v2 = state->v2;
+            U32 v3 = state->v3;
+            U32 v4 = state->v4;
+            U32 v5 = state->v5;
+            U32 v6 = state->v6;
+            U32 v7 = state->v7;
+            U32 v8 = state->v8;
+
+#if 0 && !XXH_VECTORIZE
+            if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+                const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
+#else
+                const U32* p_align = (const U32*)p;
+#endif
+
+                do {
+                    v1 = XXH32_round(v1, *p_align++);
+                    v2 = XXH32_round(v2, *p_align++);
+                    v3 = XXH32_round(v3, *p_align++);
+                    v4 = XXH32_round(v4, *p_align++);
+
+                    v5 = XXH32_round(v5, *p_align++);
+                    v6 = XXH32_round(v6, *p_align++);
+                    v7 = XXH32_round(v7, *p_align++);
+                    v8 = XXH32_round(v8, *p_align++);
+                } while ((const BYTE*)p_align <= limit);
+                p = (const BYTE*)p_align;
+            } else
+#endif
+                do {
+                    v1 = XXH32_round(v1, XXH_readLE32(p, endian)); p+=4;
+                    v2 = XXH32_round(v2, XXH_readLE32(p, endian)); p+=4;
+                    v3 = XXH32_round(v3, XXH_readLE32(p, endian)); p+=4;
+                    v4 = XXH32_round(v4, XXH_readLE32(p, endian)); p+=4;
+
+                    v5 = XXH32_round(v5, XXH_readLE32(p, endian)); p+=4;
+                    v6 = XXH32_round(v6, XXH_readLE32(p, endian)); p+=4;
+                    v7 = XXH32_round(v7, XXH_readLE32(p, endian)); p+=4;
+                    v8 = XXH32_round(v8, XXH_readLE32(p, endian)); p+=4;
+                } while (p <= limit);
+
+            state->v1 = v1;
+            state->v2 = v2;
+            state->v3 = v3;
+            state->v4 = v4;
+            state->v5 = v5;
+            state->v6 = v6;
+            state->v7 = v7;
+            state->v8 = v8;
+        }
+
+        if (p < bEnd) {
+            XXH_memcpy(state->mem32, p, (size_t)(bEnd-p));
+            state->memsize = (unsigned)(bEnd-p);
+        }
+    }
+
+    return XXH_OK;
+}
+
+
+XXH_PUBLIC_API XXH_errorcode XXH32a_update (XXH32a_state_t* state_in, const void* input, size_t len)
+{
+    XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
+
+    if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+        return XXH32a_update_endian(state_in, input, len, XXH_littleEndian);
+    else
+        return XXH32a_update_endian(state_in, input, len, XXH_bigEndian);
+}
+
+
+FORCE_INLINE U32
+XXH32a_digest_endian (const XXH32a_state_t* state, XXH_endianess endian)
+{
+    U32 h32;
+
+    if (state->large_len) {
+        U32 v1 = XXH32_round(state->v1, state->v5);
+        U32 v2 = XXH32_round(state->v2, state->v6);
+        U32 v3 = XXH32_round(state->v3, state->v7);
+        U32 v4 = XXH32_round(state->v4, state->v8);
+
+        h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
+            + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+    } else {
+        h32 = state->v3 /* == seed */ + PRIME32_5;
+
+    }
+
+    h32 += state->total_len_32;
+
+    return  XXH32a_finalize(h32, state->mem32, state->memsize, endian, XXH_aligned);
+}
+
+
+XXH_PUBLIC_API unsigned int XXH32a_digest (const XXH32a_state_t* state_in)
+{
+    XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
+
+    if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+        return XXH32a_digest_endian(state_in, XXH_littleEndian);
+    else
+        return XXH32a_digest_endian(state_in, XXH_bigEndian);
+}
+
+
+/*======   Canonical representation   ======*/
+
+/*! Default XXH result types are basic unsigned 32 and 64 bits.
+*   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
+*   These functions allow transformation of hash result into and from its canonical format.
+*   This way, hash values can be written into a file or buffer, remaining comparable across different systems.
+*/
+
+XXH_PUBLIC_API void XXH32a_canonicalFromHash(XXH32a_canonical_t* dst, XXH32_hash_t hash)
+{
+    XXH_STATIC_ASSERT(sizeof(XXH32a_canonical_t) == sizeof(XXH32_hash_t));
+    if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
+    memcpy(dst, &hash, sizeof(*dst));
+}
+
+XXH_PUBLIC_API XXH32_hash_t XXH32a_hashFromCanonical(const XXH32a_canonical_t* src)
+{
+    return XXH_readBE32(src);
+}
+
+#endif /* !XXH_NO_32A */
 
 #ifndef XXH_NO_LONG_LONG
 
@@ -885,11 +1356,11 @@ static U64 XXH_readBE64(const void* ptr)
 
 /*======   xxh64   ======*/
 
-static const U64 PRIME64_1 = 11400714785074694791ULL;   /* 0b1001111000110111011110011011000110000101111010111100101010000111 */
-static const U64 PRIME64_2 = 14029467366897019727ULL;   /* 0b1100001010110010101011100011110100100111110101001110101101001111 */
-static const U64 PRIME64_3 =  1609587929392839161ULL;   /* 0b0001011001010110011001111011000110011110001101110111100111111001 */
-static const U64 PRIME64_4 =  9650029242287828579ULL;   /* 0b1000010111101011110010100111011111000010101100101010111001100011 */
-static const U64 PRIME64_5 =  2870177450012600261ULL;   /* 0b0010011111010100111010110010111100010110010101100110011111000101 */
+CONSTANT U64 PRIME64_1 = 11400714785074694791ULL;   /* 0b1001111000110111011110011011000110000101111010111100101010000111 */
+CONSTANT U64 PRIME64_2 = 14029467366897019727ULL;   /* 0b1100001010110010101011100011110100100111110101001110101101001111 */
+CONSTANT U64 PRIME64_3 =  1609587929392839161ULL;   /* 0b0001011001010110011001111011000110011110001101110111100111111001 */
+CONSTANT U64 PRIME64_4 =  9650029242287828579ULL;   /* 0b1000010111101011110010100111011111000010101100101010111001100011 */
+CONSTANT U64 PRIME64_5 =  2870177450012600261ULL;   /* 0b0010011111010100111010110010111100010110010101100110011111000101 */
 
 static U64 XXH64_round(U64 acc, U64 input)
 {

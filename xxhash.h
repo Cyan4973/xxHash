@@ -134,6 +134,15 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  define XXH32_copyState XXH_NAME2(XXH_NAMESPACE, XXH32_copyState)
 #  define XXH32_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH32_canonicalFromHash)
 #  define XXH32_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH32_hashFromCanonical)
+#  define XXH32a XXH_NAME2(XXH_NAMESPACE, XXH32a)
+#  define XXH32a_createState XXH_NAME2(XXH_NAMESPACE, XXH32a_createState)
+#  define XXH32a_freeState XXH_NAME2(XXH_NAMESPACE, XXH32a_freeState)
+#  define XXH32a_reset XXH_NAME2(XXH_NAMESPACE, XXH32a_reset)
+#  define XXH32a_update XXH_NAME2(XXH_NAMESPACE, XXH32a_update)
+#  define XXH32a_digest XXH_NAME2(XXH_NAMESPACE, XXH32a_digest)
+#  define XXH32a_copyState XXH_NAME2(XXH_NAMESPACE, XXH32a_copyState)
+#  define XXH32a_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH32a_canonicalFromHash)
+#  define XXH32a_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH32a_hashFromCanonical)
 #  define XXH64 XXH_NAME2(XXH_NAMESPACE, XXH64)
 #  define XXH64_createState XXH_NAME2(XXH_NAMESPACE, XXH64_createState)
 #  define XXH64_freeState XXH_NAME2(XXH_NAMESPACE, XXH64_freeState)
@@ -212,6 +221,80 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
  */
 
 
+/*-**********************************************************************
+*  32-bit hash (alternative)
+************************************************************************/
+
+/*! XXH32a() :
+    Calculate the 32-bit hash of sequence "length" bytes stored at memory address "input".
+    The memory between input & input+length must be valid (allocated and read-accessible).
+    "seed" can be used to alter the result predictably.
+    Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
+
+    Unlike XXH32, XXH32a is optimized for SIMD, namely SSE4.1 and NEON. It uses
+    generic instructions with the GCC/Clang __attribute__((vector_size(16)))
+    extension. It calculates the hash 32 bytes at a time, without 64-bit math,
+    using two independent vectors. This causes the checksum to change from XXH32.
+    Make sure you use -ftree-vectorize and -march=native, -msse4.1, -mavx, or
+    -mfpu=neon.
+
+    If XXH_VECTORIZE is zero or SSE4.1 or NEON are not targeted, it will use plain
+    integers, which is slower.
+
+    For the sake of performance, these will not byteswap (for now). A different hash is expected
+    on a big endian machine than a little endian machine.
+
+    On ARMv7a with NEON enabled, this is up to twice as fast as XXH32 regardless of
+    alignment.
+    On SSE4.1 it gives a 15% speedup for 16 byte aligned reads and a 15% slowdown for
+    unaligned reads, compared to XXH32. */
+
+XXH_PUBLIC_API XXH32_hash_t XXH32a (const void* input, size_t length, unsigned int seed);
+
+/*======   Streaming   ======*/
+typedef struct XXH32a_state_s XXH32a_state_t;   /* incomplete type */
+XXH_PUBLIC_API XXH32a_state_t* XXH32a_createState(void);
+XXH_PUBLIC_API XXH_errorcode  XXH32a_freeState(XXH32a_state_t* statePtr);
+XXH_PUBLIC_API void XXH32a_copyState(XXH32a_state_t* dst_state, const XXH32a_state_t* src_state);
+
+XXH_PUBLIC_API XXH_errorcode XXH32a_reset  (XXH32a_state_t* statePtr, unsigned int seed);
+XXH_PUBLIC_API XXH_errorcode XXH32a_update (XXH32a_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH32_hash_t  XXH32a_digest (const XXH32a_state_t* statePtr);
+
+/*
+ * Streaming functions generate the xxHash of an input provided in multiple segments.
+ * Note that, for small input, they are slower than single-call functions, due to state management.
+ * For small inputs, prefer `XXH32()`, `XXH32a()`, and `XXH64()`, which are better optimized.
+ *
+ * XXH state must first be allocated, using XXH*_createState() .
+ *
+ * Start a new hash by initializing state with a seed, using XXH*_reset().
+ *
+ * Then, feed the hash state by calling XXH*_update() as many times as necessary.
+ * The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
+ *
+ * Finally, a hash value can be produced anytime, by using XXH*_digest().
+ * This function returns the nn-bits hash as an int or long long.
+ *
+ * It's still possible to continue inserting input into the hash state after a digest,
+ * and generate some new hashes later on, by calling again XXH*_digest().
+ *
+ * When done, free XXH state space if it was allocated dynamically.
+ */
+
+/*======   Canonical representation   ======*/
+
+typedef struct { unsigned char digest[4]; } XXH32a_canonical_t;
+XXH_PUBLIC_API void XXH32a_canonicalFromHash(XXH32a_canonical_t* dst, XXH32_hash_t hash);
+XXH_PUBLIC_API XXH32_hash_t XXH32a_hashFromCanonical(const XXH32a_canonical_t* src);
+
+/* Default result type for XXH functions are primitive unsigned 32 and 64 bits.
+ * The canonical representation uses human-readable write convention, aka big-endian (large digits first).
+ * These functions allow transformation of hash result into and from its canonical format.
+ * This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
+ */
+
+
 #ifndef XXH_NO_LONG_LONG
 /*-**********************************************************************
 *  64-bit hash
@@ -245,6 +328,22 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 
 #ifdef XXH_STATIC_LINKING_ONLY
 
+/* We want XXH32a_state_t to be aligned. That way we can reinterpret it as a pointer
+ * to an SIMD vector. In most cases, we are fine, as we already expect GCC which has
+ * had __aligned__ since at least 2.95. */
+#if defined(__GNUC__)
+#  define XXH_ALIGN_16 __attribute__((__aligned__(16)))
+#elif defined(__cplusplus) && __cplusplus >= 201103L
+#  define XXH_ALIGN_16 alignas(16)
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+/* Assuming we have a compiler with DR 444:
+ *   "As initially published, C11 does not allow alignas specifiers in structure
+ *    and union members; this was corrected by DR 444." */
+#  define XXH_ALIGN_16 _Alignas(16)
+#else /* Yuck. */
+#  define XXH_ALIGN_16
+#endif
+
 /* ================================================================================================
    This section contains declarations which are not guaranteed to remain stable.
    They may change in future versions, becoming incompatible with a different version of the library.
@@ -273,6 +372,26 @@ struct XXH32_state_s {
    uint32_t reserved;   /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH32_state_t */
 
+/* The order of this struct is important. Changing these can result in excessive padding,
+ * unaligned reads, or worse. */
+struct XXH32a_state_s {
+   XXH_ALIGN_16             /* Offset */
+   uint32_t v1;             /*      0 */
+   uint32_t v2;             /*      4 */
+   uint32_t v3;             /*      8 */
+   uint32_t v4;             /*     12 */
+   uint32_t v5;             /*     16 */
+   uint32_t v6;             /*     20 */
+   uint32_t v7;             /*     24 */
+   uint32_t v8;             /*     28 */
+   XXH_ALIGN_16
+   uint32_t mem32[8];       /*     32 */
+   uint32_t total_len_32;   /*     64 */
+   uint32_t large_len;      /*     68 */
+   uint32_t memsize;        /*     72 */
+   uint32_t reserved;       /*     76 - never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH32a_state_t */
+
 struct XXH64_state_s {
    uint64_t total_len;
    uint64_t v1;
@@ -297,6 +416,26 @@ struct XXH32_state_s {
    unsigned memsize;
    unsigned reserved;   /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH32_state_t */
+
+/* The order of this struct is important. Changing these can result in excessive padding,
+ * unaligned reads, or worse. */
+struct XXH32a_state_s {
+   XXH_ALIGN_16             /* Offset */
+   unsigned v1;             /*      0 */
+   unsigned v2;             /*      4 */
+   unsigned v3;             /*      8 */
+   unsigned v4;             /*     12 */
+   unsigned v5;             /*     16 */
+   unsigned v6;             /*     20 */
+   unsigned v7;             /*     24 */
+   unsigned v8;             /*     28 */
+   XXH_ALIGN_16
+   unsigned mem32[8];       /*     32 */
+   unsigned total_len_32;   /*     64 */
+   unsigned large_len;      /*     68 */
+   unsigned memsize;        /*     72 */
+   unsigned reserved;       /*     76 - never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH32a_state_t */
 
 #   ifndef XXH_NO_LONG_LONG  /* remove 64-bit support */
 struct XXH64_state_s {

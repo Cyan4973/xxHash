@@ -387,7 +387,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         U32 v2 = seed + PRIME32_2;
         U32 v3 = seed + 0;
         U32 v4 = seed - PRIME32_1;
-#if 0
+
         /* Avoid branching when we don't have to. This helps out ARM Thumb a lot. */
         if (align==XXH_aligned && endian==XXH_littleEndian) {
 #if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
@@ -404,7 +404,6 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
             } while ((const BYTE*)p_align < limit);
             p = (const BYTE*)p_align;
         } else
-#endif
             do {
                 v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
                 v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
@@ -523,7 +522,6 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
             U32 v2 = state->v2;
             U32 v3 = state->v3;
             U32 v4 = state->v4;
-#if 0
             /* Aligned pointers and fewer branches are very helpful and worth the
              * duplication on ARM. */
             if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
@@ -541,8 +539,6 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
                 } while ((const BYTE*)p_align <= limit);
                 p = (const BYTE*)p_align;
             } else
-#endif
-
                 do {
                     v1 = XXH32_round(v1, XXH_readLE32(p, endian)); p+=4;
                     v2 = XXH32_round(v2, XXH_readLE32(p, endian)); p+=4;
@@ -921,7 +917,7 @@ XXH32a_endian_align(const void* input, size_t len, U32 seed,
         U32 v7 = seed + 0;
         U32 v8 = seed - PRIME32_1;
 
-#if 0 && !XXH_VECTORIZE /* would never happen because it would be caught above */
+#if !XXH_VECTORIZE /* would never happen because it would be caught above */
         if (align==XXH_aligned && endian==XXH_littleEndian) {
 #if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
             const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
@@ -1146,7 +1142,7 @@ XXH32a_update_endian(XXH32a_state_t* state, const void* input, size_t len, XXH_e
             U32 v7 = state->v7;
             U32 v8 = state->v8;
 
-#if 0 && !XXH_VECTORIZE
+#if !XXH_VECTORIZE
             if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
 #if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
                 const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);

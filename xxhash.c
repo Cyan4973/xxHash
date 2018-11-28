@@ -91,7 +91,7 @@
  * or when alignment doesn't matter for performance.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#  if defined(__arm__) || defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64) || (defined(XXH_FORCE_MEMORY_ACCESS) && XXH_FORCE_MEMORY_ACCESS!=0)
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
@@ -150,12 +150,6 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #define CONSTANT static const
 #endif
 
-/* Clang's __has_builtin because checking clang versions is impossible,
- * thank you Apple. */
-#ifndef __has_builtin
-#  define __has_builtin(x) 0
-#endif
-
 /* *************************************
 *  Basic Types
 ***************************************/
@@ -204,6 +198,18 @@ static U32 XXH_read32(const void* memPtr)
 *  Compiler-specific Functions and Macros
 ******************************************/
 #define XXH_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
+
+/* Clang's __has_builtin because checking clang versions is impossible,
+ * thank you Apple. */
+#ifndef __has_builtin
+#  define __has_builtin(x) 0
+#endif
+
+#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
+#  define XXH_assume_aligned(p, align) __builtin_assume_aligned((p), (align))
+#else
+#  define XXH_assume_aligned(p, align) (p)
+#endif
 
 /* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */
 #if defined(_MSC_VER)
@@ -304,6 +310,97 @@ static U32 XXH32_avalanche(U32 h32)
     return(h32);
 }
 
+
+#ifndef XXH_VECTORIZE
+/* Clang and GCC 4.6+ can use vectorization properly.
+ * Most importantly, shifting vectors. */
+#  if (defined(__clang__) || XXH_GCC_VERSION >= 406) && \
+    (defined(__SSE4_1__) || defined(__ARM_NEON) || defined(__ARM_NEON__))
+#    define XXH_VECTORIZE 1
+#  else
+#    define XXH_VECTORIZE 0
+#  endif
+#endif
+
+#if XXH_VECTORIZE
+
+#if defined(__ARM_NEON__) || defined(__ARM_NEON)
+#include <arm_neon.h>
+# define XXH_NEON
+
+typedef uint32x4_t U32x4;
+typedef uint32x4x2_t U32x4x2;
+
+/* Neither GCC or Clang can properly optimize the generic version
+ * for Arm NEON.
+ * Instead of the optimal version, which is this:
+ *      vshr.u32        q9, q8, #19
+ *      vsli.32         q9, q8, #13
+ * GCC and Clang will produce this slower version:
+ *      vshr.u32        q9, q8, #19
+ *      vshl.i32        q8, q8, #13
+ *      vorr            q8, q8, q9
+ * This is much faster, and I think a few intrinsics are acceptable. */
+#define XXH_vec_rotl32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
+#define XXH_vec_load_unaligned vld1q_u32
+#define XXH_vec_store_unaligned vst1q_u32
+#define XXH_vec_load_aligned vld1q_u32
+#define XXH_vec_store_aligned vst1q_u32
+
+#else /* not NEON */
+/* __m128i (SSE) or uint32x4_t (NEON). */
+typedef U32 U32x4 __attribute__((__vector_size__(16)));
+
+/* Two U32x4s. */
+typedef struct { U32x4 val[2]; } U32x4x2;
+
+/* Clang < 5.0 doesn't support int -> vector conversions.
+ * Yuck. */
+FORCE_INLINE U32x4 XXH_vec_rotl32(U32x4 x, U32 r)
+{
+    const U32x4 left = { r, r, r, r };
+    const U32x4 right = {
+        32 - r,
+        32 - r,
+        32 - r,
+        32 - r
+    };
+    return (x << left) | (x >> right);
+}
+
+/* emmintrin.h's _mm_loadu_si128 code. */
+FORCE_INLINE U32x4 XXH_vec_load_unaligned(const U32* p)
+{
+    struct loader {
+        U32x4 v;
+    } __attribute__((__packed__, __may_alias__));
+    return ((struct loader*)p)->v;
+}
+
+/* _mm_storeu_si128 */
+FORCE_INLINE void XXH_vec_store_unaligned(U32* p, const U32x4 v)
+{
+    struct loader {
+        U32x4 v;
+     } __attribute__((__packed__, __may_alias__));
+    ((struct loader*)p)->v = v;
+}
+
+#define XXH_vec_load_aligned(p) *(U32x4*)XXH_assume_aligned(p, 16)
+#define XXH_vec_store_aligned(p, v) (*(U32x4*)p = v)
+
+#endif /* not NEON */
+
+/* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
+ * version for this one. */
+FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
+{
+    const U32x4 v32 = { 32, 32, 32, 32 };
+    return (x << r) | (x >> (v32 - r));
+}
+
+#endif /* XXH_VECTORIZE */
+
 #define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
 
 static U32
@@ -381,28 +478,61 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         bEnd=p=(const BYTE*)(size_t)16;
     }
 #endif
-    if (len>=16) {
+
+#ifdef XXH_NEON
+    /* This is where NEON gets its special treatment, as it performs
+     * terribly with the non-vectorized one. */
+    if (len>=16 && endian==XXH_littleEndian) {
+        XXH_ALIGN_16
+        U32 vx1[4] = {
+            PRIME32_1 + PRIME32_2,
+            PRIME32_2,
+            0,
+            -PRIME32_1
+        };
+        U32x4 v = XXH_vec_load_unaligned(vx1);
+
+        const U32x4 prime1 = vdupq_n_u32(PRIME32_1);
+        const U32x4 prime2 = vdupq_n_u32(PRIME32_2);
+
         const BYTE* const limit = bEnd - 15;
+        v += vdupq_n_u32(seed);
+        do {
+            const U32x4 inp = XXH_vec_load_unaligned((const U32 *)p);
+            v += inp * prime2;
+            v  = XXH_vec_rotl32(v, 13);
+            v *= prime1;
+
+            p += 16;
+        } while (p < limit);
+
+        {
+            const U32x4 r = { 1, 7, 12, 18 };
+            v = XXH_rotlvec_vec32(v, r);
+        }
+        XXH_vec_store_unaligned(vx1, v);
+
+        h32 = vx1[0] + vx1[1] + vx1[2] + vx1[3];
+    } else
+#endif /* XXH_NEON */
+    if (len>=16) {
+        XXH_ALIGN_16
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
         U32 v2 = seed + PRIME32_2;
         U32 v3 = seed + 0;
         U32 v4 = seed - PRIME32_1;
+        const BYTE* const limit = bEnd - 15;
 
         /* Avoid branching when we don't have to. This helps out ARM Thumb a lot. */
         if (align==XXH_aligned && endian==XXH_littleEndian) {
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-            const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
-#else
-            const U32* p_align = (const U32*)p;
-#endif
-
             do {
-                v1 = XXH32_round(v1, *p_align++);
-                v2 = XXH32_round(v2, *p_align++);
-                v3 = XXH32_round(v3, *p_align++);
-                v4 = XXH32_round(v4, *p_align++);
-            } while ((const BYTE*)p_align < limit);
-            p = (const BYTE*)p_align;
+                const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
+                v1 = XXH32_round(v1, inp[0]);
+                v2 = XXH32_round(v2, inp[1]);
+                v3 = XXH32_round(v3, inp[2]);
+                v4 = XXH32_round(v4, inp[3]);
+                p += 16;
+            } while (p < limit);
         } else
             do {
                 v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
@@ -513,38 +643,37 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
                 state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian));
             }
             p += 16-state->memsize;
-            state->memsize = 0;
         }
+        state->memsize = 0;
 
         if (p <= bEnd-16) {
-            const BYTE* const limit = bEnd - 16;
+            XXH_ALIGN_16
             U32 v1 = state->v1;
             U32 v2 = state->v2;
             U32 v3 = state->v3;
             U32 v4 = state->v4;
+            const BYTE* const limit = bEnd - 16;
+
             /* Aligned pointers and fewer branches are very helpful and worth the
              * duplication on ARM. */
             if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-                const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
-#else
-                const U32* p_align = (const U32*)p;
-#endif
-
                 do {
-                    v1 = XXH32_round(v1, *p_align++);
-                    v2 = XXH32_round(v2, *p_align++);
-                    v3 = XXH32_round(v3, *p_align++);
-                    v4 = XXH32_round(v4, *p_align++);
-                } while ((const BYTE*)p_align <= limit);
-                p = (const BYTE*)p_align;
-            } else
+                    const U32* p_align = (const U32*)XXH_assume_aligned(p, 4);
+                    v1 = XXH32_round(v1, p_align[0]);
+                    v2 = XXH32_round(v2, p_align[1]);
+                    v3 = XXH32_round(v3, p_align[2]);
+                    v4 = XXH32_round(v4, p_align[3]);
+                    p += 16;
+                } while (p <= limit);
+            } else {
                 do {
-                    v1 = XXH32_round(v1, XXH_readLE32(p, endian)); p+=4;
-                    v2 = XXH32_round(v2, XXH_readLE32(p, endian)); p+=4;
-                    v3 = XXH32_round(v3, XXH_readLE32(p, endian)); p+=4;
-                    v4 = XXH32_round(v4, XXH_readLE32(p, endian)); p+=4;
+                    v1 = XXH32_round(v1, XXH_readLE32(p, endian));
+                    v2 = XXH32_round(v2, XXH_readLE32(p + 4, endian));
+                    v3 = XXH32_round(v3, XXH_readLE32(p + 8, endian));
+                    v4 = XXH32_round(v4, XXH_readLE32(p + 12, endian));
+                    p += 16;
                 } while (p<=limit);
+            }
             state->v1 = v1;
             state->v2 = v2;
             state->v3 = v3;
@@ -713,97 +842,9 @@ XXH32a_finalize(U32 h32, const void* ptr, size_t len,
     return h32;   /* reaching this point is deemed impossible */
 }
 
-#ifndef XXH_VECTORIZE
-/* Clang and GCC 4.6+ can use vectorization properly.
- * Most importantly, shifting vectors. */
-#  if (defined(__clang__) || XXH_GCC_VERSION >= 406) && \
-    (defined(__SSE4_1__) || defined(__ARM_NEON) || defined(__ARM_NEON__))
-#    define XXH_VECTORIZE 1
-#  else
-#    define XXH_VECTORIZE 0
-#  endif
-#endif
-
-#if XXH_VECTORIZE
-/* __m128i (SSE) or uint32x4_t (NEON). */
-typedef U32 U32x4 __attribute__((__vector_size__(16)));
-/* Two U32x4s. */
-typedef struct { U32x4 i[2]; } U32x4x2;
-
-/* emmintrin.h's _mm_loadu_si128 code. */
-FORCE_INLINE U32x4 XXH32a_load_unaligned(const U32x4* p)
-{
-    struct loader {
-        U32x4 v;
-    } __attribute__((__packed__, __may_alias__));
-    return ((struct loader*)p)->v;
-}
-/* Same, but loads two vectors. */
-FORCE_INLINE U32x4x2 XXH32a_load_double_unaligned(const U32x4x2* p)
-{
-    struct loader {
-        U32x4x2 v;
-    } __attribute__((__packed__, __may_alias__));
-    return ((struct loader*)p)->v;
-}
-
-/* _mm_storeu_si128 */
-FORCE_INLINE void XXH32a_store_unaligned(U32x4* p, const U32x4 v)
-{
-    struct loader {
-        U32x4 v;
-     } __attribute__((__packed__, __may_alias__));
-    ((struct loader*)p)->v = v;
-}
-
-/* _mm_storeu_si128 */
-FORCE_INLINE void XXH32a_store_double_unaligned(U32x4x2* p, const U32x4x2 v)
-{
-    struct loader {
-        U32x4x2 v;
-     } __attribute__((__packed__, __may_alias__));
-    ((struct loader*)p)->v = v;
-}
-
-#if defined(__ARM_NEON__) || defined(__ARM_NEON)
-#include <arm_neon.h>
-/* Neither GCC or Clang can properly optimize the generic version
- * for Arm NEON.
- * Instead of the optimal version, which is this:
- *      vshr.u32        q9, q8, #19
- *      vsli.32         q9, q8, #13
- * GCC and Clang will produce this slower version:
- *      vshr.u32        q9, q8, #19
- *      vshl.i32        q8, q8, #13
- *      vorr            q8, q8, q9
- * This is much faster, and I think one intrinsic is acceptable. */
-#define XXH_rotlvec32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
-#else /* not NEON */
-/* Clang < 5.0 doesn't support int -> vector conversions.
- * Yuck. */
-FORCE_INLINE U32x4 XXH_rotlvec32(U32x4 x, U32 r)
-{
-    const U32x4 left = { r, r, r, r };
-    const U32x4 right = {
-        32 - r,
-        32 - r,
-        32 - r,
-        32 - r
-    };
-    return (x << left) | (x >> right);
-}
-#endif /* not NEON */
-/* Like XXH_rotlvec32, but takes a vector as r. No NEON-optimized
- * version for this one. */
-FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
-{
-    const U32x4 v32 = { 32, 32, 32, 32 };
-    return (x << r) | (x >> (v32 - r));
-}
-#endif /* XXH_VECTORIZE */
 
 FORCE_INLINE U32
-XXH32a_endian_align(const void* input, size_t len, U32 seed,
+XXH32a_endian_align(const void* __restrict__ input, size_t len, U32 seed,
                     XXH_endianess endian, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)input;
@@ -827,71 +868,67 @@ XXH32a_endian_align(const void* input, size_t len, U32 seed,
 #else
     if (len>=32 && endian==XXH_littleEndian) {
 #endif
-        const BYTE* const limit = bEnd - 31;
+        XXH_ALIGN_16
         U32 vx1[4] = {
-            seed + PRIME32_1 + PRIME32_2,
-            seed + PRIME32_2,
-            seed + 0,
-            seed - PRIME32_1
+            PRIME32_1 + PRIME32_2,
+            PRIME32_2,
+            0,
+            -PRIME32_1
         };
         U32x4 v[2] = {
-            XXH32a_load_unaligned((const U32x4*)vx1),
-            XXH32a_load_unaligned((const U32x4*)vx1)
+            XXH_vec_load_aligned(vx1),
+            XXH_vec_load_aligned(vx1)
         };
         const U32x4 prime1 = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
         const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
-
+        const BYTE* const limit = bEnd - 31;
+        {
+            const U32x4 seeds = { seed, seed, seed, seed };
+            v[0] += seeds;
+            v[1] += seeds;
+        }
         /* https://moinakg.wordpress.com/2013/01/19/vectorizing-xxhash-for-fun-and-profit/
          * shows that performing two parallel hashes at a time is much better for
          * performance. It produces a different hash, though. */
 
         /* Aligned reads are faster. We want a 16-byte align. */
         if (((size_t)p&15) == 0) {
-
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-            /* GCC/Clang builtin that tells the compiler that this will be aligned. */
-            const U32x4x2* p_quad = (const U32x4x2*)__builtin_assume_aligned(p, 16);
-#else
-            const U32x4x2* p_quad = (const U32x4x2*)p;
-#endif
-
             do {
-                U32x4x2 inp = *p_quad++;
-
+                const U32x4 inp[2] = {
+                    XXH_vec_load_aligned((const U32*)p),
+                    XXH_vec_load_aligned((const U32*)(p + 16))
+                };
                 /* XXH32_round */
-                v[0] += inp.i[0] * prime2;
-                v[1] += inp.i[1] * prime2;
-
-                v[0]  = XXH_rotlvec32(v[0], 13);
-                v[1]  = XXH_rotlvec32(v[1], 13);
-
-                v[0] *= prime1;
-                v[1] *= prime1;
-            } while ((const BYTE*)p_quad < limit);
-            p = (const BYTE*)p_quad;
-
-        } else {
-            do {
-                /* Load 32 bytes at a time. */
-                U32x4x2 inp = XXH32a_load_double_unaligned((const U32x4x2*)p);
-
-                /* XXH32_round */
-                v[0] += inp.i[0] * prime2;
-                v[1] += inp.i[1] * prime2;
-
-                v[0]  = XXH_rotlvec32(v[0], 13);
-                v[1]  = XXH_rotlvec32(v[1], 13);
-
+                v[0] += inp[0] * prime2;
+                v[1] += inp[1] * prime2;
+                v[0]  = XXH_vec_rotl32(v[0], 13);
+                v[1]  = XXH_vec_rotl32(v[1], 13);
                 v[0] *= prime1;
                 v[1] *= prime1;
                 p += 32;
+            } while (p <= limit);
+        } else {
+            do {
+                /* Load 32 bytes at a time. */
+                const U32x4 inp[2] = {
+                    XXH_vec_load_unaligned((const U32*)p),
+                    XXH_vec_load_unaligned((const U32*)(p + 16)),
+                };
+                /* XXH32_round */
+                v[0] += inp[0] * prime2;
+                v[1] += inp[1] * prime2;
+                v[0]  = XXH_vec_rotl32(v[0], 13);
+                v[1]  = XXH_vec_rotl32(v[1], 13);
+                v[0] *= prime1;
+                v[1] *= prime1;
 
-            } while (p < limit);
+                p += 32;
+            } while (p <= limit);
         }
 
         /* Add them all together, performing another round. */
         v[0] += v[1] * prime2;
-        v[0]  = XXH_rotlvec32(v[0], 13);
+        v[0]  = XXH_vec_rotl32(v[0], 13);
         v[0] *= prime1;
 
         {
@@ -899,43 +936,38 @@ XXH32a_endian_align(const void* input, size_t len, U32 seed,
             v[0] = XXH_rotlvec_vec32(v[0], r);
         }
 
-        XXH32a_store_unaligned((U32x4 *)vx1, v[0]);
+        XXH_vec_store_aligned(vx1, v[0]);
 
         h32 = vx1[0] + vx1[1] + vx1[2] + vx1[3];
     } else
 #endif /* XXH_VECTORIZE */
     /* no vectorizing or wrong endian */
     if (len>=32) {
-        const BYTE* const limit = bEnd - 31;
         U32 v1 = seed + PRIME32_1 + PRIME32_2;
         U32 v2 = seed + PRIME32_2;
         U32 v3 = seed + 0;
         U32 v4 = seed - PRIME32_1;
-
         U32 v5 = seed + PRIME32_1 + PRIME32_2;
         U32 v6 = seed + PRIME32_2;
         U32 v7 = seed + 0;
         U32 v8 = seed - PRIME32_1;
 
+        const BYTE* const limit = bEnd - 31;
+
 #if !XXH_VECTORIZE /* would never happen because it would be caught above */
         if (align==XXH_aligned && endian==XXH_littleEndian) {
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-            const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
-#else
-            const U32* p_align = (const U32*)p;
-#endif
             do {
-                v1 = XXH32_round(v1, *p_align++);
-                v2 = XXH32_round(v2, *p_align++);
-                v3 = XXH32_round(v3, *p_align++);
-                v4 = XXH32_round(v4, *p_align++);
-
-                v5 = XXH32_round(v5, *p_align++);
-                v6 = XXH32_round(v6, *p_align++);
-                v7 = XXH32_round(v7, *p_align++);
-                v8 = XXH32_round(v8, *p_align++);
-            } while ((const BYTE*)p_align < limit);
-            p = (const BYTE*)p_align;
+                const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
+                v1 = XXH32_round(v1, inp[0]);
+                v2 = XXH32_round(v2, inp[1]);
+                v3 = XXH32_round(v3, inp[2]);
+                v4 = XXH32_round(v4, inp[3]);
+                v5 = XXH32_round(v5, inp[4]);
+                v6 = XXH32_round(v6, inp[5]);
+                v7 = XXH32_round(v7, inp[6]);
+                v8 = XXH32_round(v8, inp[7]);
+                p += 32;
+            } while (p < limit);
         } else
 #endif
             do {
@@ -943,7 +975,6 @@ XXH32a_endian_align(const void* input, size_t len, U32 seed,
                 v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
                 v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
                 v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
-
                 v5 = XXH32_round(v5, XXH_get32bits(p)); p+=4;
                 v6 = XXH32_round(v6, XXH_get32bits(p)); p+=4;
                 v7 = XXH32_round(v7, XXH_get32bits(p)); p+=4;
@@ -977,13 +1008,12 @@ XXH_PUBLIC_API unsigned int XXH32a (const void* input, size_t len, unsigned int 
 #else
     XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
 
-    if (XXH_FORCE_ALIGN_CHECK) {
-        if ((((size_t)input) & 3) == 0) {   /* Input is 4-bytes aligned, leverage the speed benefit */
-            if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-                return XXH32a_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
-            else
-                return XXH32a_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
-    }   }
+    if ((((size_t)input) & 3) == 0) {   /* Input is 4-bytes aligned, leverage the speed benefit */
+        if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
+            return XXH32a_endian_align(input, len, seed, XXH_littleEndian, XXH_aligned);
+        else
+            return XXH32a_endian_align(input, len, seed, XXH_bigEndian, XXH_aligned);
+   }
 
     if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
         return XXH32a_endian_align(input, len, seed, XXH_littleEndian, XXH_unaligned);
@@ -1088,42 +1118,38 @@ XXH32a_update_endian(XXH32a_state_t* state, const void* input, size_t len, XXH_e
             /* Aligned reads are faster. We want a 16-byte align. */
 
            if (((size_t)p&15) == 0) {
-
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-                /* GCC/Clang builtin that tells the compiler that this will be aligned. */
-                const U32x4x2* p_quad = (const U32x4x2*)__builtin_assume_aligned(p, 16);
-#else
-                const U32x4x2* p_quad = (const U32x4x2*)p;
-#endif
-
                 do {
-                    U32x4x2 inp = *p_quad++;
+                    const U32x4 inp[2] = {
+                        XXH_vec_load_aligned((const U32*)p),
+                        XXH_vec_load_aligned((const U32*)(p + 16))
+                    };
                     /* XXH32_round */
-                    v.i[0] += inp.i[0] * prime2;
-                    v.i[1] += inp.i[1] * prime2;
+                    v.val[0] += inp[0] * prime2;
+                    v.val[1] += inp[1] * prime2;
 
-                    v.i[0]  = XXH_rotlvec32(v.i[0], 13);
-                    v.i[1]  = XXH_rotlvec32(v.i[1], 13);
+                    v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
+                    v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
 
-                    v.i[0] *= prime1;
-                    v.i[1] *= prime1;
-
-                } while ((const BYTE*)p_quad <= limit);
-                p = (const BYTE*)p_quad;
+                    v.val[0] *= prime1;
+                    v.val[1] *= prime1;
+                    p += 32;
+                } while (p <= limit);
             } else {
                 do {
                     /* Load 32 bytes at a time. */
-                    U32x4x2 inp = XXH32a_load_double_unaligned((const U32x4x2*)p);
-
+                    const U32x4 inp[2] = {
+                        XXH_vec_load_unaligned((const U32*)p),
+                        XXH_vec_load_unaligned((const U32*)(p + 16)),
+                    };
                     /* XXH32_round */
-                    v.i[0] += inp.i[0] * prime2;
-                    v.i[1] += inp.i[1] * prime2;
+                    v.val[0] += inp[0] * prime2;
+                    v.val[1] += inp[1] * prime2;
 
-                    v.i[0]  = XXH_rotlvec32(v.i[0], 13);
-                    v.i[1]  = XXH_rotlvec32(v.i[1], 13);
+                    v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
+                    v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
 
-                    v.i[0] *= prime1;
-                    v.i[1] *= prime1;
+                    v.val[0] *= prime1;
+                    v.val[1] *= prime1;
                     p += 32;
 
                 } while (p <= limit);
@@ -1132,36 +1158,33 @@ XXH32a_update_endian(XXH32a_state_t* state, const void* input, size_t len, XXH_e
         } else
 #endif /* XXH_VECTORIZE */
         if (len>=32) {
+            U32 v1 = state->v1,
+                v2 = state->v2,
+                v3 = state->v3,
+                v4 = state->v4,
+                v5 = state->v5,
+                v6 = state->v6,
+                v7 = state->v7,
+                v8 = state->v8;
+
             const BYTE* const limit = bEnd - 31;
-            U32 v1 = state->v1;
-            U32 v2 = state->v2;
-            U32 v3 = state->v3;
-            U32 v4 = state->v4;
-            U32 v5 = state->v5;
-            U32 v6 = state->v6;
-            U32 v7 = state->v7;
-            U32 v8 = state->v8;
 
 #if !XXH_VECTORIZE
             if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
-#if XXH_GCC_VERSION >= 407 || __has_builtin(__builtin_assume_aligned)
-                const U32* p_align = (const U32*)__builtin_assume_aligned(p, 4);
-#else
-                const U32* p_align = (const U32*)p;
-#endif
-
                 do {
-                    v1 = XXH32_round(v1, *p_align++);
-                    v2 = XXH32_round(v2, *p_align++);
-                    v3 = XXH32_round(v3, *p_align++);
-                    v4 = XXH32_round(v4, *p_align++);
+                    const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
 
-                    v5 = XXH32_round(v5, *p_align++);
-                    v6 = XXH32_round(v6, *p_align++);
-                    v7 = XXH32_round(v7, *p_align++);
-                    v8 = XXH32_round(v8, *p_align++);
-                } while ((const BYTE*)p_align <= limit);
-                p = (const BYTE*)p_align;
+                    v1 = XXH32_round(v1, inp[0]);
+                    v2 = XXH32_round(v2, inp[1]);
+                    v3 = XXH32_round(v3, inp[2]);
+                    v4 = XXH32_round(v4, inp[3]);
+
+                    v5 = XXH32_round(v5, inp[4]);
+                    v6 = XXH32_round(v6, inp[5]);
+                    v7 = XXH32_round(v7, inp[6]);
+                    v8 = XXH32_round(v8, inp[7]);
+                    p += 32;
+                } while (p <= limit);
             } else
 #endif
                 do {

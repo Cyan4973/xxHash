@@ -83,9 +83,9 @@ xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum xxh32sum xxh64sum
+xxhsum_and_links: xxhsum xxh32sum xxh32asum xxh64sum
 
-xxh32sum xxh64sum: xxhsum
+xxh32sum xxh32asum xxh64sum: xxhsum
 	ln -sf $^ $@
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
@@ -232,7 +232,7 @@ trailingWhitespace:
 clean:
 	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o libxxhash.*
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32asum xxh32sum xxh64sum
 	@echo cleaning completed
 
 
@@ -292,6 +292,7 @@ install: lib xxhsum
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32asum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
 	@echo Installing man pages
 	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
@@ -307,6 +308,7 @@ uninstall:
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
+	@$(RM) $(DESTDIR)$(BINDIR)/xxh32asum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxhsum
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1

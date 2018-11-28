@@ -186,7 +186,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
-typedef enum { algo_xxh32, algo_xxh32a, algo_xxh64 } algoType;
+typedef enum { algo_xxh32, algo_xxh64, algo_xxh32a } algoType;
 static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
@@ -725,7 +725,7 @@ static int BMK_hash(const char* fileName,
             (void)XXH32a_canonicalFromHash(&hcbe32a, h32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32a, sizeof(hcbe32a)) : BMK_display_LittleEndian(&hcbe32a, sizeof(hcbe32a));
-            DISPLAYRESULT("  %s\n", fileName);
+            DISPLAYRESULT("-a  %s\n", fileName);
             break;
         }
     case algo_xxh64:
@@ -785,6 +785,7 @@ typedef enum {
 
 typedef union {
     XXH32_canonical_t xxh32;
+    XXH32a_canonical_t xxh32a;
     XXH64_canonical_t xxh64;
 } Canonical;
 
@@ -792,6 +793,7 @@ typedef struct {
     Canonical   canonical;
     const char* filename;
     int         xxhBits;    /* canonical type : 32:xxh32, 64:xxh64 */
+    int         altFormat;
 } ParsedLine;
 
 typedef struct {
@@ -925,7 +927,7 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  *
  *  Given xxHash checksum line should have the following format:
  *
- *      <8 or 16 hexadecimal char> <space> <space> <filename...> <'\0'>
+ *      <8 or 16 hexadecimal char><-a for XXH32a> <space> <space> <filename...> <'\0'>
  */
 static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 {
@@ -940,6 +942,18 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
         switch (firstSpace - line)
         {
+        case 10:
+            {   XXH32a_canonical_t* xxh32c = &parsedLine->canonical.xxh32a;
+                if (line[8] != '-' || line[9] != 'a') return ParseLine_invalidFormat;
+                if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
+                    != CanonicalFromString_ok) {
+                    return ParseLine_invalidFormat;
+                }
+                parsedLine->xxhBits = 32;
+                parsedLine->altFormat = 1;
+                break;
+            }
+
         case 8:
             {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
                 if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
@@ -947,6 +961,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
                     return ParseLine_invalidFormat;
                 }
                 parsedLine->xxhBits = 32;
+                parsedLine->altFormat = 0;
                 break;
             }
 
@@ -957,6 +972,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
                     return ParseLine_invalidFormat;
                 }
                 parsedLine->xxhBits = 64;
+                parsedLine->altFormat = 0;
                 break;
             }
 
@@ -1059,8 +1075,9 @@ static void parseFile1(ParseFileArg* parseFileArg)
             switch (parsedLine.xxhBits)
             {
             case 32:
-                {   XXH32_hash_t xxh;
-                    BMK_hashStream(&xxh, algo_xxh32, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {
+                  XXH32_hash_t xxh;
+                    BMK_hashStream(&xxh, (parsedLine.altFormat) ? algo_xxh32a : algo_xxh32, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
                     if (xxh == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
@@ -1244,7 +1261,7 @@ static int usage(const char* exename)
     DISPLAY( "      %s [arg] [filenames]\n", exename);
     DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default: %i)\n", (int)g_defaultAlgo);
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=32bits (alt) (default: %i)\n", (int)g_defaultAlgo);
     DISPLAY( " -c  : read xxHash sums from the [filenames] and check them\n");
     DISPLAY( " -h  : help \n");
     return 0;

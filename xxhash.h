@@ -220,7 +220,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
  * This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
  */
 
-
+#ifndef XXH_NO_32A
 /*-**********************************************************************
 *  32-bit hash (alternative)
 ************************************************************************/
@@ -294,6 +294,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32a_hashFromCanonical(const XXH32a_canonical_t* s
  * This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
  */
 
+#endif /* !XXH_NO_32a */
 
 #ifndef XXH_NO_LONG_LONG
 /*-**********************************************************************

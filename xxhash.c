@@ -521,10 +521,10 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
             -PRIME32_1
         };
         U32x4 v = XXH_vec_load_unaligned(vx1);
-        const BYTE* const limit = bEnd - 15;
-
         const U32x4 prime1 = vdupq_n_u32(PRIME32_1);
         const U32x4 prime2 = vdupq_n_u32(PRIME32_2);
+
+        const BYTE* const limit = bEnd - 15;
 
         v += vdupq_n_u32(seed);
         do {

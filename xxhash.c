@@ -373,10 +373,10 @@ typedef uint32x4x2_t U32x4x2;
  *      vorr            q8, q8, q9
  * This is much faster, and I think a few intrinsics are acceptable. */
 #define XXH_vec_rotl32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
-#define XXH_vec_load_unaligned vld1q_u32
-#define XXH_vec_store_unaligned vst1q_u32
-#define XXH_vec_load_aligned vld1q_u32
-#define XXH_vec_store_aligned vst1q_u32
+#define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
+#define XXH_vec_store_unaligned(p, v) vst1q_u32((const U32*)p, v)
+#define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
+#define XXH_vec_store_unaligned(p, v) vst1q_u32((const U32*)p, v)
 
 /* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
  * version for this one. */
@@ -521,12 +521,11 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
             -PRIME32_1
         };
         U32x4 v = XXH_vec_load_unaligned(vx1);
-        const BYTE* limit = bEnd - 15;
+        const BYTE* const limit = bEnd - 15;
 
         const U32x4 prime1 = vdupq_n_u32(PRIME32_1);
         const U32x4 prime2 = vdupq_n_u32(PRIME32_2);
 
-        const BYTE* const limit = bEnd - 15;
         v += vdupq_n_u32(seed);
         do {
             const U32x4 inp = XXH_vec_load_unaligned((const U32 *)p);

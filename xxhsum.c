@@ -186,7 +186,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
-typedef enum { algo_xxh32, algo_xxh64, algo_xxh32a } algoType;
+typedef enum { algo_xxh32, algo_xxh64, algo_xxh32a, algo_xxh64a } algoType;
 static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
@@ -267,6 +267,8 @@ static U32 localXXH32a(const void* buffer, size_t bufferSize, U32 seed) { return
 
 static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
+static U32 localXXH64a(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64a(buffer, bufferSize, seed); }
+
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
@@ -314,7 +316,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
  * @return : 0 on success, 1 if error (invalid mode selected) */
 static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
-    assert((((size_t)buffer) & 8) == 0);  /* ensure alignment */
+    assert((((size_t)buffer) & 15) == 0);  /* ensure alignment */
 
     /* XXH32 bench */
     if ((specificTest==0) | (specificTest==1))
@@ -324,6 +326,14 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     if ((specificTest==0) | (specificTest==2))
         BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
 
+    /* Bench XXH64 */
+    if ((specificTest==0) | (specificTest==3))
+        BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
+
+    /* Bench XXH64 on Unaligned input */
+    if ((specificTest==0) | (specificTest==4))
+        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
+
     /* XXH32a bench */
     if ((specificTest==0) | (specificTest==5))
         BMK_benchHash(localXXH32a, "XXH32a", buffer, bufferSize);
@@ -332,13 +342,13 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     if ((specificTest==0) | (specificTest==6))
         BMK_benchHash(localXXH32a, "XXH32a unaligned", ((const char*)buffer)+1, bufferSize);
 
-    /* Bench XXH64 */
-    if ((specificTest==0) | (specificTest==3))
-        BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
+    /* XXH64a bench */
+    if ((specificTest==0) | (specificTest==7))
+        BMK_benchHash(localXXH64a, "XXH64a", buffer, bufferSize);
 
-    /* Bench XXH64 on Unaligned input */
-    if ((specificTest==0) | (specificTest==4))
-        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
+    /* Bench XXH64a on Unaligned input */
+    if ((specificTest==0) | (specificTest==8))
+        BMK_benchHash(localXXH64a, "XXH64a unaligned", ((const char*)buffer)+1, bufferSize);
 
     if (specificTest > 4) {
         DISPLAY("benchmark mode invalid \n");
@@ -433,7 +443,6 @@ static int BMK_benchInternal(size_t keySize, int specificTest)
     }
 }
 
-
 static void BMK_checkResult(U32 r1, U32 r2)
 {
     static int nbTests = 1;
@@ -480,6 +489,25 @@ static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult
     BMK_checkResult64(Dresult, Nresult);
 }
 
+static void BMK_testSequence64a(void* sentence, size_t len, U64 seed, U64 Nresult)
+{
+    XXH64a_state_t state;
+    U64 Dresult;
+    size_t pos;
+    Dresult = XXH64a(sentence, len, seed);
+    BMK_checkResult64(Dresult, Nresult);
+
+    (void)XXH64a_reset(&state, seed);
+    (void)XXH64a_update(&state, sentence, len);
+    Dresult = XXH64a_digest(&state);
+    BMK_checkResult64(Dresult, Nresult);
+
+    (void)XXH64a_reset(&state, seed);
+    for (pos=0; pos<len; pos++)
+        (void)XXH64a_update(&state, ((char*)sentence)+pos, 1);
+    Dresult = XXH64a_digest(&state);
+    BMK_checkResult64(Dresult, Nresult);
+}
 
 static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
@@ -521,7 +549,6 @@ static void BMK_testSequence32a(const void* sequence, size_t len, U32 seed, U32 
     for (pos=0; pos<len; pos++)
         (void)XXH32a_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32a_digest(&state);
-
     BMK_checkResult(Dresult, Nresult);
 }
 
@@ -565,6 +592,15 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
     BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0xCAA65939306F1E21ULL);
 
+    BMK_testSequence64a(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
+    BMK_testSequence64a(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
+    BMK_testSequence64a(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
+    BMK_testSequence64a(sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
+    BMK_testSequence64a(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
+    BMK_testSequence64a(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
+    BMK_testSequence64a(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x209F9A0BD5CB15E3ULL);
+    BMK_testSequence64a(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x98F565A1BA40AC98ULL);
+
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");
 }
@@ -595,12 +631,14 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
     XXH64_state_t state64;
     XXH32a_state_t state32a;
     XXH32_state_t state32;
+    XXH64a_state_t state64a;
     size_t readSize;
 
     /* Init */
     (void)XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
     (void)XXH32a_reset(&state32a, XXHSUM32_DEFAULT_SEED);
     (void)XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
+    (void)XXH64a_reset(&state64a, XXHSUM64_DEFAULT_SEED);
 
     /* Load file & update hash */
     readSize = 1;
@@ -616,6 +654,9 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
             break;
         case algo_xxh64:
             (void)XXH64_update(&state64, buffer, readSize);
+            break;
+        case algo_xxh64a:
+            (void)XXH64a_update(&state64a, buffer, readSize);
             break;
         default:
             break;
@@ -636,6 +677,11 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
         }
     case algo_xxh64:
         {   U64 const h64 = XXH64_digest(&state64);
+            memcpy(xxhHashValue, &h64, sizeof(h64));
+            break;
+        }
+    case algo_xxh64a:
+        {   U64 const h64 = XXH64a_digest(&state64a);
             memcpy(xxhHashValue, &h64, sizeof(h64));
             break;
         }
@@ -700,6 +746,9 @@ static int BMK_hash(const char* fileName,
         case algo_xxh64:
             BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
             break;
+        case algo_xxh64a:
+            BMK_hashStream(&h64, algo_xxh64a, inFile, buffer, blockSize);
+            break;
         default:
             break;
         }
@@ -721,8 +770,8 @@ static int BMK_hash(const char* fileName,
             break;
         }
     case algo_xxh32a:
-        {   XXH32a_canonical_t hcbe32a;
-            (void)XXH32a_canonicalFromHash(&hcbe32a, h32);
+        {   XXH32_canonical_t hcbe32a;
+            (void)XXH32_canonicalFromHash(&hcbe32a, h32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32a, sizeof(hcbe32a)) : BMK_display_LittleEndian(&hcbe32a, sizeof(hcbe32a));
             DISPLAYRESULT("-a  %s\n", fileName);
@@ -734,6 +783,14 @@ static int BMK_hash(const char* fileName,
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
             DISPLAYRESULT("  %s\n", fileName);
+            break;
+        }
+    case algo_xxh64a:
+        {   XXH64_canonical_t hcbe64;
+            (void)XXH64_canonicalFromHash(&hcbe64, h64);
+            displayEndianess==big_endian ?
+                BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
+            DISPLAYRESULT("-a  %s\n", fileName);
             break;
         }
     default:
@@ -785,7 +842,6 @@ typedef enum {
 
 typedef union {
     XXH32_canonical_t xxh32;
-    XXH32a_canonical_t xxh32a;
     XXH64_canonical_t xxh64;
 } Canonical;
 
@@ -943,7 +999,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
         switch (firstSpace - line)
         {
         case 10:
-            {   XXH32a_canonical_t* xxh32c = &parsedLine->canonical.xxh32a;
+            {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
                 if (line[8] != '-' || line[9] != 'a') return ParseLine_invalidFormat;
                 if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
                     != CanonicalFromString_ok) {
@@ -976,6 +1032,17 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
                 break;
             }
 
+        case 18:
+            {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
+                if (line[16] != '-' || line[17] != 'a') return ParseLine_invalidFormat;
+                if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
+                    != CanonicalFromString_ok) {
+                    return ParseLine_invalidFormat;
+                }
+                parsedLine->xxhBits = 64;
+                parsedLine->altFormat = 1;
+                break;
+            }
         default:
                 return ParseLine_invalidFormat;
                 break;

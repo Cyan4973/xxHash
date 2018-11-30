@@ -83,9 +83,9 @@ xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum xxh32sum xxh32asum xxh64sum
+xxhsum_and_links: xxhsum xxh32sum xxh32asum xxh64sum xxh64asum
 
-xxh32sum xxh32asum xxh64sum: xxhsum
+xxh32sum xxh32asum xxh64sum xxh64asum: xxhsum
 	ln -sf $^ $@
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
@@ -174,7 +174,7 @@ cxxtest: clean
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
 .PHONY: c90test
-c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
+c90test: CPPFLAGS += -DXXH_NO_LONG_LONG -DXXH_NO_ALT_HASHES -DXXH_VECTORIZE=0
 c90test: CFLAGS += -std=c90 -Werror -pedantic
 c90test: xxhash.c
 	@echo ---- test strict C90 compilation [xxh32 only] ----
@@ -216,8 +216,10 @@ clean-man:
 preview-man: clean-man man
 	man ./xxhsum.1
 
+.PHONY: test
 test: all namespaceTest check test-xxhsum-c c90test
 
+.PHONY: test-all
 test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
 
 .PHONY: listL120

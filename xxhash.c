@@ -374,9 +374,9 @@ typedef uint32x4x2_t U32x4x2;
  * This is much faster, and I think a few intrinsics are acceptable. */
 #define XXH_vec_rotl32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
 #define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
-#define XXH_vec_store_unaligned(p, v) vst1q_u32((const U32*)p, v)
+#define XXH_vec_store_unaligned(p, v) vst1q_u32((U32*)p, v)
 #define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
-#define XXH_vec_store_unaligned(p, v) vst1q_u32((const U32*)p, v)
+#define XXH_vec_store_unaligned(p, v) vst1q_u32((U32*)p, v)
 
 /* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
  * version for this one. */

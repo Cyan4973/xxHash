@@ -450,8 +450,16 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
     p+=4;                                \
     h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
 
-    switch(len&15)  /* or switch(bEnd - p) */
+    switch(len&31)  /* or switch(bEnd - p) */
     {
+      case 28:      PROCESS4;
+                    /* fallthrough */
+      case 24:      PROCESS4;
+                    /* fallthrough */
+      case 20:      PROCESS4;
+                    /* fallthrough */
+      case 16:      PROCESS4;
+                    /* fallthrough */
       case 12:      PROCESS4;
                     /* fallthrough */
       case 8:       PROCESS4;
@@ -459,6 +467,14 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
       case 4:       PROCESS4;
                     return XXH32_avalanche(h32);
 
+      case 29:      PROCESS4;
+                    /* fallthrough */
+      case 25:       PROCESS4;
+                    /* fallthrough */
+      case 21:      PROCESS4;
+                    /* fallthrough */
+      case 17:       PROCESS4;
+                    /* fallthrough */
       case 13:      PROCESS4;
                     /* fallthrough */
       case 9:       PROCESS4;
@@ -467,6 +483,15 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
                     PROCESS1;
                     return XXH32_avalanche(h32);
 
+
+      case 30:      PROCESS4;
+                    /* fallthrough */
+      case 26:      PROCESS4;
+                    /* fallthrough */
+      case 22:      PROCESS4;
+                    /* fallthrough */
+      case 18:      PROCESS4;
+                    /* fallthrough */
       case 14:      PROCESS4;
                     /* fallthrough */
       case 10:      PROCESS4;
@@ -476,6 +501,14 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
                     PROCESS1;
                     return XXH32_avalanche(h32);
 
+      case 31:      PROCESS4;
+                    /* fallthrough */
+      case 27:      PROCESS4;
+                    /* fallthrough */
+      case 23:      PROCESS4;
+                    /* fallthrough */
+      case 19:      PROCESS4;
+                    /* fallthrough */
       case 15:      PROCESS4;
                     /* fallthrough */
       case 11:      PROCESS4;
@@ -746,7 +779,7 @@ XXH32_digest_endian (const XXH32_state_t* state, XXH_endianess endian)
 
     h32 += state->total_len_32;
 
-    return XXH32_finalize(h32, state->mem32, state->memsize, endian, XXH_aligned);
+    return XXH32_finalize(h32, state->mem32, state->memsize&15, endian, XXH_aligned);
 }
 
 
@@ -1244,92 +1277,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
  * The main difference is that XXH32a will duplicate and merge 32-bit
  * values, while XXH64a will split and join 64-bit values. */
 
-
-static U32
-XXH32a_finalize(U32 h32, const void* ptr, size_t len,
-                XXH_endianess endian, XXH_alignment align)
-
-{
-    const BYTE* p = (const BYTE*)ptr;
-
-
-    switch(len&31)  /* or switch(bEnd - p) */
-    {
-      case 28:      PROCESS4;
-                    /* fallthrough */
-      case 24:      PROCESS4;
-                    /* fallthrough */
-      case 20:      PROCESS4;
-                    /* fallthrough */
-      case 16:      PROCESS4;
-                    /* fallthrough */
-      case 12:      PROCESS4;
-                    /* fallthrough */
-      case 8:       PROCESS4;
-                    /* fallthrough */
-      case 4:       PROCESS4;
-                    return XXH32_avalanche(h32);
-
-      case 29:      PROCESS4;
-                    /* fallthrough */
-      case 25:       PROCESS4;
-                    /* fallthrough */
-      case 21:      PROCESS4;
-                    /* fallthrough */
-      case 17:       PROCESS4;
-                    /* fallthrough */
-      case 13:      PROCESS4;
-                    /* fallthrough */
-      case 9:       PROCESS4;
-                    /* fallthrough */
-      case 5:       PROCESS4;
-                    PROCESS1;
-                    return XXH32_avalanche(h32);
-
-
-      case 30:      PROCESS4;
-                    /* fallthrough */
-      case 26:      PROCESS4;
-                    /* fallthrough */
-      case 22:      PROCESS4;
-                    /* fallthrough */
-      case 18:      PROCESS4;
-                    /* fallthrough */
-      case 14:      PROCESS4;
-                    /* fallthrough */
-      case 10:      PROCESS4;
-                    /* fallthrough */
-      case 6:       PROCESS4;
-                    PROCESS1;
-                    PROCESS1;
-                    return XXH32_avalanche(h32);
-
-      case 31:      PROCESS4;
-                    /* fallthrough */
-      case 27:      PROCESS4;
-                    /* fallthrough */
-      case 23:      PROCESS4;
-                    /* fallthrough */
-      case 19:      PROCESS4;
-                    /* fallthrough */
-      case 15:      PROCESS4;
-                    /* fallthrough */
-      case 11:      PROCESS4;
-                    /* fallthrough */
-      case 7:       PROCESS4;
-                    /* fallthrough */
-      case 3:       PROCESS1;
-                    /* fallthrough */
-      case 2:       PROCESS1;
-                    /* fallthrough */
-      case 1:       PROCESS1;
-                    /* fallthrough */
-      case 0:       return XXH32_avalanche(h32);
-    }
-    assert(0);
-    return h32;   /* reaching this point is deemed impossible */
-}
-
 /* Note: Used by both XXH32a and XXH64a. */
 FORCE_INLINE const BYTE* /* p */
 XXH32a_XXH64a_endian_align(U32 state[8], const BYTE* p, size_t len,
@@ -1343,8 +1290,8 @@ XXH32a_XXH64a_endian_align(U32 state[8], const BYTE* p, size_t len,
 /* x86 slows down significantly on unaligned reads with SSE4.1 instructions.
  * On x86, we want to only do SIMD on aligned pointers.
  * NEON prefers unaligned reads, so we always use SIMD. */
-#if defined(__x86_64__) && defined(__SSE4_1__)
-    if (len >= 32 && endian==XXH_littleEndian && align==XXH_aligned ) {
+#if/* defined(__x86_64__) &&*/ defined(__SSE4_1__)
+    if (len >= 32 && endian==XXH_littleEndian && align==XXH_aligned) {
 #else
     if (len >= 32 && endian==XXH_littleEndian) {
 #endif
@@ -1487,7 +1434,7 @@ XXH_PUBLIC_API unsigned int XXH32a (const void* input, size_t len, unsigned int 
     }
 
     h32 += (U32)len;
-    return XXH32a_finalize(h32, p, len&31, endian, align);
+    return XXH32_finalize(h32, p, len&31, endian, align);
 #endif
 }
 
@@ -1703,7 +1650,7 @@ XXH32a_digest_endian (const XXH32a_state_t* state, XXH_endianess endian)
 
     h32 += state->total_len_32;
 
-    return  XXH32a_finalize(h32, state->mem32, state->memsize, endian, XXH_aligned);
+    return  XXH32_finalize(h32, state->mem32, state->memsize, endian, XXH_aligned);
 }
 
 

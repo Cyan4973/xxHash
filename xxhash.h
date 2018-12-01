@@ -308,7 +308,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64a (const void* input, size_t length, unsigned l
 /*======   Streaming   ======*/
 typedef struct XXH32a_state_s XXH64a_state_t;   /* They use the same state type. */
 XXH_PUBLIC_API XXH64a_state_t* XXH64a_createState(void);
-XXH_PUBLIC_API XXH_errorcode  XXH32a_freeState(XXH64a_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode  XXH64a_freeState(XXH64a_state_t* statePtr);
 XXH_PUBLIC_API void XXH64a_copyState(XXH64a_state_t* dst_state, const XXH64a_state_t* src_state);
 
 XXH_PUBLIC_API XXH_errorcode XXH64a_reset  (XXH64a_state_t* statePtr, unsigned long long seed);

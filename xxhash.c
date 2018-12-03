@@ -1068,14 +1068,24 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
         U64 v2 = seed + PRIME64_2;
         U64 v3 = seed + 0;
         U64 v4 = seed - PRIME64_1;
-
-        do {
-            v1 = XXH64_round(v1, XXH_get64bits(p));
-            v2 = XXH64_round(v2, XXH_get64bits(p + 8));
-            v3 = XXH64_round(v3, XXH_get64bits(p + 16));
-            v4 = XXH64_round(v4, XXH_get64bits(p + 24));
-            p += 32;
-        } while (p<=limit);
+        if (endian==XXH_littleEndian && (((size_t)p & 7) == 0)) {
+            do {
+                const U64* inp = (const U64*)XXH_assume_aligned(p, 8);
+                v1 = XXH64_round(v1, inp[0]);
+                v2 = XXH64_round(v2, inp[1]);
+                v3 = XXH64_round(v3, inp[2]);
+                v4 = XXH64_round(v4, inp[3]);
+                p += 32;
+            } while (p<=limit);
+        } else {
+            do {
+                v1 = XXH64_round(v1, XXH_get64bits(p));
+                v2 = XXH64_round(v2, XXH_get64bits(p + 8));
+                v3 = XXH64_round(v3, XXH_get64bits(p + 16));
+                v4 = XXH64_round(v4, XXH_get64bits(p + 24));
+                p += 32;
+            } while (p<=limit);
+        }
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
         h64 = XXH64_mergeRound(h64, v1);
@@ -1186,13 +1196,23 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
             U64 v3 = state->v3;
             U64 v4 = state->v4;
 
-            do {
-                v1 = XXH64_round(v1, XXH_readLE64(p, endian)); p+=8;
-                v2 = XXH64_round(v2, XXH_readLE64(p, endian)); p+=8;
-                v3 = XXH64_round(v3, XXH_readLE64(p, endian)); p+=8;
-                v4 = XXH64_round(v4, XXH_readLE64(p, endian)); p+=8;
-            } while (p<=limit);
-
+            if (endian==XXH_littleEndian && (((size_t)p & 7) == 0)) {
+                do {
+                    const U64* inp = (const U64*)XXH_assume_aligned(p, 8);
+                    v1 = XXH64_round(v1, inp[0]);
+                    v2 = XXH64_round(v2, inp[1]);
+                    v3 = XXH64_round(v3, inp[2]);
+                    v4 = XXH64_round(v4, inp[3]);
+                    p += 32;
+                } while (p<=limit);
+            } else {
+                do {
+                    v1 = XXH64_round(v1, XXH_readLE64(p, endian)); p+=8;
+                    v2 = XXH64_round(v2, XXH_readLE64(p, endian)); p+=8;
+                    v3 = XXH64_round(v3, XXH_readLE64(p, endian)); p+=8;
+                    v4 = XXH64_round(v4, XXH_readLE64(p, endian)); p+=8;
+                } while (p<=limit);
+            }
             state->v1 = v1;
             state->v2 = v2;
             state->v3 = v3;

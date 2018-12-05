@@ -367,7 +367,7 @@ struct XXH32_state_s {
  * unaligned reads, or worse. */
 struct XXH32a_state_s {
    XXH_ALIGN_16             /* Offset */
-   uint32_t v[8];           /*      0 */
+   uint32_t v[2][4];        /*      0 */
    XXH_ALIGN_16
    uint32_t mem32[8];       /*     32 */
    uint32_t total_len_32;   /*     64 */
@@ -405,7 +405,7 @@ struct XXH32_state_s {
  * unaligned reads, or worse. */
 struct XXH32a_state_s {
    XXH_ALIGN_16             /* Offset */
-   unsigned v[8];           /*      0 */
+   unsigned v[2][4];        /*      0 */
    XXH_ALIGN_16
    unsigned mem32[8];       /*     32 */
    unsigned total_len_32;   /*     64 */

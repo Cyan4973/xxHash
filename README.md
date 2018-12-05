@@ -43,6 +43,138 @@ A more recent version, XXH64, has been created thanks to [Mathias Westerdahl](ht
 which offers superior speed and dispersion for 64-bit systems.
 Note however that 32-bit applications will still run faster using the 32-bit version.
 
+Two more versions, XXH32a and XXH64a, which differ only in the initialization and finalization, use SIMD
+optimizations via GCC/Clang extensions to compute two XXH32 hashes at once, then either joining or merging
+them together to create a 32-bit or 64-bit hash. There is also a normal version which does not use extensions.
+
+Each hash has its usages. 
+
+First of all, GCC and Clang have different results with the alternative hashes.
+
+On x86/x86_64 targets, as of 2018, GCC will produce noticeably faster code than Clang.
+Note that on macOS, `gcc` is a symlink to `clang` by default. 
+
+These are the results for the xxhsum 100kb benchmark, compiled with both Clang 7.0.0 and GCC 8.1.0 on macOS 10.13.6,
+on an Intel Core 2 Duo P7450 (Penryn, SSE4.1) @2.13 GHz, with `-msse4.1 -O2`:
+
+64-bit:
+| Type   | Aligned (GCC) | Unaligned (GCC) | Aligned (Clang) | Unaligned (Clang) |
+|--------|--------------:|----------------:|----------------:|------------------:|
+| XXH32  |     3.91 GB/s |       2.97 GB/s |       3.89 GB/s |         2.98 GB/s |
+| XXH64  |     3.98 GB/s |       2.87 GB/s |       4.00 GB/s |         2.73 GB/s |
+| XXH32a |     4.95 GB/s |       3.14 GB/s |       4.43 GB/s |         2.86 GB/s |
+| XXH64a |     4.94 GB/s |       3.13 GB/s |       4.45 GB/s |         2.89 GB/s |
+
+32-bit:
+| Type   | Aligned (GCC) | Unaligned (GCC) | Aligned (Clang) | Unaligned (Clang) |
+|--------|--------------:|----------------:|----------------:|------------------:|
+| XXH32  |     3.91 GB/s |       2.97 GB/s |       3.91 GB/s |         2.93 GB/s |
+| XXH64  |     2.03 GB/s |       1.12 GB/s |       2.03 GB/s |         1.33 GB/s |
+| XXH32a |     4.84 GB/s |       2.96 GB/s |       4.48 GB/s |         2.63 GB/s |
+| XXH64a |     4.87 GB/s |       2.85 GB/s |       4.47 GB/s |         2.63 GB/s |
+
+However, on ARM NEON targets, Clang will produce significantly faster code than GCC.
+If you are compiling for iOS or using a recent NDK, you are using Clang.
+
+On an LG G3 on Android 9.0 (LineageOS 16) with a Qualcomm Snapdragon 801 (Cortex-A15, ARMv7a/ve, quad-core)
+@1.7/1.7/2.45/2.45 GHz, compiled with ARM GCC 8.2.0 and Clang 7.0.0 with `-O2 -march=native`, measured in Termux:
+
+32-bit:
+| Type   | Aligned (GCC) | Unaligned (GCC) | Aligned (Clang) | Unaligned (Clang) |
+|--------|--------------:|----------------:|----------------:|------------------:|
+| XXH32  |     4.14 GB/s |       4.14 GB/s |       4.14 GB/s |         4.14 GB/s |
+| XXH64  |     0.96 GB/s |       0.98 GB/s |       0.89 GB/s |         0.89 GB/s |
+| XXH32a |     4.97 GB/s |       4.97 GB/s |       5.72 GB/s |         5.72 GB/s |
+| XXH64a |     4.94 GB/s |       4.94 GB/s |       5.70 GB/s |         5.70 GB/s |
+
+Note: The device was charging and the screen was tapped repeatedly to keep the CPU at
+a high, stable frequency. Without doing this, the CPU will often throttle within the
+benchmark to save power, causing inconsistent results which vary up to 50%.
+
+
+Additionally, the alternative hashes have more warmup time than the basic ones, as
+creating and destroying SIMD vectors is expensive.
+
+The performance of the hashes would be graded as follows, assuming aligned data:
+
+Note: Short input is assumed to be shorter than ~256 bytes.
+
+| Version | 32-bit, short | 64-bit, short | 32-bit, long | 64-bit, long |
+|---------|---------------|---------------|--------------|--------------|
+| XXH32   | A             | A             | A            | B            |
+| XXH64   | F             | B             | F            | A+           |
+| XXH32a  | B             | B             | A+           | A            |
+| XXH64a  | D             | B             | A            | A            |
+
+Note: This assumes that XXH32a/XXH64a uses vectorization.
+XXH32a and XXH64a will not be vectorized if...
+* Not using GCC or Clang and not overridden with XXH_VECTORIZE=1
+* Not targeting either SSE4.1 (or later) or NEON and not overridden with XXH_VECTORIZE=1
+* XXH_VECTORIZE=0
+* On a big endian systems without XXH32
+* When explicitly targeting SSE4.1, not targeting AVX, and not using Clang in 32-bit mode,
+  and using unaligned data. The loops aren't properly vectorized for unaligned access on
+  SSE4.1 this way, and the normal way is slightly faster.
+
+In addition, on older Core 2 processors, XXH32a and XXH64a will be faster than XXH64.
+
+
+For maximum portability, use XXH32. XXH32 is fully C89 conformant, and
+will work on any machine.
+
+For short inputs shorter than a few hundred bytes, use XXH32 as well.
+
+For longer inputs, the options open up.
+
+If you know for sure that your code will be compiled on a modern 64-bit target,
+XXH64 is recommended. Keep in mind that 32-bit targets typically have results
+50-75% slower than XXH32.
+
+XXH32a and XXH64a mostly rely on GCC/Clang's `__attribute__((__vector_size__(16)))`
+extension to use clean vectors at the cost of requiring GCC or Clang. To disable
+this behavior and use a plain array, define `XXH_VECTORIZE=0`. Similarly, to forcibly
+enable it, define `XXH_VECTORIZE=1`. If GCC or Clang is detected and the compiler is
+targeting ARM NEON or SSE4.1, this will be automatically enabled.
+
+The reason for this choice instead of using all intrinsics, is to improve readability
+(intrinsics aren't very expressive), improve portability (GCC and Clang will convert
+the vector code to normal code if the target does not support it), and reduce code
+blocks like this as much as possible.
+
+```c
+#ifdef __SSE4_1__
+    __m128i inp = _mm_loadu_si128(p);
+    ...
+#elif defined(__ARM_NEON__)
+    uint32x4_t inp = vld1q_u32(p);
+    ...
+#else
+    v[0] = XXH32_round(v[0], XXH_get32bits(p)); p+=4;
+    ...
+#endif
+```
+
+There are already enough duplicated code blocks (mostly to bypass checking for alignment
+and endianness).
+
+Some intrinsics are used for when there are faster options that the compiler will
+not recognize, such as forcing the "rotate left" code to produce a `vsliq_n_u32`
+instruction instead of `vshlq_n_u32` followed by `vorrq_u32` on ARM NEON, however, they
+are only to be used when there is a benefit. 
+
+Using XXH32a or XXH64a with `XXH_VECTORIZE` set to zero will be slower than if it is
+enabled, but faster than `XXH_VECTORIZE=1` if the target does not support SIMD.
+
+If you want a consistent 64-bit hash that is fast on 32-bit and 64-bit, use
+XXH64a. XXH64a will not see massive performance gains over XXH32 like XXH64 sees,
+but it is one of the only 64-bit hashes that is actually fast on 32-bit systems, and
+is still going to be faster than XXH32 on longer inputs with supported vectorization.
+
+XXH64a, even without vectorization, will always be faster than XXH64 on a
+32-bit target.
+
+XXH32a is also a good option for longer inputs. 
+
 SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bit.
 The reference system uses a Core i5-3340M @2.7GHz
 
@@ -94,7 +226,8 @@ they modify xxhash behavior. They are all disabled by default.
                               Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
                        for targets without 64-bit support.
-
+- `XXH_VECTORIZE` : Set to zero or one, forces manual vectorization of the XXH32a and XXH64a
+                    hashes. This is automatically detected for SSE4.1 and NEON.
 
 ### Example
 

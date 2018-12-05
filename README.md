@@ -98,7 +98,7 @@ benchmark to save power, causing inconsistent results which vary up to 50%.
 Additionally, the alternative hashes have more warmup time than the basic ones, as
 creating and destroying SIMD vectors is expensive.
 
-The performance of the hashes would be graded as follows, assuming aligned data:
+The performance of the hashes would be ranked as follows, assuming aligned data:
 
 Note: Short input is assumed to be shorter than ~256 bytes.
 
@@ -111,15 +111,20 @@ Note: Short input is assumed to be shorter than ~256 bytes.
 
 Note: This assumes that XXH32a/XXH64a uses vectorization.
 XXH32a and XXH64a will not be vectorized if...
-* Not using GCC or Clang and not overridden with XXH_VECTORIZE=1
-* Not targeting either SSE4.1 (or later) or NEON and not overridden with XXH_VECTORIZE=1
-* XXH_VECTORIZE=0
-* On a big endian systems without XXH32
-* When explicitly targeting SSE4.1, not targeting AVX, and not using Clang in 32-bit mode,
+* `XXH_VECTORIZE` is not manually defined and...
+    * not using GCC or Clang
+    * not targeting either SSE4.1 (or later) or ARM NEON
+* `XXH_VECTORIZE` is defined to `0`
+* targeting a big endian systems without `XXH_FORCE_NATIVE_FORMAT`
+* when explicitly targeting SSE4.1, not targeting AVX, and not using Clang in 32-bit mode,
   and using unaligned data. The loops aren't properly vectorized for unaligned access on
-  SSE4.1 this way, and the normal way is slightly faster.
+  SSE4.1 this way, and the standard way is slightly faster.
 
 In addition, on older Core 2 processors, XXH32a and XXH64a will be faster than XXH64.
+Performance is still acceptable, and XXH64 will be significantly faster on newer machines.
+
+XXH64a will almost always be faster than XXH64 on 32-bit targets, even with vectorization
+disabled. This is because it uses native 32-bit arithmetic.
 
 
 For maximum portability, use XXH32. XXH32 is fully C89 conformant, and
@@ -163,18 +168,12 @@ and endianness).
 Some intrinsics are used for when there are faster options that the compiler will
 not recognize, such as forcing the "rotate left" code to produce a `vsliq_n_u32`
 instruction instead of `vshlq_n_u32` followed by `vorrq_u32` on ARM NEON, however, they
-are only to be used when there is a benefit. 
-
-Using XXH32a or XXH64a with `XXH_VECTORIZE` set to zero will be slower than if it is
-enabled, but faster than `XXH_VECTORIZE=1` if the target does not support SIMD.
+are only to be used when there is a significant benefit. 
 
 If you want a consistent 64-bit hash that is fast on 32-bit and 64-bit, use
 XXH64a. XXH64a will not see massive performance gains over XXH32 like XXH64 sees,
 but it is one of the only 64-bit hashes that is actually fast on 32-bit systems, and
 is still going to be faster than XXH32 on longer inputs with supported vectorization.
-
-XXH64a, even without vectorization, will always be faster than XXH64 on a
-32-bit target.
 
 XXH32a is also a good option for longer inputs. 
 

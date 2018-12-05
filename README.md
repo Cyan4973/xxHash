@@ -57,7 +57,8 @@ Note that on macOS, `gcc` is a symlink to `clang` by default.
 These are the results for the xxhsum 100kb benchmark, compiled with both Clang 7.0.0 and GCC 8.1.0 on macOS 10.13.6,
 on an Intel Core 2 Duo P7450 (Penryn, SSE4.1) @2.13 GHz, with `-msse4.1 -O2`:
 
-64-bit:
+**64-bit**
+  
 | Type   | Aligned (GCC) | Unaligned (GCC) | Aligned (Clang) | Unaligned (Clang) |
 |--------|--------------:|----------------:|----------------:|------------------:|
 | XXH32  |     3.91 GB/s |       2.97 GB/s |       3.89 GB/s |         2.98 GB/s |
@@ -65,7 +66,8 @@ on an Intel Core 2 Duo P7450 (Penryn, SSE4.1) @2.13 GHz, with `-msse4.1 -O2`:
 | XXH32a |     4.95 GB/s |       3.14 GB/s |       4.43 GB/s |         2.86 GB/s |
 | XXH64a |     4.94 GB/s |       3.13 GB/s |       4.45 GB/s |         2.89 GB/s |
 
-32-bit:
+**32-bit**
+
 | Type   | Aligned (GCC) | Unaligned (GCC) | Aligned (Clang) | Unaligned (Clang) |
 |--------|--------------:|----------------:|----------------:|------------------:|
 | XXH32  |     3.91 GB/s |       2.97 GB/s |       3.91 GB/s |         2.93 GB/s |
@@ -79,7 +81,8 @@ If you are compiling for iOS or using a recent NDK, you are using Clang.
 On an LG G3 on Android 9.0 (LineageOS 16) with a Qualcomm Snapdragon 801 (Cortex-A15, ARMv7a/ve, quad-core)
 @1.7/1.7/2.45/2.45 GHz, compiled with ARM GCC 8.2.0 and Clang 7.0.0 with `-O2 -march=native`, measured in Termux:
 
-32-bit:
+**32-bit**
+
 | Type   | Aligned (GCC) | Unaligned (GCC) | Aligned (Clang) | Unaligned (Clang) |
 |--------|--------------:|----------------:|----------------:|------------------:|
 | XXH32  |     4.14 GB/s |       4.14 GB/s |       4.14 GB/s |         4.14 GB/s |

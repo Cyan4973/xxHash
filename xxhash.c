@@ -891,7 +891,7 @@ static U64 XXH64_round(U64 acc, U64 input)
     acc += input * PRIME64_2;
     acc  = XXH_rotl64(acc, 31);
     acc *= PRIME64_1;
-    
+
 #if !defined(XXH_FORCE_VECTOR) && defined(__x86_64__) && defined(__GNUC__)
     /* Again, see XXH32_round. This mostly affects Clang,
      * but it also has slight improvement for GCC. */
@@ -1207,7 +1207,6 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
             U64 v3 = state->v3;
             U64 v4 = state->v4;
 
-            
             do {
                 v1 = XXH64_round(v1, XXH_readLE64(p, endian)); p+=8;
                 v2 = XXH64_round(v2, XXH_readLE64(p, endian)); p+=8;

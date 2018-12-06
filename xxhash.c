@@ -587,23 +587,13 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         U32 v4 = seed - PRIME32_1;
         const BYTE* limit = bEnd - 15;
 
-        /* Avoid branching when we don't have to. This helps out ARM Thumb a lot. */
-        if (align==XXH_aligned && endian==XXH_littleEndian) {
-            do {
-               const U32* palign = (const U32*)XXH_assume_aligned(p, 4);
-               v1 = XXH32_round(v1, palign[0]); p+=4;
-               v2 = XXH32_round(v2, palign[1]); p+=4;
-               v3 = XXH32_round(v3, palign[2]); p+=4;
-               v4 = XXH32_round(v4, palign[3]); p+=4;
-            } while (p < limit);
-        } else {
-            do {
-                v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
-                v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
-                v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
-                v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
-            } while (p < limit);
-        }
+        do {
+            v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
+            v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
+            v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
+            v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
+        } while (p < limit);
+
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
     } else {
@@ -714,28 +704,15 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
             U32 v4 = state->v4;
             const BYTE* const limit = bEnd - 16;
 
-            /* Aligned pointers and fewer branches are very helpful and worth the
-             * duplication on ARM. */
-            if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
-                do {
-                    const U32* p_align = (const U32*)XXH_assume_aligned(p, 4);
-                    /* NO SSE */
-                    v1 = XXH32_round(v1, p_align[0]);
-                    v2 = XXH32_round(v2, p_align[1]);
-                    v3 = XXH32_round(v3, p_align[2]);
-                    v4 = XXH32_round(v4, p_align[3]);
-                    p += 16;
-                } while (p <= limit);
-            } else {
-                do {
-                    /* NO SSE */
-                    v1 = XXH32_round(v1, XXH_readLE32(p, endian));
-                    v2 = XXH32_round(v2, XXH_readLE32(p + 4, endian));
-                    v3 = XXH32_round(v3, XXH_readLE32(p + 8, endian));
-                    v4 = XXH32_round(v4, XXH_readLE32(p + 12, endian));
-                    p += 16;
-                } while (p<=limit);
-            }
+            do {
+                /* NO SSE */
+                v1 = XXH32_round(v1, XXH_readLE32(p, endian));
+                v2 = XXH32_round(v2, XXH_readLE32(p + 4, endian));
+                v3 = XXH32_round(v3, XXH_readLE32(p + 8, endian));
+                v4 = XXH32_round(v4, XXH_readLE32(p + 12, endian));
+                p += 16;
+            } while (p<=limit);
+
             state->v1 = v1;
             state->v2 = v2;
             state->v3 = v3;
@@ -914,6 +891,12 @@ static U64 XXH64_round(U64 acc, U64 input)
     acc += input * PRIME64_2;
     acc  = XXH_rotl64(acc, 31);
     acc *= PRIME64_1;
+    
+#if !defined(XXH_FORCE_VECTOR) && defined(__x86_64__) && defined(__GNUC__)
+    /* Again, see XXH32_round. This mostly affects Clang,
+     * but it also has slight improvement for GCC. */
+    __asm__ __volatile__ ("" : "+r" (acc));
+#endif
     return acc;
 }
 
@@ -1075,38 +1058,22 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
             seed + 0,
             seed - PRIME64_1
         }};
-        if (((size_t)p & 15) == 0) {
-            do {
-                U64x2 inp = *(const U64x2*)XXH_assume_aligned(p, 16);
-                v[0] += inp * PRIME64_2;
-                v[0]  = (v[0] << 31) | (v[0] >> 33);
-                v[0] *= PRIME64_1;
-                p += 16;
+        struct loader {
+            U64x2 v;
+        } __attribute__((__packed__, __may_alias__));
+        do {
+            U64x2 inp = ((const struct loader *)p)->v;
+            v[0] += inp * PRIME64_2;
+            v[0]  = (v[0] << 31) | (v[0] >> 33);
+            v[0] *= PRIME64_1;
+            p += 16;
 
-                inp = *(const U64x2*)XXH_assume_aligned(p, 16);
-                v[1] += inp * PRIME64_2;
-                v[1]  = (v[1] << 31) | (v[1] >> 33);
-                v[1] *= PRIME64_1;
-                p += 16;
-            } while (p < limit);
-        } else {
-            struct loader {
-                U64x2 v;
-            } __attribute__((__packed__, __may_alias__));
-            do {
-                U64x2 inp = ((const struct loader *)p)->v;
-                v[0] += inp * PRIME64_2;
-                v[0]  = (v[0] << 31) | (v[0] >> 33);
-                v[0] *= PRIME64_1;
-                p += 16;
-
-                inp = ((const struct loader *)p)->v;
-                v[1] += inp * PRIME64_2;
-                v[1]  = (v[1] << 31) | (v[1] >> 33);
-                v[1] *= PRIME64_1;
-                p += 16;
-            } while (p < limit);
-        }
+            inp = ((const struct loader *)p)->v;
+            v[1] += inp * PRIME64_2;
+            v[1]  = (v[1] << 31) | (v[1] >> 33);
+            v[1] *= PRIME64_1;
+            p += 16;
+        } while (p < limit);
         h64 = XXH_rotl64(v[0][0], 1) + XXH_rotl64(v[0][1], 7) + XXH_rotl64(v[1][0], 12) + XXH_rotl64(v[1][1], 18);
 
         h64 = XXH64_mergeRound(h64, v[0][0]);
@@ -1122,24 +1089,14 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
         U64 v2 = seed + PRIME64_2;
         U64 v3 = seed + 0;
         U64 v4 = seed - PRIME64_1;
-        if (endian==XXH_littleEndian && (((size_t)p & 7) == 0)) {
-            do {
-                const U64* inp = (const U64*)XXH_assume_aligned(p, 8);
-                v1 = XXH64_round(v1, inp[0]);
-                v2 = XXH64_round(v2, inp[1]);
-                v3 = XXH64_round(v3, inp[2]);
-                v4 = XXH64_round(v4, inp[3]);
-                p += 32;
-            } while (p<=limit);
-        } else {
-            do {
-                v1 = XXH64_round(v1, XXH_get64bits(p));
-                v2 = XXH64_round(v2, XXH_get64bits(p + 8));
-                v3 = XXH64_round(v3, XXH_get64bits(p + 16));
-                v4 = XXH64_round(v4, XXH_get64bits(p + 24));
-                p += 32;
-            } while (p<=limit);
-        }
+
+        do {
+            v1 = XXH64_round(v1, XXH_get64bits(p));
+            v2 = XXH64_round(v2, XXH_get64bits(p + 8));
+            v3 = XXH64_round(v3, XXH_get64bits(p + 16));
+            v4 = XXH64_round(v4, XXH_get64bits(p + 24));
+            p += 32;
+        } while (p<=limit);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
         h64 = XXH64_mergeRound(h64, v1);
@@ -1250,23 +1207,13 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
             U64 v3 = state->v3;
             U64 v4 = state->v4;
 
-            if (endian==XXH_littleEndian && (((size_t)p & 7) == 0)) {
-                do {
-                    const U64* inp = (const U64*)XXH_assume_aligned(p, 8);
-                    v1 = XXH64_round(v1, inp[0]);
-                    v2 = XXH64_round(v2, inp[1]);
-                    v3 = XXH64_round(v3, inp[2]);
-                    v4 = XXH64_round(v4, inp[3]);
-                    p += 32;
-                } while (p<=limit);
-            } else {
-                do {
-                    v1 = XXH64_round(v1, XXH_readLE64(p, endian)); p+=8;
-                    v2 = XXH64_round(v2, XXH_readLE64(p, endian)); p+=8;
-                    v3 = XXH64_round(v3, XXH_readLE64(p, endian)); p+=8;
-                    v4 = XXH64_round(v4, XXH_readLE64(p, endian)); p+=8;
-                } while (p<=limit);
-            }
+            
+            do {
+                v1 = XXH64_round(v1, XXH_readLE64(p, endian)); p+=8;
+                v2 = XXH64_round(v2, XXH_readLE64(p, endian)); p+=8;
+                v3 = XXH64_round(v3, XXH_readLE64(p, endian)); p+=8;
+                v4 = XXH64_round(v4, XXH_readLE64(p, endian)); p+=8;
+            } while (p<=limit);
             state->v1 = v1;
             state->v2 = v2;
             state->v3 = v3;
@@ -1384,43 +1331,24 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
          * shows that performing two parallel hashes at a time is much better for
          * performance. It produces a different hash, though. */
 
-#ifndef XXH_NEON
-        /* Aligned reads are faster on all targets except NEON. We want a 16-byte align. */
-        if (((size_t)p&15) == 0) {
-            do {
-                const U32x4 *inp = (const U32x4*)XXH_assume_aligned(p, 16);
+        do {
+            /* Load 32 bytes at a time. */
+            const U32x4 inp[2] = {
+                XXH_vec_load_unaligned(p),
+                XXH_vec_load_unaligned((p + 16)),
+            };
+            /* XXH32_round */
+            v[0] += inp[0] * prime2;
+            v[0]  = XXH_vec_rotl32(v[0], 13);
+            v[0] *= prime1;
 
-                /* XXH32_round */
-                v[0] += prime2 * inp[0];
-                v[0]  = XXH_vec_rotl32(v[0], 13);
-                v[0] *= prime1;
+            v[1] += inp[1] * prime2;
+            v[1]  = XXH_vec_rotl32(v[1], 13);
+            v[1] *= prime1;
 
-                v[1] += prime2 * inp[1];
-                v[1]  = XXH_vec_rotl32(v[1], 13);
-                v[1] *= prime1;
-                p += 32;
-            } while (p < limit);
-        } else
-#endif /* !XXH_NEON */
-        {
-            do {
-                /* Load 32 bytes at a time. */
-                const U32x4 inp[2] = {
-                    XXH_vec_load_unaligned(p),
-                    XXH_vec_load_unaligned((p + 16)),
-                };
-                /* XXH32_round */
-                v[0] += inp[0] * prime2;
-                v[0]  = XXH_vec_rotl32(v[0], 13);
-                v[0] *= prime1;
+            p += 32;
+        } while (p < limit);
 
-                v[1] += inp[1] * prime2;
-                v[1]  = XXH_vec_rotl32(v[1], 13);
-                v[1] *= prime1;
-
-                p += 32;
-            } while (p < limit);
-        }
         XXH_vec_store_unaligned(state[0], v[0]);
         XXH_vec_store_unaligned(state[1], v[1]);
 
@@ -1434,37 +1362,20 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
         const BYTE* const limit = bEnd - 31;
 
         XXH_memcpy(v, state, sizeof(v));
+        do {
+            /* NO SSE */
+            v[0][0] = XXH32_round(v[0][0], XXH_get32bits(p)); p+=4;
+            v[0][1] = XXH32_round(v[0][1], XXH_get32bits(p)); p+=4;
+            v[0][2] = XXH32_round(v[0][2], XXH_get32bits(p)); p+=4;
+            v[0][3] = XXH32_round(v[0][3], XXH_get32bits(p)); p+=4;
 
-        if (align==XXH_aligned && endian==XXH_littleEndian) {
-            do {
-                const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
-                /* NO SSE */
-                v[0][0] = XXH32_round(v[0][0], inp[0]);
-                v[0][1] = XXH32_round(v[0][1], inp[1]);
-                v[0][2] = XXH32_round(v[0][2], inp[2]);
-                v[0][3] = XXH32_round(v[0][3], inp[3]);
+            v[1][0] = XXH32_round(v[1][0], XXH_get32bits(p)); p+=4;
+            v[1][1] = XXH32_round(v[1][1], XXH_get32bits(p)); p+=4;
+            v[1][2] = XXH32_round(v[1][2], XXH_get32bits(p)); p+=4;
+            v[1][3] = XXH32_round(v[1][3], XXH_get32bits(p)); p+=4;
+        } while (p < limit);
 
-                v[1][0] = XXH32_round(v[1][0], inp[4]);
-                v[1][1] = XXH32_round(v[1][1], inp[5]);
-                v[1][2] = XXH32_round(v[1][2], inp[6]);
-                v[1][3] = XXH32_round(v[1][3], inp[7]);
-                p += 32;
-            } while (p < limit);
-        } else {
-            do {
-                /* NO SSE */
-                v[0][0] = XXH32_round(v[0][0], XXH_get32bits(p)); p+=4;
-                v[0][1] = XXH32_round(v[0][1], XXH_get32bits(p)); p+=4;
-                v[0][2] = XXH32_round(v[0][2], XXH_get32bits(p)); p+=4;
-                v[0][3] = XXH32_round(v[0][3], XXH_get32bits(p)); p+=4;
-
-                v[1][0] = XXH32_round(v[1][0], XXH_get32bits(p)); p+=4;
-                v[1][1] = XXH32_round(v[1][1], XXH_get32bits(p)); p+=4;
-                v[1][2] = XXH32_round(v[1][2], XXH_get32bits(p)); p+=4;
-                v[1][3] = XXH32_round(v[1][3], XXH_get32bits(p)); p+=4;
-            } while (p < limit);
-        }
-       XXH_memcpy(state, v, 8 * sizeof(U32));
+        XXH_memcpy(state, v, 8 * sizeof(U32));
     }
 
     return p;
@@ -1635,46 +1546,25 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
              * shows that performing two parallel hashes at a time is much better for
              * performance. It produces a different hash, though. */
 
-#ifndef XXH_NEON
-            /* If we have a 16-byte aligned pointer, we can reinterpret the pointer and
-             * use a direct dereference. */
-           if (((size_t)p&15) == 0) {
-                do {
-                    const U32x4* inp = (const U32x4*)__builtin_assume_aligned(p, 16);
+            do {
+                /* Load 32 bytes at a time. */
+                const U32x4 inp[2] = {
+                    XXH_vec_load_unaligned(p),
+                    XXH_vec_load_unaligned(p + 16),
+                };
+                /* XXH32_round */
+                v.val[0] += inp[0] * prime2;
+                v.val[1] += inp[1] * prime2;
 
-                    /* XXH32_round */
-                    v.val[0] += inp[0] * prime2;
-                    v.val[1] += inp[1] * prime2;
+                v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
+                v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
 
-                    v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
-                    v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
+                v.val[0] *= prime1;
+                v.val[1] *= prime1;
+                p += 32;
 
-                    v.val[0] *= prime1;
-                    v.val[1] *= prime1;
-                    p += 32;
-                } while (p <= limit);
-            } else
-#endif /* !XXH_NEON */
-            {
-                do {
-                    /* Load 32 bytes at a time. */
-                    const U32x4 inp[2] = {
-                        XXH_vec_load_unaligned(p),
-                        XXH_vec_load_unaligned(p + 16),
-                    };
-                    /* XXH32_round */
-                    v.val[0] += inp[0] * prime2;
-                    v.val[1] += inp[1] * prime2;
+            } while (p <= limit);
 
-                    v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
-                    v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
-
-                    v.val[0] *= prime1;
-                    v.val[1] *= prime1;
-                    p += 32;
-
-                } while (p <= limit);
-            }
             XXH_memcpy(state->v, &v, sizeof(v));
         } else
 #endif /* XXH_VECTORIZE */
@@ -1684,36 +1574,20 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
 
             XXH_memcpy(v, state->v, sizeof(v));
 
-            if (((size_t)p&3)==0 && endian==XXH_littleEndian) {
-                do {
-                    const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
+            do {
+                v[0][0] = XXH32_round(v[0][0], XXH_readLE32(p, endian)); p+=4;
+                v[0][1] = XXH32_round(v[0][1], XXH_readLE32(p, endian)); p+=4;
+                v[0][2] = XXH32_round(v[0][2], XXH_readLE32(p, endian)); p+=4;
+                v[0][3] = XXH32_round(v[0][3], XXH_readLE32(p, endian)); p+=4;
 
-                    v[0][0] = XXH32_round(v[0][0], inp[0]);
-                    v[0][1] = XXH32_round(v[0][1], inp[1]);
-                    v[0][2] = XXH32_round(v[0][2], inp[2]);
-                    v[0][3] = XXH32_round(v[0][3], inp[3]);
-
-                    v[1][0] = XXH32_round(v[1][0], inp[4]);
-                    v[1][1] = XXH32_round(v[1][1], inp[5]);
-                    v[1][2] = XXH32_round(v[1][2], inp[6]);
-                    v[1][3] = XXH32_round(v[1][3], inp[7]);
-                    p += 32;
-                } while (p <= limit);
-            } else {
-                do {
-                    v[0][0] = XXH32_round(v[0][0], XXH_readLE32(p, endian)); p+=4;
-                    v[0][1] = XXH32_round(v[0][1], XXH_readLE32(p, endian)); p+=4;
-                    v[0][2] = XXH32_round(v[0][2], XXH_readLE32(p, endian)); p+=4;
-                    v[0][3] = XXH32_round(v[0][3], XXH_readLE32(p, endian)); p+=4;
-
-                    v[1][0] = XXH32_round(v[1][0], XXH_readLE32(p, endian)); p+=4;
-                    v[1][1] = XXH32_round(v[1][1], XXH_readLE32(p, endian)); p+=4;
-                    v[1][2] = XXH32_round(v[1][2], XXH_readLE32(p, endian)); p+=4;
-                    v[1][3] = XXH32_round(v[1][3], XXH_readLE32(p, endian)); p+=4;
+                v[1][0] = XXH32_round(v[1][0], XXH_readLE32(p, endian)); p+=4;
+                v[1][1] = XXH32_round(v[1][1], XXH_readLE32(p, endian)); p+=4;
+                v[1][2] = XXH32_round(v[1][2], XXH_readLE32(p, endian)); p+=4;
+                v[1][3] = XXH32_round(v[1][3], XXH_readLE32(p, endian)); p+=4;
 
 
-                } while (p <= limit);
-            }
+            } while (p <= limit);
+
             XXH_memcpy(state->v, v, sizeof(v));
         }
 

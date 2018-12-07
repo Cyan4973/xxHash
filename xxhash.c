@@ -93,7 +93,7 @@
  * set it to 0 when the input is guaranteed to be aligned,
  * or when alignment doesn't matter for performance.
  *
- * For example, Sandy Bridge (AVX) and ARMv7 have no unaligned
+ * For example, Nehalem (SSE4.2) and ARMv7 have no unaligned
  * access penalty. Disabling this check can increase performance.
  *
  * However, on a Core 2, which has an unaligned access penalty, enabling
@@ -101,7 +101,7 @@
  * on GCC 8.1.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#  if defined(__AVX__) || defined(__ARM_NEON__) || defined(__ARM_NEON)
+#  if defined(__SSE4_2__) || defined(__ARM_NEON__) || defined(__ARM_NEON)
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
@@ -1626,8 +1626,8 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
 /* SIMD-optimized code */
 #if XXH_VECTORIZE
 /* Older x86_64 processors slow down significantly on unaligned reads with
- * SSE4.1 instructions. Sandy Bridge (AVX) is unaffected, so we don't check
- * if you target AVX.
+ * SSE4.1 instructions. Nehalem is unaffected, so we don't check
+ * if you target SSE4.2
  * NEON is just as fast with unaligned reads, so we always use SIMD. */
 #if XXH_FORCE_ALIGN_CHECK && !(defined(__clang__) && defined(__i386__))
     if (len >= 32 && endian==XXH_littleEndian && ((size_t)p&3)==0) {

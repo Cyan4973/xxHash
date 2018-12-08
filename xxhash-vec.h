@@ -192,7 +192,8 @@ struct U32x4x2
 	U32x4x2() {}
 	U32x4x2(U32x4 v1, U32x4 v2) : val { v1, v2 } {}
 };
-
+#elif !defined(XXH_VECTORIZE)
+#define XXH_VECTORIZE 0
 #endif /* C++/SSE4.1 */
 
 #endif /* XXHASH_VEC_H */

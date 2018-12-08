@@ -18,3 +18,6 @@ xxhsum_inlinedXXH.exe
 # Mac OS-X artefacts
 *.dSYM
 .DS_Store
+/.vs
+/cmake_unofficial/CMakeSettings.json
+*.obj

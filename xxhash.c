@@ -101,7 +101,7 @@
  * on GCC 8.1.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#  if defined(__SSE4_2__) || defined(__ARM_NEON__) || defined(__ARM_NEON)
+#  if defined(__SSE4_2__) || defined(__AVX__) || defined(__ARM_NEON__) || defined(__ARM_NEON)
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
@@ -353,95 +353,17 @@ static U32 XXH32_avalanche(U32 h32)
 }
 
 
-#ifndef XXH_VECTORIZE
-/* Clang and GCC 4.6+ can use vectorization properly.
- * Most importantly, shifting vectors. */
-#  if (defined(__clang__) || XXH_GCC_VERSION >= 406) && \
-    (defined(__SSE4_1__) || defined(__ARM_NEON) || defined(__ARM_NEON__))
-#    define XXH_VECTORIZE 1
+#if (!defined(XXH_VECTORIZE) || XXH_VECTORIZE)
+#  if defined(__has_include)
+#     if __has_include("xxhash-vec.h")
+#       include "xxhash-vec.h"
+#     else
+#       define XXH_VECTORIZE 0
+#     endif
 #  else
-#    define XXH_VECTORIZE 0
+#    include "xxhash-vec.h"
 #  endif
 #endif
-
-#if XXH_VECTORIZE
-
-#if defined(__ARM_NEON__) || defined(__ARM_NEON)
-#include <arm_neon.h>
-# define XXH_NEON
-
-typedef uint32x4_t U32x4;
-typedef uint32x4x2_t U32x4x2;
-
-/* Neither GCC or Clang can properly optimize the generic version
- * for Arm NEON.
- * Instead of the optimal version, which is this:
- *      vshr.u32        q9, q8, #19
- *      vsli.32         q9, q8, #13
- * GCC and Clang will produce this slower version:
- *      vshr.u32        q9, q8, #19
- *      vshl.i32        q8, q8, #13
- *      vorr            q8, q8, q9
- * This is much faster, and I think a few intrinsics are acceptable. */
-#define XXH_vec_rotl32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
-#define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
-#define XXH_vec_store_unaligned(p, v) vst1q_u32((U32*)p, v)
-#define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
-#define XXH_vec_store_unaligned(p, v) vst1q_u32((U32*)p, v)
-
-/* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
- * version for this one. */
-FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
-{
-    const U32x4 v32 = { 32, 32, 32, 32 };
-    return (x << r) | (x >> (v32 - r));
-}
-
-
-#else /* not NEON */
-/* __m128i (SSE) or uint32x4_t (NEON). */
-typedef U32 U32x4 __attribute__((__vector_size__(16)));
-
-/* Two U32x4s. */
-typedef struct { U32x4 val[2]; } U32x4x2;
-
-/* Clang < 5.0 doesn't support int -> vector conversions.
- * Yuck. */
-FORCE_INLINE U32x4 XXH_vec_rotl32(U32x4 x, U32 r)
-{
-    const U32x4 left = { r, r, r, r };
-    const U32x4 right = {
-        32 - r,
-        32 - r,
-        32 - r,
-        32 - r
-    };
-    return (x << left) | (x >> right);
-}
-
-/* emmintrin.h's _mm_loadu_si128 code. */
-FORCE_INLINE U32x4 XXH_vec_load_unaligned(const void* p)
-{
-    struct loader {
-        U32x4 v;
-    } __attribute__((__packed__, __may_alias__));
-    return ((const struct loader*)p)->v;
-}
-
-/* _mm_storeu_si128 */
-FORCE_INLINE void XXH_vec_store_unaligned(void* p, const U32x4 v)
-{
-    struct loader {
-        U32x4 v;
-     } __attribute__((__packed__, __may_alias__));
-    ((struct loader*)p)->v = v;
-}
-
-#define XXH_vec_load_aligned(p) *(U32x4*)(p)
-#define XXH_vec_store_aligned(p, v) (*(U32x4*)(p) = v)
-
-#endif /* not NEON */
-#endif /* XXH_VECTORIZE */
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, endian, align)
 
@@ -1649,7 +1571,7 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
              * use a direct dereference. */
            if (XXH_FORCE_ALIGN_CHECK && ((size_t)p&15) == 0) {
                 do {
-                    const U32x4* inp = (const U32x4*)__builtin_assume_aligned(p, 16);
+                    const U32x4* inp = (const U32x4*)XXH_assume_aligned(p, 16);
 
                     /* XXH32_round */
                     v.val[0] += inp[0] * prime2;

@@ -998,19 +998,23 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
 #endif
 
 /* Decent performance (2 GB/s on Core 2 Duo @2.13GHz) is possible on x86_32 with two vectors.
- * It slows down x64 and ARMv7, though. */
-#if XXH_VECTORIZE && (defined(__i386__) || defined(XXH_VECTORIZE_XXH64))
+ * It slows down x64 (native math is faster) and ARMv7 (no 64-bit vector multiply), though.
+ * Clang vectorizes this nicely, but on GCC, it is necessary to use the C++ wrappers for
+ * proper performance. */
+#if XXH_VECTORIZE && (defined(__i386__) || defined(_M_IX86) || defined(XXH_VECTORIZE_XXH64))
     if (len>=32 && endian==XXH_littleEndian) {
         const BYTE* const limit = bEnd - 32;
-        typedef U64 U64x2 __attribute__((__vector_size__(16)));
-        U64x2 v[2] = {{
-            seed + PRIME64_1 + PRIME64_2,
-            seed + PRIME64_2
-        },{
-            seed + 0,
-            seed - PRIME64_1
-        }};
-        if (XXH_FORCE_ALIGN_CHECK && ((size_t)p & 15) == 0) {
+		U64 vx1[2][2];
+		U64x2 v[2];
+		vx1[0][0] = seed + PRIME64_1 + PRIME64_2;
+		vx1[0][1] = seed + PRIME64_2;
+
+		vx1[1][0] = seed + 0;
+		vx1[1][1] = seed - PRIME64_1;
+
+		v[0] = (U64x2)XXH_vec_load_unaligned((const U32*)vx1[0]);
+		v[1] = (U64x2)XXH_vec_load_unaligned((const U32*)vx1[1]);
+		if (XXH_FORCE_ALIGN_CHECK && ((size_t)p & 15) == 0) {
             do {
                 U64x2 inp = *(const U64x2*)XXH_assume_aligned(p, 16);
                 v[0] += inp * PRIME64_2;
@@ -1025,29 +1029,29 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
                 p += 16;
             } while (p < limit);
         } else {
-            struct loader {
-                U64x2 v;
-            } __attribute__((__packed__, __may_alias__));
             do {
-                U64x2 inp = ((const struct loader *)p)->v;
+                U64x2 inp = (U64x2)XXH_vec_load_unaligned(p);
                 v[0] += inp * PRIME64_2;
                 v[0]  = (v[0] << 31) | (v[0] >> 33);
                 v[0] *= PRIME64_1;
                 p += 16;
 
-                inp = ((const struct loader *)p)->v;
+                inp = (U64x2)XXH_vec_load_unaligned(p);
                 v[1] += inp * PRIME64_2;
                 v[1]  = (v[1] << 31) | (v[1] >> 33);
                 v[1] *= PRIME64_1;
                 p += 16;
             } while (p < limit);
         }
-        h64 = XXH_rotl64(v[0][0], 1) + XXH_rotl64(v[0][1], 7) + XXH_rotl64(v[1][0], 12) + XXH_rotl64(v[1][1], 18);
 
-        h64 = XXH64_mergeRound(h64, v[0][0]);
-        h64 = XXH64_mergeRound(h64, v[0][1]);
-        h64 = XXH64_mergeRound(h64, v[1][0]);
-        h64 = XXH64_mergeRound(h64, v[1][1]);
+		XXH_vec_store_unaligned((U32*)vx1[0], (U32x4)v[0]);
+		XXH_vec_store_unaligned((U32*)vx1[1], (U32x4)v[1]);
+        h64 = XXH_rotl64(vx1[0][0], 1) + XXH_rotl64(vx1[0][1], 7) + XXH_rotl64(vx1[1][0], 12) + XXH_rotl64(vx1[1][1], 18);
+
+        h64 = XXH64_mergeRound(h64, vx1[0][0]);
+        h64 = XXH64_mergeRound(h64, vx1[0][1]);
+        h64 = XXH64_mergeRound(h64, vx1[1][0]);
+        h64 = XXH64_mergeRound(h64, vx1[1][1]);
     } else
 #endif /* XXH_VECTORIZE && (i386 || XXH_VECTORIZE_XXH64) */
     if (len>=32) {

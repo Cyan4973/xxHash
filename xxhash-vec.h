@@ -197,7 +197,7 @@ public:
 	 * Thankfully, this is doable with the pmuludq instruction (MultLow), which multiplies
 	 * a 64-bit vector by a 32-bit value.
 	 *
-	 * This is based on Clang's output. 
+	 * This is based on Clang's output.
 	 *
 	 * Unfortunately, there is no such thing for NEON, and this is slower than 64-bit math
 	 * on x86_64. */

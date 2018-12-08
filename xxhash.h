@@ -376,6 +376,7 @@ struct XXH32a_state_s {
    uint32_t reserved;       /*     76 - never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH32a_state_t */
 
+#   ifndef XXH_NO_LONG_LONG
 struct XXH64_state_s {
    uint64_t total_len;
    uint64_t v1;
@@ -386,7 +387,7 @@ struct XXH64_state_s {
    uint32_t memsize;
    uint32_t reserved[2];          /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
-
+#   endif
 # else
 
 struct XXH32_state_s {

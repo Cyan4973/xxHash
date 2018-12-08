@@ -165,6 +165,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #define CONSTANT static const
 #endif
 
+
 /* *************************************
 *  Basic Types
 ***************************************/
@@ -176,10 +177,16 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
     typedef uint8_t  BYTE;
     typedef uint16_t U16;
     typedef uint32_t U32;
+#ifndef XXH_NO_LONG_LONG
+	typedef uint64_t U64;
+#endif
 # else
     typedef unsigned char      BYTE;
     typedef unsigned short     U16;
     typedef unsigned int       U32;
+#ifndef XXH_NO_LONG_LONG
+	typedef unsigned long long U64;
+#endif
 # endif
 #endif
 
@@ -754,20 +761,6 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 /*======   Memory access   ======*/
 
-#ifndef MEM_MODULE
-# define MEM_MODULE
-# if !defined (__VMS) \
-  && (defined (__cplusplus) \
-  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
-#   include <stdint.h>
-    typedef uint64_t U64;
-# else
-    /* if compiler doesn't support unsigned long long, replace by another 64-bit type */
-    typedef unsigned long long U64;
-# endif
-#endif
-
-
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
@@ -1280,6 +1273,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
     return XXH_readBE64(src);
 }
 
+#endif /* !XXH_NO_LONG_LONG */
 #ifndef XXH_NO_ALT_HASHES
 /* *******************************************************************
 *  32-bit hash functions (alternative)
@@ -1703,6 +1697,8 @@ XXH_PUBLIC_API unsigned int XXH32a_digest (const XXH32a_state_t* state_in)
     else
         return XXH32a_digest_endian(state_in, XXH_bigEndian);
 }
+
+#ifndef XXH_NO_LONG_LONG
 /* Synopsis:
  * U32 v[2][4];
  * U64 seed;

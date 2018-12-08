@@ -43,8 +43,10 @@
 
 typedef uint32x4_t U32x4;
 typedef uint32x4x2_t U32x4x2;
-typedef uint64x2_t U64x2;
 
+#ifndef XXH_NO_LONG_LONG
+typedef uint64x2_t U64x2;
+#endif
 
 /* Neither GCC or Clang can properly optimize the generic version
  * for Arm NEON.
@@ -136,10 +138,10 @@ public:
 		_mm_storeu_si128(reinterpret_cast<__m128i*>(out), value);
 	}
 };
+#ifndef XXH_NO_LONG_LONG
 struct U64x2 {
 private:
 	__m128i value;
-	typedef uint64_t U64;
 
 public:
 	inline U64x2() {}
@@ -230,6 +232,7 @@ public:
 		_mm_storeu_si128(reinterpret_cast<__m128i*>(out), value);
 	}
 };
+#endif /* !XXH_NO_LONG_LONG */
 FORCE_INLINE U32x4 XXH_vec_rotl32(U32x4 lhs, int bits)
 {
 	return (lhs << bits) | (lhs >> (32 - bits));
@@ -269,8 +272,10 @@ typedef U32 U32x4 __attribute__((__vector_size__(16)));
 /* Two U32x4s. */
 typedef struct { U32x4 val[2]; } U32x4x2;
 
+#ifndef XXH_NO_LONG_LONG
 /* Two U64s. */
 typedef U64 U64x2 __attribute__((__vector_size__(16)));
+#endif
 
 /* Clang < 5.0 doesn't support int -> vector conversions.
  * Yuck. */

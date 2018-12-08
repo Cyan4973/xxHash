@@ -69,7 +69,7 @@ FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
 }
 
 #elif (XXH_GCC_VERSION >= 407 || defined(__clang__)) \
-	&& (defined(__SSE4_1__) || defined(__AVX__) || defined(_M_IX86_FP))
+	&& (defined(__SSE4_1__) || defined(__AVX__))
 #undef XXH_VECTORIZE
 #define XXH_VECTORIZE 1
 /* not NEON */
@@ -115,7 +115,7 @@ FORCE_INLINE void XXH_vec_store_unaligned(void* p, const U32x4 v)
 #define XXH_vec_store_aligned(p, v) (*(U32x4*)(p) = v)
 
 /* This catches MSVC++ if supplied /TP, and hopefully ICC. */
-#elif defined(__cplusplus) && (defined(__SSE4_1__) || defined(__AVX__) || defined(_M_X64) || defined(_M_IX86_FP))
+#elif defined(__cplusplus) && (defined(__SSE4_1__) || defined(__AVX__))
 #undef XXH_VECTORIZE
 #define XXH_VECTORIZE 1
 #include <smmintrin.h>

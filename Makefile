@@ -195,14 +195,14 @@ staticAnalyze: clean
 .PHONY: cppcheck
 cppcheck:
 	@echo ---- static analyzer - cppcheck ----
-	cppcheck . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
+	cppcheck . --force --enable=warning,portability,performance,style --error-exitcode=1 --suppress=knownConditionTrueFalse > /dev/null
 
 .PHONY: namespaceTest
 namespaceTest:
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
 	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
-	$(RM) *.o xxhsum2  # clean
+	$(RM) *.o *.obj xxhsum2  # clean
 
 xxhsum.1: xxhsum.1.md
 	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
@@ -233,8 +233,8 @@ trailingWhitespace:
 .PHONY: clean
 clean:
 	@$(RM) -r *.dSYM   # Mac OS-X specific
-	@$(RM) core *.o libxxhash.*
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32asum xxh32sum xxh64sum
+	@$(RM) core *.o *.obj libxxhash.*
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh64asum xxh32asum xxh32sum xxh64sum
 	@echo cleaning completed
 
 
@@ -296,6 +296,7 @@ install: lib xxhsum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32asum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64asum
 	@echo Installing man pages
 	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
@@ -312,6 +313,7 @@ uninstall:
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32asum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
+	@$(RM) $(DESTDIR)$(BINDIR)/xxh64asum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxhsum
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1

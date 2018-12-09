@@ -1536,7 +1536,7 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
                 state->v[1][0] = XXH32_round(state->v[1][0], XXH_readLE32(p32, endian)); p32++;
                 state->v[1][1] = XXH32_round(state->v[1][1], XXH_readLE32(p32, endian)); p32++;
                 state->v[1][2] = XXH32_round(state->v[1][2], XXH_readLE32(p32, endian)); p32++;
-                state->v[1][3] = XXH32_round(state->v[1][3], XXH_readLE32(p32, endian)); p32++;
+                state->v[1][3] = XXH32_round(state->v[1][3], XXH_readLE32(p32, endian));
             }
             p += 32-state->memsize;
             state->memsize = 0;

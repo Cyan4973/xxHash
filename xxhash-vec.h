@@ -68,8 +68,8 @@ typedef uint64x2_t U64x2;
   * version for this one. */
 FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
 {
-	const U32x4 v32 = { 32, 32, 32, 32 };
-	return (x << r) | (x >> (v32 - r));
+    const U32x4 v32 = { 32, 32, 32, 32 };
+    return (x << r) | (x >> (v32 - r));
 }
 
 /* This catches MSVC++ if supplied /TP, and hopefully ICC.
@@ -84,185 +84,185 @@ FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
 /* A very simple wrapper around __m128i */
 struct U32x4 {
 private:
-	__m128i value;
+    __m128i value;
 public:
-	inline U32x4() {}
-	inline U32x4(U32 v1, U32 v2, U32 v3, U32 v4)
-		: value(_mm_set_epi32(v4, v3, v2, v1))
-	{
-	}
-	inline U32x4(__m128i v) : value(v) {}
-	explicit inline U32x4(const __m128i* pointer)
-		: value(_mm_loadu_si128(pointer))
-	{
-	}
-	inline U32x4(const U32 v)
-		: value(_mm_set1_epi32(v))
-	{
-	}
-	inline operator __m128i() const
-	{
-		return value;
-	}
-	inline U32 operator[](size_t pos)
-	{
-		switch (pos & 3) {
-		case 0: return _mm_extract_epi32(value, 0);
-		case 1: return _mm_extract_epi32(value, 1);
-		case 2: return _mm_extract_epi32(value, 2);
-		default: return _mm_extract_epi32(value, 3);
-		}
-	}
-	/* Defining the operators is slow and tedious. */
+    inline U32x4() {}
+    inline U32x4(U32 v1, U32 v2, U32 v3, U32 v4)
+        : value(_mm_set_epi32(v4, v3, v2, v1))
+    {
+    }
+    inline U32x4(__m128i v) : value(v) {}
+    explicit inline U32x4(const __m128i* pointer)
+        : value(_mm_loadu_si128(pointer))
+    {
+    }
+    inline U32x4(const U32 v)
+        : value(_mm_set1_epi32(v))
+    {
+    }
+    inline operator __m128i() const
+    {
+        return value;
+    }
+    inline U32 operator[](size_t pos)
+    {
+        switch (pos & 3) {
+        case 0: return _mm_extract_epi32(value, 0);
+        case 1: return _mm_extract_epi32(value, 1);
+        case 2: return _mm_extract_epi32(value, 2);
+        default: return _mm_extract_epi32(value, 3);
+        }
+    }
+    /* Defining the operators is slow and tedious. */
 #define OP(intrinsic, op1, op2, type) \
     inline U32x4& operator op1(type rhs) \
     { \
-	    this->value = intrinsic(this->value, rhs); \
-	    return *this; \
+        this->value = intrinsic(this->value, rhs); \
+        return *this; \
     } \
     inline friend U32x4 operator op2(U32x4 lhs, type rhs) \
     { \
-	    U32x4 tmp = intrinsic(lhs.value, rhs); \
-	    return tmp; \
+        U32x4 tmp = intrinsic(lhs.value, rhs); \
+        return tmp; \
     }
 
-	OP(_mm_add_epi32, +=, +, const U32x4)
-	OP(_mm_mullo_epi32, *=, *, const U32x4)
-	OP(_mm_or_si128, |=, | , const U32x4)
+    OP(_mm_add_epi32, +=, +, const U32x4)
+    OP(_mm_mullo_epi32, *=, *, const U32x4)
+    OP(_mm_or_si128, |=, | , const U32x4)
 
-	OP(_mm_slli_epi32, <<=, << , int)
-	OP(_mm_srli_epi32, >>=, >> , int)
+    OP(_mm_slli_epi32, <<=, << , int)
+    OP(_mm_srli_epi32, >>=, >> , int)
 #undef OP
-	inline void store(U32 *out) const
-	{
-		_mm_storeu_si128(reinterpret_cast<__m128i*>(out), value);
-	}
+    inline void store(U32 *out) const
+    {
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(out), value);
+    }
 };
 #ifndef XXH_NO_LONG_LONG
 struct U64x2 {
 private:
-	__m128i value;
+    __m128i value;
 
 public:
-	inline U64x2() {}
-	inline U64x2(U64 v1, U64 v2)
-		: value(_mm_set_epi64x(v2, v1))
-	{
-	}
-	inline U64x2(__m128i v) : value(v) {}
-	explicit inline U64x2(const __m128i* pointer)
-		: value(_mm_loadu_si128(pointer))
-	{
-	}
-	inline U64x2(const U64 v)
-		: value(_mm_set1_epi64x(v))
-	{
-	}
-	inline operator __m128i() const
-	{
-		return value;
-	}
+    inline U64x2() {}
+    inline U64x2(U64 v1, U64 v2)
+        : value(_mm_set_epi64x(v2, v1))
+    {
+    }
+    inline U64x2(__m128i v) : value(v) {}
+    explicit inline U64x2(const __m128i* pointer)
+        : value(_mm_loadu_si128(pointer))
+    {
+    }
+    inline U64x2(const U64 v)
+        : value(_mm_set1_epi64x(v))
+    {
+    }
+    inline operator __m128i() const
+    {
+        return value;
+    }
 
-	/* Defining the operators is slow and tedious. */
+    /* Defining the operators is slow and tedious. */
 #define OP(intrinsic, op1, op2, type) \
     inline U64x2& operator op1(type rhs) \
     { \
-	    value = intrinsic(value, rhs); \
-	    return *this; \
+        value = intrinsic(value, rhs); \
+        return *this; \
     } \
     inline friend U64x2 operator op2(U64x2 lhs, type rhs) \
     { \
-	    U64x2 tmp = intrinsic(lhs.value, rhs); \
-	    return tmp; \
+        U64x2 tmp = intrinsic(lhs.value, rhs); \
+        return tmp; \
     }
 
-	OP(_mm_add_epi64, +=, +, const U64x2)
-	OP(_mm_or_si128, |=, | , const U64x2)
+    OP(_mm_add_epi64, +=, +, const U64x2)
+    OP(_mm_or_si128, |=, | , const U64x2)
 
-	OP(_mm_slli_epi64, <<=, << , int)
-	OP(_mm_srli_epi64, >>=, >> , int)
+    OP(_mm_slli_epi64, <<=, << , int)
+    OP(_mm_srli_epi64, >>=, >> , int)
 
 #undef OP
-	/* *this *= val & 0xFFFFFFFF */
-	inline U64x2& MultLow(const U64x2 val)
-	{
-		value = _mm_mul_epu32(value, val);
-		return *this;
-	}
-	inline U64x2 MultLow(U64x2 lhs, const U64x2 rhs)
-	{
-		lhs.MultLow(rhs);
-		return lhs;
-	}
-	/* Multiplication is more complex. There isn't a simple U64x2 * U64x2 instruction,
-	 * we have to do this manually.
-	 * Thankfully, this is doable with the pmuludq instruction (MultLow), which multiplies
-	 * a 64-bit vector by a 32-bit value.
-	 *
-	 * This is based on Clang's output.
-	 *
-	 * Unfortunately, there is no such thing for NEON, and this is slower than 64-bit math
-	 * on x86_64. */
-	inline U64x2& operator *=(const U64 rhs)
-	{
-		const U64 dup[2] = { rhs, rhs };
-		/* we could do (U64[2]) { rhs >> 32, rhs >> 32 }, but it slows down. */
-		const U32 high[4] = { rhs >> 32, 0, rhs >> 32, 0 };
+    /* *this *= val & 0xFFFFFFFF */
+    inline U64x2& MultLow(const U64x2 val)
+    {
+        value = _mm_mul_epu32(value, val);
+        return *this;
+    }
+    inline U64x2 MultLow(U64x2 lhs, const U64x2 rhs)
+    {
+        lhs.MultLow(rhs);
+        return lhs;
+    }
+    /* Multiplication is more complex. There isn't a simple U64x2 * U64x2 instruction,
+     * we have to do this manually.
+     * Thankfully, this is doable with the pmuludq instruction (MultLow), which multiplies
+     * a 64-bit vector by a 32-bit value.
+     *
+     * This is based on Clang's output.
+     *
+     * Unfortunately, there is no such thing for NEON, and this is slower than 64-bit math
+     * on x86_64. */
+    inline U64x2& operator *=(const U64 rhs)
+    {
+        const U64 dup[2] = { rhs, rhs };
+        /* we could do (U64[2]) { rhs >> 32, rhs >> 32 }, but it slows down. */
+        const U32 high[4] = { rhs >> 32, 0, rhs >> 32, 0 };
 
-		U64x2 xmm1(reinterpret_cast<const __m128i*>(dup));
-		U64x2 xmm2 = value;
-		U64x2 xmm3 = value;
-		U64x2 xmm0 = MultLow(*this, U64x2(reinterpret_cast<const __m128i*>(high)));
-		xmm3 >>= 32;
-		xmm3.MultLow(xmm1);
-		xmm2.MultLow(xmm1);
-		xmm0 += xmm3;
-		xmm0 <<= 32;
-		value = xmm0 + xmm2;
-		return *this;
-	}
-	inline friend U64x2 operator *(U64x2 lhs, const U64 rhs)
-	{
-		lhs *= rhs;
-		return lhs;
-	}
+        U64x2 xmm1(reinterpret_cast<const __m128i*>(dup));
+        U64x2 xmm2 = value;
+        U64x2 xmm3 = value;
+        U64x2 xmm0 = MultLow(*this, U64x2(reinterpret_cast<const __m128i*>(high)));
+        xmm3 >>= 32;
+        xmm3.MultLow(xmm1);
+        xmm2.MultLow(xmm1);
+        xmm0 += xmm3;
+        xmm0 <<= 32;
+        value = xmm0 + xmm2;
+        return *this;
+    }
+    inline friend U64x2 operator *(U64x2 lhs, const U64 rhs)
+    {
+        lhs *= rhs;
+        return lhs;
+    }
 
-	inline void store(U64 *out) const
-	{
-		_mm_storeu_si128(reinterpret_cast<__m128i*>(out), value);
-	}
+    inline void store(U64 *out) const
+    {
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(out), value);
+    }
 };
 #endif /* !XXH_NO_LONG_LONG */
 FORCE_INLINE U32x4 XXH_vec_rotl32(U32x4 lhs, int bits)
 {
-	return (lhs << bits) | (lhs >> (32 - bits));
+    return (lhs << bits) | (lhs >> (32 - bits));
 }
 
 FORCE_INLINE U32x4 XXH_vec_load_unaligned(const BYTE* data)
 {
-	U32x4 val(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)));
-	return val;
+    U32x4 val(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)));
+    return val;
 }
 
 FORCE_INLINE U32x4 XXH_vec_load_unaligned(const U32* data)
 {
-	return U32x4(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)));
+    return U32x4(_mm_loadu_si128(reinterpret_cast<const __m128i*>(data)));
 }
 
 FORCE_INLINE void XXH_vec_store_unaligned(U32* store, const U32x4 data)
 {
-	data.store(store);
+    data.store(store);
 }
 
 struct U32x4x2
 {
-	U32x4 val[2];
+    U32x4 val[2];
 
-	U32x4x2() {}
-	U32x4x2(U32x4 v1, U32x4 v2) : val{ v1, v2 } {}
+    U32x4x2() {}
+    U32x4x2(U32x4 v1, U32x4 v2) : val{ v1, v2 } {}
 };
 #elif (XXH_GCC_VERSION >= 407 || defined(__clang__)) \
-	&& (defined(__SSE4_1__) || defined(__AVX__))
+    && (defined(__SSE4_1__) || defined(__AVX__))
 #undef XXH_VECTORIZE
 #define XXH_VECTORIZE 1
 /* not NEON */
@@ -281,32 +281,32 @@ typedef U64 U64x2 __attribute__((__vector_size__(16)));
  * Yuck. */
 FORCE_INLINE U32x4 XXH_vec_rotl32(U32x4 x, U32 r)
 {
-	const U32x4 left = { r, r, r, r };
-	const U32x4 right = {
-		32 - r,
-		32 - r,
-		32 - r,
-		32 - r
-	};
-	return (x << left) | (x >> right);
+    const U32x4 left = { r, r, r, r };
+    const U32x4 right = {
+        32 - r,
+        32 - r,
+        32 - r,
+        32 - r
+    };
+    return (x << left) | (x >> right);
 }
 
 /* emmintrin.h's _mm_loadu_si128 code. */
 FORCE_INLINE U32x4 XXH_vec_load_unaligned(const void* p)
 {
-	struct loader {
-		U32x4 v;
-	} __attribute__((__packed__, __may_alias__));
-	return ((const struct loader*)p)->v;
+    struct loader {
+        U32x4 v;
+    } __attribute__((__packed__, __may_alias__));
+    return ((const struct loader*)p)->v;
 }
 
 /* _mm_storeu_si128 */
 FORCE_INLINE void XXH_vec_store_unaligned(void* p, const U32x4 v)
 {
-	struct loader {
-		U32x4 v;
-	} __attribute__((__packed__, __may_alias__));
-	((struct loader*)p)->v = v;
+    struct loader {
+        U32x4 v;
+    } __attribute__((__packed__, __may_alias__));
+    ((struct loader*)p)->v = v;
 }
 
 #define XXH_vec_load_aligned(p) *(U32x4*)(p)

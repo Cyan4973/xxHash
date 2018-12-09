@@ -365,10 +365,11 @@ static U32 XXH32_avalanche(U32 h32)
 #     if __has_include("xxhash-vec.h")
 #       include "xxhash-vec.h"
 #     else
+#       undef XXH_VECTORIZE
 #       define XXH_VECTORIZE 0
 #     endif
 #  else
-#    include "xxhash-vec.h"
+#    include "xxhash-vec.h" /* define XXH_VECTORIZE=0 to disable */
 #  endif
 #endif
 
@@ -1174,7 +1175,62 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
             p += 32-state->memsize;
             state->memsize = 0;
         }
+        /* Decent performance (2 GB/s on Core 2 Duo @2.13GHz) is possible on x86_32 with two vectors.
+         * It slows down x64 (native math is faster) and ARMv7 (no 64-bit vector multiply), though.
+         * Clang vectorizes this nicely, but on GCC, it is necessary to use the C++ wrappers for
+         * proper performance. */
+#if XXH_VECTORIZE && (defined(__i386__) || defined(_M_IX86) || defined(XXH_VECTORIZE_XXH64))
+        if (p + 32 <= bEnd && endian == XXH_littleEndian) {
+            const BYTE* const limit = bEnd - 32;
+            U64 vx1[2][2];
+            U64x2 v[2];
+            vx1[0][0] = state->v1;
+            vx1[0][1] = state->v2;
+            vx1[1][0] = state->v3;
+            vx1[1][1] = state->v4;
 
+            v[0] = (U64x2)XXH_vec_load_unaligned(vx1[0]);
+            v[1] = (U64x2)XXH_vec_load_unaligned(vx1[1]);
+            if (XXH_FORCE_ALIGN_CHECK && ((size_t)p & 15) == 0) {
+                do {
+                    U64x2 inp = *(const U64x2*)XXH_assume_aligned(p, 16);
+                    v[0] += inp * PRIME64_2;
+                    v[0] = (v[0] << 31) | (v[0] >> 33);
+                    v[0] *= PRIME64_1;
+                    p += 16;
+
+                    inp = *(const U64x2*)XXH_assume_aligned(p, 16);
+                    v[1] += inp * PRIME64_2;
+                    v[1] = (v[1] << 31) | (v[1] >> 33);
+                    v[1] *= PRIME64_1;
+                    p += 16;
+                } while (p <= limit);
+            }
+            else {
+                do {
+                    U64x2 inp = (U64x2)XXH_vec_load_unaligned(p);
+                    v[0] += inp * PRIME64_2;
+                    v[0] = (v[0] << 31) | (v[0] >> 33);
+                    v[0] *= PRIME64_1;
+                    p += 16;
+
+                    inp = (U64x2)XXH_vec_load_unaligned(p);
+                    v[1] += inp * PRIME64_2;
+                    v[1] = (v[1] << 31) | (v[1] >> 33);
+                    v[1] *= PRIME64_1;
+                    p += 16;
+                } while (p <= limit);
+            }
+
+            XXH_vec_store_unaligned(vx1[0], v[0]);
+            XXH_vec_store_unaligned(vx1[1], v[1]);
+            state->v1 = vx1[0];
+            state->v2 = vx1[1];
+            state->v3 = vx1[2];
+            state->v4 = vx1[3];
+        }
+        else
+#endif /* XXH_VECTORIZE && (i386 || XXH_VECTORIZE_XXH64) */
         if (p+32 <= bEnd) {
             const BYTE* const limit = bEnd - 32;
             U64 v1 = state->v1;
@@ -1279,13 +1335,23 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 *  32-bit hash functions (alternative)
 *********************************************************************/
 
+/* Sets v to the correct initial values. */
+FORCE_INLINE void XXH32a_reset_lanes(U32 v[2][4], U32 seed)
+{
+    /* Set up our array */
+    v[0][0] = v[1][0] = seed + PRIME32_1 + PRIME32_2;
+    v[0][1] = v[1][1] = seed + PRIME32_2;
+    v[0][2] = v[1][2] = seed + 0;
+    v[0][3] = v[1][3] = seed - PRIME32_1;
+}
+
 /* XXH32a and XXH64a share the same inner loop. They just handle
  * the beginning and end differently.
  *
  * The main difference is that XXH32a will duplicate and merge 32-bit
  * values, while XXH64a will split and join 64-bit values. */
 
-/* Note: Used by both XXH32a and XXH64a. */
+ /* Note: Used by both XXH32a and XXH64a. */
 FORCE_INLINE const BYTE* /* p */
 XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
                     XXH_endianess endian, XXH_alignment align)
@@ -1323,23 +1389,6 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
                 const U32x4 *inp = (const U32x4*)XXH_assume_aligned(p, 16);
 
                 /* XXH32_round */
-                v[0] += prime2 * inp[0];
-                v[0]  = XXH_vec_rotl32(v[0], 13);
-                v[0] *= prime1;
-
-                v[1] += prime2 * inp[1];
-                v[1]  = XXH_vec_rotl32(v[1], 13);
-                v[1] *= prime1;
-                p += 32;
-            } while (p < limit);
-        } else {
-            do {
-                /* Load 32 bytes at a time. */
-                const U32x4 inp[2] = {
-                    XXH_vec_load_unaligned(p),
-                    XXH_vec_load_unaligned((p + 16)),
-                };
-                /* XXH32_round */
                 v[0] += inp[0] * prime2;
                 v[0]  = XXH_vec_rotl32(v[0], 13);
                 v[0] *= prime1;
@@ -1347,8 +1396,24 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
                 v[1] += inp[1] * prime2;
                 v[1]  = XXH_vec_rotl32(v[1], 13);
                 v[1] *= prime1;
-
                 p += 32;
+            } while (p < limit);
+        } else {
+
+            do {
+                U32x4 inp = XXH_vec_load_unaligned(p);
+                /* XXH32_round */
+                v[0] += inp * prime2;
+                v[0]  = XXH_vec_rotl32(v[0], 13);
+                v[0] *= prime1;
+                p += 16;
+
+                inp = XXH_vec_load_unaligned(p);
+                v[1] += inp * prime2;
+                v[1]  = XXH_vec_rotl32(v[1], 13);
+                v[1] *= prime1;
+                p += 16;
+
             } while (p < limit);
         }
         XXH_vec_store_unaligned(state[0], v[0]);
@@ -1364,8 +1429,8 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
         const BYTE* const limit = bEnd - 31;
 
         XXH_memcpy(v, state, sizeof(v));
-
-        if (XXH_FORCE_ALIGN_CHECK && align==XXH_aligned && endian==XXH_littleEndian) {
+        
+        if (XXH_FORCE_ALIGN_CHECK && align == XXH_aligned && endian == XXH_littleEndian) {
             do {
                 const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
                 /* NO SSE */
@@ -1383,18 +1448,19 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
         } else {
             do {
                 /* NO SSE */
-                v[0][0] = XXH32_round(v[0][0], XXH_get32bits(p)); p+=4;
-                v[0][1] = XXH32_round(v[0][1], XXH_get32bits(p)); p+=4;
-                v[0][2] = XXH32_round(v[0][2], XXH_get32bits(p)); p+=4;
-                v[0][3] = XXH32_round(v[0][3], XXH_get32bits(p)); p+=4;
+                v[0][0] = XXH32_round(v[0][0], XXH_get32bits(p)); p += 4;
+                v[0][1] = XXH32_round(v[0][1], XXH_get32bits(p)); p += 4;
+                v[0][2] = XXH32_round(v[0][2], XXH_get32bits(p)); p += 4;
+                v[0][3] = XXH32_round(v[0][3], XXH_get32bits(p)); p += 4;
 
-                v[1][0] = XXH32_round(v[1][0], XXH_get32bits(p)); p+=4;
-                v[1][1] = XXH32_round(v[1][1], XXH_get32bits(p)); p+=4;
-                v[1][2] = XXH32_round(v[1][2], XXH_get32bits(p)); p+=4;
-                v[1][3] = XXH32_round(v[1][3], XXH_get32bits(p)); p+=4;
+                v[1][0] = XXH32_round(v[1][0], XXH_get32bits(p)); p += 4;
+                v[1][1] = XXH32_round(v[1][1], XXH_get32bits(p)); p += 4;
+                v[1][2] = XXH32_round(v[1][2], XXH_get32bits(p)); p += 4;
+                v[1][3] = XXH32_round(v[1][3], XXH_get32bits(p)); p += 4;
             } while (p < limit);
         }
-       XXH_memcpy(state, v, 8 * sizeof(U32));
+
+        XXH_memcpy(state, v, sizeof(v));
     }
 
     return p;
@@ -1446,10 +1512,7 @@ XXH_PUBLIC_API unsigned int XXH32a (const void* input, size_t len, unsigned int 
 
     if (len >= 32) {
         U32 v[2][4];
-        v[0][0] = v[1][0] = seed + PRIME32_1 + PRIME32_2;
-        v[0][1] = v[1][1] = seed + PRIME32_2;
-        v[0][2] = v[1][2] = seed + 0;
-        v[0][3] = v[1][3] = seed - PRIME32_1;
+        XXH32a_reset_lanes(v, seed);
 
         p = XXH32a_XXH64a_endian_align(v, p, len, endian, align);
 
@@ -1468,8 +1531,6 @@ XXH_PUBLIC_API unsigned int XXH32a (const void* input, size_t len, unsigned int 
     return XXH32_finalize(h32, p, len&31, endian, align);
 #endif
 }
-
-
 
 /*======   Hash streaming   ======*/
 
@@ -1492,10 +1553,9 @@ XXH_PUBLIC_API XXH_errorcode XXH32a_reset(XXH32a_state_t* statePtr, unsigned int
 {
     XXH32a_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
     memset(&state, 0, sizeof(state));
-    state.v[0][0] = state.v[1][0] = seed + PRIME32_1 + PRIME32_2;
-    state.v[0][1] = state.v[1][1] = seed + PRIME32_2;
-    state.v[0][2] = state.v[1][2] = seed + 0;
-    state.v[0][3] = state.v[1][3] = seed - PRIME32_1;
+
+    XXH32a_reset_lanes(state.v, seed);
+
     /* do not write into reserved, planned to be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
@@ -1555,11 +1615,13 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
     if (len >= 32 && endian==XXH_littleEndian) {
 #endif
             const BYTE* const limit = bEnd - 31;
-            U32x4x2 v;
+            U32x4 v[2] = {
+                XXH_vec_load_unaligned(state->v[0]),
+                XXH_vec_load_unaligned(state->v[1])
+            };
 
             const U32x4 prime1 = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
             const U32x4 prime2 = { PRIME32_2, PRIME32_2, PRIME32_2, PRIME32_2 };
-            XXH_memcpy(&v, state->v, sizeof(v));
 
             /* https://moinakg.wordpress.com/2013/01/19/vectorizing-xxhash-for-fun-and-profit/
              * shows that performing two parallel hashes at a time is much better for
@@ -1572,37 +1634,36 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
                     const U32x4* inp = (const U32x4*)XXH_assume_aligned(p, 16);
 
                     /* XXH32_round */
-                    v.val[0] += inp[0] * prime2;
-                    v.val[1] += inp[1] * prime2;
+                    v[0] += inp[0] * prime2;
+                    v[0]  = XXH_vec_rotl32(v[0], 13);
+                    v[0] *= prime1;
 
-                    v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
-                    v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
-
-                    v.val[0] *= prime1;
-                    v.val[1] *= prime1;
+                    v[1] += inp[1] * prime2;
+                    v[1]  = XXH_vec_rotl32(v[1], 13);
+                    v[1] *= prime1;
                     p += 32;
                 } while (p <= limit);
             } else {
                 do {
                     /* Load 32 bytes at a time. */
-                    const U32x4 inp[2] = {
-                        XXH_vec_load_unaligned(p),
-                        XXH_vec_load_unaligned(p + 16),
-                    };
+                    U32x4 inp = XXH_vec_load_unaligned(p);
+
                     /* XXH32_round */
-                    v.val[0] += inp[0] * prime2;
-                    v.val[1] += inp[1] * prime2;
+                    v[0] += inp * prime2;
+                    v[0]  = XXH_vec_rotl32(v[0], 13);
+                    v[0] *= prime1;
+                    p += 16;
 
-                    v.val[0]  = XXH_vec_rotl32(v.val[0], 13);
-                    v.val[1]  = XXH_vec_rotl32(v.val[1], 13);
-
-                    v.val[0] *= prime1;
-                    v.val[1] *= prime1;
-                    p += 32;
+                    inp = XXH_vec_load_unaligned(p);
+                    v[1] += inp * prime2;
+                    v[1]  = XXH_vec_rotl32(v[1], 13);
+                    v[1] *= prime1;
+                    p += 16;
 
                 } while (p <= limit);
             }
-            XXH_memcpy(state->v, &v, sizeof(v));
+           XXH_vec_store_unaligned(state->v[0], v[0]);
+           XXH_vec_store_unaligned(state->v[1], v[1]);
         } else
 #endif /* XXH_VECTORIZE */
         if (len >= 32) {
@@ -1610,7 +1671,7 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
             const BYTE* const limit = bEnd - 31;
 
             XXH_memcpy(v, state->v, sizeof(v));
-
+ 
             if (XXH_FORCE_ALIGN_CHECK && ((size_t)p&3)==0 && endian==XXH_littleEndian) {
                 do {
                     const U32* const inp = (const U32*)XXH_assume_aligned(p, 4);
@@ -1637,10 +1698,9 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
                     v[1][1] = XXH32_round(v[1][1], XXH_readLE32(p, endian)); p+=4;
                     v[1][2] = XXH32_round(v[1][2], XXH_readLE32(p, endian)); p+=4;
                     v[1][3] = XXH32_round(v[1][3], XXH_readLE32(p, endian)); p+=4;
-
-
                 } while (p <= limit);
             }
+
             XXH_memcpy(state->v, v, sizeof(v));
         }
 
@@ -1699,7 +1759,49 @@ XXH_PUBLIC_API unsigned int XXH32a_digest (const XXH32a_state_t* state_in)
 }
 
 #ifndef XXH_NO_LONG_LONG
-/* Synopsis:
+/* *******************************************************************
+*  64-bit hash functions (alternative)
+*********************************************************************/
+
+/* Sets v to the correct initial values. */
+FORCE_INLINE void XXH64a_reset_lanes(U32 v[2][4], const U64 seed)
+{
+    U32 seeds[2];
+    seeds[0] = (U32)(seed & 0xFFFFFFFF);
+    seeds[1] = (U32)(seed >> 32);
+
+    v[0][0] = seeds[0] + PRIME32_1 + PRIME32_2;
+    v[0][1] = seeds[0] + PRIME32_2;
+    v[0][2] = seeds[0] + 0;
+    v[0][3] = seeds[0] - PRIME32_1;
+
+    v[1][0] = seeds[1] + PRIME32_1 + PRIME32_2;
+    v[1][1] = seeds[1] + PRIME32_2;
+    v[1][2] = seeds[1] + 0;
+    v[1][3] = seeds[1] - PRIME32_1;
+}
+
+
+/* Joins two 32-bit lanes into one. */
+FORCE_INLINE U64 XXH64a_join_lane(const U32 v[2][4], int lane)
+{
+    return v[0][lane] | ((U64) v[1][lane] << 32);
+}
+
+/* Note: Most of the hashing code is above in XXH32a.
+ * The main loop is shared between the two hashes. */
+
+/* XXH64a
+ * The 64-bit variant of the parallel xxHash. 
+ *
+ * This, unlike XXH64, has good performance on 32-bit devices.
+ *
+ * With vectorization disabled, 
+ * Unlike XXH32a which copies the seed and then merges the lanes together,
+ * XXH64a will split the 64-bit seed and join the lanes together.
+ * This is best explained in a diagram.
+ *
+ * Synopsis:
  * U32 v[2][4];
  * U64 seed;
  * U64 v64[4];
@@ -1729,7 +1831,6 @@ XXH_PUBLIC_API unsigned long long XXH64a (const void* input, size_t len, unsigne
     return XXH64a_digest(&state);
 #else
     U64 h64;
-    U32 seeds[2];
     const BYTE* p = (const BYTE*)input;
     XXH_endianess endian = ((XXH_endianess)XXH_CPU_LITTLE_ENDIAN==XXH_littleEndian
                                     || XXH_FORCE_NATIVE_FORMAT) ? XXH_littleEndian : XXH_bigEndian;
@@ -1742,42 +1843,30 @@ XXH_PUBLIC_API unsigned long long XXH64a (const void* input, size_t len, unsigne
     }
 #endif
 
-    /* Set up our state. We use the same primes, but we split the LSB
-     * and MSB of the seed between the four lanes. */
-    seeds[0] = (U32)(seed & 0xFFFFFFFF);
-    seeds[1] = (U32)(seed >> 32);
-
     if (len >= 32) {
         U32 v[2][4];
         U64 v64[4];
 
-        /* Set up our array */
-        v[0][0] = seeds[0] + PRIME32_1 + PRIME32_2;
-        v[0][1] = seeds[0] + PRIME32_2;
-        v[0][2] = seeds[0] + 0;
-        v[0][3] = seeds[0] - PRIME32_1;
-        v[1][0] = seeds[1] + PRIME32_1 + PRIME32_2;
-        v[1][1] = seeds[1] + PRIME32_2;
-        v[1][2] = seeds[1] + 0;
-        v[1][3] = seeds[1] - PRIME32_1;
+        XXH64a_reset_lanes(v, seed);
 
         p = XXH32a_XXH64a_endian_align(v, p, len, endian, align);
 
-        /* Merge the 8 32-bit lanes into 4 64-bit lanes. */
-        v64[0] = v[0][0] | ((U64)v[1][0] << 32);
-        v64[1] = v[0][1] | ((U64)v[1][1] << 32);
-        v64[2] = v[0][2] | ((U64)v[1][2] << 32);
-        v64[3] = v[0][3] | ((U64)v[1][3] << 32);
+        /* Join the 8 32-bit lanes into 4 64-bit lanes. */
+        v64[0] = XXH64a_join_lane(v, 0);
+        v64[1] = XXH64a_join_lane(v, 1);
+        v64[2] = XXH64a_join_lane(v, 2);
+        v64[3] = XXH64a_join_lane(v, 3);
 
         /* The usual XXH64 ending routine */
         h64 = XXH_rotl64(v64[0], 1) + XXH_rotl64(v64[1], 7)
             + XXH_rotl64(v64[2], 12) + XXH_rotl64(v64[3], 18);
+
         h64 = XXH64_mergeRound(h64, v64[0]);
         h64 = XXH64_mergeRound(h64, v64[1]);
         h64 = XXH64_mergeRound(h64, v64[2]);
         h64 = XXH64_mergeRound(h64, v64[3]);
     } else {
-        h64  = (seeds[0] | ((U64)seeds[1] << 32)) /* seed */ + PRIME64_5;
+        h64  = seed + PRIME64_5;
     }
 
     h64 += (U32)len;
@@ -1806,20 +1895,9 @@ XXH_PUBLIC_API void XXH64a_copyState(XXH64a_state_t* dstState, const XXH64a_stat
 XXH_PUBLIC_API XXH_errorcode XXH64a_reset(XXH64a_state_t* statePtr, unsigned long long seed)
 {
     XXH64a_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    U32 seeds[2];
     memset(&state, 0, sizeof(state));
 
-    /* Split the 64-bit seed into two 32-bit seeds, and distribute it. */
-    seeds[0] = (U32)(seed & 0xFFFFFFFF);
-    seeds[1] = (U32)(seed >> 32);
-    state.v[0][0] = seeds[0] + PRIME32_1 + PRIME32_2;
-    state.v[0][1] = seeds[0] + PRIME32_2;
-    state.v[0][2] = seeds[0] + 0;
-    state.v[0][3] = seeds[0] - PRIME32_1;
-    state.v[1][0] = seeds[1] + PRIME32_1 + PRIME32_2;
-    state.v[1][1] = seeds[1] + PRIME32_2;
-    state.v[1][2] = seeds[1] + 0;
-    state.v[1][3] = seeds[1] - PRIME32_1;
+    XXH64a_reset_lanes(state.v, seed);
 
     /* do not write into reserved, planned to be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
@@ -1835,10 +1913,10 @@ FORCE_INLINE U64 XXH64a_digest_endian (const XXH64a_state_t* state, XXH_endianes
 {
     U64 h64;
     if (state->large_len) {
-        U64 const v1 = state->v[0][0] | ((U64)state->v[1][0] << 32);
-        U64 const v2 = state->v[0][1] | ((U64)state->v[1][1] << 32);
-        U64 const v3 = state->v[0][2] | ((U64)state->v[1][2] << 32);
-        U64 const v4 = state->v[0][3] | ((U64)state->v[1][3] << 32);
+        U64 const v1 = XXH64a_join_lane(state->v, 0);
+        U64 const v2 = XXH64a_join_lane(state->v, 1);
+        U64 const v3 = XXH64a_join_lane(state->v, 2);
+        U64 const v4 = XXH64a_join_lane(state->v, 3);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
         h64 = XXH64_mergeRound(h64, v1);
@@ -1852,7 +1930,8 @@ FORCE_INLINE U64 XXH64a_digest_endian (const XXH64a_state_t* state, XXH_endianes
     h64 += (U64) state->total_len_32;
 
     if (((size_t)state->mem32 & 7) == 0) {
-        return XXH64_finalize(h64, (U64*)XXH_assume_aligned(state->mem32, 8), (size_t)state->memsize, endian, XXH_aligned);
+        return XXH64_finalize(h64, (U64*)XXH_assume_aligned(state->mem32, 8),
+                              (size_t)state->memsize, endian, XXH_aligned);
     } else {
         U64 mem[32];
         memcpy(mem, state->mem32, 32);

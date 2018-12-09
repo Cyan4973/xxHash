@@ -42,7 +42,6 @@
 #define XXH_VECTORIZE 1
 
 typedef uint32x4_t U32x4;
-typedef uint32x4x2_t U32x4x2;
 
 #ifndef XXH_NO_LONG_LONG
 typedef uint64x2_t U64x2;
@@ -59,10 +58,11 @@ typedef uint64x2_t U64x2;
  *      vorr            q8, q8, q9
  * This is much faster, and I think a few intrinsics are acceptable. */
 #define XXH_vec_rotl32(x, r) vsliq_n_u32(vshrq_n_u32((x), 32 - (r)), (x), (r))
-#define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
-#define XXH_vec_store_unaligned(p, v) vst1q_u32((U32*)p, v)
-#define XXH_vec_load_unaligned(p) vld1q_u32((const U32*)p)
-#define XXH_vec_store_unaligned(p, v) vst1q_u32((U32*)p, v)
+
+#define XXH_vec_load_unaligned(p) vreinterpretq_u32_u8(vld1q_u8((const BYTE*)(p)))
+#define XXH_vec_store_unaligned(p, v) vst1q_u8((BYTE*)(p), vreinterpretq_u8_u32((v)))
+#define XXH_vec_load_aligned(p) vreinterpretq_u32_u8(vld1q_u8((const BYTE*)(p)))
+#define XXH_vec_store_aligned(p, v) vst1q_u8((BYTE*)(p), vreinterpretq_u8_u32((v)))
 
  /* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
   * version for this one. */
@@ -153,6 +153,11 @@ public:
     explicit inline U64x2(const __m128i* pointer)
         : value(_mm_loadu_si128(pointer))
     {
+    }
+    static inline U64x2 LoadAligned(const __m128i* pointer)
+    {
+        U64x2 ret(_mm_load_si128(pointer));
+        return ret;
     }
     inline U64x2(const U64 v)
         : value(_mm_set1_epi64x(v))
@@ -253,14 +258,6 @@ FORCE_INLINE void XXH_vec_store_unaligned(U32* store, const U32x4 data)
 {
     data.store(store);
 }
-
-struct U32x4x2
-{
-    U32x4 val[2];
-
-    U32x4x2() {}
-    U32x4x2(U32x4 v1, U32x4 v2) : val{ v1, v2 } {}
-};
 #elif (XXH_GCC_VERSION >= 407 || defined(__clang__)) \
     && (defined(__SSE4_1__) || defined(__AVX__))
 #undef XXH_VECTORIZE
@@ -268,9 +265,6 @@ struct U32x4x2
 /* not NEON */
 /* __m128i (SSE) or uint32x4_t (NEON). */
 typedef U32 U32x4 __attribute__((__vector_size__(16)));
-
-/* Two U32x4s. */
-typedef struct { U32x4 val[2]; } U32x4x2;
 
 #ifndef XXH_NO_LONG_LONG
 /* Two U64s. */
@@ -290,7 +284,14 @@ FORCE_INLINE U32x4 XXH_vec_rotl32(U32x4 x, U32 r)
     };
     return (x << left) | (x >> right);
 }
+#if defined(__SSE4_1__) || defined(__AVX__)
+#include <emmintrin.h>
+#define XXH_vec_load_unaligned(p) ((U32x4)_mm_loadu_si128((const __m128i*)(p)))
+#define XXH_vec_store_unaligned(p,v) ((U32x4)_mm_storeu_si128((__m128i*)(p), (__m128i)(v)))
 
+#define XXH_vec_load_aligned(p) ((U32x4)_mm_load_si128((const __m128i*)(p)))
+#define XXH_vec_store_aligned(p,v) ((U32x4)_mm_store_si128((__m128i*)(p), (__m128i)(v)))
+#else
 /* emmintrin.h's _mm_loadu_si128 code. */
 FORCE_INLINE U32x4 XXH_vec_load_unaligned(const void* p)
 {
@@ -310,7 +311,8 @@ FORCE_INLINE void XXH_vec_store_unaligned(void* p, const U32x4 v)
 }
 
 #define XXH_vec_load_aligned(p) *(U32x4*)(p)
-#define XXH_vec_store_aligned(p, v) (*(U32x4*)(p) = v)
+#define XXH_vec_store_aligned(p, v) (*(U32x4*)(p) = (v))
+#endif
 
 #elif !defined(XXH_VECTORIZE)
 #define XXH_VECTORIZE 0

@@ -59,6 +59,9 @@
 #define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #include "xxhash.h"
 
+#if defined(XXH_NO_LONG_LONG) || defined(XXH_NO_ALT_HASHES)
+#  error xxhsum requires all hashes to be enabled!
+#else
 
 /* ************************************
  *  OS-Specific Includes
@@ -128,6 +131,7 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
+#include <errno.h>
 
 /* ************************************
 *  Basic Types
@@ -368,24 +372,24 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
         BMK_benchHash(localXXH_auto, "XXH auto unaligned", ((const char*)buffer)+1, bufferSize);
 
     /* XXH64a bench */
-    if ((specificTest==0) | (specificTest==9))
+    if ((specificTest==0) | (specificTest==11))
         BMK_benchHash(localXXH32_auto, "XXH32 auto", buffer, bufferSize);
 
     /* Bench XXH64a on Unaligned input */
-    if ((specificTest==0) | (specificTest==10))
+    if ((specificTest==0) | (specificTest==12))
         BMK_benchHash(localXXH32_auto, "XXH32 auto unaligned", ((const char*)buffer)+1, bufferSize);
 
 
     /* XXH64a bench */
-    if ((specificTest==0) | (specificTest==9))
+    if ((specificTest==0) | (specificTest==13))
         BMK_benchHash(localXXH64_auto, "XXH64 auto", buffer, bufferSize);
 
     /* Bench XXH64a on Unaligned input */
-    if ((specificTest==0) | (specificTest==10))
+    if ((specificTest==0) | (specificTest==14))
         BMK_benchHash(localXXH64_auto, "XXH64 auto unaligned", ((const char*)buffer)+1, bufferSize);
 
 
-    if (specificTest > 4) {
+    if (specificTest > 14) {
         DISPLAY("benchmark mode invalid \n");
         return 1;
     }
@@ -413,14 +417,14 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
         const char* const inFileName = fileNamesTable[fileIdx];
         assert(inFileName != NULL);
         {
-            FILE* const inFile = fopen( inFileName, "rb" );
             size_t const benchedSize = BMK_selectBenchedSize(inFileName);
             char* const buffer = (char*)calloc(benchedSize+16+3, 1);
             void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
+            FILE* const inFile = fopen( inFileName, "rb" );
 
             /* Checks */
             if (inFile==NULL){
-                DISPLAY("Pb opening %s\n", inFileName);
+                DISPLAY("Could not open %s: %s\n", inFileName, strerror(errno));
                 free(buffer);
                 return 11;
             }
@@ -433,12 +437,14 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
             /* Fill input buffer */
             DISPLAYLEVEL(1, "\rLoading %s...        \n", inFileName);
             {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
-                fclose(inFile);
                 if(readSize != benchedSize) {
-                    DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
+                    DISPLAY("\nError: Could not read %s: %s\n", inFileName, strerror(errno));
+                    fclose(inFile);
                     free(buffer);
                     return 13;
-            }   }
+                }
+                fclose(inFile);
+            }
 
             /* bench */
             result |= BMK_benchMem(alignedBuffer, benchedSize, specificTest);
@@ -478,115 +484,119 @@ static int BMK_benchInternal(size_t keySize, int specificTest)
     }
 }
 
-static void BMK_checkResult(U32 r1, U32 r2)
+static void BMK_checkResult(U32 r1, U32 r2, const char* hashName, const char* testName)
 {
-    static int nbTests = 1;
     if (r1==r2) {
-        DISPLAYLEVEL(3, "\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
+        DISPLAYLEVEL(3, "\r%s: %s Test: 0x%08X == 0x%08X   ok   ", hashName, testName, r1, r2);
     } else {
-        DISPLAY("\rERROR : Test%3i : Got 0x%08X, expected 0x%08X   !!!!!   \n", nbTests, r1, r2);
+        DISPLAY("\rError: %s: %s Test: Internal sanity check failed!\n", hashName, testName);
+        DISPLAY("\rExpected value: 0x%08X. Actual value: 0x%08X.\n", r2, r1);
+        DISPLAY("\rNote: If you modified the hash function, make sure to update the values\n"
+                  "in BMK_sanityCheck.\n");
         exit(1);
     }
-    nbTests++;
 }
 
 
-static void BMK_checkResult64(U64 r1, U64 r2)
+static void BMK_checkResult64(U64 r1, U64 r2, const char* hashName, const char* testName)
 {
-    static int nbTests = 1;
     if (r1!=r2) {
-        DISPLAY("\rERROR : Test%3i : 64-bit values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r Got 0x%08X%08X, expected 0x%08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        DISPLAY("\rError: %s: %s Test: Internal sanity check failed!\n", hashName, testName);
+        DISPLAY("\rExpected value: 0x%08X%08X. Actual value: 0x%08X%08X.\n", (U32)(r2>>32), (U32)r2, (U32)(r1>>32), (U32)r1);
+        DISPLAY("\rNote: If you modified the hash function, make sure to update the values\n"
+                  "in BMK_sanityCheck.\n");
         exit(1);
     }
-    nbTests++;
 }
 
 
-static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult)
+static void BMK_testSequence64(const char* testName, const void* sentence,
+                               size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
     U64 Dresult;
     size_t pos;
 
     Dresult = XXH64(sentence, len, seed);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(Dresult, Nresult, "XXH64 Single Run", testName);
 
     (void)XXH64_reset(&state, seed);
     (void)XXH64_update(&state, sentence, len);
     Dresult = XXH64_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(Dresult, Nresult, "XXH64 Single Update", testName);
 
     (void)XXH64_reset(&state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH64_update(&state, ((char*)sentence)+pos, 1);
     Dresult = XXH64_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(Dresult, Nresult, "XXH64 Partial Update", testName);
 }
 
-static void BMK_testSequence64a(void* sentence, size_t len, U64 seed, U64 Nresult)
+static void BMK_testSequence64a(const char* testName, const void* sentence,
+                                size_t len, U64 seed, U64 Nresult)
 {
     XXH64a_state_t state;
     U64 Dresult;
     size_t pos;
     Dresult = XXH64a(sentence, len, seed);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(Dresult, Nresult, "XXH64a Single Run", testName);
 
     (void)XXH64a_reset(&state, seed);
     (void)XXH64a_update(&state, sentence, len);
     Dresult = XXH64a_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(Dresult, Nresult, "XXH64a Single Update", testName);
 
     (void)XXH64a_reset(&state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH64a_update(&state, ((char*)sentence)+pos, 1);
     Dresult = XXH64a_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(Dresult, Nresult, "XXH64a Partial Update", testName);
 }
 
-static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
+static void BMK_testSequence(const char* testName, const void* sequence,
+                             size_t len, U32 seed, U32 Nresult)
 {
     XXH32_state_t state;
     U32 Dresult;
     size_t pos;
 
     Dresult = XXH32(sequence, len, seed);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult(Dresult, Nresult, "XXH32 Single Run", testName);
 
     (void)XXH32_reset(&state, seed);
     (void)XXH32_update(&state, sequence, len);
     Dresult = XXH32_digest(&state);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult(Dresult, Nresult, "XXH32 Single Update", testName);
 
     (void)XXH32_reset(&state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32_digest(&state);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult(Dresult, Nresult, "XXH32 Partial Update", testName);
 }
 
 
-static void BMK_testSequence32a(const void* sequence, size_t len, U32 seed, U32 Nresult)
+static void BMK_testSequence32a(const char* testName, const void* sequence,
+                                size_t len, U32 seed, U32 Nresult)
 {
     XXH32a_state_t state;
     U32 Dresult;
     size_t pos;
 
     Dresult = XXH32a(sequence, len, seed);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult(Dresult, Nresult, "XXH32a Single Run", testName);
 
     (void)XXH32a_reset(&state, seed);
     (void)XXH32a_update(&state, sequence, len);
     Dresult = XXH32a_digest(&state);
-
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult(Dresult, Nresult, "XXH32a Single Update", testName);
 
     (void)XXH32a_reset(&state, seed);
 
     for (pos=0; pos<len; pos++)
         (void)XXH32a_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32a_digest(&state);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult(Dresult, Nresult, "XXH32a Partial Update", testName);
 }
 
 #define SANITY_BUFFER_SIZE 101
@@ -602,41 +612,41 @@ static void BMK_sanityCheck(void)
         byteGen *= byteGen;
     }
 
-    BMK_testSequence(NULL,          0, 0,     0x02CC5D05);
-    BMK_testSequence(NULL,          0, prime, 0x36B78AE7);
-    BMK_testSequence(sanityBuffer,  1, 0,     0xB85CBEE5);
-    BMK_testSequence(sanityBuffer,  1, prime, 0xD5845D64);
-    BMK_testSequence(sanityBuffer, 14, 0,     0xE5AA0AB4);
-    BMK_testSequence(sanityBuffer, 14, prime, 0x4481951D);
-    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
-    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x498EC8E2);
+    BMK_testSequence("Null buffer",          NULL,          0, 0,     0x02CC5D05);
+    BMK_testSequence("Null buffer (seeded)", NULL,          0, prime, 0x36B78AE7);
+    BMK_testSequence("1 byte",               sanityBuffer,  1, 0,     0xB85CBEE5);
+    BMK_testSequence("1 byte (seeded)",      sanityBuffer,  1, prime, 0xD5845D64);
+    BMK_testSequence("14 bytes",             sanityBuffer, 14, 0,     0xE5AA0AB4);
+    BMK_testSequence("14 bytes (seeded)",    sanityBuffer, 14, prime, 0x4481951D);
+    BMK_testSequence("Full buffer",          sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
+    BMK_testSequence("Full buffer (seeded)", sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x498EC8E2);
 
-    BMK_testSequence32a(NULL,          0, 0,     0x02CC5D05);
-    BMK_testSequence32a(NULL,          0, prime, 0xC85F5E5E);
-    BMK_testSequence32a(sanityBuffer,  1, 0,     0xB85CBEE5);
-    BMK_testSequence32a(sanityBuffer,  1, prime, 0x6B1E2996);
-    BMK_testSequence32a(sanityBuffer, 14, 0,     0xE5AA0AB4);
-    BMK_testSequence32a(sanityBuffer, 14, prime, 0xA5119F89);
-    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x7F88514A);
-    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x420A8F14);
+    BMK_testSequence32a("Null buffer",          NULL,          0, 0,     0x02CC5D05);
+    BMK_testSequence32a("Null buffer (seeded)", NULL,          0, prime, 0xC85F5E5E);
+    BMK_testSequence32a("1 byte",               sanityBuffer,  1, 0,     0xB85CBEE5);
+    BMK_testSequence32a("1 byte (seeded)",      sanityBuffer,  1, prime, 0x6B1E2996);
+    BMK_testSequence32a("14 bytes",             sanityBuffer, 14, 0,     0xE5AA0AB4);
+    BMK_testSequence32a("14 bytes (seeded)",    sanityBuffer, 14, prime, 0xA5119F89);
+    BMK_testSequence32a("Full buffer",          sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x7F88514A);
+    BMK_testSequence32a("Full buffer (seeded)", sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x420A8F14);
 
-    BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
-    BMK_testSequence64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
-    BMK_testSequence64(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
-    BMK_testSequence64(sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
-    BMK_testSequence64(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
-    BMK_testSequence64(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
-    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
-    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0xCAA65939306F1E21ULL);
+    BMK_testSequence64("Null buffer",          NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
+    BMK_testSequence64("Null buffer (seeded)", NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
+    BMK_testSequence64("1 byte",               sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
+    BMK_testSequence64("1 byte (seeded)",      sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
+    BMK_testSequence64("14 bytes",             sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
+    BMK_testSequence64("14 bytes (seeded)",    sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
+    BMK_testSequence64("Full buffer",          sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
+    BMK_testSequence64("Full buffer (seeded)", sanityBuffer, SANITY_BUFFER_SIZE, prime, 0xCAA65939306F1E21ULL);
 
-    BMK_testSequence64a(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
-    BMK_testSequence64a(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
-    BMK_testSequence64a(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
-    BMK_testSequence64a(sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
-    BMK_testSequence64a(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
-    BMK_testSequence64a(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
-    BMK_testSequence64a(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x209F9A0BD5CB15E3ULL);
-    BMK_testSequence64a(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x98F565A1BA40AC98ULL);
+    BMK_testSequence64a("Null buffer",          NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
+    BMK_testSequence64a("Null buffer (seeded)", NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
+    BMK_testSequence64a("1 byte",               sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
+    BMK_testSequence64a("1 byte (seeded)",      sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
+    BMK_testSequence64a("14 bytes",             sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
+    BMK_testSequence64a("14 bytes (seeded)",    sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
+    BMK_testSequence64a("Full buffer",          sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x209F9A0BD5CB15E3ULL);
+    BMK_testSequence64a("Full buffer (seeded)", sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x98F565A1BA40AC98ULL);
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");
@@ -748,7 +758,7 @@ static int BMK_hash(const char* fileName,
     else
         inFile = fopen( fileName, "rb" );
     if (inFile==NULL) {
-        DISPLAY( "Pb opening %s\n", fileName);
+        DISPLAY( "Could not open %s: %s\n", fileName, strerror(errno));
         return 1;
     }
 
@@ -1110,9 +1120,9 @@ static void parseFile1(ParseFileArg* parseFileArg)
 
         lineNumber++;
         if (lineNumber == 0) {
-            /* This is unlikely happen, but md5sum.c has this
+            /* This is unlikely to happen, but md5sum.c has this
              * error check. */
-            DISPLAY("%s : too many checksum lines\n", inFileName);
+            DISPLAY("%s: Error: Too many checksum lines\n", inFileName);
             report->quit = 1;
             break;
         }
@@ -1131,15 +1141,15 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 break;
 
             default:
-                DISPLAY("%s : %lu: unknown error\n", inFileName, lineNumber);
+                DISPLAY("%s : %lu: Unknown error\n", inFileName, lineNumber);
                 break;
 
             case GetLine_exceedMaxLineLength:
-                DISPLAY("%s : %lu: too long line\n", inFileName, lineNumber);
+                DISPLAY("%s : %lu: Error: Line too long\n", inFileName, lineNumber);
                 break;
 
             case GetLine_outOfMemory:
-                DISPLAY("%s : %lu: out of memory\n", inFileName, lineNumber);
+                DISPLAY("%s : %lu: Error: Out of memory\n", inFileName, lineNumber);
                 break;
             }
             report->quit = 1;
@@ -1149,8 +1159,8 @@ static void parseFile1(ParseFileArg* parseFileArg)
         if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: improperly formatted XXHASH checksum line\n"
-                    , inFileName, lineNumber);
+                DISPLAY("%s:%lu: Error: improperly formatted checksum line\n",
+                    inFileName, lineNumber);
             }
             continue;
         }
@@ -1160,7 +1170,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             report->nMixedFormatLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: improperly formatted XXHASH checksum line (XXH32/64)\n"
+                DISPLAY("%s : %lu: Error: Multiple hash types in one file\n"
                     , inFileName, lineNumber);
             }
             continue;
@@ -1204,15 +1214,15 @@ static void parseFile1(ParseFileArg* parseFileArg)
         switch (lineStatus)
         {
         default:
-            DISPLAY("%s : unknown error\n", inFileName);
+            DISPLAY("%s: Unknown error\n", inFileName);
             report->quit = 1;
             break;
 
         case LineStatus_failedToOpen:
             report->nOpenOrReadFailures++;
             if (!parseFileArg->statusOnly) {
-                DISPLAYRESULT("%s : %lu: FAILED open or read %s\n"
-                    , inFileName, lineNumber, parsedLine.filename);
+                DISPLAYRESULT("%s:%lu: Could not read %s: %s\n",
+                    inFileName, lineNumber, parsedLine.filename, strerror(errno));
             }
             break;
 
@@ -1281,7 +1291,7 @@ static int checkFile(const char* inFileName,
     }
 
     if (inFile == NULL) {
-        DISPLAY( "Pb opening %s\n", inFileName);
+        DISPLAY( "Could not open %s: %s\n", inFileName, strerror(errno));
         return 0;
     }
 
@@ -1309,17 +1319,21 @@ static int checkFile(const char* inFileName,
         DISPLAY("%s: no properly formatted XXHASH checksum lines found\n", inFileName);
     } else if (!statusOnly) {
         if (report->nImproperlyFormattedLines) {
-            DISPLAYRESULT("%lu lines are improperly formatted\n"
-                , report->nImproperlyFormattedLines);
+            DISPLAYRESULT("%lu %s were improperly formatted\n",
+                report->nImproperlyFormattedLines,
+                report->nImproperlyFormattedLines == 1 ? "line" : "lines");
         }
         if (report->nOpenOrReadFailures) {
-            DISPLAYRESULT("%lu listed files could not be read\n"
-                , report->nOpenOrReadFailures);
+            DISPLAYRESULT("%lu listed %s could not be read\n",
+                report->nOpenOrReadFailures,
+                report->nOpenOrReadFailures == 1 ? "file" : "files");
         }
         if (report->nMismatchedChecksums) {
-            DISPLAYRESULT("%lu computed checksums did NOT match\n"
-                , report->nMismatchedChecksums);
-    }   }
+            DISPLAYRESULT("%lu computed %s did NOT match\n",
+                report->nMismatchedChecksums,
+                report->nMismatchedChecksums == 1 ? "checksum" : "checksums");
+        }
+    }
 
     /* Result (exit) code logic is copied from
      * gnu coreutils/src/md5sum.c digest_check() */
@@ -1363,9 +1377,9 @@ static int usage(const char* exename)
     DISPLAY( WELCOME_MESSAGE(exename) );
     DISPLAY( "Usage :\n");
     DISPLAY( "      %s [arg] [filenames]\n", exename);
-    DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
+    DISPLAY( "When no filename is provided, or - provided, input is read from stdin.\n");
     DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=32bits (alt) (default: %i)\n", (int)g_defaultAlgo);
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=32bits (alt), 3=64bits (alt) (default: %i)\n", (int)g_defaultAlgo);
     DISPLAY( " -c  : read xxHash sums from the [filenames] and check them\n");
     DISPLAY( " -h  : help \n");
     return 0;
@@ -1376,11 +1390,11 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
-    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian)\n");
-    DISPLAY( " -V, --version   : display version\n");
-    DISPLAY( " -h, --help      : display long help and exit\n");
-    DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %u)\n", g_nbIterations);
+    DISPLAY( " --little-endian : Print hash using little endian convention (default: big endian)\n");
+    DISPLAY( " -V, --version   : Display version\n");
+    DISPLAY( " -h, --help      : Display long help and exit\n");
+    DISPLAY( " -b  : Run benchmark and sanity test \n");
+    DISPLAY( " -i# : number of iterations for benchmark mode (default %u)\n", g_nbIterations);
     DISPLAY( "\n");
     DISPLAY( "The following four options are useful only when verifying checksums (-c):\n");
     DISPLAY( "--strict : don't print OK for each successfully verified file\n");
@@ -1436,6 +1450,7 @@ int main(int argc, const char** argv)
     /* special case : xxh32sum default to 32 bits checksum */
     if (strstr(exename, "xxh32sum") != NULL) algo = algo_xxh32;
     if (strstr(exename, "xxh32asum") != NULL) algo = algo_xxh32a;
+    if (strstr(exename, "xxh64asum") != NULL) algo = algo_xxh64a;
 
     for(i=1; i<argc; i++) {
         const char* argument = argv[i];
@@ -1538,5 +1553,7 @@ int main(int argc, const char** argv)
         return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
     }
 }
+
+#endif /* !XXH_NO_LONG_LONG && !XXH_NO_ALT_HASHES */
 
 #endif /* XXHASH_C_2097394837 */

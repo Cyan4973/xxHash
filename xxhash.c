@@ -50,15 +50,12 @@
  * Prefer these methods in priority order (0 > 1 > 2)
  */
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-#  if defined(__GNUC__) && ( defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
-                        || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
-                        || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) )
+#  if defined(__GNUC__) && (defined(__ARM_ARCH) && __ARM_ARCH == 6)
 #    define XXH_FORCE_MEMORY_ACCESS 2
 #  elif (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
-  (defined(__GNUC__) && ( defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) \
-                    || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) \
-                    || defined(__ARM_ARCH_7S__) || defined(__ARM_ARCH_V7VE__) \
-                    || defined(__aarch64__)))
+  (defined(__GNUC__) && \
+  (defined(__aarch64__) || defined(__arm64__) || \
+    (defined(__ARM_ARCH) && __ARM_ARCH == 7)) )
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif
@@ -948,7 +945,20 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
+#if defined(__GNUC__) && defined(__ARM_ARCH) && __ARM_ARCH == 6
+/* ARMv6 supports unaligned access in ldr, but not in ldrd. Unfortunately, that is what most compilers
+ * generate. */
+FORCE_INLINE U64 XXH_read64(const void* memPtr)
+{
+    U32 retLo, retHi;
+    /* Separate statements so the compiler can reorder. */
+    __asm__("ldr   %[retLo], [ %[memPtr] ]" : [retLo] "=r" (retLo) : [memPtr] "r" (memPtr));
+    __asm__("ldr   %[retHi], [ %[memPtr], #4 ]" : [retHi] "=r" (retHi) : [memPtr] "r" (memPtr));
+    return ((U64)retHi << 32) | retLo;
+}
+#else
 static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
+#endif
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
@@ -970,7 +980,7 @@ static U64 XXH_read64(const void* memPtr)
     return val;
 }
 
-#endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
+#endif   /* XXH_FORCE_MEMORY_ACCESS */
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap64 _byteswap_uint64
@@ -1015,10 +1025,10 @@ static U64 XXH_readBE64(const void* ptr)
 FORCE_INLINE U64 XXH64_round_shld(U64 acc, U64 input)
 {
     __asm__(
-        "imulq %[prime2], %[input]\n"
-        "addq %[input], %[acc]\n"
-        "shldq $31, %[acc], %[acc]\n"
-        "imulq %[prime1], %[acc]"
+        "imulq  %[prime2], %[input]\n"
+        "addq   %[input], %[acc]\n"
+        "shldq  $31, %[acc], %[acc]\n"
+        "imulq  %[prime1], %[acc]"
         : [acc] "+r" (acc), [input] "+r" (input)
         : [prime1] "r" (PRIME64_1), [prime2] "r" (PRIME64_2)
     );

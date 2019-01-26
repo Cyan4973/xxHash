@@ -2049,7 +2049,7 @@ XXH64a_endian_align(const void* input, size_t len, U64 seed,
 
         p = XXH32a_XXH64a_endian_align(v, p, len, endian, align);
 
-        /* Join the 8 32-bit lanes into 4 64-bit lanes. 
+        /* Join the 8 32-bit lanes into 4 64-bit lanes.
          * Gotta love the ugly C casting rules. */
         v64[0] = XXH64a_join_lane((const U32(*)[4])v, 0);
         v64[1] = XXH64a_join_lane((const U32(*)[4])v, 1);

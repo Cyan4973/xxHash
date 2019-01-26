@@ -527,7 +527,7 @@ static void BMK_testSequence64(const char* testName, const void* sentence,
 
     (void)XXH64_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH64_update(&state, ((char*)sentence)+pos, 1);
+        (void)XXH64_update(&state, ((const char*)sentence)+pos, 1);
     Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult, "XXH64 Partial Update", testName);
 }
@@ -548,7 +548,7 @@ static void BMK_testSequence64a(const char* testName, const void* sentence,
 
     (void)XXH64a_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH64a_update(&state, ((char*)sentence)+pos, 1);
+        (void)XXH64a_update(&state, ((const char*)sentence)+pos, 1);
     Dresult = XXH64a_digest(&state);
     BMK_checkResult64(Dresult, Nresult, "XXH64a Partial Update", testName);
 }

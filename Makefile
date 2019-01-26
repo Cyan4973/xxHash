@@ -78,6 +78,9 @@ all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum : xxhash.o xxhsum.o
 
+xxhash.o: %.o: %.c xxhash-vec.h xxhash.h
+xxhsum.o: %.o: %.c xxhash.h
+
 xxhsum32: CFLAGS += -m32
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
@@ -103,8 +106,8 @@ $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
-$(LIBXXH): xxhash.c
-	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
+$(LIBXXH): xxhash.c xxhash-vec.h xxhash.h
+	$(CC) $(FLAGS) $< $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
 	ln -sf $@ libxxhash.$(SHARED_EXT)
 

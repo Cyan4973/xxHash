@@ -271,6 +271,13 @@ static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static U32 localXXH64a(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64a(buffer, bufferSize, seed); }
 
+static U32 localXXH_auto(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH_auto(buffer, bufferSize, seed); }
+
+static U32 localXXH32_auto(const void* buffer, size_t bufferSize, U32 seed) { return XXH32_auto(buffer, bufferSize, seed); }
+
+static U32 localXXH64_auto(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64_auto(buffer, bufferSize, seed); }
+
+
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
@@ -351,6 +358,32 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     /* Bench XXH64a on Unaligned input */
     if ((specificTest==0) | (specificTest==8))
         BMK_benchHash(localXXH64a, "XXH64a unaligned", ((const char*)buffer)+1, bufferSize);
+
+    /* XXH64a bench */
+    if ((specificTest==0) | (specificTest==9))
+        BMK_benchHash(localXXH_auto, "XXH auto", buffer, bufferSize);
+
+    /* Bench XXH64a on Unaligned input */
+    if ((specificTest==0) | (specificTest==10))
+        BMK_benchHash(localXXH_auto, "XXH auto unaligned", ((const char*)buffer)+1, bufferSize);
+
+    /* XXH64a bench */
+    if ((specificTest==0) | (specificTest==9))
+        BMK_benchHash(localXXH32_auto, "XXH32 auto", buffer, bufferSize);
+
+    /* Bench XXH64a on Unaligned input */
+    if ((specificTest==0) | (specificTest==10))
+        BMK_benchHash(localXXH32_auto, "XXH32 auto unaligned", ((const char*)buffer)+1, bufferSize);
+
+
+    /* XXH64a bench */
+    if ((specificTest==0) | (specificTest==9))
+        BMK_benchHash(localXXH64_auto, "XXH64 auto", buffer, bufferSize);
+
+    /* Bench XXH64a on Unaligned input */
+    if ((specificTest==0) | (specificTest==10))
+        BMK_benchHash(localXXH64_auto, "XXH64 auto unaligned", ((const char*)buffer)+1, bufferSize);
+
 
     if (specificTest > 4) {
         DISPLAY("benchmark mode invalid \n");
@@ -451,7 +484,7 @@ static void BMK_checkResult(U32 r1, U32 r2)
     if (r1==r2) {
         DISPLAYLEVEL(3, "\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
     } else {
-        DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
+        DISPLAY("\rERROR : Test%3i : Got 0x%08X, expected 0x%08X   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
     nbTests++;
@@ -463,7 +496,7 @@ static void BMK_checkResult64(U64 r1, U64 r2)
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rERROR : Test%3i : 64-bit values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        DISPLAY("\r Got 0x%08X%08X, expected 0x%08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
         exit(1);
     }
     nbTests++;
@@ -545,9 +578,11 @@ static void BMK_testSequence32a(const void* sequence, size_t len, U32 seed, U32 
     (void)XXH32a_reset(&state, seed);
     (void)XXH32a_update(&state, sequence, len);
     Dresult = XXH32a_digest(&state);
+
     BMK_checkResult(Dresult, Nresult);
 
     (void)XXH32a_reset(&state, seed);
+
     for (pos=0; pos<len; pos++)
         (void)XXH32a_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32a_digest(&state);
@@ -577,13 +612,13 @@ static void BMK_sanityCheck(void)
     BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x498EC8E2);
 
     BMK_testSequence32a(NULL,          0, 0,     0x02CC5D05);
-    BMK_testSequence32a(NULL,          0, prime, 0x36B78AE7);
+    BMK_testSequence32a(NULL,          0, prime, 0xC85F5E5E);
     BMK_testSequence32a(sanityBuffer,  1, 0,     0xB85CBEE5);
-    BMK_testSequence32a(sanityBuffer,  1, prime, 0xD5845D64);
+    BMK_testSequence32a(sanityBuffer,  1, prime, 0x6B1E2996);
     BMK_testSequence32a(sanityBuffer, 14, 0,     0xE5AA0AB4);
-    BMK_testSequence32a(sanityBuffer, 14, prime, 0x4481951D);
-    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x7BDCA81E);
-    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x267C4625);
+    BMK_testSequence32a(sanityBuffer, 14, prime, 0xA5119F89);
+    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x7F88514A);
+    BMK_testSequence32a(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x420A8F14);
 
     BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
     BMK_testSequence64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);

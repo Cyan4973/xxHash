@@ -157,6 +157,9 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #  define XXH64a_update XXH_NAME2(XXH_NAMESPACE, XXH64a_update)
 #  define XXH64a_digest XXH_NAME2(XXH_NAMESPACE, XXH64a_digest)
 #  define XXH64a_copyState XXH_NAME2(XXH_NAMESPACE, XXH64a_copyState)
+#  define XXH_auto XXH_NAME2(XXH_NAMESPACE, XXH_auto)
+#  define XXH32_auto XXH_NAME2(XXH_NAMESPACE, XXH32_auto)
+#  define XXH64_auto XXH_NAME2(XXH_NAMESPACE, XXH64_auto)
 #endif
 
 
@@ -317,6 +320,68 @@ XXH_PUBLIC_API XXH64_hash_t  XXH64a_digest (const XXH64a_state_t* statePtr);
 #endif /* !XXH_NO_LONG_LONG */
 #endif /* !XXH_NO_ALT_HASHES */
 
+/*! XXH32_auto() :
+    Calculates *A* 32-bit hash. This will choose either of the xxHash hashes, attempting to choose
+    the fastest one based on the architecture and the length. Endianness is ignored.
+
+   ************************************** WARNING **************************************
+   *                  DO NOT RELY ON THE EXACT VALUE OF THIS HASH!!!!                  *
+   *                  -----------------------------------------------                  *
+   * Unlike XXH64 and XXH64a, this does not guarantee a stable, cross-platform result. *
+   * The only reliable promise for this hash is that it will generate the same value   *
+   * on the same CPU and xxHash version. And since CPUs are sometimes interchangable,  *
+   * do not store this value. This should be used for identity hashes e.g. hashtables. *
+   *************************************************************************************
+
+    For the reference, this uses the following logic:
+      if   length <= 128: XXH32
+      elif x86_64: XXH64
+      elif XXH_VECTORIZE: XXH32a
+      else: XXH32
+
+    If a hash is unavailable, it will choose the next best hash.
+*/
+XXH_PUBLIC_API XXH32_hash_t XXH32_auto (const void* input, size_t length, unsigned seed);
+#ifndef XXH_NO_LONG_LONG
+/*! XXH_auto() :
+    Calculates *A* 32 or 64-bit hash, depending on size_t's width. This will choose either of
+    the xxHash hashes, attempting to choose the fastest one based on the architecture and
+    the length.
+
+   ************************************** WARNING **************************************
+   *                  DO NOT RELY ON THE EXACT VALUE OF THIS HASH!!!!                  *
+   *                  -----------------------------------------------                  *
+   * Unlike XXH64 and XXH64a, this does not guarantee a stable, cross-platform result. *
+   * The only reliable promise for this hash is that it will generate the same value   *
+   * on the same CPU and xxHash version. And since CPUs are sometimes interchangable,  *
+   * do not store this value. This should be used for identity hashes e.g. hashtables. *
+   *************************************************************************************
+
+    This will call either XXH32_auto or XXH64_auto depending on the native word size. */
+XXH_PUBLIC_API size_t XXH_auto (const void* input, size_t length, size_t seed);
+/*! XXH64_auto() :
+    Calculates *A* 64-bit hash. This will choose either of the xxHash hashes,
+    attempting to choose the fastest one based on the architecture and the length.
+
+   ************************************** WARNING **************************************
+   *                  DO NOT RELY ON THE EXACT VALUE OF THIS HASH!!!!                  *
+   *                  -----------------------------------------------                  *
+   * Unlike XXH64 and XXH64a, this does not guarantee a stable, cross-platform result. *
+   * The only reliable promise for this hash is that it will generate the same value   *
+   * on the same CPU and xxHash version. And since CPUs are sometimes interchangable,  *
+   * do not store this value. This should be used for identity hashes e.g. hashtables. *
+   *************************************************************************************
+
+    For the reference, this chooses the following logic:
+      if   length <= 128: XXH64
+      elif x86_64 && SSE4.2: XXH64
+      elif 32-bit || NEON: XXH64a
+      else: XXH64
+
+      If a hash is unavailable, it will choose the next best hash.
+*/
+XXH_PUBLIC_API XXH64_hash_t XXH64_auto (const void* input, size_t length, unsigned long long seed);
+#endif /* !XXH_NO_LONG_LONG */
 #ifdef XXH_STATIC_LINKING_ONLY
 
 /* We want XXH32a_state_t to be aligned. That way we can reinterpret it as a pointer

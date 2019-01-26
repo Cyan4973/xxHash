@@ -192,7 +192,7 @@ FORCE_INLINE const BYTE* XXH64_NEON32(const BYTE* p, const BYTE* bEnd,
     const U64 PRIME2[2] = { PRIME64_2, PRIME64_2 };
 
     const U64 STATE1[2] = { PRIME64_1 + PRIME64_2, PRIME64_2 };
-    const U64 STATE2[2] = { 0, -PRIME64_2 };
+    const U64 STATE2[2] = { 0, -PRIME64_1 };
 
     /* Interleave our constants in two ways. */
     const uint64x2_t prime1_base = vld1q_u64(PRIME1);

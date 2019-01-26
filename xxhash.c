@@ -136,19 +136,6 @@
 #  endif /* __STDC_VERSION__ */
 #endif
 
-/* Unrolling loops, especially on ARM, is beneficial for most cases. We aim for
- * 4 unrolls. Doing this with a pragma is much easier and less prone to copy-paste
- * errors, as the compiler will put a runtime trip inside to do this.
- * We don't unroll with -Os/-Oz, or when XXH_INLINE_ALL. The first is to reduce
- * size (obviously), and the second is to avoid cache miss hell. */
-#if defined(__OPTIMIZE_SIZE__) || defined(XXH_INLINE_ALL) || !defined(__GNUC__)
-#  define UNROLL
-#elif defined(__clang__)
-#  define UNROLL _Pragma("clang loop unroll_count(4)")
-#else
-#  define UNROLL _Pragma("GCC unroll 4")
-#endif
-
 /* Inline assembly guards. These are used to disable unwanted vectorization or
  * instruction combining. */
 #if defined(__GNUC__) && !defined(XXH_FORCE_VECTOR)
@@ -381,6 +368,22 @@ FORCE_INLINE void XXH_cpuID(void)
 #  define XXH_assume_aligned(p, align) __builtin_assume_aligned((p), (align))
 #else
 #  define XXH_assume_aligned(p, align) (p)
+#endif
+
+
+/* Unrolling loops, especially on ARM, is beneficial for most cases. We aim for
+ * 4 unrolls. Doing this with a pragma is much easier and less prone to copy-paste
+ * errors, as the compiler will put a runtime trip inside to do this.
+ * We don't unroll with -Os/-Oz, or when XXH_INLINE_ALL. The first is to reduce
+ * size (obviously), and the second is to avoid cache miss hell. */
+#if defined(__OPTIMIZE_SIZE__) || defined(XXH_INLINE_ALL)
+#  define UNROLL
+#elif defined(__clang__)
+#  define UNROLL _Pragma("clang loop unroll_count(4)")
+#elif XXH_GCC_VERSION >= 800
+#  define UNROLL _Pragma("GCC unroll 4")
+#else
+#  define UNROLL
 #endif
 
 /* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */

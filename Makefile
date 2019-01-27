@@ -202,7 +202,7 @@ staticAnalyze: clean
 .PHONY: cppcheck
 cppcheck:
 	@echo ---- static analyzer - cppcheck ----
-	cppcheck . --force --enable=warning,portability,performance,style --inline-suppr --error-exitcode=1 --suppress=knownConditionTrueFalse > /dev/null
+	cppcheck . --force --enable=warning,portability,performance,style --inline-suppr --error-exitcode=1 --suppress=knownConditionTrueFalse,duplicateBranch > /dev/null
 
 .PHONY: namespaceTest
 namespaceTest:

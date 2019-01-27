@@ -303,6 +303,7 @@ FORCE_INLNE const BYTE* XXH64_update_NEON32(const BYTE* p, const BYTE* limit, U6
     XXH64_VEC_LOOP
     return p;
 }
+#undef XXH64_VEC_LOOP
 
  /* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
   * version for this one. */

@@ -250,13 +250,18 @@ FORCE_INLINE U32 XXH_read32(const void* memPtr)
  * EAX=1.
  * https://en.wikipedia.org/wiki/CPUID */
 struct eax_data {
+    /* cppcheck-suppress unusedStructMember */
     unsigned steppingID  : 4;
     unsigned model       : 4;
     unsigned familyID    : 4;
+    /* cppcheck-suppress unusedStructMember */
     unsigned type        : 2;
+    /* cppcheck-suppress unusedStructMember */
     unsigned reserved    : 2;
     unsigned extModelID  : 4;
+    /* cppcheck-suppress unusedStructMember */
     unsigned extFamilyID : 8;
+    /* cppcheck-suppress unusedStructMember */
     unsigned reserved2   : 4;
 };
 union eax {
@@ -326,8 +331,10 @@ FORCE_INLINE void XXH_cpuID(void)
     __asm__("cpuid"
         : "+a" (a), "=b" (vendor_string[0]), "=c" (vendor_string[2]), "=d" (vendor_string[1]));
 
-   /* We only want to check Intel chips. AMD doesn't really have much of a penalty. */
-   if (memcmp(vendor_string, "GenuineIntel", 12) == 0) {
+    assert(a >= 1); /* should always be true, but keeps cppcheck happy */
+
+    /* We only want to check Intel chips. AMD doesn't really have much of a penalty. */
+    if (memcmp(vendor_string, "GenuineIntel", 12) == 0) {
         union eax eax_val;
         unsigned model;
         /* Call it with a 1 for the chip ID. */
@@ -423,7 +430,8 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 #  else
 static XXH_endianess XXH_isLittleEndian(void)
 {
-    const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    union { U32 u; BYTE c[4]; } one;   /* don't use static : performance detrimental  */
+    one.u = 1;
     return one.c[0] ? XXH_littleEndian : XXH_bigEndian;
 }
 #    define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
@@ -646,6 +654,8 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
+    /* cppcheck flags this as unused for some reason... */
+    /* cppcheck-suppress unusedVariable */
     U32 h32;
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
@@ -675,9 +685,9 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         v += vdupq_n_u32(seed);
         UNROLL do {
             const U32x4 inp = XXH_vec_load_unaligned((const U32 *)p);
-            v += inp * prime2;
+            v = v + (inp * prime2);
             v  = XXH_vec_rotl32(v, 13);
-            v *= prime1;
+            v = v * prime1;
 
             p += 16;
         } while (p < limit);
@@ -1186,6 +1196,8 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
+    /* cppcheck flags this as unused for some reason... */
+    /* cppcheck-suppress unusedVariable */
     U64 h64;
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
@@ -1613,14 +1625,14 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
                 const U32x4 *inp = (const U32x4*)XXH_assume_aligned(p, 16);
 
                 /* XXH32_round */
-                v[0] += XXH_vec_load_aligned(inp) * prime2;
-                v[0]  = XXH_vec_rotl32(v[0], 13);
-                v[0] *= prime1;
+                v[0] = v[0] + (XXH_vec_load_aligned(inp) * prime2);
+                v[0] = XXH_vec_rotl32(v[0], 13);
+                v[0] = v[0] * prime1;
                 ++inp;
 
-                v[1] += XXH_vec_load_aligned(inp) * prime2;
-                v[1]  = XXH_vec_rotl32(v[1], 13);
-                v[1] *= prime1;
+                v[1] = v[1] + (XXH_vec_load_aligned(inp) * prime2);
+                v[1] = XXH_vec_rotl32(v[1], 13);
+                v[1] = v[1] * prime1;
 
                 p += 32;
             } while (p < limit);
@@ -1629,14 +1641,14 @@ XXH32a_XXH64a_endian_align(U32 state[2][4], const BYTE* p, size_t len,
                 U32x4 inp = XXH_vec_load_unaligned(p);
 
                 /* XXH32_round */
-                v[0] += inp * prime2;
-                v[0]  = XXH_vec_rotl32(v[0], 13);
-                v[0] *= prime1;
+                v[0] = v[0] + (inp * prime2);
+                v[0] = XXH_vec_rotl32(v[0], 13);
+                v[0] = v[0] * prime1;
                 p += 16;
                 inp = XXH_vec_load_unaligned(p);
-                v[1] += inp * prime2;
-                v[1]  = XXH_vec_rotl32(v[1], 13);
-                v[1] *= prime1;
+                v[1] = v[1] + (inp * prime2);
+                v[1] = XXH_vec_rotl32(v[1], 13);
+                v[1] = v[1] * prime1;
                 p += 16;
             } while (p < limit);
         }
@@ -1870,13 +1882,13 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
                     const U32x4* inp = (const U32x4*)XXH_assume_aligned(p, 16);
 
                     /* XXH32_round */
-                    v[0] += inp[0] * prime2;
-                    v[0]  = XXH_vec_rotl32(v[0], 13);
-                    v[0] *= prime1;
+                    v[0] = v[0] + (inp[0] * prime2);
+                    v[0] = XXH_vec_rotl32(v[0], 13);
+                    v[0] = v[0] * prime1;
 
-                    v[1] += inp[1] * prime2;
-                    v[1]  = XXH_vec_rotl32(v[1], 13);
-                    v[1] *= prime1;
+                    v[1] = v[1] + (inp[1] * prime2);
+                    v[1] = XXH_vec_rotl32(v[1], 13);
+                    v[1] = v[1] * prime1;
                     p += 32;
                 } while (p <= limit);
             } else {
@@ -1885,15 +1897,15 @@ XXH32a_XXH64a_update_endian(XXH32a_state_t* state, const void* input, size_t len
                     U32x4 inp = XXH_vec_load_unaligned(p);
 
                     /* XXH32_round */
-                    v[0] += inp * prime2;
-                    v[0]  = XXH_vec_rotl32(v[0], 13);
-                    v[0] *= prime1;
+                    v[0] = v[0] + (inp * prime2);
+                    v[0] = XXH_vec_rotl32(v[0], 13);
+                    v[0] = v[0] * prime1;
                     p += 16;
 
                     inp = XXH_vec_load_unaligned(p);
-                    v[1] += inp * prime2;
-                    v[1]  = XXH_vec_rotl32(v[1], 13);
-                    v[1] *= prime1;
+                    v[1] = v[1] + (inp * prime2);
+                    v[1] = XXH_vec_rotl32(v[1], 13);
+                    v[1] = v[1] * prime1;
                     p += 16;
 
                 } while (p <= limit);

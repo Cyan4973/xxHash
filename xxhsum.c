@@ -158,7 +158,8 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 
 static unsigned BMK_isLittleEndian(void)
 {
-    const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    union { U32 u; BYTE c[4]; } one;   /* don't use static : performance detrimental  */
+    one.u = 1;
     return one.c[0];
 }
 

@@ -621,14 +621,15 @@ FORCE_INLINE const BYTE* XXH64_SSE2(const BYTE* p, const BYTE* const limit,
         } while (p < limit);
     } else {
         do {
-            __m128i val = _mm_loadu_si128((const __m128i*)p);
+            __m128i val;
+            val = XXH_DISABLE_W_CAST_ALIGN(_mm_loadu_si128((const __m128i*)p));
             val = XXH_U64x2_mult(val, prime2_high, prime2_low);
             v[0] = _mm_add_epi64(v[0], val);
             v[0] = XXH_vec_rotl64(v[0], 31);
             v[0] = XXH_U64x2_mult(v[0], prime1_high, prime1_low);
             p += 16;
 
-            val = _mm_loadu_si128((const __m128i*)p);
+            val = XXH_DISABLE_W_CAST_ALIGN(_mm_loadu_si128((const __m128i*)p));
             val = XXH_U64x2_mult(val, prime2_high, prime2_low);
             v[1] = _mm_add_epi64(v[1], val);
             v[1] = XXH_vec_rotl64(v[1], 31);
@@ -636,8 +637,8 @@ FORCE_INLINE const BYTE* XXH64_SSE2(const BYTE* p, const BYTE* const limit,
             p += 16;
         } while (p < limit);
     }
-    _mm_store_si128((__m128i*)state[0], v[0]);
-    _mm_store_si128((__m128i*)state[1], v[1]);
+    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[0], v[0]));
+    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[1], v[1]));
 
     /* SSE2's _mm_sll_epi64 is stupid.
      * In order to have two shift values, you either need to do a lot of shuffling,
@@ -657,13 +658,13 @@ FORCE_INLINE const BYTE* XXH64_SSE2(const BYTE* p, const BYTE* const limit,
     v[0] = XXH_U64x2_mult(v[0], prime1_high, prime1_low);
     v[1] = XXH_U64x2_mult(v[1], prime1_high, prime1_low);
 
-    _mm_store_si128((__m128i*)state[0], v[0]);
+    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[0], v[0]));
     *h64 ^= state[0][0];
     *h64 = *h64 * PRIME64_1 + PRIME64_4;
     *h64 ^= state[0][1];
     *h64 = *h64 * PRIME64_1 + PRIME64_4;
 
-    _mm_store_si128((__m128i*)state[1], v[1]);
+    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[1], v[1]));
     *h64 ^= state[1][0];
     *h64 = *h64 * PRIME64_1 + PRIME64_4;
     *h64 ^= state[1][1];

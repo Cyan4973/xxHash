@@ -2240,8 +2240,10 @@ XXH_PUBLIC_API unsigned XXH32_auto (const void* input, size_t len, unsigned seed
     /* With slower inputs, it is usually better to use XXH32. XXH64 and XXH32a/XXH64a
      * have slower setup times, and SSE/NEON registers are slower to move back and forth
      * between normal registers. */
+
+    /* cppcheck-suppress duplicateBranch */
     if (len <= 128) {
-        return  XXH32_endian_align(input, len, seed, XXH_littleEndian, align);
+        return XXH32_endian_align(input, len, seed, XXH_littleEndian, align);
     } else
 #if (defined(__x86_64__) || defined(_M_IX86)) && !defined(XXH_NO_LONG_LONG)
         if (!XXH_CPU_IS_PRE_NEHALEM) {

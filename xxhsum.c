@@ -198,7 +198,7 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
  * '4096' is typical Linux PATH_MAX configuration. */
-#define DEFAULT_LINE_LENGTH (sizeof(XXH64_hash_t) * 2 + 2 + 4096 + 1)
+#define DEFAULT_LINE_LENGTH (sizeof(XXH64_hash_t) * 2 + 2 + 4096 + 3)
 
 /* Maximum acceptable line length. */
 #define MAX_LINE_LENGTH (32 KB)
@@ -939,7 +939,7 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
     if ((*lineBuf == NULL) || (*lineMax<1)) {
         free(*lineBuf);  /* in case it's != NULL */
         *lineMax = 0;
-        *lineBuf = (char*)malloc(DEFAULT_LINE_LENGTH);
+        *lineBuf = (char*)calloc(1, DEFAULT_LINE_LENGTH);
         if(*lineBuf == NULL) return GetLine_outOfMemory;
         *lineMax = DEFAULT_LINE_LENGTH;
     }

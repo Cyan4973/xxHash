@@ -165,8 +165,12 @@ test-xxhsum-c: xxhsum
 	@$(RM) -f .test.xxh32 .test.xxh64
 
 armtest: clean
+ifeq (,$(shell which arm-linux-gnueabi-gcc 2>&1 || true))
+	@echo Skipping ARM compilation, arm-linux-gnueabi-gcc not found
+else
 	@echo ---- test ARM compilation ----
 	CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static" $(MAKE) xxhsum
+endif
 
 clangtest: clean
 	@echo ---- test clang compilation ----
@@ -223,7 +227,13 @@ preview-man: clean-man man
 test: all namespaceTest check test-xxhsum-c c90test
 
 .PHONY: test-all
+
+# macOS disabled 32-bit support in recent Xcode versions.
+ifeq ($(shell uname 2> /dev/null || true),Darwin)
+test-all: test armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
+else
 test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
+endif
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

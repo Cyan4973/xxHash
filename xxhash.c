@@ -654,7 +654,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
-    /* cppcheck flags this as unused for some reason... */
+    /* cppcheck flags this as unused because it doesn't know how to parse _Pragma. */
     /* cppcheck-suppress unusedVariable */
     U32 h32;
 
@@ -1196,7 +1196,7 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
 {
     const BYTE* p = (const BYTE*)input;
     const BYTE* bEnd = p + len;
-    /* cppcheck flags this as unused for some reason... */
+    /* cppcheck flags this as unused because it doesn't understand _Pragma. */
     /* cppcheck-suppress unusedVariable */
     U64 h64;
 

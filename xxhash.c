@@ -2241,7 +2241,6 @@ XXH_PUBLIC_API unsigned XXH32_auto (const void* input, size_t len, unsigned seed
      * have slower setup times, and SSE/NEON registers are slower to move back and forth
      * between normal registers. */
 
-    /* cppcheck-suppress duplicateBranch */
     if (len <= 128) {
         return XXH32_endian_align(input, len, seed, XXH_littleEndian, align);
     } else

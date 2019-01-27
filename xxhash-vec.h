@@ -185,7 +185,21 @@ FORCE_INLINE uint64x2_t XXH_U64x2_twomul(const uint64x2_t top,
     return ret;
 }
 
-FORCE_INLINE const BYTE* XXH64_NEON32(const BYTE* p, const BYTE* bEnd,
+#define XXH64_VEC_LOOP \
+    do { \
+        uint32x2x2_t val = vld2_u32((const U32*)p); \
+        v[0] = XXH_U64x2_ssemul_add(v[0], val, prime2); \
+        v[0] = XXH_vec_rotl64(v[0], 31); /* rotl */ \
+        v[0] = XXH_U64x2_twomul(v[0], prime1_swapped, prime1_low); \
+        p += 16; \
+        val = vld2_u32((const U32*)p); \
+        v[1] = XXH_U64x2_ssemul_add(v[1], val, prime2); \
+        v[1] = XXH_vec_rotl64(v[1], 31); /* rotl */ \
+        v[1] = XXH_U64x2_twomul(v[1], prime1_swapped, prime1_low); \
+        p += 16; \
+    } while (p <= limit);
+
+FORCE_INLINE const BYTE* XXH64_NEON32(const BYTE* p, const BYTE* limit,
                                       const U64 seed, U64 *h64)
 {
     const U64 PRIME1[2] = { PRIME64_1, PRIME64_1 };
@@ -213,20 +227,7 @@ FORCE_INLINE const BYTE* XXH64_NEON32(const BYTE* p, const BYTE* bEnd,
     v[0] = vaddq_u64(v[0], seed_vec);
     v[1] = vaddq_u64(v[1], seed_vec);
 
-    do {
-        uint32x2x2_t val = vld2_u32((const U32*)p);
-
-        v[0] = XXH_U64x2_ssemul_add(v[0], val, prime2);
-        v[0] = XXH_vec_rotl64(v[0], 31); /* rotl */
-        v[0] = XXH_U64x2_twomul(v[0], prime1_swapped, prime1_low);
-        p += 16;
-
-        val = vld2_u32((const U32*)p);
-        v[1] = XXH_U64x2_ssemul_add(v[1], val, prime2);
-        v[1] = XXH_vec_rotl64(v[1], 31); /* rotl */
-        v[1] = XXH_U64x2_twomul(v[1], prime1_swapped, prime1_low);
-        p += 16;
-    } while (p < bEnd);
+    XXH64_VEC_LOOP
     {
         /* We need a copy for the rotl. */
         uint64x2_t v0_cpy = v[0];
@@ -267,19 +268,42 @@ FORCE_INLINE const BYTE* XXH64_NEON32(const BYTE* p, const BYTE* bEnd,
             v0_cpy = vaddq_u64(v0_cpy, v1_cpy);
             merged = vadd_u64(vget_low_u64(v0_cpy), vget_high_u64(v0_cpy));
 
-            *h64 = merged[0];
+            *h64 = vget_lane_u64(merged, 0);
         }
-        *h64 ^= v[0][0];
+        *h64 ^= vgetq_lane_u64(v[0], 0);
         *h64 = *h64 * PRIME64_1 + PRIME64_4;
-        *h64 ^= v[0][1];
+        *h64 ^= vgetq_lane_u64(v[0], 1);
         *h64 = *h64 * PRIME64_1 + PRIME64_4;
-        *h64 ^= v[1][0];
+        *h64 ^= vgetq_lane_u64(v[1], 0);
         *h64 = *h64 * PRIME64_1 + PRIME64_4;
-        *h64 ^= v[1][1];
+        *h64 ^= vgetq_lane_u64(v[1], 1);
         *h64 = *h64 * PRIME64_1 + PRIME64_4;
     }
     return p;
 }
+
+FORCE_INLNE const BYTE* XXH64_update_NEON32(const BYTE* p, const BYTE* limit, U64 state[2][2])
+{
+    const U64 PRIME1[2] = { PRIME64_1, PRIME64_1 };
+    const U64 PRIME2[2] = { PRIME64_2, PRIME64_2 };
+
+    /* Interleave our constants in two ways. */
+    const uint64x2_t prime1_base = vld1q_u64(PRIME1);
+    /* prime1_base & 0xFFFFFFFF; */
+    const uint32x2_t prime1_low = vmovn_u64(prime1_base);
+    /* (prime1_base << 32) | (prime1_base >> 32); */
+    const uint32x4_t prime1_swapped = vrev64q_u32(vreinterpretq_u32_u64(prime1_base));
+
+    /* { PRIME64_1 & 0xFFFFFFFF, PRIME64_1 & 0xFFFFFFFF, PRIME64_1 >> 32, PRIME64_1 >> 32 } */
+    const uint32x2x2_t prime2 = vld2_u32((const U32*)PRIME2);
+
+    uint64x2_t v[2];
+    v[0] = vld1q_u64(state[0]);
+    v[1] = vld1q_u64(state[1]);
+    XXH64_VEC_LOOP
+    return p;
+}
+
  /* Like XXH_vec_rotl32, but takes a vector as r. No NEON-optimized
   * version for this one. */
 FORCE_INLINE U32x4 XXH_rotlvec_vec32(U32x4 x, const U32x4 r)
@@ -585,6 +609,45 @@ XXH_ALIGN_16 static const U64 STATE1[2] = { PRIME64_1 + PRIME64_2, PRIME64_2 };
 XXH_ALIGN_16 static const U64 STATE2[2] = { 0, -PRIME64_1 };
 
 
+#define XXH64_VEC_LOOP \
+    if (XXH_FORCE_ALIGN_CHECK && (((size_t)p & 15) == 0)) { \
+        do { \
+            __m128i val = _mm_load_si128((const __m128i*)XXH_assume_aligned(p, 16)); \
+            val = XXH_U64x2_mult(val, prime2_high, prime2_low); \
+            v[0] = _mm_add_epi64(v[0], val); \
+            v[0] = XXH_vec_rotl64(v[0], 31); /* rotl */ \
+            v[0] = XXH_U64x2_mult(v[0], prime1_high, prime1_low); \
+            p += 16; \
+ \
+            val = _mm_load_si128((const __m128i*)XXH_assume_aligned(p, 16)); \
+            val = XXH_U64x2_mult(val, prime2_high, prime2_low); \
+            v[1] = _mm_add_epi64(v[1], val); \
+            v[1] = XXH_vec_rotl64(v[1], 31); /* rotl */ \
+            v[1] = XXH_U64x2_mult(v[1], prime1_high, prime1_low); \
+            p += 16; \
+        } while (p <= limit); \
+    } else { \
+        do { \
+            __m128i val; \
+            val = XXH_DISABLE_W_CAST_ALIGN(_mm_loadu_si128((const __m128i*)p)); \
+            val = XXH_U64x2_mult(val, prime2_high, prime2_low); \
+            v[0] = _mm_add_epi64(v[0], val); \
+            v[0] = XXH_vec_rotl64(v[0], 31); \
+            v[0] = XXH_U64x2_mult(v[0], prime1_high, prime1_low); \
+            p += 16; \
+ \
+            val = XXH_DISABLE_W_CAST_ALIGN(_mm_loadu_si128((const __m128i*)p)); \
+            val = XXH_U64x2_mult(val, prime2_high, prime2_low); \
+            v[1] = _mm_add_epi64(v[1], val); \
+            v[1] = XXH_vec_rotl64(v[1], 31); \
+            v[1] = XXH_U64x2_mult(v[1], prime1_high, prime1_low); \
+            p += 16; \
+        } while (p <= limit); \
+    } \
+    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[0], v[0])); \
+    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[1], v[1]));
+
+
 /* Only intrinsics here! */
 FORCE_INLINE const BYTE* XXH64_SSE2(const BYTE* p, const BYTE* const limit,
                                     const U64 seed, U64 *h64)
@@ -603,42 +666,7 @@ FORCE_INLINE const BYTE* XXH64_SSE2(const BYTE* p, const BYTE* const limit,
     v[0] = _mm_add_epi64(v[0], seed_vec);
     v[1] = _mm_add_epi64(v[1], seed_vec);
 
-    if (XXH_FORCE_ALIGN_CHECK && (((size_t)p & 15) == 0)) {
-        do {
-            __m128i val = _mm_load_si128((const __m128i*)XXH_assume_aligned(p, 16));
-            val = XXH_U64x2_mult(val, prime2_high, prime2_low);
-            v[0] = _mm_add_epi64(v[0], val);
-            v[0] = XXH_vec_rotl64(v[0], 31); /* rotl */
-            v[0] = XXH_U64x2_mult(v[0], prime1_high, prime1_low);
-            p += 16;
-
-            val = _mm_load_si128((const __m128i*)XXH_assume_aligned(p, 16));
-            val = XXH_U64x2_mult(val, prime2_high, prime2_low);
-            v[1] = _mm_add_epi64(v[1], val);
-            v[1] = XXH_vec_rotl64(v[1], 31); /* rotl */
-            v[1] = XXH_U64x2_mult(v[1], prime1_high, prime1_low);
-            p += 16;
-        } while (p < limit);
-    } else {
-        do {
-            __m128i val;
-            val = XXH_DISABLE_W_CAST_ALIGN(_mm_loadu_si128((const __m128i*)p));
-            val = XXH_U64x2_mult(val, prime2_high, prime2_low);
-            v[0] = _mm_add_epi64(v[0], val);
-            v[0] = XXH_vec_rotl64(v[0], 31);
-            v[0] = XXH_U64x2_mult(v[0], prime1_high, prime1_low);
-            p += 16;
-
-            val = XXH_DISABLE_W_CAST_ALIGN(_mm_loadu_si128((const __m128i*)p));
-            val = XXH_U64x2_mult(val, prime2_high, prime2_low);
-            v[1] = _mm_add_epi64(v[1], val);
-            v[1] = XXH_vec_rotl64(v[1], 31);
-            v[1] = XXH_U64x2_mult(v[1], prime1_high, prime1_low);
-            p += 16;
-        } while (p < limit);
-    }
-    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[0], v[0]));
-    XXH_DISABLE_W_CAST_ALIGN(_mm_store_si128((__m128i*)state[1], v[1]));
+    XXH64_VEC_LOOP
 
     /* SSE2's _mm_sll_epi64 is stupid.
      * In order to have two shift values, you either need to do a lot of shuffling,
@@ -671,6 +699,21 @@ FORCE_INLINE const BYTE* XXH64_SSE2(const BYTE* p, const BYTE* const limit,
     *h64 = *h64 * PRIME64_1 + PRIME64_4;
     return p;
 }
+
+FORCE_INLINE const BYTE* XXH64_update_SSE2(const BYTE* p, const BYTE* limit, U64 state[2][2])
+{
+    /* Interleave our constants. */
+    const __m128i prime1_low = _mm_set1_epi64x(PRIME64_1);
+    const __m128i prime1_high = _mm_set1_epi64x(PRIME64_1 >> 32);
+    const __m128i prime2_low = _mm_set1_epi64x(PRIME64_2);
+    const __m128i prime2_high = _mm_set1_epi64x(PRIME64_2 >> 32);
+    XXH_ALIGN_16 __m128i v[2];
+    v[0] = _mm_load_si128((const __m128i*)XXH_assume_aligned(state[0], 16));
+    v[1] = _mm_load_si128((const __m128i*)XXH_assume_aligned(state[1], 16));
+    XXH64_VEC_LOOP
+    return p;
+}
+#undef XXH64_VEC_LOOP
 #endif
 
 #endif /* XXHASH_VEC_H */

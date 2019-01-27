@@ -1223,9 +1223,9 @@ XXH64_endian_align(const void* input, size_t len, U64 seed,
  * unless some platform adds vectorized 64-bit multiplies. */
 
 /* (SSE2 || NEON) && (32-bit || XXH_VECTORIZE_XXH64) */
-#if (defined(__SSE2__) && (defined(__i386__) || defined(_M_IX86))) \
+#if defined(XXHASH_VEC_H) && ((defined(__SSE2__) && (defined(__i386__) || defined(_M_IX86))) \
  || (defined(XXH_NEON) && !defined(__aarch64__) && !defined(__arm64__)) \
- || defined(XXH_VECTORIZE_XXH64)
+ || defined(XXH_VECTORIZE_XXH64))
     if (len >= 32 && endian == XXH_littleEndian) {
         const BYTE* const limit = bEnd - 32;
 
@@ -1376,59 +1376,30 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
          * It slows down x64 (native math is faster) and ARMv7 (no 64-bit vector multiply), though.
          * Clang vectorizes this nicely, but on GCC, it is necessary to use the C++ wrappers for
          * proper performance. */
-        /* TODO: Move this to xxhash-vec.h and add NEON support */
-#if XXH_VECTORIZE && (defined(__i386__) || defined(_M_IX86) || defined(XXH_VECTORIZE_XXH64))
+#if defined(XXHASH_VEC_H) && ((defined(__SSE2__) && (defined(__i386__) || defined(_M_IX86))) \
+ || (defined(XXH_NEON) && !defined(__aarch64__) && !defined(__arm64__)) \
+ || defined(XXH_VECTORIZE_XXH64))
         if (p + 32 <= bEnd && endian == XXH_littleEndian) {
             const BYTE* const limit = bEnd - 32;
-            U64 vx1[2][2];
-            U64x2 v[2];
+            XXH_ALIGN_16 U64 vx1[2][2];
             vx1[0][0] = state->v1;
             vx1[0][1] = state->v2;
             vx1[1][0] = state->v3;
             vx1[1][1] = state->v4;
 
-            v[0] = (U64x2)XXH_vec_load_unaligned(vx1[0]);
-            v[1] = (U64x2)XXH_vec_load_unaligned(vx1[1]);
-            if (XXH_FORCE_ALIGN_CHECK && ((size_t)p & 15) == 0) {
-                UNROLL do {
-                    U64x2 inp = *(const U64x2*)XXH_assume_aligned(p, 16);
-                    v[0] += inp * PRIME64_2;
-                    v[0] = (v[0] << 31) | (v[0] >> 33);
-                    v[0] *= PRIME64_1;
-                    p += 16;
+#ifdef XXH_NEON
+            p = XXH64_update_NEON32(p, limit, vx1);
+#else
+            p = XXH64_update_SSE2(p, limit, vx1);
+#endif
 
-                    inp = *(const U64x2*)XXH_assume_aligned(p, 16);
-                    v[1] += inp * PRIME64_2;
-                    v[1] = (v[1] << 31) | (v[1] >> 33);
-                    v[1] *= PRIME64_1;
-                    p += 16;
-                } while (p <= limit);
-            }
-            else {
-                UNROLL do {
-                    U64x2 inp = (U64x2)XXH_vec_load_unaligned(p);
-                    v[0] += inp * PRIME64_2;
-                    v[0] = (v[0] << 31) | (v[0] >> 33);
-                    v[0] *= PRIME64_1;
-                    p += 16;
-
-                    inp = (U64x2)XXH_vec_load_unaligned(p);
-                    v[1] += inp * PRIME64_2;
-                    v[1] = (v[1] << 31) | (v[1] >> 33);
-                    v[1] *= PRIME64_1;
-                    p += 16;
-                } while (p <= limit);
-            }
-
-            XXH_vec_store_unaligned(vx1[0], v[0]);
-            XXH_vec_store_unaligned(vx1[1], v[1]);
             state->v1 = vx1[0][0];
             state->v2 = vx1[0][1];
             state->v3 = vx1[1][0];
             state->v4 = vx1[1][1];
         }
         else
-#endif /* XXH_VECTORIZE && (i386 || XXH_VECTORIZE_XXH64) */
+#endif /* (SSE2 || NEON) && (32-bit || XXH_VECTORIZE_XXH64) */
         if (p+32 <= bEnd) {
             const BYTE* const limit = bEnd - 32;
             U64 v1 = state->v1;

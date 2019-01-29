@@ -282,7 +282,7 @@ FORCE_INLINE const BYTE* XXH64_NEON32(const BYTE* p, const BYTE* limit,
     return p;
 }
 
-FORCE_INLNE const BYTE* XXH64_update_NEON32(const BYTE* p, const BYTE* limit, U64 state[2][2])
+FORCE_INLINE const BYTE* XXH64_update_NEON32(const BYTE* p, const BYTE* limit, U64 state[2][2])
 {
     const U64 PRIME1[2] = { PRIME64_1, PRIME64_1 };
     const U64 PRIME2[2] = { PRIME64_2, PRIME64_2 };

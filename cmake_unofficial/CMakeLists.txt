@@ -57,6 +57,7 @@ include_directories("${XXHASH_DIR}")
 
 # libxxhash
 add_library(xxhash "${XXHASH_DIR}/xxhash.c")
+target_compile_definitions(xxhash PUBLIC XXH_EXPORT)
 set_target_properties(xxhash PROPERTIES
   SOVERSION "${XXHASH_VERSION_STRING}"
   VERSION "${XXHASH_VERSION_STRING}")

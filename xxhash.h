@@ -107,7 +107,15 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #    define XXH_PUBLIC_API static
 #  endif
 #else
-#  define XXH_PUBLIC_API   /* do nothing */
+#  ifdef WIN32
+#    ifdef XXH_EXPORT
+#      define XXH_PUBLIC_API __declspec(dllexport)
+#    else
+#      define XXH_PUBLIC_API __declspec(dllimport)
+#    endif
+#  else
+#    define XXH_PUBLIC_API   /* do nothing */
+#  endif
 #endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
 
 /*! XXH_NAMESPACE, aka Namespace Emulation :

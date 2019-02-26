@@ -1239,17 +1239,17 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
     static unsigned const max = (((unsigned)(-1)) / 10) - 1;
     unsigned result = 0;
     while ((**stringPtr >='0') && (**stringPtr <='9')) {
-        if (result > max) return 1; // overflow error
+        if (result > max) return 1; /* overflow error */
         result *= 10;
         result += (unsigned)(**stringPtr - '0');
         (*stringPtr)++ ;
     }
     if ((**stringPtr=='K') || (**stringPtr=='M')) {
         unsigned const maxK = ((unsigned)(-1)) >> 10;
-        if (result > maxK) return 1; // overflow error
+        if (result > maxK) return 1; /* overflow error */
         result <<= 10;
         if (**stringPtr=='M') {
-            if (result > maxK) return 1; // overflow error
+            if (result > maxK) return 1; /* overflow error */
             result <<= 10;
         }
         (*stringPtr)++;  /* skip `K` or `M` */

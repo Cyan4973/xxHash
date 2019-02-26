@@ -2,12 +2,22 @@
 #define XXH3_H
 
 
+/* ===   Dependencies   === */
+
 #undef XXH_INLINE_ALL   /* in case it's already defined */
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
 #define NDEBUG
 #include <assert.h>
+
+
+/* ===   Compiler versions   === */
+
+#if !(defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)   /* C99+ */
+#  define restrict   /* disable */
+#endif
+
 
 
 /* ==========================================
@@ -26,6 +36,7 @@
 #    define XXH_VECTOR XXH_SCALAR
 #  endif
 #endif
+
 
 
 /* ==========================================
@@ -69,7 +80,7 @@ static U64 XXH3_finalMerge_8u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4,
 }
 
 
-static inline U64 XXH3_len_1to3_64b(const void* data, size_t len)
+XXH_FORCE_INLINE U64 XXH3_len_1to3_64b(const void* data, size_t len)
 {
     assert(data != NULL);
     assert(len > 0 && len <= 3);
@@ -84,7 +95,7 @@ static inline U64 XXH3_len_1to3_64b(const void* data, size_t len)
 }
 
 
-static inline U64 XXH3_len_4to8_64b(const void* data, size_t len)
+XXH_FORCE_INLINE U64 XXH3_len_4to8_64b(const void* data, size_t len)
 {
     assert(data != NULL);
     assert(len >= 4 && len <= 8);
@@ -95,7 +106,7 @@ static inline U64 XXH3_len_4to8_64b(const void* data, size_t len)
     }
 }
 
-static inline U64 XXH3_len_9to16_64b(const void* data, size_t len)
+XXH_FORCE_INLINE U64 XXH3_len_9to16_64b(const void* data, size_t len)
 {
     assert(data != NULL);
     assert(len >= 9 && len <= 16);
@@ -108,7 +119,7 @@ static inline U64 XXH3_len_9to16_64b(const void* data, size_t len)
     }
 }
 
-static inline U64 XXH3_len_1to16_64b(const void* data, size_t len)
+XXH_FORCE_INLINE U64 XXH3_len_1to16_64b(const void* data, size_t len)
 {
     assert(data != NULL);
     assert(len > 0 && len <= 16);
@@ -187,6 +198,7 @@ static U64 XXH3_len_97to128_64b(const void* data, size_t len)
 }
 
 
+
 /* ==========================================
  * Long keys
  * ========================================== */
@@ -224,7 +236,7 @@ ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
 
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
-inline static void
+XXH_FORCE_INLINE void
 XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
@@ -250,7 +262,8 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
                   const __m128i* const xdata = (const __m128i *) data;
         ALIGN(16) const __m128i* const xkey  = (const __m128i *) key;
 
-        for (size_t i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        size_t i;
+        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
             __m128i const d   = _mm_loadu_si128 (xdata+i);
             __m128i const k   = _mm_loadu_si128 (xkey+i);
             __m128i const dk  = _mm_add_epi32 (d,k);                               /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
@@ -309,7 +322,8 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         const __m128i* const xkey  = (const __m128i *) key;
         __m128i const xor_p5 = _mm_set1_epi64((__m64)PRIME64_5);
 
-        for (size_t i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        size_t i;
+        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
             __m128i data = xacc[i];
             __m128i const shifted = _mm_srli_epi64(data, 47);
             data = _mm_xor_si128(data, shifted);
@@ -348,7 +362,8 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 
 static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
-    for (size_t n = 0; n < nbStripes; n++ ) {
+    size_t n;
+    for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
         key += 2;
     }
@@ -365,7 +380,8 @@ XXH3_hashLong(const void* data, size_t len)
     size_t const block_len = STRIPE_LEN * NB_KEYS;
     size_t const nb_blocks = len / block_len;
 
-    for (size_t n = 0; n < nb_blocks; n++) {
+    size_t n;
+    for (n = 0; n < nb_blocks; n++) {
         XXH3_accumulate(acc, (const BYTE*)data + n*block_len, kKey, NB_KEYS);
         XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
@@ -385,6 +401,7 @@ XXH3_hashLong(const void* data, size_t len)
     /* converge into final hash */
     return XXH3_finalMerge_8u64(acc[0], acc[1], acc[2], acc[3], acc[4], acc[5], acc[6], acc[7], PRIME64_2);
 }
+
 
 
 /* ==========================================

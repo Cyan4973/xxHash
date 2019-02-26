@@ -265,7 +265,6 @@ static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
-U64 XXH3_64b(const void* data, size_t len);
 static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64b(buffer, bufferSize); }
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)

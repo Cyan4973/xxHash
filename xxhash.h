@@ -159,7 +159,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    6
-#define XXH_VERSION_RELEASE  5
+#define XXH_VERSION_RELEASE  6
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -247,6 +247,16 @@ XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 typedef struct { unsigned char digest[8]; } XXH64_canonical_t;
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
+
+
+/*-**********************************************************************
+*  XXH3
+*  New experimental hash
+************************************************************************/
+
+XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len);
+
+
 #endif  /* XXH_NO_LONG_LONG */
 
 
@@ -289,33 +299,33 @@ struct XXH64_state_s {
    uint64_t v4;
    uint64_t mem64[4];
    uint32_t memsize;
-   uint32_t reserved[2];          /* never read nor write, might be removed in a future version */
+   uint32_t reserved[2];   /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
 
 # else
 
 struct XXH32_state_s {
-   unsigned total_len_32;
-   unsigned large_len;
-   unsigned v1;
-   unsigned v2;
-   unsigned v3;
-   unsigned v4;
-   unsigned mem32[4];
-   unsigned memsize;
-   unsigned reserved;   /* never read nor write, might be removed in a future version */
+   XXH32_hash_t total_len_32;
+   XXH32_hash_t large_len;
+   XXH32_hash_t v1;
+   XXH32_hash_t v2;
+   XXH32_hash_t v3;
+   XXH32_hash_t v4;
+   XXH32_hash_t mem32[4];
+   XXH32_hash_t memsize;
+   XXH32_hash_t reserved;   /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH32_state_t */
 
 #   ifndef XXH_NO_LONG_LONG  /* remove 64-bit support */
 struct XXH64_state_s {
-   unsigned long long total_len;
-   unsigned long long v1;
-   unsigned long long v2;
-   unsigned long long v3;
-   unsigned long long v4;
-   unsigned long long mem64[4];
-   unsigned memsize;
-   unsigned reserved[2];     /* never read nor write, might be removed in a future version */
+   XXH64_hash_t total_len;
+   XXH64_hash_t v1;
+   XXH64_hash_t v2;
+   XXH64_hash_t v3;
+   XXH64_hash_t v4;
+   XXH64_hash_t mem64[4];
+   XXH32_hash_t memsize;
+   XXH32_hash_t reserved[2];     /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
 #    endif
 

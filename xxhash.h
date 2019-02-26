@@ -254,6 +254,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 *  New experimental hash
 ************************************************************************/
 
+#ifdef XXH_NAMESPACE
+#  define XXH3_64b XXH_NAME2(XXH_NAMESPACE, XXH3_64b)
+#endif
+
 XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len);
 
 

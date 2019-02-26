@@ -265,6 +265,9 @@ static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
+U64 XXH3_64b(const void* data, size_t len);
+static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64b(buffer, bufferSize); }
+
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
@@ -330,7 +333,15 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     if ((specificTest==0) | (specificTest==4))
         BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
 
-    if (specificTest > 4) {
+    /* Bench XXH3 */
+    if ((specificTest==0) | (specificTest==5))
+        BMK_benchHash(localXXH3_64b, "XXH3_64bits", buffer, bufferSize);
+
+    /* Bench XXH3 on Unaligned input */
+    if ((specificTest==0) | (specificTest==6))
+        BMK_benchHash(localXXH3_64b, "XXH3_64b unaligned", ((const char*)buffer)+3, bufferSize);
+
+    if (specificTest > 6) {
         DISPLAY("benchmark mode invalid \n");
         return 1;
     }
@@ -397,15 +408,15 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 
 
 
-static int BMK_benchInternal(size_t keySize, int specificTest)
+static int BMK_benchInternal(size_t keySize, U32 specificTest)
 {
     void* const buffer = calloc(keySize+16+3, 1);
-    if(!buffer) {
+    if (!buffer) {
         DISPLAY("\nError: not enough memory!\n");
         return 12;
     }
 
-    {   void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
+    {   const void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
 
         /* bench */
         DISPLAYLEVEL(1, "Sample of ");
@@ -749,10 +760,10 @@ typedef struct {
     char*           lineBuf;
     size_t          blockSize;
     char*           blockBuf;
-    int             strictMode;
-    int             statusOnly;
-    int             warn;
-    int             quiet;
+    U32             strictMode;
+    U32             statusOnly;
+    U32             warn;
+    U32             quiet;
     ParseFileReport report;
 } ParseFileArg;
 
@@ -766,7 +777,7 @@ typedef struct {
 static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
 {
     GetLineResult result = GetLine_ok;
-    int len = 0;
+    size_t len = 0;
 
     if ((*lineBuf == NULL) || (*lineMax<1)) {
         free(*lineBuf);  /* in case it's != NULL */
@@ -787,9 +798,9 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
         }
 
         /* Make enough space for len+1 (for final NUL) bytes. */
-        if (len+1 >= *lineMax) {
+        if (len+1 >= (size_t)*lineMax) {
             char* newLineBuf = NULL;
-            int newBufSize = *lineMax;
+            size_t newBufSize = (size_t)*lineMax;
 
             newBufSize += (newBufSize/2) + 1; /* x 1.5 */
             if (newBufSize > MAX_LINE_LENGTH) newBufSize = MAX_LINE_LENGTH;
@@ -799,7 +810,7 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
             if (newLineBuf == NULL) return GetLine_outOfMemory;
 
             *lineBuf = newLineBuf;
-            *lineMax = newBufSize;
+            *lineMax = (int)newBufSize;
         }
 
         if (c == '\n') break;
@@ -1214,24 +1225,51 @@ static int badusage(const char* exename)
     return 1;
 }
 
-/*! readU32FromChar() :
-   @return : unsigned integer value read from input in `char` format,
-             0 is no figure at *stringPtr position.
-    Interprets K, KB, KiB, M, MB and MiB suffix.
-    Modifies `*stringPtr`, advancing it to position where reading stopped.
-    Note : function result can overflow if digit string > MAX_UINT */
-static unsigned readU32FromChar(const char** stringPtr)
+static void errorOut(const char* msg)
 {
+    DISPLAY("%s \n", msg); exit(1);
+}
+
+/*! readU32FromCharChecked() :
+ * @return 0 if success, and store the result in *value.
+ *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
+ * @return 1 if an overflow error occurs */
+static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
+{
+    static unsigned const max = (((unsigned)(-1)) / 10) - 1;
     unsigned result = 0;
-    while ((**stringPtr >='0') && (**stringPtr <='9'))
-        result *= 10, result += **stringPtr - '0', (*stringPtr)++ ;
-    if ((**stringPtr=='K') || (**stringPtr=='M')) {
-        result <<= 10;
-        if (**stringPtr=='M') result <<= 10;
+    while ((**stringPtr >='0') && (**stringPtr <='9')) {
+        if (result > max) return 1; // overflow error
+        result *= 10;
+        result += (unsigned)(**stringPtr - '0');
         (*stringPtr)++ ;
+    }
+    if ((**stringPtr=='K') || (**stringPtr=='M')) {
+        unsigned const maxK = ((unsigned)(-1)) >> 10;
+        if (result > maxK) return 1; // overflow error
+        result <<= 10;
+        if (**stringPtr=='M') {
+            if (result > maxK) return 1; // overflow error
+            result <<= 10;
+        }
+        (*stringPtr)++;  /* skip `K` or `M` */
         if (**stringPtr=='i') (*stringPtr)++;
         if (**stringPtr=='B') (*stringPtr)++;
     }
+    *value = result;
+    return 0;
+}
+
+/*! readU32FromChar() :
+ * @return : unsigned integer value read from input in `char` format.
+ *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
+ *  Note : function will exit() program if digit sequence overflows */
+static unsigned readU32FromChar(const char** stringPtr) {
+    static const char errorMsg[] = "error: numeric value too large";
+    unsigned result;
+    if (readU32FromCharChecked(stringPtr, &result)) { errorOut(errorMsg); }
     return result;
 }
 

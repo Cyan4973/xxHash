@@ -27,7 +27,7 @@
 #  include <intrin.h>
 #  define ALIGN(n)      __declspec(align(n))
 #else
-#  define ALIGN(n)   // disabled
+#  define ALIGN(n)   /* disabled */
 #endif
 
 
@@ -79,16 +79,14 @@ static U64 XXH3_finalMerge_8u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4,
                                 U64 mul)
 {
     U64 const ll11 = XXH_rotl64(ll1 + ll7, 21) + (XXH_rotl64(ll2, 34) + ll3) * 9;
-    U64 const ll12 = ((ll1 + ll2) ^ ll4) + ll6 + 1;
+    U64 const ll12 = XXH_rotl64(((ll1 + ll2) ^ ll4), 17) + ll6 + 1;
     U64 const ll13 = XXH_rotl64(ll5 + ll6, 22) + ll3;
-    U64 const ll14 = ll5 + XXH_rotl64(ll8, 11) + ll3;
+    U64 const ll14 = ll5 + XXH_rotl64(ll8, 23) + ll7;
 
-    U64 const ll21 = XXH_swap64((ll11 + ll12) * mul) + ll8;
-    U64 const ll31 = (XXH_swap64((ll12 + ll21) * mul) + ll7) * mul;
-    U64 const ll41 = XXH_swap64((ll13 + ll14) * mul + ll31) + ll2;
-    U64 const ll51 = XXH3_mixHigh((ll14 + ll41) * mul + ll4 + ll8) * mul;
+    U64 const ll21 = (XXH_swap64((ll11 + ll12) * mul) + ll13) * mul + ll8;
+    U64 const ll22 = (XXH_swap64((ll12 + ll14) * mul) + ll4) * mul;
 
-    return ll51 + ll13;
+    return XXH3_finalMerge_2u64(ll21, ll22, mul);
 }
 
 
@@ -124,10 +122,10 @@ XXH_FORCE_INLINE U64 XXH3_len_9to16_64b(const void* data, size_t len)
     assert(len >= 9 && len <= 16);
     {   U64 const ll1 = XXH_read64(data) + PRIME64_1;
         U64 const ll2 = XXH_read64((const BYTE*)data + len - 8);
-        U64 const mul = PRIME64_2 + len * 2;  /* keep it odd */
-        U64 const llcomb3 = ll1 * mul + XXH_rotl64(ll2, 23);
-        U64 const llcomb4 = ll2 * mul + XXH_rotl64(ll1, 37);
-        return XXH3_finalMerge_2u64(llcomb3, llcomb4, mul);
+        U64 const mul = PRIME64_2 + (len * 2);  /* keep it odd */
+        U64 const ll11 = (ll1 * mul) + XXH_rotl64(ll2, 23);
+        U64 const ll12 = (ll2 * mul) + XXH_rotl64(ll1, 37);
+        return XXH3_finalMerge_2u64(ll11, ll12, mul);
     }
 }
 
@@ -407,7 +405,7 @@ XXH3_hashLong(const void* data, size_t len)
 
 
 /* ==========================================
- * Public prototype
+ * Public entry point
  * ========================================== */
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len)

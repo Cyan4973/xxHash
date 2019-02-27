@@ -226,6 +226,7 @@ preview-man: clean-man man
 
 test: all namespaceTest check test-xxhsum-c c90test
 
+test-all: CFLAGS += -Werror
 test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
 
 .PHONY: listL120

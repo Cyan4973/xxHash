@@ -1266,9 +1266,11 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  *  Note : function will exit() program if digit sequence overflows */
 static unsigned readU32FromChar(const char** stringPtr) {
-    static const char errorMsg[] = "error: numeric value too large";
     unsigned result;
-    if (readU32FromCharChecked(stringPtr, &result)) { errorOut(errorMsg); }
+    if (readU32FromCharChecked(stringPtr, &result)) {
+        static const char errorMsg[] = "error: numeric value too large";
+        errorOut(errorMsg);
+    }
     return result;
 }
 

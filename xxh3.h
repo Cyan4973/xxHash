@@ -354,10 +354,10 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         xacc[i] ^= xacc[i] >> 47;
         xacc[i] ^= PRIME64_5;
 
-        U64 p1 = (xacc[i] >> 32) * xkey[left];
-        U64 p2 = (xacc[i] & 0xFFFFFFFF) * xkey[right];
-        xacc[i] = p1 ^ p2;
-    }
+        {   U64 p1 = (xacc[i] >> 32) * xkey[left];
+            U64 p2 = (xacc[i] & 0xFFFFFFFF) * xkey[right];
+            xacc[i] = p1 ^ p2;
+    }   }
 
 #endif
 }

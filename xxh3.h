@@ -18,6 +18,18 @@
 #  define restrict   /* disable */
 #endif
 
+#if defined(__GNUC__)
+#  if defined(__SSE2__)
+#    include <x86intrin.h>
+#  endif
+#  define ALIGN(n)      __attribute__ ((aligned(n)))
+#elif defined(_MSC_VER)
+#  include <intrin.h>
+#  define ALIGN(n)      __declspec(align(n))
+#else
+#  define ALIGN(n)   // disabled
+#endif
+
 
 
 /* ==========================================
@@ -202,16 +214,6 @@ static U64 XXH3_len_97to128_64b(const void* data, size_t len)
 /* ==========================================
  * Long keys
  * ========================================== */
-
-#if __GNUC__
-#include <x86intrin.h>
-#define ALIGN(n)      __attribute__ ((aligned(n)))
-#elif _MSC_VER
-#include <intrin.h>
-#define ALIGN(n)      __declspec(align(n))
-#else
-#define ALIGN(n)
-#endif
 
 #define STRIPE_LEN 64
 #define STRIPE_ELTS (STRIPE_LEN / sizeof(U32))
@@ -408,7 +410,7 @@ XXH3_hashLong(const void* data, size_t len)
  * Public prototype
  * ========================================== */
 
-XXH_PUBLIC_API U64 XXH3_64b(const void* data, size_t len)
+XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len)
 {
     switch ((len-1) / 16) {  /* intentional underflow */
         case 0: return XXH3_len_1to16_64b(data, len);

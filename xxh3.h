@@ -69,7 +69,7 @@ static U64 XXH3_finalMerge_2u64(U64 ll1, U64 ll2, U64 mul)
 static U64 XXH3_finalMerge_4u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4, U64 mul)
 {
     U64 const ll11 = XXH_rotl64(ll1 + ll2, 43) + XXH_rotl64(ll3, 30) + ll4;
-    U64 const ll12 = ll1 + XXH_rotl64(ll2 + PRIME64_3, 18) + ll3;
+    U64 const ll12 = ll1 + XXH_rotl64(ll2, 18) + ll3 + PRIME64_3;
 
     return XXH3_finalMerge_2u64(ll11, ll12, mul);
 }
@@ -79,12 +79,12 @@ static U64 XXH3_finalMerge_8u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4,
                                 U64 mul)
 {
     U64 const ll11 = XXH_rotl64(ll1 + ll7, 21) + (XXH_rotl64(ll2, 34) + ll3) * 9;
-    U64 const ll12 = XXH_rotl64(((ll1 + ll2) ^ ll4), 17) + ll6 + 1;
-    U64 const ll13 = XXH_rotl64(ll5 + ll6, 22) + ll3;
-    U64 const ll14 = ll5 + XXH_rotl64(ll8, 23) + ll7;
+    U64 const ll12 = XXH_rotl64(((ll1 + ll2) ^ ll4), 17) + ll6 + PRIME64_5;
+    U64 const ll13 = XXH_rotl64(ll5 * PRIME64_4 + ll6, 46) + ll3;
+    U64 const ll14 = XXH_rotl64(ll8, 23) + XXH_rotl64(ll5 + ll7, 12);
 
-    U64 const ll21 = (XXH_swap64((ll11 + ll12) * mul) + ll13) * mul + ll8;
-    U64 const ll22 = (XXH_swap64((ll12 + ll14) * mul) + ll4) * mul;
+    U64 const ll21 = (XXH_swap64((ll11 + ll12) * PRIME64_1) + ll13) * PRIME64_3 + ll8;
+    U64 const ll22 = (XXH_swap64((ll12 + ll14) * PRIME64_2) + ll4) * mul;
 
     return XXH3_finalMerge_2u64(ll21, ll22, mul);
 }
@@ -373,7 +373,7 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
 __attribute__((noinline)) static U64    /* It seems better for XXH3_64b to have hashLong not inlined : may mess up the switch case ? */
 XXH3_hashLong(const void* data, size_t len)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { len, PRIME64_1, PRIME64_2, PRIME64_3, -len };
+    ALIGN(64) U64 acc[ACC_NB] = { 0, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5 };
 
     #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
@@ -399,7 +399,7 @@ XXH3_hashLong(const void* data, size_t len)
     }   }
 
     /* converge into final hash */
-    return XXH3_finalMerge_8u64(acc[0], acc[1], acc[2], acc[3], acc[4], acc[5], acc[6], acc[7], PRIME64_2);
+    return XXH3_finalMerge_8u64(acc[0] + len, acc[1], acc[2], acc[3], acc[4], acc[5], acc[6], acc[7] - len, PRIME64_2 + len*2);
 }
 
 

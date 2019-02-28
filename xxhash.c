@@ -348,7 +348,6 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len,
     return h32;   /* reaching this point is deemed impossible */
 }
 
-
 XXH_FORCE_INLINE U32
 XXH32_endian_align(const void* input, size_t len, U32 seed,
                     XXH_endianess endian, XXH_alignment align)
@@ -371,6 +370,17 @@ XXH32_endian_align(const void* input, size_t len, U32 seed,
         U32 v3 = seed + 0;
         U32 v4 = seed - PRIME32_1;
 
+        /* note : clang will try to vectorize this loop, using pmulld instruction.
+         * This is a bad idea, and will result in substantial performance reduction.
+         * To prevent clang from "optimizing" this loop,
+         * it's necessary to disable SSE4 on command line (-mno-sse4).
+         * However, this is a build instruction, so it's outside of source code.
+         * Whenever xxhash.c is used in a different code base, build flags don't follow.
+         * It would be better to ensure vectorization is disabled from within the source code.
+         * Alas, so far, I've not found a working method.
+         * I tried both `#pragma` and `__attribute__`, but clang still vectorizes.
+         * Help welcomed.
+         * In the meantime, vectorization is prevented by the `Makefile` */
         do {
             v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
             v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;

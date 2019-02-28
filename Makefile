@@ -41,7 +41,7 @@ else
 NOSSE4 :=
 endif
 
-CFLAGS ?= -O2 $(NOSSE4) # disables potential auto-vectorization
+CFLAGS ?= -O3 $(NOSSE4) # disables potential auto-vectorization
 DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \

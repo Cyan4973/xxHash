@@ -79,14 +79,16 @@ static U64 XXH3_finalMerge_8u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4,
                                 U64 mul)
 {
     U64 const ll11 = XXH_rotl64(ll1 + ll7, 21) + (XXH_rotl64(ll2, 34) + ll3) * 9;
-    U64 const ll12 = XXH_rotl64(((ll1 + ll2) ^ ll4), 17) + ll6 + PRIME64_5;
-    U64 const ll13 = XXH_rotl64(ll5 * PRIME64_4 + ll6, 46) + ll3;
-    U64 const ll14 = XXH_rotl64(ll8, 23) + XXH_rotl64(ll5 + ll7, 12);
+    U64 const ll12 = ((ll1 + ll2) ^ ll4) + ll6 + 1;
+    U64 const ll13 = XXH_rotl64(ll5 + ll6, 22) + ll3;
+    U64 const ll14 = ll5 + XXH_rotl64(ll8, 11) + ll3;
 
-    U64 const ll21 = (XXH_swap64((ll11 + ll12) * PRIME64_1) + ll13) * PRIME64_3 + ll8;
-    U64 const ll22 = (XXH_swap64((ll12 + ll14) * PRIME64_2) + ll4) * mul;
+    U64 const ll21 = XXH_swap64((ll11 + ll12) * mul) + ll8;
+    U64 const ll31 = (XXH_swap64((ll12 + ll21) * mul) + ll7) * mul;
+    U64 const ll41 = XXH_swap64((ll13 + ll14) * mul + ll31) + ll2;
+    U64 const ll51 = XXH3_mixHigh((ll14 + ll41) * mul + ll4 + ll8) * mul;
 
-    return XXH3_finalMerge_2u64(ll21, ll22, mul);
+    return ll51 + ll13;
 }
 
 

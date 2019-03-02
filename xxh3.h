@@ -49,6 +49,11 @@
 #    define XXH_VECTOR XXH_AVX2
 #  elif defined(__SSE2__)
 #    define XXH_VECTOR XXH_SSE2
+/* GCC < 7 for aarch64 generates unreasonably slow code for the NEON
+ * implementation. We fall back to the scalar version and emit a warning. */
+#  elif defined(__aarch64__) && !defined(__clang__) && defined(__GNUC__) && __GNUC__ < 7
+#    warning Your GCC version has broken NEON support. Please use GCC 7+ or Clang.
+#    define XXH_VECTOR XXH_SCALAR
 /* msvc support maybe later */
 #  elif defined(__GNUC__) && (defined(__ARM_NEON__) || defined(__ARM_NEON))
 #    define XXH_VECTOR XXH_NEON

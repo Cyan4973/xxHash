@@ -315,26 +315,23 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
              *  | v8.2s (.val[0]) |     <zero>     | v9.2s (.val[1]) |      <zero>     |
              *  '-----------------'----------------'-----------------'-----------------'
              * On aarch64, ld2 will put it into v8.2s and v9.2s. Reinterpreting
-             * is not going to help us here, as half of it will end up being zero.
-             *
-             * Even if it did, aarch64 apparently does really bad with shuffling, so
-             * we use a different method. */
+             * is not going to help us here, as half of it will end up being zero. */
 
             uint32x2x2_t d = vld2_u32(xdata + i * 4);     /* load and swap */
             uint32x2x2_t k = vld2_u32(xkey + i * 4);
             /* Not sorry about breaking the strict aliasing rule.
              * Using a union causes GCC to spit out nonsense, but an alias cast
              * does not. */
-            uint32x4_t const dk = vaddq_u32(*(uint32x4_t*)&d, *(uint32x4_t*)&k);  /* dk = d + k */
-            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(dk), vget_high_u32(dk));    /* xacc[i] += (U64)dkLo * (U64)dkHi; */
+            uint32x4_t const dk = vaddq_u32(*(uint32x4_t*)&d, *(uint32x4_t*)&k);
+            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(dk), vget_high_u32(dk));
 #else
-            /* A portable and aarch64-friendly version. It is slower on ARMv7a, though. */
-            uint32x4_t d = vld1q_u32(xdata + i * 4);
-            uint32x4_t k = vld1q_u32(xkey + i * 4);
-            /* Add d and k, then reinterpret to a uint64x2_t. This is not a long add. */
-            uint64x2_t dk = vreinterpretq_u64_u32(vaddq_u32(d, k));           /* dk = (U64)(d[1] + k[1]) << 32) | (d[0] + k[0]); */
-            /* Long multiply high and low bits. */
-            xacc[i] = vmlal_u32(xacc[i], vmovn_u64(dk), vshrn_n_u64(dk, 32)); /* xacc[i] += (dk & 0xFFFFFFFF) * (dk >> 32); */
+            /* Portable, but slightly slower version */
+            uint32x2x2_t const d = vld2_u32(xdata + i * 4);
+            uint32x2x2_t const k = vld2_u32(xkey + i * 4);
+            uint32x2_t const dkL = vadd_u32(d.val[0], k.val[0]);
+            uint32x2_t const dkH = vadd_u32(d.val[1], k.val[1]);   /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+            /* xacc must be aligned on 16 bytes boundaries */
+            xacc[i] = vmlal_u32(xacc[i], dkL, dkH);                /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
 #endif
         }
     }
@@ -422,12 +419,6 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
             data = veorq_u64(data, xor_p5);
 
             {
-#ifdef __aarch64__
-                /* aarch64 prefers this method, ARMv7a prefers the other. */
-                uint64x2_t k = *(uint64x2_t *)(xkey + i * 4);
-                uint64x2_t const dk = vmull_u32(vmovn_u64(data), vmovn_u64(k));
-                uint64x2_t const dk2 = vmull_u32(vshrn_n_u64(data, 32), vshrn_n_u64(k, 32));
-#else
                 /* shuffle: 0, 1, 2, 3 -> 0, 2, 1, 3 */
                 uint32x2x2_t const d =
                     vzip_u32(
@@ -437,7 +428,6 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
                 uint32x2x2_t const k = vld2_u32 (xkey+i*4);              /* load and swap */
                 uint64x2_t const dk  = vmull_u32(d.val[0],k.val[0]);     /* U64 dk[2]  = {d0 * k0, d2 * k2} */
                 uint64x2_t const dk2 = vmull_u32(d.val[1],k.val[1]);     /* U64 dk2[2] = {d1 * k1, d3 * k3} */
-#endif
                 xacc[i] = veorq_u64(dk, dk2);                            /* xacc[i] = dk ^ dk2;             */
         }   }
     }

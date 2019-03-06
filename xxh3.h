@@ -59,172 +59,11 @@
 
 
 
-/* ==========================================
- * Short keys
- * ========================================== */
-
-static U64 XXH3_mixHigh(U64 val) {
-  return val ^ (val >> 47);
-}
-
-static U64 XXH3_finalMerge_2u64(U64 ll1, U64 ll2, U64 mul)
-{
-    U64 const ll11 = XXH3_mixHigh((ll1 ^ ll2) * mul);
-    U64 const ll21 = XXH3_mixHigh((ll2 ^ ll11) * mul);
-    return ll21 * mul;
-}
-
-static U64 XXH3_finalMerge_4u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4, U64 mul)
-{
-    U64 const ll11 = XXH_rotl64(ll1 + ll2, 43) + XXH_rotl64(ll3, 30) + ll4;
-    U64 const ll12 = ll1 + XXH_rotl64(ll2, 18) + ll3 + PRIME64_3;
-
-    return XXH3_finalMerge_2u64(ll11, ll12, mul);
-}
-
-static U64 XXH3_finalMerge_8u64(U64 ll1, U64 ll2, U64 ll3, U64 ll4,
-                                U64 ll5, U64 ll6, U64 ll7, U64 ll8,
-                                U64 mul)
-{
-    U64 const ll11 = XXH_rotl64(ll1 + ll7, 21) + (XXH_rotl64(ll2, 34) + ll3) * 9;
-    U64 const ll12 = ((ll1 + ll2) ^ ll4) + ll6 + 1;
-    U64 const ll13 = XXH_rotl64(ll5 + ll6, 22) + ll3;
-    U64 const ll14 = ll5 + XXH_rotl64(ll8, 11) + ll3;
-
-    U64 const ll21 = XXH_swap64((ll11 + ll12) * mul) + ll8;
-    U64 const ll31 = (XXH_swap64((ll12 + ll21) * mul) + ll7) * mul;
-    U64 const ll41 = XXH_swap64((ll13 + ll14) * mul + ll31) + ll2;
-    U64 const ll51 = XXH3_mixHigh((ll14 + ll41) * mul + ll4 + ll8) * mul;
-
-    return ll51 + ll13;
-}
-
-
-XXH_FORCE_INLINE U64 XXH3_len_1to3_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len > 0 && len <= 3);
-    {   BYTE const c1 = ((const BYTE*)data)[0];
-        BYTE const c2 = ((const BYTE*)data)[len >> 1];
-        BYTE const c3 = ((const BYTE*)data)[len - 1];
-        U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
-        U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll3 = (l1 * PRIME64_2) ^ (l2 * PRIME64_1);
-        return XXH3_mixHigh(ll3) * PRIME64_3;
-    }
-}
-
-
-XXH_FORCE_INLINE U64 XXH3_len_4to8_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len >= 4 && len <= 8);
-    {   U64 const mul = PRIME64_2 + (len * 2);  /* keep it odd */
-        U64 const ll1 = XXH_read32(data);
-        U64 const ll2 = XXH_read32((const BYTE*)data + len - 4) + PRIME64_1;
-        return XXH3_finalMerge_2u64((len-1) + (ll1 << 3), ll2, mul);
-    }
-}
-
-XXH_FORCE_INLINE U64 XXH3_len_9to16_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len >= 9 && len <= 16);
-    {   U64 const ll1 = XXH_read64(data) + PRIME64_1;
-        U64 const ll2 = XXH_read64((const BYTE*)data + len - 8);
-        U64 const mul = PRIME64_2 + (len * 2);  /* keep it odd */
-        U64 const ll11 = (ll1 * mul) + XXH_rotl64(ll2, 23);
-        U64 const ll12 = (ll2 * mul) + XXH_rotl64(ll1, 37);
-        return XXH3_finalMerge_2u64(ll11, ll12, mul);
-    }
-}
-
-XXH_FORCE_INLINE U64 XXH3_len_1to16_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len > 0 && len <= 16);
-    {   if (len > 8) return XXH3_len_9to16_64b(data, len);
-        if (len >= 4) return XXH3_len_4to8_64b(data, len);
-        return XXH3_len_1to3_64b(data, len);
-    }
-}
-
-
-static U64 XXH3_len_17to32_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len > 16 && len <= 32);
-
-    {   const BYTE* const p = (const BYTE*)data;
-
-        U64 const mul = PRIME64_3 + len * 2;  /* keep it odd */
-        U64 const ll1 = XXH_read64(p) * PRIME64_1;
-        U64 const ll2 = XXH_read64(p + 8);
-        U64 const ll3 = XXH_read64(p + len - 8) * mul;
-        U64 const ll4 = XXH_read64(p + len - 16) * PRIME64_2;
-
-        return XXH3_finalMerge_4u64(ll1, ll2, ll3, ll4, mul);
-    }
-}
-
-
-static U64 XXH3_len_33to64_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len > 33 && len <= 64);
-
-    {   const BYTE* const p = (const BYTE*)data;
-
-        U64 const mul = PRIME64_2 + len * 2;   /* keep it odd */
-
-        U64 const ll1 = XXH_read64(p);
-        U64 const ll2 = XXH_read64(p + 8);
-        U64 const ll3 = XXH_read64(p + 16);
-        U64 const ll4 = XXH_read64(p + 24);
-        U64 const ll5 = XXH_read64(p + len - 32);
-        U64 const ll6 = XXH_read64(p + len - 24);
-        U64 const ll7 = XXH_read64(p + len - 16);
-        U64 const ll8 = XXH_read64(p + len - 8);
-
-        return XXH3_finalMerge_8u64(ll1, ll2, ll3, ll4, ll5, ll6, ll7, ll8, mul);
-    }
-}
-
-
-static U64 XXH3_len_65to96_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len > 64 && len <= 96);
-
-    {   const BYTE* const p = (const BYTE*)data;
-
-        U64 const ll1 = XXH3_len_33to64_64b(data, 64);
-        U64 const ll2 = XXH3_len_17to32_64b(p + len - 32, 32);
-        return XXH3_finalMerge_2u64(ll1, ll2, PRIME64_1 + 2*len);
-    }
-}
-
-static U64 XXH3_len_97to128_64b(const void* data, size_t len)
-{
-    assert(data != NULL);
-    assert(len > 96 && len <= 128);
-
-    {   const BYTE* const p = (const BYTE*)data;
-
-        U64 const ll1 = XXH3_len_33to64_64b(data, 64);
-        U64 const ll2 = XXH3_len_33to64_64b(p + 64, len - 64);
-        return XXH3_finalMerge_2u64(ll1, ll2, PRIME64_1 + 2*len);
-    }
-}
-
-
 
 /* ==========================================
- * Long keys
+ * XXH3 default settings
  * ========================================== */
 
-#define STRIPE_LEN 64
-#define STRIPE_ELTS (STRIPE_LEN / sizeof(U32))
 #define KEYSET_DEFAULT_SIZE 48   /* minimum 32 */
 
 
@@ -244,6 +83,89 @@ ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
     0x45cb3a8f,0x95160428,0xafd7fbca,0xbb4b407e,
 };
 
+XXH_FORCE_INLINE U64
+XXH3_mul128(U64 ll1, U64 ll2)
+{
+  __uint128_t lll = (__uint128_t)ll1 * ll2;
+  return (U64)lll + (lll >> 64);
+}
+
+static U64 XXH64_avalanche2(U64 h64)
+{
+    h64 ^= h64 >> 29;
+    h64 *= PRIME64_3;
+    h64 ^= h64 >> 32;
+    return h64;
+}
+
+/* ==========================================
+ * Short keys
+ * ========================================== */
+XXH_FORCE_INLINE U64
+XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr)
+{
+    assert(data != NULL);
+    assert(len > 0 && len <= 3);
+    assert(keyPtr != NULL);
+    {   const U32* const key32 = (const U32*) keyPtr;
+        BYTE const c1 = ((const BYTE*)data)[0];
+        BYTE const c2 = ((const BYTE*)data)[len >> 1];
+        BYTE const c3 = ((const BYTE*)data)[len - 1];
+        U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
+        U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
+        U64  const ll3 = (U64)(l1 + key32[0]) * (l2 + key32[1]);
+        return XXH64_avalanche2(ll3);
+    }
+}
+
+
+XXH_FORCE_INLINE U64
+XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr)
+{
+    assert(data != NULL);
+    assert(len >= 4 && len <= 8);
+    {   const U32* const key32 = (const U32*) keyPtr;
+        U64 acc = PRIME64_1 * len;
+        U64 const l1 = XXH_read32(data) + key32[0];
+        U64 const l2 = XXH_read32((const BYTE*)data + len - 4) + key32[1];
+        acc += (U64)l1 * l2;
+        return XXH64_avalanche2(acc);
+    }
+}
+
+XXH_FORCE_INLINE U64
+XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr)
+{
+    assert(data != NULL);
+    assert(key != NULL);
+    assert(len >= 9 && len <= 16);
+    {   const U64* const key64 = (const U64*) keyPtr;
+        U64 acc = PRIME64_1 * len;
+        U64 const ll1 = XXH_read64(data) + key64[0];
+        U64 const ll2 = XXH_read64((const BYTE*)data + len - 8) + key64[1];
+        acc += XXH3_mul128(ll1, ll2);
+        return XXH64_avalanche2(acc);
+    }
+}
+
+XXH_FORCE_INLINE U64 XXH3_len_0to16_64b(const void* data, size_t len)
+{
+    assert(data != NULL);
+    assert(len <= 16);
+    {   if (len > 8) return XXH3_len_9to16_64b(data, len, kKey);
+        if (len >= 4) return XXH3_len_4to8_64b(data, len, kKey);
+        if (len) return XXH3_len_1to3_64b(data, len, kKey);
+        return 0;
+    }
+}
+
+
+/* ==========================================
+ * Long keys
+ * ========================================== */
+
+#define STRIPE_LEN 64
+#define STRIPE_ELTS (STRIPE_LEN / sizeof(U32))
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
 XXH_FORCE_INLINE void
@@ -461,8 +383,25 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
     }
 }
 
+XXH_FORCE_INLINE U64 XXH3_mix16B(const void* data, const U64* key)
+{
+    return XXH3_mul128((XXH_read64(data) ^ key[0]), XXH_read64((const BYTE*)data+8) ^ key[1]);
+}
 
-__attribute__((noinline)) static U64    /* It seems better for XXH3_64b to have hashLong not inlined : may mess up the switch case ? */
+static XXH64_hash_t XXH3_merge64B(const U64* data, const void* keyVoid, U64 len)
+{
+    const U64* const key = (const U64*)keyVoid;  /* presumed aligned */
+
+    U64 acc = PRIME64_1 * len;
+    acc += XXH3_mix16B(data+0, key+0);
+    acc += XXH3_mix16B(data+2, key+2);
+    acc += XXH3_mix16B(data+4, key+4);
+    acc += XXH3_mix16B(data+6, key+6);
+
+    return XXH64_avalanche2(acc);
+}
+
+__attribute__((noinline)) static U64    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong(const void* data, size_t len)
 {
     ALIGN(64) U64 acc[ACC_NB] = { 0, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5 };
@@ -491,7 +430,9 @@ XXH3_hashLong(const void* data, size_t len)
     }   }
 
     /* converge into final hash */
-    return XXH3_finalMerge_8u64(acc[0] + len, acc[1], acc[2], acc[3], acc[4], acc[5], acc[6], acc[7] - len, PRIME64_2 + len*2);
+    //return XXH3_finalMerge_8u64(acc[0] + len, acc[1], acc[2], acc[3], acc[4], acc[5], acc[6], acc[7] - len, PRIME64_2 + len*2);
+    assert(sizeof(acc) == 64);
+    return XXH3_merge64B(acc, kKey, len);
 }
 
 
@@ -502,17 +443,35 @@ XXH3_hashLong(const void* data, size_t len)
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len)
 {
-    switch ((len-1) / 16) {  /* intentional underflow */
-        case 0: return XXH3_len_1to16_64b(data, len);
-        case 1: return XXH3_len_17to32_64b(data, len);
-        case 2:
-        case 3: return XXH3_len_33to64_64b(data, len);  /* 33-64 */
-        default:;
+    const BYTE* const p = (const BYTE*)data;
+    const U64* const key = (const U64*)(const void*)kKey;
+
+    if (len <= 16) return XXH3_len_0to16_64b(data, len);
+
+    {   U64 acc = PRIME64_1 * len;
+        if (len > 32) {
+            if (len > 64) {
+                if (len > 96) {
+                    if (len > 128) return XXH3_hashLong(data, len);
+
+                    acc += XXH3_mix16B(p+48, key+12);
+                    acc += XXH3_mix16B(p+len-64, key+14);
+                }
+
+                acc += XXH3_mix16B(p+32, key+8);
+                acc += XXH3_mix16B(p+len-48, key+10);
+            }
+
+            acc += XXH3_mix16B(p+16, key+4);
+            acc += XXH3_mix16B(p+len-32, key+6);
+
+        }
+
+        acc += XXH3_mix16B(p+0, key+0);
+        acc += XXH3_mix16B(p+len-16, key+2);
+
+        return XXH64_avalanche2(acc);
     }
-    if (len==0) return 0;
-    if (len <= 96) return XXH3_len_65to96_64b(data, len);
-    if (len <= 128) return XXH3_len_97to128_64b(data, len);
-    return XXH3_hashLong(data, len);
 }
 
 

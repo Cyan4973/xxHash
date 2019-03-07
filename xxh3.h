@@ -83,12 +83,56 @@ ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
     0x45cb3a8f,0x95160428,0xafd7fbca,0xbb4b407e,
 };
 
+
+
+
 XXH_FORCE_INLINE U64
 XXH3_mul128(U64 ll1, U64 ll2)
 {
-  __uint128_t lll = (__uint128_t)ll1 * ll2;
-  return (U64)lll + (U64)(lll >> 64);
+#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+
+    __uint128_t lll = (__uint128_t)ll1 * ll2;
+    return (U64)lll + (U64)(lll >> 64);
+
+#elif defined(_M_X64) || defined(_M_IA64)
+
+#   pragma intrinsic(_umul128)
+    U64 llhigh;
+    U64 const lllow = _umul128(ll1, ll2, &llhigh);
+    return lllow + llhigh;
+
+#elif defined(__aarch64__)
+
+    U64 const llow = ll1 * ll2;
+    U64 llhigh;
+    asm ("umulh %0, %1, %2" : "=r" (llhigh) : "r" (ll1), "r" (ll2));
+    return lllow + llhigh;
+
+#else
+
+    /* emulate 64x64x->128b multiplication, using four 32x32->64 */
+    U32 const h1 = ll1 >> 32;
+    U32 const h2 = ll2 >> 32;
+    U32 const l1 = (U32)ll1;
+    U32 const l2 = (U32)ll2;
+
+    U64 const llh  = (U64)h1 * h2;
+    U64 const llm1 = (U64)l1 * h2;
+    U64 const llm2 = (U64)l2 * h1;
+    U64 const lll  = (U64)l1 * l2;
+
+    U64 const t = lll + (llm1 << 32);
+    U64 const carry1 = t < lll;
+
+    U64 const lllow = t + (llm2 << 32);
+    U64 const carry2 = lllow < t;
+    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
+
+    return llhigh + lllow;
+
+#endif
 }
+
 
 static XXH64_hash_t XXH64_avalanche2(U64 h64)
 {
@@ -484,5 +528,130 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len)
 }
 
 
+
+/* ==========================================
+ * XXH3 128 bits
+ * Not ready yet !
+ * ========================================== */
+
+typedef struct {
+    XXH64_hash_t ll1;
+    XXH64_hash_t ll2;
+} XXH128_hash_t;
+
+XXH_FORCE_INLINE XXH128_hash_t
+XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
+{
+    assert(data != NULL);
+    assert(len > 0 && len <= 3);
+    assert(keyPtr != NULL);
+    {   const U32* const key32 = (const U32*) keyPtr;
+        BYTE const c1 = ((const BYTE*)data)[0];
+        BYTE const c2 = ((const BYTE*)data)[len >> 1];
+        BYTE const c3 = ((const BYTE*)data)[len - 1];
+        U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
+        U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
+        U64  const ll1 = (U64)(l1 + seed + key32[0]) * (l2 + key32[1]);
+        U64  const ll2 = (U64)(l1 - seed + key32[2]) * (l2 + key32[3]);
+        return (XXH128_hash_t) { XXH64_avalanche2(ll1), XXH64_avalanche2(ll2) };
+    }
+}
+
+
+XXH_FORCE_INLINE XXH128_hash_t
+XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
+{
+    assert(data != NULL);
+    assert(len >= 4 && len <= 8);
+    {   const U32* const key32 = (const U32*) keyPtr;
+        U64 acc1 = PRIME64_1 * ((U64)len + seed);
+        U64 acc2 = PRIME64_2 * ((U64)len - seed);
+        U64 const l1 = XXH_read32(data) + key32[0];
+        U64 const l2 = XXH_read32((const BYTE*)data + len - 4) + key32[1];
+        acc1 += (U64)(l1 + key32[0]) * (l2 + key32[1]);
+        acc2 += (U64)(l1 + key32[2]) * (l2 + key32[3]);
+        return (XXH128_hash_t){ XXH64_avalanche2(acc1), XXH64_avalanche2(acc2) };
+    }
+}
+
+XXH_FORCE_INLINE XXH128_hash_t
+XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
+{
+    assert(data != NULL);
+    assert(key != NULL);
+    assert(len >= 9 && len <= 16);
+    {   const U64* const key64 = (const U64*) keyPtr;
+        U64 acc1 = PRIME64_1 * ((U64)len + seed);
+        U64 acc2 = PRIME64_2 * ((U64)len - seed);
+        U64 const ll1 = XXH_read64(data);
+        U64 const ll2 = XXH_read64((const BYTE*)data + len - 8);
+        acc1 += XXH3_mul128(ll1 + key64[0], ll2 + key64[1]);
+        acc2 += XXH3_mul128(ll1 + key64[2], ll2 + key64[3]);
+        return (XXH128_hash_t){ XXH64_avalanche2(acc1), XXH64_avalanche2(acc2) };
+    }
+}
+
+XXH_FORCE_INLINE XXH128_hash_t
+XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
+{
+    assert(data != NULL);
+    assert(len <= 16);
+    {   if (len > 8) return XXH3_len_9to16_128b(data, len, kKey, seed);
+        if (len >= 4) return XXH3_len_4to8_128b(data, len, kKey, seed);
+        if (len) return XXH3_len_1to3_128b(data, len, kKey, seed);
+        return (XXH128_hash_t) { seed, -seed };
+    }
+}
+
+XXH_PUBLIC_API XXH128_hash_t
+XXH3_128b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
+{
+    if (len <= 16) return XXH3_len_0to16_128b(data, len, seed);
+
+#if 0
+
+    {   U64 acc = PRIME64_1 * (len + seed);
+        const BYTE* const p = (const BYTE*)data;
+        const U64* const key = (const U64*)(const void*)kKey;
+        if (len > 32) {
+            if (len > 64) {
+                if (len > 96) {
+                    if (len > 128) return XXH3_hashLong(data, len, seed);
+
+                    acc += XXH3_mix16B(p+48, key+12);
+                    acc += XXH3_mix16B(p+len-64, key+14);
+                }
+
+                acc += XXH3_mix16B(p+32, key+8);
+                acc += XXH3_mix16B(p+len-48, key+10);
+            }
+
+            acc += XXH3_mix16B(p+16, key+4);
+            acc += XXH3_mix16B(p+len-32, key+6);
+
+        }
+
+        acc += XXH3_mix16B(p+0, key+0);
+        acc += XXH3_mix16B(p+len-16, key+2);
+
+        return XXH64_avalanche2(acc);
+    }
+
+#else
+    return (XXH128_hash_t){ 0, 0 };
+#endif
+}
+
+
+XXH_PUBLIC_API XXH128_hash_t XXH3_128b(const void* data, size_t len)
+{
+    return XXH3_128b_withSeed(data, len, 0);
+}
+
+
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed)
+{
+    return XXH3_128b_withSeed(data, len, seed);
+}
 
 #endif  /* XXH3_H */

@@ -267,12 +267,56 @@ static const U32 PRIME32_3 = 3266489917U;   /* 0b1100001010110010101011100011110
 static const U32 PRIME32_4 =  668265263U;   /* 0b00100111110101001110101100101111 */
 static const U32 PRIME32_5 =  374761393U;   /* 0b00010110010101100110011110110001 */
 
-static U32 XXH32_round(U32 seed, U32 input)
+static U32 XXH32_round(U32 acc, U32 input)
 {
-    seed += input * PRIME32_2;
-    seed  = XXH_rotl32(seed, 13);
-    seed *= PRIME32_1;
-    return seed;
+    acc += input * PRIME32_2;
+    acc  = XXH_rotl32(acc, 13);
+    acc *= PRIME32_1;
+#if defined(__GNUC__) && defined(__SSE4_1__) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+    /* UGLY HACK:
+     * This inline assembly hack forces acc into a normal register. This is the
+     * only thing that prevents GCC and Clang from autovectorizing the XXH32 loop
+     * (pragmas and attributes don't work for some resason) without globally
+     * disabling SSE4.1.
+     *
+     * The reason we want to avoid vectorization is because despite working on
+     * 4 integers at a time, there are multiple factors slowing XXH32 down on
+     * SSE4:
+     * - There's a ridiculous amount of lag from pmulld (10 cycles of latency on newer chips!)
+     *   making it slightly slower to multiply four integers at once compared to four
+     *   integers independently. Even when pmulld was fastest, Sandy/Ivy Bridge, it is
+     *   still not worth it to go into SSE just to multiply unless doing a long operation.
+     *
+     * - Four instructions are required to rotate,
+     *      movqda tmp,  v // not required with VEX encoding
+     *      pslld  tmp, 13 // tmp <<= 13
+     *      psrld  v,   19 // x >>= 19
+     *      por    v,  tmp // x |= tmp
+     *   compared to one for scalar:
+     *      roll   v, 13    // reliably fast across the board
+     *      shldl  v, v, 13 // Sandy Bridge and later prefer this for some reason
+     *
+     * - Instruction level parallelism is actually more beneficial here because the
+     *   SIMD actually serializes this operation: While v1 is rotating, v2 can load data,
+     *   while v3 can multiply. SSE forces them to operate together.
+     *
+     * How this hack works:
+     * __asm__(""       // Declare an assembly block but don't declare any instructions
+     *          :       // However, as an Input/Output Operand,
+     *          "+r"    // constrain a read/write operand (+) as a general purpose register (r).
+     *          (acc)   // and set acc as the operand
+     * );
+     *
+     * Because of the 'r', the compiler has promised that seed will be in a
+     * general purpose register and the '+' says that it will be 'read/write',
+     * so it has to assume it has changed. It is like volatile without all the
+     * loads and stores.
+     *
+     * Since the argument has to be in a normal register (not an SSE register),
+     * each time XXH32_round is called, it is impossible to vectorize. */
+    __asm__("" : "+r" (acc));
+#endif
+    return acc;
 }
 
 /* mix all bits */

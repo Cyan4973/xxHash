@@ -57,7 +57,14 @@
 #  endif
 #endif
 
-
+/* U64 XXH_mult32to64(U32 a, U64 b) { return (U64)a * (U64)b; } */
+#ifdef _MSC_VER
+#   include <intrin.h>
+    /* MSVC doesn't do a good job with the mull detection. */
+#   define XXH_mult32to64 __emulu
+#else
+#   define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
+#endif
 
 
 /* ==========================================
@@ -84,12 +91,15 @@ ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
 };
 
 
-
-
-XXH_FORCE_INLINE U64
+#if defined(__GNUC__) && defined(__i386__)
+/* GCC is stupid and tries to vectorize this.
+ * This tells GCC that it is wrong. */
+__attribute__((__target__("no-sse")))
+#endif
+static U64
 XXH3_mul128(U64 ll1, U64 ll2)
 {
-#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+#if 0 && defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
     __uint128_t lll = (__uint128_t)ll1 * ll2;
     return (U64)lll + (U64)(lll >> 64);
@@ -101,34 +111,95 @@ XXH3_mul128(U64 ll1, U64 ll2)
     U64 const lllow = _umul128(ll1, ll2, &llhigh);
     return lllow + llhigh;
 
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) && defined(__GNUC__)
 
-    U64 const llow = ll1 * ll2;
+    U64 llow;
     U64 llhigh;
-    asm ("umulh %0, %1, %2" : "=r" (llhigh) : "r" (ll1), "r" (ll2));
-    return lllow + llhigh;
+    __asm__("umulh %0, %1, %2" : "=r" (llhigh) : "r" (ll1), "r" (ll2));
+    __asm__("madd  %0, %1, %2, %3" : "=r" (llow) : "r" (ll1), "r" (ll2), "r" (llhigh));
+    return lllow;
 
 #else
+    /* Do it out manually on 32-bit.
+     * This is a modified, unrolled, widened, and optimized version of the
+     * mulqdu routine from Hacker's Delight.
+     *
+     *   https://www.hackersdelight.org/hdcodetxt/mulqdu.c.txt
+     *
+     * This was modified to use U32->U64 multiplication instead
+     * of U16->U32, to add the high and low values in the end,
+     * be endian-independent, and I added a partial assembly
+     * implementation for ARM. */
+    U64 t;
+    U32 w[4] = { 0 };
+    U32 u[2] = { (U32)(ll1 >> 32), (U32)ll1 };
+    U32 v[2] = { (U32)(ll2 >> 32), (U32)ll2 };
+    U32 k;
+    /* An easy 128-bit folding multiply on ARMv6T2 and ARMv7-A/R can be done with
+     * the mighty umaal (Unsigned Multiply Accumulate Accumulate Long) which takes 4 cycles
+     * or less, doing a long multiply and adding two 32-bit integers:
+     *
+     *     void umaal(U32 *RdLo, U32 *RdHi, U32 Rn, U32 Rm)
+     *     {
+     *         U64 prodAcc = (U64)Rn * (U64)Rm;
+     *         prodAcc += *RdLo;
+     *         prodAcc += *RdHi;
+     *         *RdLo = prodAcc & 0xFFFFFFFF;
+     *         *RdHi = prodAcc >> 32;
+     *     }
+     *
+     * This is compared to umlal which adds to a single 64-bit integer:
+     *
+     *     void umlal(U32 *RdLo, U32 *RdHi, U32 Rn, U32 Rm)
+     *     {
+     *         U64 prodAcc = (U64)Rn * (U64)Rm;
+     *         prodAcc += (*RdLo | ((U64)*RdHi << 32);
+     *         *RdLo = prodAcc & 0xFFFFFFFF;
+     *         *RdHi = prodAcc >> 32;
+     *     }
+     *
+     * Getting the compiler to emit them is like pulling teeth, and checking
+     * for it is annoying because ARMv7-M lacks this instruction. However, it
+     * is worth it, because this is an otherwise expensive operation. */
 
-    /* emulate 64x64x->128b multiplication, using four 32x32->64 */
-    U32 const h1 = ll1 >> 32;
-    U32 const h2 = ll2 >> 32;
-    U32 const l1 = (U32)ll1;
-    U32 const l2 = (U32)ll2;
+     /* GCC-compatible, ARMv6t2 or ARMv7+, non-M variant, and 32-bit */
+#if defined(__GNUC__) /* GCC-compatible */ \
+    && defined(__ARM_ARCH) && !defined(__aarch64__) && !defined(__arm64__) /* 32-bit ARM */\
+    && !defined(__ARM_ARCH_7M__) /* <- Not ARMv7-M  vv*/ \
+        && !(defined(__TARGET_ARCH_ARM) && __TARGET_ARCH_ARM == 0 && __TARGET_ARCH_THUMB == 4) \
+    && (defined(__ARM_ARCH_6T2__) || __ARM_ARCH > 6) /* ARMv6T2 or later */
+    __asm__("umull %0, %1, %2, %3"
+            : "=r" (w[3]), "=r" (k)
+            : "r" (u[1]), "r" (v[1]));
+    __asm__("umaal %0, %1, %2, %3"
+            : "+r" (w[2]), "+r" (k)
+            : "r" (u[0]), "r" (v[1]));
+    w[1] = k;
+    k = 0;
+    __asm__("umaal %0, %1, %2, %3"
+            : "+r" (w[2]), "+r" (k)
+            : "r" (u[1]), "r" (v[0]));
+    __asm__("umaal %0, %1, %2, %3"
+            : "+r" (w[1]), "+r" (k)
+            : "r" (u[0]), "r" (v[0]));
+    w[0] = k;
+#else /* Portable scalar version */
+    k = 0;
+    t = XXH_mult32to64(u[1], v[1]);
+    w[3] = t & 0xFFFFFFFF;
+    k = t >> 32;
+    t = XXH_mult32to64(u[0], v[1]) + w[2] + k;
+    w[2] = t & 0xFFFFFFFF;
+    w[1] = t >> 32;
 
-    U64 const llh  = (U64)h1 * h2;
-    U64 const llm1 = (U64)l1 * h2;
-    U64 const llm2 = (U64)l2 * h1;
-    U64 const lll  = (U64)l1 * l2;
-
-    U64 const t = lll + (llm1 << 32);
-    U64 const carry1 = t < lll;
-
-    U64 const lllow = t + (llm2 << 32);
-    U64 const carry2 = lllow < t;
-    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
-
-    return llhigh + lllow;
+    t = XXH_mult32to64(u[1], v[0]) + w[2];
+    w[2] = t & 0xFFFFFFFF;
+    k = t >> 32;
+    t = XXH_mult32to64(u[0], v[0]) + w[1] + k;
+    w[1] = t & 0xFFFFFFFF;
+    w[0] = t >> 32;
+#endif
+    return (w[1] | ((U64)w[0] << 32)) + (w[3] | ((U64)w[2] << 32));
 
 #endif
 }
@@ -158,7 +229,7 @@ XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll3 = (U64)(l1 + seed + key32[0]) * (l2 + key32[1]);
+        U64  const ll3 = XXH_mult32to64((l1 + seed + key32[0]), (l2 + key32[1]));
         return XXH64_avalanche2(ll3);
     }
 }
@@ -173,7 +244,7 @@ XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
         U64 acc = PRIME64_1 * (len + seed);
         U64 const l1 = XXH_read32(data) + key32[0];
         U64 const l2 = XXH_read32((const BYTE*)data + len - 4) + key32[1];
-        acc += (U64)l1 * l2;
+        acc += XXH_mult32to64(l1, l2);
         return XXH64_avalanche2(acc);
     }
 }
@@ -313,7 +384,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
     for (i=0; i < (int)ACC_NB; i++) {
         int const left = 2*i;
         int const right= 2*i + 1;
-        xacc[i] += (xdata[left] + xkey[left]) * (U64)(xdata[right] + xkey[right]);
+        xacc[i] += XXH_mult32to64(xdata[left] + xkey[left], xdata[right] + xkey[right]);
     }
 
 #endif
@@ -412,8 +483,8 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         xacc[i] ^= xacc[i] >> 47;
         xacc[i] ^= PRIME64_5;
 
-        {   U64 p1 = (xacc[i] >> 32) * xkey[left];
-            U64 p2 = (xacc[i] & 0xFFFFFFFF) * xkey[right];
+        {   U64 p1 = XXH_mult32to64(xacc[i] & 0xFFFFFFFF, xkey[left]);
+            U64 p2 = XXH_mult32to64(xacc[i] >> 32, xkey[right]);
             xacc[i] = p1 ^ p2;
     }   }
 
@@ -551,8 +622,8 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll1 = (U64)(l1 + seed + key32[0]) * (l2 + key32[1]);
-        U64  const ll2 = (U64)(l1 - seed + key32[2]) * (l2 + key32[3]);
+        U64  const ll1 = XXH_mult32to64(l1 + seed + key32[0], l2 + key32[1]);
+        U64  const ll2 = XXH_mult32to64(l1 - seed + key32[2], l2 + key32[3]);
         return (XXH128_hash_t) { XXH64_avalanche2(ll1), XXH64_avalanche2(ll2) };
     }
 }
@@ -568,8 +639,8 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U64 acc2 = PRIME64_2 * ((U64)len - seed);
         U64 const l1 = XXH_read32(data) + key32[0];
         U64 const l2 = XXH_read32((const BYTE*)data + len - 4) + key32[1];
-        acc1 += (U64)(l1 + key32[0]) * (l2 + key32[1]);
-        acc2 += (U64)(l1 + key32[2]) * (l2 + key32[3]);
+        acc1 += XXH_mult32to64(l1 + key32[0], l2 + key32[1]);
+        acc2 += XXH_mult32to64(l1 + key32[2], l2 + key32[3]);
         return (XXH128_hash_t){ XXH64_avalanche2(acc1), XXH64_avalanche2(acc2) };
     }
 }

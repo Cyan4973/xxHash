@@ -99,7 +99,7 @@ __attribute__((__target__("no-sse")))
 static U64
 XXH3_mul128(U64 ll1, U64 ll2)
 {
-#if 0 && defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
     __uint128_t lll = (__uint128_t)ll1 * ll2;
     return (U64)lll + (U64)(lll >> 64);

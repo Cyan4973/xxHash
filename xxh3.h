@@ -634,7 +634,7 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
         U64  const ll11 = XXH_mult32to64(l1 + seed + key32[0], l2 + key32[1]);
-        U64  const ll12 = XXH_mult32to64(l1 - seed + key32[2], l2 + key32[3]);
+        U64  const ll12 = XXH_mult32to64(l1 + key32[2], l2 - seed + key32[3]);
         return (XXH128_hash_t) { XXH64_avalanche2(ll11), XXH64_avalanche2(ll12) };
     }
 }
@@ -651,7 +651,7 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U32 const l1 = XXH_read32(data);
         U32 const l2 = XXH_read32((const BYTE*)data + len - 4);
         acc1 += XXH_mult32to64(l1 + key32[0], l2 + key32[1]);
-        acc2 += XXH_mult32to64(l1 + key32[2], l2 + key32[3]);
+        acc2 += XXH_mult32to64(l1 - key32[2], l2 + key32[3]);
         return (XXH128_hash_t){ XXH64_avalanche2(acc1), XXH64_avalanche2(acc2) };
     }
 }

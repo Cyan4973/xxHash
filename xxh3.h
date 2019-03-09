@@ -197,9 +197,9 @@ XXH3_mul128(U64 ll1, U64 ll2)
     U32 const l2 = (U32)ll2;
 
     U64 const llh  = XXH_mult32to64(h1, h2);
-    U64 const llm1 = XXH_mult32to64(l1, h2;
-    U64 const llm2 = XXH_mult32to64(h1, l2;
-    U64 const lll  = XXH_mult32to64(l1, l2;
+    U64 const llm1 = XXH_mult32to64(l1, h2);
+    U64 const llm2 = XXH_mult32to64(h1, l2);
+    U64 const lll  = XXH_mult32to64(l1, l2);
 
     U64 const t = lll + (llm1 << 32);
     U64 const carry1 = t < lll;
@@ -308,8 +308,9 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             __m256i const d   = _mm256_loadu_si256 (xdata+i);
             __m256i const k   = _mm256_loadu_si256 (xkey+i);
             __m256i const dk  = _mm256_add_epi32 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
-            __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk,0x31));   /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
-            xacc[i]           = _mm256_add_epi64(res, xacc[i]);                          /* xacc must be aligned on 32 bytes boundaries */
+            __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));   /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
+            xacc[i]  = _mm256_add_epi64(res, xacc[i]);
+            xacc[i]  = _mm256_add_epi32(d, xacc[i]);
         }
     }
 
@@ -324,13 +325,14 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
             __m128i const d   = _mm_loadu_si128 (xdata+i);
             __m128i const k   = _mm_loadu_si128 (xkey+i);
-            __m128i const dk  = _mm_add_epi32 (d,k);                               /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
-            __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk,0x31));   /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
-            xacc[i]           = _mm_add_epi64(res, xacc[i]);                       /* xacc must be aligned on 16 bytes boundaries */
+            __m128i const dk  = _mm_add_epi32 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+            __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
+            xacc[i]  = _mm_add_epi64(res, xacc[i]);
+            xacc[i]  = _mm_add_epi32(d, xacc[i]);
         }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)
+#elif (XXH_VECTOR == XXH_NEON)  /* note : no longer correct, must be updated to match new formula */
 
     assert(((size_t)acc) & 15 == 0);
     {                 uint64x2_t* const xacc  = (uint64x2_t *)acc;
@@ -394,6 +396,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         int const left = 2*i;
         int const right= 2*i + 1;
         xacc[i] += XXH_mult32to64(xdata[left] + xkey[left], xdata[right] + xkey[right]);
+        xacc[i] += xdata[left] + ((U64)xdata[right] << 32);
     }
 
 #endif
@@ -407,13 +410,10 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
     {   __m256i* const xacc = (__m256i*) acc;
         const __m256i* const xkey  = (const __m256i *) key;
 
-        __m256i const xor_p5 = _mm256_set1_epi64x(PRIME64_5);
-
         for (size_t i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
             __m256i data = xacc[i];
             __m256i const shifted = _mm256_srli_epi64(data, 47);
             data = _mm256_xor_si256(data, shifted);
-            data = _mm256_xor_si256(data, xor_p5);
 
             {   __m256i const k   = _mm256_loadu_si256 (xkey+i);
                 __m256i const dk  = _mm256_mul_epu32 (data,k);          /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
@@ -422,7 +422,7 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
                 __m256i const k2  = _mm256_shuffle_epi32 (k,0x31);
                 __m256i const dk2 = _mm256_mul_epu32 (d2,k2);           /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
 
-                xacc[i] = _mm256_xor_si256(dk, dk2);
+                xacc[i]  = _mm256_xor_si256(dk, dk2);
         }   }
     }
 
@@ -431,27 +431,25 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
     assert(((size_t)acc) & 15 == 0);
     {   __m128i* const xacc = (__m128i*) acc;
         const __m128i* const xkey  = (const __m128i *) key;
-        __m128i const xor_p5 = _mm_set1_epi64((__m64)PRIME64_5);
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
             __m128i data = xacc[i];
             __m128i const shifted = _mm_srli_epi64(data, 47);
             data = _mm_xor_si128(data, shifted);
-            data = _mm_xor_si128(data, xor_p5);
 
             {   __m128i const k   = _mm_loadu_si128 (xkey+i);
-                __m128i const dk  = _mm_mul_epu32 (data,k);          /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+                __m128i const dk  = _mm_mul_epu32 (data,k);
 
-                __m128i const d2  = _mm_shuffle_epi32 (data,0x31);
-                __m128i const k2  = _mm_shuffle_epi32 (k,0x31);
-                __m128i const dk2 = _mm_mul_epu32 (d2,k2);           /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+                __m128i const d2  = _mm_shuffle_epi32 (data, 0x31);
+                __m128i const k2  = _mm_shuffle_epi32 (k, 0x31);
+                __m128i const dk2 = _mm_mul_epu32 (d2,k2);
 
-                xacc[i] = _mm_xor_si128(dk, dk2);
+                xacc[i]  = _mm_xor_si128(dk, dk2);
         }   }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)
+#elif (XXH_VECTOR == XXH_NEON)   /* note : no longer correct, must be updated to match new formula */
 
     assert(((size_t)acc) & 15 == 0);
     {       uint64x2_t* const xacc =       (uint64x2_t*) acc;

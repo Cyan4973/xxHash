@@ -310,7 +310,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             __m256i const dk  = _mm256_add_epi32 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
             __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));   /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
             xacc[i]  = _mm256_add_epi64(res, xacc[i]);
-            xacc[i]  = _mm256_add_epi32(d, xacc[i]);
+            xacc[i]  = _mm256_add_epi64(d, xacc[i]);
         }
     }
 
@@ -328,7 +328,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             __m128i const dk  = _mm_add_epi32 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
             __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
             xacc[i]  = _mm_add_epi64(res, xacc[i]);
-            xacc[i]  = _mm_add_epi32(d, xacc[i]);
+            xacc[i]  = _mm_add_epi64(d, xacc[i]);
         }
     }
 
@@ -501,11 +501,6 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
     size_t n;
-
-/* Clang doesn't unroll this loop without the pragma. Unrolling results in code that is about 1.4x faster. */
-#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
-#  pragma clang loop unroll(enable)
-#endif
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
         key += 2;

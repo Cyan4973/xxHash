@@ -197,9 +197,9 @@ XXH3_mul128(U64 ll1, U64 ll2)
     U32 const l2 = (U32)ll2;
 
     U64 const llh  = XXH_mult32to64(h1, h2);
-    U64 const llm1 = XXH_mult32to64(l1, h2;
-    U64 const llm2 = XXH_mult32to64(h1, l2;
-    U64 const lll  = XXH_mult32to64(l1, l2;
+    U64 const llm1 = XXH_mult32to64(l1, h2);
+    U64 const llm2 = XXH_mult32to64(h1, l2);
+    U64 const lll  = XXH_mult32to64(l1, l2);
 
     U64 const t = lll + (llm1 << 32);
     U64 const carry1 = t < lll;

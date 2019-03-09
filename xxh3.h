@@ -503,6 +503,11 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
     size_t n;
+
+/* Clang doesn't unroll this loop without the pragma. Unrolling results in code that is about 1.4x faster. */
+#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+#  pragma clang loop unroll(enable)
+#endif
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
         key += 2;

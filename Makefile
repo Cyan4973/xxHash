@@ -82,6 +82,10 @@ xxhsum32: CFLAGS += -m32
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
+xxhash.o: xxhash.h xxh3.h
+
+xxhsum.o: xxhash.h
+
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum
 

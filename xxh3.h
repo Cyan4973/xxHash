@@ -488,7 +488,6 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         int const left = 2*i;
         int const right= 2*i + 1;
         xacc[i] ^= xacc[i] >> 47;
-        xacc[i] ^= PRIME64_5;
 
         {   U64 p1 = XXH_mult32to64(xacc[i] & 0xFFFFFFFF, xkey[left]);
             U64 p2 = XXH_mult32to64(xacc[i] >> 32, xkey[right]);

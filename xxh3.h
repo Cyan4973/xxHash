@@ -570,7 +570,7 @@ XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
  * ========================================== */
 
 XXH_PUBLIC_API XXH64_hash_t
-XXH3_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
+XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
     const U64* const key = (const U64*)(const void*)kKey;
@@ -604,9 +604,9 @@ XXH3_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 
-XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len)
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 {
-    return XXH3_64b_withSeed(data, len, 0);
+    return XXH3_64bits_withSeed(data, len, 0);
 }
 
 
@@ -700,7 +700,7 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 XXH_PUBLIC_API XXH128_hash_t
-XXH3_128b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
+XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     if (len <= 16) return XXH3_len_0to16_128b(data, len, seed);
 
@@ -737,15 +737,15 @@ XXH3_128b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 
-XXH_PUBLIC_API XXH128_hash_t XXH3_128b(const void* data, size_t len)
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len)
 {
-    return XXH3_128b_withSeed(data, len, 0);
+    return XXH3_128bits_withSeed(data, len, 0);
 }
 
 
 XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed)
 {
-    return XXH3_128b_withSeed(data, len, seed);
+    return XXH3_128bits_withSeed(data, len, seed);
 }
 
 #endif  /* XXH3_H */

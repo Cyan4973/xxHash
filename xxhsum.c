@@ -265,7 +265,7 @@ static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
-static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64b(buffer, bufferSize); }
+static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64bits(buffer, bufferSize); }
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
@@ -406,7 +406,6 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 }
 
 
-
 static int BMK_benchInternal(size_t keySize, U32 specificTest)
 {
     void* const buffer = calloc(keySize+16+3, 1);
@@ -434,32 +433,34 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
 }
 
 
-static void BMK_checkResult(U32 r1, U32 r2)
+/* ************************************************
+ * Self-test :
+ * ensure results consistency accross platforms
+ *********************************************** */
+
+static void BMK_checkResult32(U32 r1, U32 r2)
 {
     static int nbTests = 1;
-    if (r1==r2) {
-        DISPLAYLEVEL(3, "\rTest%3i : %08X == %08X   ok   ", nbTests, r1, r2);
-    } else {
-        DISPLAY("\rERROR : Test%3i : %08X <> %08X   !!!!!   \n", nbTests, r1, r2);
+    if (r1!=r2) {
+        DISPLAY("\rERROR : Test%3i : 0x%08X <> 0x%08X   !!!!!   \n", nbTests, r1, r2);
         exit(1);
     }
     nbTests++;
 }
-
 
 static void BMK_checkResult64(U64 r1, U64 r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rERROR : Test%3i : 64-bit values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r %08X%08X != %08X%08X \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        DISPLAY("\r 0x%08X%08XULL != 0x%08X%08XULL \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
         exit(1);
     }
     nbTests++;
 }
 
 
-static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult)
+static void BMK_testSequence64(const void* sentence, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
     U64 Dresult;
@@ -475,11 +476,23 @@ static void BMK_testSequence64(void* sentence, size_t len, U64 seed, U64 Nresult
 
     (void)XXH64_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH64_update(&state, ((char*)sentence)+pos, 1);
+        (void)XXH64_update(&state, ((const char*)sentence)+pos, 1);
     Dresult = XXH64_digest(&state);
     BMK_checkResult64(Dresult, Nresult);
 }
 
+static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
+{
+    {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
+        BMK_checkResult64(Dresult, Nresult);
+    }
+
+    /* check that the no-seed variant produces same result as seed==0 */
+    if (seed == 0) {
+        U64 const Dresult = XXH3_64bits(data, len);
+        BMK_checkResult64(Dresult, Nresult);
+    }
+}
 
 static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
@@ -488,22 +501,22 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
     size_t pos;
 
     Dresult = XXH32(sequence, len, seed);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult32(Dresult, Nresult);
 
     (void)XXH32_reset(&state, seed);
     (void)XXH32_update(&state, sequence, len);
     Dresult = XXH32_digest(&state);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult32(Dresult, Nresult);
 
     (void)XXH32_reset(&state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
     Dresult = XXH32_digest(&state);
-    BMK_checkResult(Dresult, Nresult);
+    BMK_checkResult32(Dresult, Nresult);
 }
 
 
-#define SANITY_BUFFER_SIZE 101
+#define SANITY_BUFFER_SIZE 2243
 static void BMK_sanityCheck(void)
 {
     static const U32 prime = 2654435761U;
@@ -522,8 +535,8 @@ static void BMK_sanityCheck(void)
     BMK_testSequence(sanityBuffer,  1, prime, 0xD5845D64);
     BMK_testSequence(sanityBuffer, 14, 0,     0xE5AA0AB4);
     BMK_testSequence(sanityBuffer, 14, prime, 0x4481951D);
-    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x1F1AA412);
-    BMK_testSequence(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0x498EC8E2);
+    BMK_testSequence(sanityBuffer,222, 0,     0xC8070816);
+    BMK_testSequence(sanityBuffer,222, prime, 0xF3CFC852);
 
     BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
     BMK_testSequence64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
@@ -531,8 +544,35 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
     BMK_testSequence64(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
     BMK_testSequence64(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
-    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, 0,     0x0EAB543384F878ADULL);
-    BMK_testSequence64(sanityBuffer, SANITY_BUFFER_SIZE, prime, 0xCAA65939306F1E21ULL);
+    BMK_testSequence64(sanityBuffer,222, 0,     0x9DD507880DEBB03DULL);
+    BMK_testSequence64(sanityBuffer,222, prime, 0xDC515172B8EE0600ULL);
+
+    BMK_testXXH3(NULL,           0, 0,     0);                      /* zero-length hash is the seed == 0 by default */
+    BMK_testXXH3(NULL,           0, prime, prime);
+    BMK_testXXH3(sanityBuffer,   1, 0,     0xE2C6D3B40D6F9203ULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   1, prime, 0xCEE5DF124E6135DCULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   6, 0,     0x585D6F8D1AAD96A2ULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,   6, prime, 0x133EC8CA1739250FULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,  12, 0,     0x0E85E122FE5356ACULL);  /*  9 - 16 */
+    BMK_testXXH3(sanityBuffer,  12, prime, 0xE0DB5E70DA67EB16ULL);  /*  9 - 16 */
+    BMK_testXXH3(sanityBuffer,  24, 0,     0x6C213B15B89230C9ULL);  /* 17 - 32 */
+    BMK_testXXH3(sanityBuffer,  24, prime, 0x71892DB847A8F53CULL);  /* 17 - 32 */
+    BMK_testXXH3(sanityBuffer,  48, 0,     0xECED834E8E99DA1EULL);  /* 33 - 64 */
+    BMK_testXXH3(sanityBuffer,  48, prime, 0xA901250B336F9133ULL);  /* 33 - 64 */
+    BMK_testXXH3(sanityBuffer,  80, 0,     0xC67B3A9C6D69E022ULL);  /* 65 - 96 */
+    BMK_testXXH3(sanityBuffer,  80, prime, 0x5054F266D6A65EE4ULL);  /* 65 - 96 */
+    BMK_testXXH3(sanityBuffer, 112, 0,     0x84B99B2137A264A5ULL);  /* 97 -128 */
+    BMK_testXXH3(sanityBuffer, 112, prime, 0xD6BF88A668E69F2AULL);  /* 97 -128 */
+    BMK_testXXH3(sanityBuffer, 192, 0,     0x6D96AC3F415CFCFEULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer, 192, prime, 0xE4BD30AA1673B966ULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer, 222, 0,     0xB62929C362EF3BF5ULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer, 222, prime, 0x2782C3C49E3FD25EULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2048, 0,     0x802EB54C97564FD7ULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2048, prime, 0xC9F188CFAFDA22CDULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2240, 0,     0x16B0035F6ABC1F46ULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2240, prime, 0x389E68C2348B9161ULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2243, 0,     0xE7C1890BDBD2B245ULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2243, prime, 0x3A68386AED0C50A7ULL);  /* 3 blocks, last stripe is overlapping */
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");

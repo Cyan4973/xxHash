@@ -158,8 +158,8 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 *  Version
 ***************************************/
 #define XXH_VERSION_MAJOR    0
-#define XXH_VERSION_MINOR    6
-#define XXH_VERSION_RELEASE  6
+#define XXH_VERSION_MINOR    7
+#define XXH_VERSION_RELEASE  0
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -249,18 +249,6 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
 
 
-/*-**********************************************************************
-*  XXH3
-*  New experimental hash
-************************************************************************/
-
-#ifdef XXH_NAMESPACE
-#  define XXH3_64b XXH_NAME2(XXH_NAMESPACE, XXH3_64b)
-#endif
-
-XXH_PUBLIC_API XXH64_hash_t XXH3_64b(const void* data, size_t len);
-
-
 #endif  /* XXH_NO_LONG_LONG */
 
 
@@ -336,9 +324,31 @@ struct XXH64_state_s {
 # endif
 
 
+/*-**********************************************************************
+*  XXH3
+*  New experimental hash
+************************************************************************/
+
+#ifdef XXH_NAMESPACE
+#  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
+#  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
+#endif
+
+/* note : variant without seed produces same result as variant with seed == 0 */
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
+
+
+
+
+/*-**********************************************************************
+*  XXH_INLINE_ALL
+************************************************************************/
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */
 #endif
+
+
 
 #endif /* XXH_STATIC_LINKING_ONLY */
 

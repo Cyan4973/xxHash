@@ -1,3 +1,42 @@
+/*
+   xxHash - Extremely Fast Hash algorithm
+   Development source file for `xxh3`
+   Copyright (C) 2019-present, Yann Collet.
+
+   BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+
+       * Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+       * Redistributions in binary form must reproduce the above
+   copyright notice, this list of conditions and the following disclaimer
+   in the documentation and/or other materials provided with the
+   distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   You can contact the author at :
+   - xxHash source repository : https://github.com/Cyan4973/xxHash
+*/
+
+/* Note :
+   This file is separated for development purposes.
+   It will be integrated into `xxhash.c` when development phase is complete.
+*/
+
 #ifndef XXH3_H
 #define XXH3_H
 
@@ -300,26 +339,27 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
 #if (XXH_VECTOR == XXH_AVX2)
 
     assert(((size_t)acc) & 31 == 0);
-    {                   __m256i* const xacc  =       (__m256i *) acc;
-                  const __m256i* const xdata = (const __m256i *) data;
-        ALIGN(32) const __m256i* const xkey  = (const __m256i *) key;
+    {   ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
+        const     __m256i* const xdata = (const __m256i *) data;
+        const     __m256i* const xkey  = (const __m256i *) key;
 
-        for (size_t i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
+        size_t i;
+        for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
             __m256i const d   = _mm256_loadu_si256 (xdata+i);
             __m256i const k   = _mm256_loadu_si256 (xkey+i);
             __m256i const dk  = _mm256_add_epi32 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
-            __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));   /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
-            xacc[i]  = _mm256_add_epi64(res, xacc[i]);
-            xacc[i]  = _mm256_add_epi64(d, xacc[i]);
+            __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
+            __m256i const add = _mm256_add_epi64(d, xacc[i]);
+            xacc[i]  = _mm256_add_epi64(res, add);
         }
     }
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
     assert(((size_t)acc) & 15 == 0);
-    {                   __m128i* const xacc  =       (__m128i *) acc;
-                  const __m128i* const xdata = (const __m128i *) data;
-        ALIGN(16) const __m128i* const xkey  = (const __m128i *) key;
+    {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+        const     __m128i* const xdata = (const __m128i *) data;
+        const     __m128i* const xkey  = (const __m128i *) key;
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -327,21 +367,21 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             __m128i const k   = _mm_loadu_si128 (xkey+i);
             __m128i const dk  = _mm_add_epi32 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
             __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
-            xacc[i]  = _mm_add_epi64(res, xacc[i]);
-            xacc[i]  = _mm_add_epi64(d, xacc[i]);
+            __m128i const add = _mm_add_epi64(d, xacc[i]);
+            xacc[i]  = _mm_add_epi64(res, add);
         }
     }
 
 #elif (XXH_VECTOR == XXH_NEON)  /* note : no longer correct, must be updated to match new formula */
 
     assert(((size_t)acc) & 15 == 0);
-    {                 uint64x2_t* const xacc  = (uint64x2_t *)acc;
-                  const uint32_t* const xdata = (const uint32_t *)data;
-        ALIGN(16) const uint32_t* const xkey  = (const uint32_t *)key;
+    {         uint64x2_t* const xacc  =     (uint64x2_t *)acc;
+        const uint32_t* const xdata = (const uint32_t *)data;
+        const uint32_t* const xkey  = (const uint32_t *)key;
 
         size_t i;
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
-#if !defined(__aarch64__) && !defined(__arm64__) && !defined(XXH_NO_ARM32_HACK)
+#  if !defined(__aarch64__) && !defined(__arm64__) && !defined(XXH_NO_ARM32_HACK)
             /* On 32-bit ARM, we can take advantage of the packed registers.
              * This is not portable to aarch64!
              * Basically, on 32-bit NEON, registers are stored like so:
@@ -374,7 +414,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
              * does not. */
             uint32x4_t const dk = vaddq_u32(*(uint32x4_t*)&d, *(uint32x4_t*)&k);
             xacc[i] = vmlal_u32(xacc[i], vget_low_u32(dk), vget_high_u32(dk));
-#else
+#  else
             /* Portable, but slightly slower version */
             uint32x2x2_t const d = vld2_u32(xdata + i * 4);
             uint32x2x2_t const k = vld2_u32(xkey + i * 4);
@@ -382,10 +422,11 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             uint32x2_t const dkH = vadd_u32(d.val[1], k.val[1]);   /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
             /* xacc must be aligned on 16 bytes boundaries */
             xacc[i] = vmlal_u32(xacc[i], dkL, dkH);                /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
-#endif
+#  endif
         }
     }
-#else   /* scalar variant */
+
+#else   /* scalar variant - universal */
 
           U64* const xacc  =       (U64*) acc;
     const U32* const xdata = (const U32*) data;
@@ -407,10 +448,11 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 #if (XXH_VECTOR == XXH_AVX2)
 
     assert(((size_t)acc) & 31 == 0);
-    {   __m256i* const xacc = (__m256i*) acc;
-        const __m256i* const xkey  = (const __m256i *) key;
+    {   ALIGN(32) __m256i* const xacc = (__m256i*) acc;
+        const     __m256i* const xkey  = (const __m256i *) key;
 
-        for (size_t i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
+        size_t i;
+        for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
             __m256i data = xacc[i];
             __m256i const shifted = _mm256_srli_epi64(data, 47);
             data = _mm256_xor_si256(data, shifted);
@@ -429,8 +471,8 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 #elif (XXH_VECTOR == XXH_SSE2)
 
     assert(((size_t)acc) & 15 == 0);
-    {   __m128i* const xacc = (__m128i*) acc;
-        const __m128i* const xkey  = (const __m128i *) key;
+    {   ALIGN(16) __m128i* const xacc = (__m128i*) acc;
+        const     __m128i* const xkey  = (const __m128i *) key;
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -478,7 +520,7 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         }   }
     }
 
-#else   /* scalar variant */
+#else   /* scalar variant - universal */
 
           U64* const xacc =       (U64*) acc;
     const U32* const xkey = (const U32*) key;

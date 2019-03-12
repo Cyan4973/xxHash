@@ -154,6 +154,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 # endif
 #endif
 
+
+/* ===   Memory access   === */
+
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
@@ -179,6 +182,22 @@ static U32 XXH_read32(const void* memPtr)
 }
 
 #endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
+
+
+/* ===   Endianess   === */
+typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
+
+/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
+#ifndef XXH_CPU_LITTLE_ENDIAN
+static int XXH_isLittleEndian(void)
+{
+    const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    return one.c[0];
+}
+#   define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
+#endif
+
+
 
 
 /* ****************************************
@@ -210,44 +229,29 @@ static U32 XXH_swap32 (U32 x)
 #endif
 
 
-/* *************************************
-*  Architecture Macros
-***************************************/
-typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
-
-/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
-#ifndef XXH_CPU_LITTLE_ENDIAN
-static int XXH_isLittleEndian(void)
-{
-    const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
-    return one.c[0];
-}
-#   define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
-#endif
-
-
 /* ***************************
 *  Memory reads
 *****************************/
 typedef enum { XXH_aligned, XXH_unaligned } XXH_alignment;
 
-XXH_FORCE_INLINE U32
-XXH_readLE32_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
+XXH_FORCE_INLINE U32 XXH_readLE32(const void* ptr)
 {
-    if (align==XXH_unaligned)
-        return endian==XXH_littleEndian ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));
-    else
-        return endian==XXH_littleEndian ? *(const U32*)ptr : XXH_swap32(*(const U32*)ptr);
-}
-
-XXH_FORCE_INLINE U32 XXH_readLE32(const void* ptr, XXH_endianess endian)
-{
-    return XXH_readLE32_align(ptr, endian, XXH_unaligned);
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));
 }
 
 static U32 XXH_readBE32(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
+}
+
+XXH_FORCE_INLINE U32
+XXH_readLE32_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
+{
+    if (align==XXH_unaligned) {
+        return XXH_readLE32(ptr);
+    } else {
+        return endian==XXH_littleEndian ? *(const U32*)ptr : XXH_swap32(*(const U32*)ptr);
+    }
 }
 
 
@@ -492,8 +496,8 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int s
 }
 
 
-XXH_FORCE_INLINE XXH_errorcode
-XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_endianess endian)
+XXH_PUBLIC_API XXH_errorcode
+XXH32_update(XXH32_state_t* state, const void* input, size_t len)
 {
     if (input==NULL)
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
@@ -517,10 +521,10 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
         if (state->memsize) {   /* some data left from previous update */
             XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, 16-state->memsize);
             {   const U32* p32 = state->mem32;
-                state->v1 = XXH32_round(state->v1, XXH_readLE32(p32, endian)); p32++;
-                state->v2 = XXH32_round(state->v2, XXH_readLE32(p32, endian)); p32++;
-                state->v3 = XXH32_round(state->v3, XXH_readLE32(p32, endian)); p32++;
-                state->v4 = XXH32_round(state->v4, XXH_readLE32(p32, endian));
+                state->v1 = XXH32_round(state->v1, XXH_readLE32(p32)); p32++;
+                state->v2 = XXH32_round(state->v2, XXH_readLE32(p32)); p32++;
+                state->v3 = XXH32_round(state->v3, XXH_readLE32(p32)); p32++;
+                state->v4 = XXH32_round(state->v4, XXH_readLE32(p32));
             }
             p += 16-state->memsize;
             state->memsize = 0;
@@ -534,10 +538,10 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
             U32 v4 = state->v4;
 
             do {
-                v1 = XXH32_round(v1, XXH_readLE32(p, endian)); p+=4;
-                v2 = XXH32_round(v2, XXH_readLE32(p, endian)); p+=4;
-                v3 = XXH32_round(v3, XXH_readLE32(p, endian)); p+=4;
-                v4 = XXH32_round(v4, XXH_readLE32(p, endian)); p+=4;
+                v1 = XXH32_round(v1, XXH_readLE32(p)); p+=4;
+                v2 = XXH32_round(v2, XXH_readLE32(p)); p+=4;
+                v3 = XXH32_round(v3, XXH_readLE32(p)); p+=4;
+                v4 = XXH32_round(v4, XXH_readLE32(p)); p+=4;
             } while (p<=limit);
 
             state->v1 = v1;
@@ -553,17 +557,6 @@ XXH32_update_endian(XXH32_state_t* state, const void* input, size_t len, XXH_end
     }
 
     return XXH_OK;
-}
-
-
-XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* state_in, const void* input, size_t len)
-{
-    XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
-
-    if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-        return XXH32_update_endian(state_in, input, len, XXH_littleEndian);
-    else
-        return XXH32_update_endian(state_in, input, len, XXH_bigEndian);
 }
 
 
@@ -686,23 +679,23 @@ static U64 XXH_swap64 (U64 x)
 }
 #endif
 
-XXH_FORCE_INLINE U64
-XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
+XXH_FORCE_INLINE U64 XXH_readLE64(const void* ptr)
 {
-    if (align==XXH_unaligned)
-        return endian==XXH_littleEndian ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
-    else
-        return endian==XXH_littleEndian ? *(const U64*)ptr : XXH_swap64(*(const U64*)ptr);
-}
-
-XXH_FORCE_INLINE U64 XXH_readLE64(const void* ptr, XXH_endianess endian)
-{
-    return XXH_readLE64_align(ptr, endian, XXH_unaligned);
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
 }
 
 static U64 XXH_readBE64(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
+}
+
+XXH_FORCE_INLINE U64
+XXH_readLE64_align(const void* ptr, XXH_endianess endian, XXH_alignment align)
+{
+    if (align==XXH_unaligned)
+        return XXH_readLE64(ptr);
+    else
+        return endian==XXH_littleEndian ? *(const U64*)ptr : XXH_swap64(*(const U64*)ptr);
 }
 
 
@@ -953,8 +946,8 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long 
     return XXH_OK;
 }
 
-XXH_FORCE_INLINE XXH_errorcode
-XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_endianess endian)
+XXH_PUBLIC_API XXH_errorcode
+XXH64_update (XXH64_state_t* state, const void* input, size_t len)
 {
     if (input==NULL)
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
@@ -976,10 +969,10 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
 
         if (state->memsize) {   /* tmp buffer is full */
             XXH_memcpy(((BYTE*)state->mem64) + state->memsize, input, 32-state->memsize);
-            state->v1 = XXH64_round(state->v1, XXH_readLE64(state->mem64+0, endian));
-            state->v2 = XXH64_round(state->v2, XXH_readLE64(state->mem64+1, endian));
-            state->v3 = XXH64_round(state->v3, XXH_readLE64(state->mem64+2, endian));
-            state->v4 = XXH64_round(state->v4, XXH_readLE64(state->mem64+3, endian));
+            state->v1 = XXH64_round(state->v1, XXH_readLE64(state->mem64+0));
+            state->v2 = XXH64_round(state->v2, XXH_readLE64(state->mem64+1));
+            state->v3 = XXH64_round(state->v3, XXH_readLE64(state->mem64+2));
+            state->v4 = XXH64_round(state->v4, XXH_readLE64(state->mem64+3));
             p += 32-state->memsize;
             state->memsize = 0;
         }
@@ -992,10 +985,10 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
             U64 v4 = state->v4;
 
             do {
-                v1 = XXH64_round(v1, XXH_readLE64(p, endian)); p+=8;
-                v2 = XXH64_round(v2, XXH_readLE64(p, endian)); p+=8;
-                v3 = XXH64_round(v3, XXH_readLE64(p, endian)); p+=8;
-                v4 = XXH64_round(v4, XXH_readLE64(p, endian)); p+=8;
+                v1 = XXH64_round(v1, XXH_readLE64(p)); p+=8;
+                v2 = XXH64_round(v2, XXH_readLE64(p)); p+=8;
+                v3 = XXH64_round(v3, XXH_readLE64(p)); p+=8;
+                v4 = XXH64_round(v4, XXH_readLE64(p)); p+=8;
             } while (p<=limit);
 
             state->v1 = v1;
@@ -1011,16 +1004,6 @@ XXH64_update_endian (XXH64_state_t* state, const void* input, size_t len, XXH_en
     }
 
     return XXH_OK;
-}
-
-XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* state_in, const void* input, size_t len)
-{
-    XXH_endianess endian_detected = (XXH_endianess)XXH_CPU_LITTLE_ENDIAN;
-
-    if ((endian_detected==XXH_littleEndian) || XXH_FORCE_NATIVE_FORMAT)
-        return XXH64_update_endian(state_in, input, len, XXH_littleEndian);
-    else
-        return XXH64_update_endian(state_in, input, len, XXH_bigEndian);
 }
 
 XXH_FORCE_INLINE U64 XXH64_digest_endian (const XXH64_state_t* state, XXH_endianess endian)
@@ -1077,7 +1060,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 /* *******************************************************************
 *  XXH3
 *  New generation hash designed for speed on small keys and vectorization
-*********************************************************************/
+********************************************************************** */
 
 #include "xxh3.h"
 

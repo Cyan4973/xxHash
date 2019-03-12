@@ -230,8 +230,8 @@ XXH3_mul128(U64 ll1, U64 ll2)
 #else /* Portable scalar version */
 
     /* emulate 64x64->128b multiplication, using four 32x32->64 */
-    U32 const h1 = ll1 >> 32;
-    U32 const h2 = ll2 >> 32;
+    U32 const h1 = (U32)(ll1 >> 32);
+    U32 const h2 = (U32)(ll2 >> 32);
     U32 const l1 = (U32)ll1;
     U32 const l2 = (U32)ll2;
 
@@ -375,7 +375,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
 #elif (XXH_VECTOR == XXH_NEON)  /* note : no longer correct, must be updated to match new formula */
 
     assert(((size_t)acc) & 15 == 0);
-    {         uint64x2_t* const xacc  =     (uint64x2_t *)acc;
+    {       uint64x2_t* const xacc  =     (uint64x2_t *)acc;
         const uint32_t* const xdata = (const uint32_t *)data;
         const uint32_t* const xkey  = (const uint32_t *)key;
 

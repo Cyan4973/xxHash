@@ -16,10 +16,30 @@ matrix:
       script:
         - make -B test-all
 
-    - name: check results consistency
+    - name: Check results consistency on x64
       script:
         - CPPFLAGS=-DXXH_VECTOR=0 make check   # Scalar code
         - make clean
         - CPPFLAGS=-DXXH_VECTOR=1 make check   # SSE2 code path
         - make clean
         - CPPFLAGS="-mavx2 -DXXH_VECTOR=2" make check   # AVX2 code path
+
+    - name: ARM + aarch64 compilation
+      install:
+        - sudo apt-get install -qq
+            qemu-system-arm
+            qemu-user-static
+            gcc-arm-linux-gnueabi
+            libc6-dev-armel-cross
+            gcc-aarch64-linux-gnu
+            libc6-dev-arm64-cross
+      script:
+        - CC=arm-linux-gnueabi-gcc RUN_ENV=qemu-arm-static CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check   # Scalar code path
+        - make clean
+        - CC=arm-linux-gnueabi-gcc RUN_ENV=qemu-arm-static CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static make check   # NEON code path
+        - make clean
+        # aarch64
+        - CC=aarch64-linux-gnu-gcc RUN_ENV=qemu-aarch64-static CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check   # Scalar code path
+        - make clean
+        - CC=aarch64-linux-gnu-gcc RUN_ENV=qemu-aarch64-static CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static make check   # NEON code path
+        - make clean

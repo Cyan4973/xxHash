@@ -122,16 +122,18 @@ lib: libxxhash.a libxxhash
 # tests
 # =================================================
 
+# make check can be run with cross-compiled binaries on emulated environments (qemu user mode)
+# by setting $(RUN_ENV) to the target emulation environment
 .PHONY: check
 check: xxhsum
 	# stdin
-	./xxhsum < xxhash.c
+	$(RUN_ENV) ./xxhsum < xxhash.c
 	# multiple files
-	./xxhsum xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum xxhash.* xxhsum.*
 	# internal bench
-	./xxhsum -bi1
+	$(RUN_ENV) ./xxhsum -bi1
 	# file bench
-	./xxhsum -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
 
 .PHONY: test-mem
 test-mem: xxhsum

@@ -1,10 +1,26 @@
 language: c
-compiler: gcc
-script: make -B test-all
-before_install:
-  - sudo apt-get update  -qq
-  - sudo apt-get install -qq gcc-arm-linux-gnueabi
-  - sudo apt-get install -qq clang
-  - sudo apt-get install -qq g++-multilib
-  - sudo apt-get install -qq gcc-multilib
-  - sudo apt-get install -qq cppcheck
+
+matrix:
+  fast_finish: true
+  include:
+
+    - name: General linux tests (Xenial)
+      dist: xenial
+      script:
+        - make -B test-all
+      install:
+        - sudo apt-get update  -qq
+        - sudo apt-get install -qq
+            gcc-arm-linux-gnueabi
+            clang
+            g++-multilib
+            gcc-multilib
+            cppcheck
+
+    - name: check results consistency
+      script:
+        - CPPFLAGS=-DXXH_VECTOR=0 make check   # Scalar code
+        - make clean
+        - CPPFLAGS=-DXXH_VECTOR=1 make check   # SSE2 code path
+        - make clean
+        - CPPFLAGS="-mavx2 -DXXH_VECTOR=2" make check   # AVX2 code path

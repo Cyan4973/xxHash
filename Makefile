@@ -118,7 +118,9 @@ libxxhash : $(LIBXXH)
 lib: libxxhash.a libxxhash
 
 
+# =================================================
 # tests
+# =================================================
 
 .PHONY: check
 check: xxhsum

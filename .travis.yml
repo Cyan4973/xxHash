@@ -24,6 +24,7 @@ matrix:
         - CPPFLAGS="-mavx2 -DXXH_VECTOR=2" make check   # AVX2 code path
 
     - name: ARM + aarch64 compilation and consistency checks
+      dist: xenial
       install:
         - sudo apt-get install -qq
             qemu-system-arm

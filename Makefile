@@ -227,7 +227,7 @@ preview-man: clean-man man
 test: all namespaceTest check test-xxhsum-c c90test
 
 test-all: CFLAGS += -Werror
-test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
+test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

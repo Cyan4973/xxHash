@@ -203,7 +203,6 @@ XXH3_mul128(U64 ll1, U64 ll2)
         && !(defined(__TARGET_ARCH_ARM) && __TARGET_ARCH_ARM == 0 && __TARGET_ARCH_THUMB == 4) \
     && (defined(__ARM_ARCH_6T2__) || __ARM_ARCH > 6) /* ARMv6T2 or later */
 
-    U64 t;
     U32 w[4] = { 0 };
     U32 u[2] = { (U32)(ll1 >> 32), (U32)ll1 };
     U32 v[2] = { (U32)(ll2 >> 32), (U32)ll2 };
@@ -554,6 +553,10 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
     size_t n;
+    /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
+#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+#  pragma clang loop unroll(enable)
+#endif
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
         key += 2;

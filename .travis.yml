@@ -35,14 +35,14 @@ matrix:
             libc6-dev-arm64-cross
       script:
         # arm (32-bit)
-        - CC=arm-linux-gnueabi-gcc RUN_ENV=qemu-arm-static CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check   # Scalar code path
+        - CC=arm-linux-gnueabi-gcc CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static RUN_ENV=qemu-arm-static make check   # Scalar code path
         - make clean
-        - CC=arm-linux-gnueabi-gcc RUN_ENV=qemu-arm-static CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static make check   # NEON code path
+        - CC=arm-linux-gnueabi-gcc CPPFLAGS=-DXXH_VECTOR=3 CFLAGS="-O3 -march=armv7-a -mfloat-abi=hard -mfpu=neon" LDFLAGS=-static RUN_ENV=qemu-arm-static make check   # NEON code path
         - make clean
         # aarch64
-        - CC=aarch64-linux-gnu-gcc RUN_ENV=qemu-aarch64-static CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check   # Scalar code path
+        - CC=aarch64-linux-gnu-gcc CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static RUN_ENV=qemu-aarch64-static make check   # Scalar code path
         - make clean
-        - CC=aarch64-linux-gnu-gcc RUN_ENV=qemu-aarch64-static CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static make check   # NEON code path
+        - CC=aarch64-linux-gnu-gcc CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static RUN_ENV=qemu-aarch64-static make check   # NEON code path
         - make clean
 
     - name: PowerPC + PPC64 compilation and consistency checks

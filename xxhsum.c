@@ -438,7 +438,7 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
  * ensure results consistency accross platforms
  *********************************************** */
 
-static void BMK_checkResult32(U32 r1, U32 r2)
+static void BMK_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
@@ -448,12 +448,25 @@ static void BMK_checkResult32(U32 r1, U32 r2)
     nbTests++;
 }
 
-static void BMK_checkResult64(U64 r1, U64 r2)
+static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rERROR : Test%3i : 64-bit values non equals   !!!!!   \n", nbTests);
         DISPLAY("\r 0x%08X%08XULL != 0x%08X%08XULL \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        exit(1);
+    }
+    nbTests++;
+}
+
+static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
+{
+    static int nbTests = 1;
+    if ((r1.ll1 != r2.ll1) || (r1.ll2 != r2.ll2)) {
+        DISPLAY("\rERROR : Test%3i : 128-bit values non equals   !!!!!   \n", nbTests);
+        DISPLAY("\r { 0x%08X%08XULL, 0x%08X%08XULL } != { 0x%08X%08XULL, %08X%08XULL } \n",
+                (U32)(r1.ll1>>32), (U32)r1.ll1, (U32)(r1.ll2>>32), (U32)r1.ll2,
+                (U32)(r2.ll1>>32), (U32)r2.ll1, (U32)(r2.ll2>>32), (U32)r2.ll2 );
         exit(1);
     }
     nbTests++;
@@ -491,6 +504,28 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     if (seed == 0) {
         U64 const Dresult = XXH3_64bits(data, len);
         BMK_checkResult64(Dresult, Nresult);
+    }
+}
+
+static void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
+{
+    {   XXH128_hash_t const Dresult = XXH3_128bits_withSeed(data, len, seed);
+        BMK_checkResult128(Dresult, Nresult);
+
+        /* check that XXH128() is identical to XXH3_128bits_withSeed() */
+        {   XXH128_hash_t const Dresult2 = XXH128(data, len, seed);
+            BMK_checkResult128(Dresult2, Nresult);
+        }
+
+        /* check that first field is equal to _64bits variant */
+        {   U64 const result64 = XXH3_64bits_withSeed(data, len, seed);
+            BMK_checkResult64(result64, Nresult.ll1);
+    }   }
+
+    /* check that the no-seed variant produces same result as seed==0 */
+    if (seed == 0) {
+        XXH128_hash_t const Dresult = XXH3_128bits(data, len);
+        BMK_checkResult128(Dresult, Nresult);
     }
 }
 
@@ -573,6 +608,86 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer,2240, prime, 0x389E68C2348B9161ULL);  /* 3 blocks, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer,2243, 0,     0xE7C1890BDBD2B245ULL);  /* 3 blocks, last stripe is overlapping */
     BMK_testXXH3(sanityBuffer,2243, prime, 0x3A68386AED0C50A7ULL);  /* 3 blocks, last stripe is overlapping */
+
+    {   XXH128_hash_t const expected = { 0, 0 };
+        BMK_testXXH128(NULL,           0, 0,     expected);         /* zero-length hash is { seed, -seed } by default */
+    }
+    {   XXH128_hash_t const expected = { prime, -(U64)prime };
+        BMK_testXXH128(NULL,           0, prime, expected);
+    }
+    {   XXH128_hash_t const expected = { 0xE2C6D3B40D6F9203ULL, 0x82895983D246CA74ULL };
+        BMK_testXXH128(sanityBuffer,   1, 0,     expected);         /* 1-3 */
+    }
+    {   XXH128_hash_t const expected = { 0xCEE5DF124E6135DCULL, 0xFA2DA0269396F32DULL };
+        BMK_testXXH128(sanityBuffer,   1, prime, expected);         /* 1-3 */
+    }
+    {   XXH128_hash_t const expected = { 0x585D6F8D1AAD96A2ULL, 0x2791F3B193F0AB86ULL };
+        BMK_testXXH128(sanityBuffer,   6, 0,     expected);         /* 4-8 */
+    }
+    {   XXH128_hash_t const expected = { 0x133EC8CA1739250FULL, 0xDF3F422D70BDE07FULL };
+        BMK_testXXH128(sanityBuffer,   6, prime, expected);         /* 4-8 */
+    }
+    {   XXH128_hash_t const expected = { 0x0E85E122FE5356ACULL, 0xD933CC7EDF4D95DAULL };
+        BMK_testXXH128(sanityBuffer,  12, 0,     expected);         /* 9-16 */
+    }
+    {   XXH128_hash_t const expected = { 0xE0DB5E70DA67EB16ULL, 0x114C8C76E74C669FULL };
+        BMK_testXXH128(sanityBuffer,  12, prime, expected);         /* 9-16 */
+    }
+    {   XXH128_hash_t const expected = { 0x6C213B15B89230C9ULL, 0x3F3AACF5F277AC02ULL };
+        BMK_testXXH128(sanityBuffer,  24, 0,     expected);         /* 17-32 */
+    }
+    {   XXH128_hash_t const expected = { 0x71892DB847A8F53CULL, 0xD11561AC7D0F5ECDULL };
+        BMK_testXXH128(sanityBuffer,  24, prime, expected);         /* 17-32 */
+    }
+    {   XXH128_hash_t const expected = { 0xECED834E8E99DA1EULL, 0x0F85E76A60898313ULL };
+        BMK_testXXH128(sanityBuffer,  48, 0,     expected);         /* 33-64 */
+    }
+    {   XXH128_hash_t const expected = { 0xA901250B336F9133ULL, 0xA35D3FB395E1DDE0ULL };
+        BMK_testXXH128(sanityBuffer,  48, prime, expected);         /* 33-64 */
+    }
+    {   XXH128_hash_t const expected = { 0x338B2F6E103D5B4EULL, 0x5DD1777C8FA671ABULL };
+        BMK_testXXH128(sanityBuffer,  81, 0,     expected);         /* 65-96 */
+    }
+    {   XXH128_hash_t const expected = { 0x0718382B6D4264C3ULL, 0x1D542DAFEFA1790EULL };
+        BMK_testXXH128(sanityBuffer,  81, prime, expected);         /* 65-96 */
+    }
+    {   XXH128_hash_t const expected = { 0x7DE871A4FE41C90EULL, 0x786CB41C46C6B7B6ULL };
+        BMK_testXXH128(sanityBuffer, 103, 0,     expected);         /* 97-128 */
+    }
+    {   XXH128_hash_t const expected = { 0xAD8B0B428C940A2CULL, 0xF8BA6D8B8CB05EB7ULL };
+        BMK_testXXH128(sanityBuffer, 103, prime, expected);         /* 97-128 */
+    }
+    {   XXH128_hash_t const expected = { 0x6D96AC3F415CFCFEULL, 0x947EDFA54DD68990ULL };
+        BMK_testXXH128(sanityBuffer, 192, 0,     expected);         /* one block, ends at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0xE4BD30AA1673B966ULL, 0x8132EF45FF3D51F2ULL };
+        BMK_testXXH128(sanityBuffer, 192, prime, expected);         /* one block, ends at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0xB62929C362EF3BF5ULL, 0x1946A7A9E6DD3032ULL };
+        BMK_testXXH128(sanityBuffer, 222, 0,     expected);         /* one block, last stripe is overlapping */
+    }
+    {   XXH128_hash_t const expected = { 0x2782C3C49E3FD25EULL, 0x98CE16C40C2D59F6ULL };
+        BMK_testXXH128(sanityBuffer, 222, prime, expected);         /* one block, last stripe is overlapping */
+    }
+    {   XXH128_hash_t const expected = { 0x802EB54C97564FD7ULL, 0x384AADF242348D00ULL };
+        BMK_testXXH128(sanityBuffer,2048, 0,     expected);         /* two blocks, finishing at block boundary */
+    }
+    {   XXH128_hash_t const expected = { 0xC9F188CFAFDA22CDULL, 0x7936B69445BE9EEDULL };
+        BMK_testXXH128(sanityBuffer,2048, prime, expected);         /* two blocks, finishing at block boundary */
+    }
+    {   XXH128_hash_t const expected = { 0x16B0035F6ABC1F46ULL, 0x1F6602850A1AA7EEULL };
+        BMK_testXXH128(sanityBuffer,2240, 0,     expected);         /* two blocks, ends at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0x389E68C2348B9161ULL, 0xA7D1E8C96586A052ULL };
+        BMK_testXXH128(sanityBuffer,2240, prime, expected);         /* two blocks, ends at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0x8B1DE79158C397D3ULL, 0x9B6B2EEFAC2DE0ADULL };
+        BMK_testXXH128(sanityBuffer,2237, 0,     expected);         /* two blocks, ends at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0x9DDF09ABA2B93DD6ULL, 0xB9CEDBE2582CA371ULL };
+        BMK_testXXH128(sanityBuffer,2237, prime, expected);         /* two blocks, ends at stripe boundary */
+    }
+
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");

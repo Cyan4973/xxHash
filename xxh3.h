@@ -679,10 +679,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 /* ==========================================
  * XXH3 128 bits (=> XXH128)
  * ========================================== */
-typedef struct {
-    XXH64_hash_t ll1;
-    XXH64_hash_t ll2;
-} XXH128_hash_t;
 
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)

@@ -328,17 +328,31 @@ struct XXH64_state_s {
 *  XXH3
 *  New experimental hash
 ************************************************************************/
+#ifndef XXH_NO_LONG_LONG
+
+typedef struct {
+    XXH64_hash_t ll1;
+    XXH64_hash_t ll2;
+} XXH128_hash_t;
+
 
 #ifdef XXH_NAMESPACE
+#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
+#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
+#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #endif
 
 /* note : variant without seed produces same result as variant with seed == 0 */
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, unsigned long long seed);
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);
 
 
+#endif  /* XXH_NO_LONG_LONG */
 
 
 /*-**********************************************************************

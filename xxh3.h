@@ -638,7 +638,7 @@ XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
-    const U64* const key = (const U64*)(const void*)kKey;
+    const char* const key = (const char*)kKey;
 
     if (len <= 16) return XXH3_len_0to16_64b(data, len, seed);
 
@@ -648,21 +648,21 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
                 if (len > 96) {
                     if (len > 128) return XXH3_hashLong_64b(data, len, seed);
 
-                    acc += XXH3_mix16B(p+48, key+12);
-                    acc += XXH3_mix16B(p+len-64, key+14);
+                    acc += XXH3_mix16B(p+48, key+96);
+                    acc += XXH3_mix16B(p+len-64, key+112);
                 }
 
-                acc += XXH3_mix16B(p+32, key+8);
-                acc += XXH3_mix16B(p+len-48, key+10);
+                acc += XXH3_mix16B(p+32, key+64);
+                acc += XXH3_mix16B(p+len-48, key+80);
             }
 
-            acc += XXH3_mix16B(p+16, key+4);
-            acc += XXH3_mix16B(p+len-32, key+6);
+            acc += XXH3_mix16B(p+16, key+32);
+            acc += XXH3_mix16B(p+len-32, key+48);
 
         }
 
         acc += XXH3_mix16B(p+0, key+0);
-        acc += XXH3_mix16B(p+len-16, key+2);
+        acc += XXH3_mix16B(p+len-16, key+16);
 
         return XXH3_avalanche(acc);
     }
@@ -772,27 +772,27 @@ XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
     {   U64 acc1 = PRIME64_1 * (len + seed);
         U64 acc2 = 0;
         const BYTE* const p = (const BYTE*)data;
-        const U64* const key = (const U64*)(const void*)kKey;
+        const char* const key = (const char*)kKey;
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
                     if (len > 128) return XXH3_hashLong_128b(data, len, seed);
 
-                    acc1 += XXH3_mix16B(p+48, key+12);
-                    acc2 += XXH3_mix16B(p+len-64, key+14);
+                    acc1 += XXH3_mix16B(p+48, key+96);
+                    acc2 += XXH3_mix16B(p+len-64, key+112);
                 }
 
-                acc1 += XXH3_mix16B(p+32, key+8);
-                acc2 += XXH3_mix16B(p+len-48, key+10);
+                acc1 += XXH3_mix16B(p+32, key+64);
+                acc2 += XXH3_mix16B(p+len-48, key+80);
             }
 
-            acc1 += XXH3_mix16B(p+16, key+4);
-            acc2 += XXH3_mix16B(p+len-32, key+6);
+            acc1 += XXH3_mix16B(p+16, key+32);
+            acc2 += XXH3_mix16B(p+len-32, key+48);
 
         }
 
         acc1 += XXH3_mix16B(p+0, key+0);
-        acc2 += XXH3_mix16B(p+len-16, key+2);
+        acc2 += XXH3_mix16B(p+len-16, key+16);
 
         {   U64 const part1 = acc1 + acc2;
             U64 const part2 = (acc1 * PRIME64_3) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);

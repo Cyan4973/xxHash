@@ -330,11 +330,66 @@ struct XXH64_state_s {
 ************************************************************************/
 #ifndef XXH_NO_LONG_LONG
 
+
+/* ============================================
+ * XXH3 is a new hash algorithm,
+ * featuring vastly improved speed performance
+ * for both small and large inputs.
+ * A full speed analysis will be published,
+ * it requires a lot more space than this comment can handle.
+ * In general, expect XXH3 to run about ~2x faster on large inputs,
+ * and >3x faster on small ones, though exact difference depend on platform.
+ *
+ * The algorithm is portable, will generate the same hash on all platforms.
+ * It benefits greatly from vectorization units, but does not require it.
+ *
+ * XXH3 offers 2 variants, _64bits and _128bits.
+ * The low 64-bits of the _128bits variant are the same as the _64bits variant.
+ * However, if only 64-bits are needed, prefer calling the _64bits variant.
+ * It reduces the amount of mixing, resulting in faster speed on small inputs.
+ *
+ * The XXH3 algorithm is still considered experimental.
+ * It's possible to use it for ephemeral data, but avoid storing long-term values for later re-use.
+ * While labelled experimental, the produced result can still change between versions.
+ *
+ * The API currently supports one-shot hashing only.
+ * The full version will include streaming capability, and canonical representation
+ * Long term optional feature may include custom secret keys, and secret key generation.
+ *
+ * There are still a number of opened questions that community can influence during the experimental period.
+ * I'm trying to list a few of them below, though don't consider this list as complete.
+ *
+ * - 128-bits output type : currently defined as a structure of 2 64-bits fields.
+ *                          That's because 128-bits values do not exist in C standard.
+ *                          Note that it means that, at byte level, result is not identical depending on endianess.
+ *                          However, at field level, they are identical on all platforms.
+ *                          The canonical representation will solve the issue of identical byte-level representation across platforms,
+ *                          which is necessary for serialization.
+ *
+ * - Canonical representation : for the 64-bits variant, it's the same as XXH64() (aka big-endian).
+ *                          What should it be for the 128-bits variant ?
+ *                          Since it's no longer a scalar value, big-endian representation is no longer an obvious choice.
+ *                          One possibility : represent it as the concatenation of two 64-bits canonical representation (aka 2x big-endian)
+ *                          Another one : represent it in the same order as natural order for little-endian platforms.
+ *                                        Less consistent with existing convention for XXH32/XXH64, but may be more natural for little-endian platforms.
+ *
+ * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bits variant.
+ *                          It could be argued that it's more logical to offer a 128-bit seed capability for a 128-bit hash.
+ *                          Although it's also more difficult to use, since it requires to declare and pass a structure instead of a value.
+ *                          It would either replace current choice, or add a new one.
+ *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
+ *
+ * - Result for len==0 : Currently, the result of hashing a zero-length input is the seed.
+ *                          This mimics the behavior of a crc : in which case, a seed is effectively an accumulator, so it's not updated if input is empty.
+ *                          Consequently, by default, when no seed specified, it returns zero. That part seems okay (it used to be a request for XXH32/XXH64).
+ *                          But is it still fine to return the seed when the seed is non-zero ?
+ *                          Are there use case which would depend on this behavior, or would prefer a mixing of the seed ?
+ */
+
 typedef struct {
     XXH64_hash_t ll1;
     XXH64_hash_t ll2;
 } XXH128_hash_t;
-
 
 #ifdef XXH_NAMESPACE
 #  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)

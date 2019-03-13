@@ -390,6 +390,7 @@ struct XXH64_state_s {
  *                          Although it's also more difficult to use, since it requires to declare and pass a structure instead of a value.
  *                          It would either replace current choice, or add a new one.
  *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
+ *                          If both 64-bit and 128-bit seeds are possible, which variant should be called XXH128 ?
  *
  * - Result for len==0 : Currently, the result of hashing a zero-length input is the seed.
  *                          This mimics the behavior of a crc : in which case, a seed is effectively an accumulator, so it's not updated if input is empty.
@@ -411,12 +412,13 @@ typedef struct {
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #endif
 
-/* note : variant without seed produces same result as variant with seed == 0 */
 XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, unsigned long long seed);
-XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
+
+/* note : variants without seed produce same result as variant with seed == 0 */
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);  /* == XXH128() */
 
 
 #endif  /* XXH_NO_LONG_LONG */

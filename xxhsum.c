@@ -284,20 +284,29 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
 
-        {   U32 i;
-            for (i=0; i<nbh_perIteration; i++)
-                r += h(buffer, bufferSize, i);
+        {   U32 u;
+            for (u=0; u<nbh_perIteration; u++)
+                r += h(buffer, bufferSize, u);
         }
-        if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to avoid compiler "optimizing" away hash function */
-        {   double const timeS = ((double)BMK_clockSpan(cStart) / CLOCKS_PER_SEC) / nbh_perIteration;
+        if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to defeat compiler "optimizing" away hash */
+
+        {   clock_t const nbTicks = BMK_clockSpan(cStart);
+            double const timeS = ((double)nbTicks / CLOCKS_PER_SEC) / nbh_perIteration;
+            if (nbTicks == 0) { /* faster than resolution timer */
+                nbh_perIteration *= 100;
+                iterationNb--;   /* try again */
+                continue;
+            }
             if (timeS < fastestH) fastestH = timeS;
             DISPLAYLEVEL(2, "%1u-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                     iterationNb, hName, (U32)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
         }
-        assert(fastestH > 1./2000000000);  /* avoid U32 overflow */
-        nbh_perIteration = (U32)(1 / fastestH) + 1;  /* adjust nbh_perIteration to last roughtly one second */
+        {   double nbh_perSecond = (1 / fastestH) + 1;
+            if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);
+            nbh_perIteration = (U32)nbh_perSecond;
+        }
     }
     DISPLAYLEVEL(1, "%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
         (double)1 / fastestH,

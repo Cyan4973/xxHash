@@ -208,17 +208,32 @@ XXH3_mul128(U64 ll1, U64 ll2)
     U32 v[2] = { (U32)(ll2 >> 32), (U32)ll2 };
     U32 k;
 
+    /* U64 t = (U64)u[1] * (U64)v[1];
+     * w[3] = t & 0xFFFFFFFF;
+     * k = t >> 32; */
     __asm__("umull %0, %1, %2, %3"
             : "=r" (w[3]), "=r" (k)
             : "r" (u[1]), "r" (v[1]));
+
+    /* t = (U64)u[0] * (U64)v[1] + w[2] + k;
+     * w[2] = t & 0xFFFFFFFF;
+     * k = t >> 32; */
     __asm__("umaal %0, %1, %2, %3"
             : "+r" (w[2]), "+r" (k)
             : "r" (u[0]), "r" (v[1]));
     w[1] = k;
     k = 0;
+
+    /* t = (U64)u[1] * (U64)v[0] + w[2] + k;
+     * w[2] = t & 0xFFFFFFFF;
+     * k = t >> 32; */
     __asm__("umaal %0, %1, %2, %3"
             : "+r" (w[2]), "+r" (k)
             : "r" (u[1]), "r" (v[0]));
+
+    /* t = (U64)u[0] * (U64)v[0] + w[1] + k;
+     * w[1] = t & 0xFFFFFFFF;
+     * k = t >> 32; */
     __asm__("umaal %0, %1, %2, %3"
             : "+r" (w[1]), "+r" (k)
             : "r" (u[0]), "r" (v[0]));
@@ -381,7 +396,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)  /* note : no longer correct, must be updated to match new formula */
+#elif (XXH_VECTOR == XXH_NEON)
 
     assert(((size_t)acc) & 15 == 0);
     {       uint64x2_t* const xacc  =     (uint64x2_t *)acc;
@@ -390,48 +405,31 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
 
         size_t i;
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
-#  if !defined(__aarch64__) && !defined(__arm64__) && !defined(XXH_NO_ARM32_HACK)
-            /* On 32-bit ARM, we can take advantage of the packed registers.
-             * This is not portable to aarch64!
-             * Basically, on 32-bit NEON, registers are stored like so:
-             *  .----------------------------------.
-             *  |                q8                | // uint32x4_t
-             *  |-----------------.----------------|
-             *  |  d16 (.val[0])  |  d17 (.val[1]) | // uint32x2x2_t
-             *  '-----------------'----------------'
-             * vld2.32 will store its values into two double registers, returning
-             * a uint32x2_t. In NEON, this will be stored in, for example, d16 and d17.
-             * Reinterpret cast it to a uint32x4_t and you get q8 for free
-             *
-             * On aarch64, this was changed completely.
-             *
-             * aarch64 gave us 16 more quad registers, but they also removed this behavior,
-             * instead matching smaller registers to the lower sections of the higher
-             * registers and zeroing the rest.
-             *  .----------------------------------..---------------------------------.
-             *  |               v8.4s              |               v9.4s               |
-             *  |-----------------.----------------|-----------------.-----------------|
-             *  | v8.2s (.val[0]) |     <zero>     | v9.2s (.val[1]) |      <zero>     |
-             *  '-----------------'----------------'-----------------'-----------------'
-             * On aarch64, ld2 will put it into v8.2s and v9.2s. Reinterpreting
-             * is not going to help us here, as half of it will end up being zero. */
-
-            uint32x2x2_t d = vld2_u32(xdata + i * 4);     /* load and swap */
-            uint32x2x2_t k = vld2_u32(xkey + i * 4);
-            /* Not sorry about breaking the strict aliasing rule.
-             * Using a union causes GCC to spit out nonsense, but an alias cast
-             * does not. */
-            uint32x4_t const dk = vaddq_u32(*(uint32x4_t*)&d, *(uint32x4_t*)&k);
-            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(dk), vget_high_u32(dk));
-#  else
-            /* Portable, but slightly slower version */
-            uint32x2x2_t const d = vld2_u32(xdata + i * 4);
-            uint32x2x2_t const k = vld2_u32(xkey + i * 4);
-            uint32x2_t const dkL = vadd_u32(d.val[0], k.val[0]);
-            uint32x2_t const dkH = vadd_u32(d.val[1], k.val[1]);   /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
-            /* xacc must be aligned on 16 bytes boundaries */
-            xacc[i] = vmlal_u32(xacc[i], dkL, dkH);                /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
-#  endif
+            uint32x4_t const d = vld1q_u32(xdata+i*4);                           /* U32 d[4] = xdata[i]; */
+            uint32x4_t const k = vld1q_u32(xkey+i*4);                            /* U32 k[4] = xkey[i]; */
+            uint32x4_t dk = vaddq_u32(d, k);                                     /* U32 dk[4] = {d0+k0, d1+k1, d2+k2, d3+k3} */
+#if !defined(__aarch64__) && !defined(__arm64__) /* ARM32-specific hack */
+            /* vzip on ARMv7 Clang generates a lot of vmovs (technically vorrs) without this.
+             * vzip on 32-bit ARM NEON will overwrite the original register, and I think that Clang
+             * assumes I don't want to destroy it and tries to make a copy. This slows down the code
+             * a lot.
+             * aarch64 not only uses an entirely different syntax, but it requires three
+             * instructions...
+             *    ext    v1.16B, v0.16B, #8    // select high bits because aarch64 can't address them directly
+             *    zip1   v3.2s, v0.2s, v1.2s   // first zip
+             *    zip2   v2.2s, v0.2s, v1.2s   // second zip
+             * ...to do what ARM does in one:
+             *    vzip.32 d0, d1               // Interleave high and low bits and overwrite. */
+            __asm__("vzip.32 %e0, %f0" : "+w" (dk));                             /* dk = { dk0, dk2, dk1, dk3 }; */
+            xacc[i] = vaddq_u64(xacc[i], vreinterpretq_u64_u32(d));              /* xacc[i] += (U64x2)d; */
+            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(dk), vget_high_u32(dk));   /* xacc[i] += { (U64)dk0*dk1, (U64)dk2*dk3 }; */
+#else
+            /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
+            uint32x2_t dkL = vmovn_u64(vreinterpretq_u64_u32(dk));               /* U32 dkL[2] = dk & 0xFFFFFFFF; */
+            uint32x2_t dkH = vshrn_n_u64(vreinterpretq_u64_u32(dk), 32);         /* U32 dkH[2] = dk >> 32; */
+            xacc[i] = vaddq_u64(xacc[i], vreinterpretq_u64_u32(d));              /* xacc[i] += (U64x2)d; */
+            xacc[i] = vmlal_u32(xacc[i], dkL, dkH);                              /* xacc[i] += (U64x2)dkL*(U64x2)dkH; */
+#endif
         }
     }
 
@@ -502,21 +500,17 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         }   }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)   /* note : no longer correct, must be updated to match new formula */
+#elif (XXH_VECTOR == XXH_NEON)
 
     assert(((size_t)acc) & 15 == 0);
-    {       uint64x2_t* const xacc =       (uint64x2_t*) acc;
-        const uint32_t* const xkey  = (const uint32_t *) key;
-        uint64x2_t xor_p5 = vdupq_n_u64(PRIME64_5);
+    {       uint64x2_t* const xacc =     (uint64x2_t*) acc;
+        const uint32_t* const xkey = (const uint32_t*) key;
         size_t i;
-        /* Clang and GCC like to put NEON constant loads into the loop. */
-        __asm__("" : "+w" (xor_p5));
+
         for (i=0; i < STRIPE_LEN/sizeof(uint64x2_t); i++) {
             uint64x2_t data = xacc[i];
-            uint64x2_t const shifted = vshrq_n_u64(data, 47);
-            data = veorq_u64(data, shifted);
-            data = veorq_u64(data, xor_p5);
-
+            uint64x2_t const shifted = vshrq_n_u64(data, 47);          /* uint64 shifted[2] = data >> 47; */
+            data = veorq_u64(data, shifted);                           /* data ^= shifted; */
             {
                 /* shuffle: 0, 1, 2, 3 -> 0, 2, 1, 3 */
                 uint32x2x2_t const d =
@@ -524,10 +518,10 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
                         vget_low_u32(vreinterpretq_u32_u64(data)),
                         vget_high_u32(vreinterpretq_u32_u64(data))
                     );
-                uint32x2x2_t const k = vld2_u32 (xkey+i*4);              /* load and swap */
-                uint64x2_t const dk  = vmull_u32(d.val[0],k.val[0]);     /* U64 dk[2]  = {d0 * k0, d2 * k2} */
-                uint64x2_t const dk2 = vmull_u32(d.val[1],k.val[1]);     /* U64 dk2[2] = {d1 * k1, d3 * k3} */
-                xacc[i] = veorq_u64(dk, dk2);                            /* xacc[i] = dk ^ dk2;             */
+                uint32x2x2_t const k = vld2_u32(xkey+i*4);               /* load and swap */
+                uint64x2_t const dk  = vmull_u32(d.val[0],k.val[0]);     /* U64 dk[2]  = {(U64)d0*k0, (U64)d2*k2} */
+                uint64x2_t const dk2 = vmull_u32(d.val[1],k.val[1]);     /* U64 dk2[2] = {(U64)d1*k1, (U64)d3*k3} */
+                xacc[i] = veorq_u64(dk, dk2);                            /* xacc[i] = dk^dk2;             */
         }   }
     }
 

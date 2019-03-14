@@ -471,11 +471,11 @@ static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
 static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 {
     static int nbTests = 1;
-    if ((r1.ll1 != r2.ll1) || (r1.ll2 != r2.ll2)) {
+    if ((r1.low64 != r2.low64) || (r1.high64 != r2.high64)) {
         DISPLAY("\rERROR : Test%3i : 128-bit values non equals   !!!!!   \n", nbTests);
         DISPLAY("\r { 0x%08X%08XULL, 0x%08X%08XULL } != { 0x%08X%08XULL, %08X%08XULL } \n",
-                (U32)(r1.ll1>>32), (U32)r1.ll1, (U32)(r1.ll2>>32), (U32)r1.ll2,
-                (U32)(r2.ll1>>32), (U32)r2.ll1, (U32)(r2.ll2>>32), (U32)r2.ll2 );
+                (U32)(r1.low64>>32), (U32)r1.low64, (U32)(r1.high64>>32), (U32)r1.high64,
+                (U32)(r2.low64>>32), (U32)r2.low64, (U32)(r2.high64>>32), (U32)r2.high64 );
         exit(1);
     }
     nbTests++;
@@ -528,7 +528,7 @@ static void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t
 
         /* check that first field is equal to _64bits variant */
         {   U64 const result64 = XXH3_64bits_withSeed(data, len, seed);
-            BMK_checkResult64(result64, Nresult.ll1);
+            BMK_checkResult64(result64, Nresult.low64);
     }   }
 
     /* check that the no-seed variant produces same result as seed==0 */

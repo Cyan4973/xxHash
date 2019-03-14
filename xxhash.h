@@ -344,9 +344,10 @@ struct XXH64_state_s {
  * It benefits greatly from vectorization units, but does not require it.
  *
  * XXH3 offers 2 variants, _64bits and _128bits.
- * The first 64-bits field of the _128bits variant is the same as _64bits result.
- * However, if only 64-bits are needed, prefer calling the _64bits variant.
- * It reduces the amount of mixing, resulting in faster speed on small inputs.
+ * When only 64 bits are needed, prefer calling the _64bits variant :
+ * it reduces the amount of mixing, resulting in faster speed on small inputs.
+ * It's also generally simpler to manipulate a scalar type than a struct.
+ * Note : the low 64-bit field of the _128bits variant is the same as _64bits result.
  *
  * The XXH3 algorithm is still considered experimental.
  * It's possible to use it for ephemeral data, but avoid storing long-term values for later re-use.
@@ -380,7 +381,7 @@ struct XXH64_state_s {
  *                          Would it be beneficial to declare and define a comparator function for XXH128_hash_t ?
  *                          Are there other operations on XXH128_hash_t which would be desirable ?
  *
- * - Variant compatibility : The first 64-bit field of the _128bits variant is the same as the result of _64bits.
+ * - Variant compatibility : The low 64-bit field of the _128bits variant is the same as the result of _64bits.
  *                          This is not a compulsory behavior. It just felt that it "wouldn't hurt", and might even help in some (unidentified) cases.
  *                          But it might influence the design of XXH128_hash_t, in ways which may block other possibilities.
  *                          Good idea, bad idea ?
@@ -399,11 +400,6 @@ struct XXH64_state_s {
  *                          Are there use case which would depend on this behavior, or would prefer a mixing of the seed ?
  */
 
-typedef struct {
-    XXH64_hash_t ll1;
-    XXH64_hash_t ll2;
-} XXH128_hash_t;
-
 #ifdef XXH_NAMESPACE
 #  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
@@ -411,6 +407,12 @@ typedef struct {
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #endif
+
+
+typedef struct {
+    XXH64_hash_t low64;
+    XXH64_hash_t high64;
+} XXH128_hash_t;
 
 XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, unsigned long long seed);
 

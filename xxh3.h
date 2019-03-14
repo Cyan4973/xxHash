@@ -748,9 +748,9 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);
-    {   U64 const part1 = XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1);
-        U64 const part2 = XXH3_mergeAccs(acc, kKey+16, ((U64)len+1) * PRIME64_2);
-        return (XXH128_hash_t) { part1, part2 };
+    {   U64 const low64 = XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1);
+        U64 const high64 = XXH3_mergeAccs(acc, kKey+16, ((U64)len+1) * PRIME64_2);
+        return (XXH128_hash_t) { low64, high64 };
     }
 }
 

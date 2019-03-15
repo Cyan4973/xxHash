@@ -81,8 +81,6 @@ they modify xxhash behavior. They are all disabled by default.
 - `XXH_CPU_LITTLE_ENDIAN` : by default, endianess is determined at compile time.
                             It's possible to skip auto-detection and force format to little-endian, by setting this macro to 1.
                             Setting it to 0 forces big-endian.
-- `XXH_FORCE_NATIVE_FORMAT` : on big-endian systems : use native number representation.
-                              Breaks consistency with little-endian results.
 - `XXH_PRIVATE_API` : same impact as `XXH_INLINE_ALL`.
                       Name underlines that symbols will not be published on library public interface.
 - `XXH_NAMESPACE` : prefix all symbols with the value of `XXH_NAMESPACE`.

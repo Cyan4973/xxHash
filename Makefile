@@ -33,16 +33,8 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-# SSE4 detection
-HAVE_SSE4 := $(shell $(CC) -dM -E - < /dev/null | grep "SSE4" > /dev/null && echo 1 || echo 0)
-ifeq ($(HAVE_SSE4), 1)
-NOSSE4 := -mno-sse4
-else
-NOSSE4 :=
-endif
-
-CFLAGS ?= -O2 $(NOSSE4) # disables potential auto-vectorization
-DEBUGFLAGS+=-Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+CFLAGS ?= -O3
+DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
             -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
@@ -90,6 +82,10 @@ xxhsum32: CFLAGS += -m32
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
+xxhash.o: xxhash.h xxh3.h
+
+xxhsum.o: xxhash.h
+
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum
 
@@ -122,18 +118,22 @@ libxxhash : $(LIBXXH)
 lib: libxxhash.a libxxhash
 
 
+# =================================================
 # tests
+# =================================================
 
+# make check can be run with cross-compiled binaries on emulated environments (qemu user mode)
+# by setting $(RUN_ENV) to the target emulation environment
 .PHONY: check
 check: xxhsum
 	# stdin
-	./xxhsum < xxhash.c
+	$(RUN_ENV) ./xxhsum < xxhash.c
 	# multiple files
-	./xxhsum xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum xxhash.* xxhsum.*
 	# internal bench
-	./xxhsum -bi1
+	$(RUN_ENV) ./xxhsum -bi1
 	# file bench
-	./xxhsum -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
 
 .PHONY: test-mem
 test-mem: xxhsum
@@ -226,7 +226,8 @@ preview-man: clean-man man
 
 test: all namespaceTest check test-xxhsum-c c90test
 
-test-all: test test32 armtest clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze cppcheck
+test-all: CFLAGS += -Werror
+test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

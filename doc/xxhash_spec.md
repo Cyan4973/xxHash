@@ -16,7 +16,7 @@ Distribution of this document is unlimited.
 
 ### Version
 
-0.1.0 (15/01/18)
+0.1.1 (10/10/18)
 
 
 Table of Contents
@@ -63,13 +63,15 @@ The algorithm collect and transform input in _stripes_ of 16 bytes. The transfor
 
 The algorithm uses 32-bits addition, multiplication, rotate, shift and xor operations. Many operations require some 32-bits prime number constants, all defined below :
 
-    static const u32 PRIME32_1 = 2654435761U;
-    static const u32 PRIME32_2 = 2246822519U;
-    static const u32 PRIME32_3 = 3266489917U;
-    static const u32 PRIME32_4 =  668265263U;
-    static const u32 PRIME32_5 =  374761393U;
+    static const u32 PRIME32_1 = 2654435761U;  // 0b10011110001101110111100110110001
+    static const u32 PRIME32_2 = 2246822519U;  // 0b10000101111010111100101001110111
+    static const u32 PRIME32_3 = 3266489917U;  // 0b11000010101100101010111000111101
+    static const u32 PRIME32_4 =  668265263U;  // 0b00100111110101001110101100101111
+    static const u32 PRIME32_5 =  374761393U;  // 0b00010110010101100110011110110001
 
-### Step 1. Initialise internal accumulators
+These constants are prime numbers, and feature a good mix of bits 1 and 0, neither too regular, nor too dissymmetric. These properties help dispersion capabilities.
+
+### Step 1. Initialize internal accumulators
 
 Each accumulator gets an initial value based on optional `seed` input. Since the `seed` is optional, it can be `0`.
 
@@ -170,11 +172,13 @@ The algorithm collects and transforms input in _stripes_ of 32 bytes. The transf
 
 The algorithm uses 64-bit addition, multiplication, rotate, shift and xor operations. Many operations require some 64-bit prime number constants, all defined below :
 
-    static const u64 PRIME64_1 = 11400714785074694791ULL;
-    static const u64 PRIME64_2 = 14029467366897019727ULL;
-    static const u64 PRIME64_3 =  1609587929392839161ULL;
-    static const u64 PRIME64_4 =  9650029242287828579ULL;
-    static const u64 PRIME64_5 =  2870177450012600261ULL;
+    static const u64 PRIME64_1 = 11400714785074694791ULL;  // 0b1001111000110111011110011011000110000101111010111100101010000111
+    static const u64 PRIME64_2 = 14029467366897019727ULL;  // 0b1100001010110010101011100011110100100111110101001110101101001111
+    static const u64 PRIME64_3 =  1609587929392839161ULL;  // 0b0001011001010110011001111011000110011110001101110111100111111001
+    static const u64 PRIME64_4 =  9650029242287828579ULL;  // 0b1000010111101011110010100111011111000010101100101010111001100011
+    static const u64 PRIME64_5 =  2870177450012600261ULL;  // 0b0010011111010100111010110010111100010110010101100110011111000101
+
+These constants are prime numbers, and feature a good mix of bits 1 and 0, neither too regular, nor too dissymmetric. These properties help dispersion capabilities.
 
 ### Step 1. Initialise internal accumulators
 
@@ -308,4 +312,5 @@ It links to the [github project page](https://github.com/Cyan4973/xxHash) where 
 
 Version changes
 --------------------
+v0.1.1 : added a note on rationale for selection of constants
 v0.1.0 : initial release

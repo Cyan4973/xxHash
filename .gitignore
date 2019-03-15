@@ -8,9 +8,11 @@ libxxhash.*
 xxh32sum
 xxh64sum
 xxhsum
+xxhsum.exe
 xxhsum32
 xxhsum_privateXXH
 xxhsum_inlinedXXH
+xxhsum_inlinedXXH.exe
 
 # Mac OS-X artefacts
 *.dSYM

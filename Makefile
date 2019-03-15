@@ -33,21 +33,15 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-# SSE4 detection
-HAVE_SSE4 := $(shell $(CC) -dM -E - < /dev/null | grep "SSE4" > /dev/null && echo 1 || echo 0)
-ifeq ($(HAVE_SSE4), 1)
-NOSSE4 := -mno-sse4
-else
-NOSSE4 :=
-endif
-
-CFLAGS ?= -O2 $(NOSSE4)   # disables potential auto-vectorization
-CFLAGS += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
-          -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-          -Wstrict-prototypes -Wundef
-
-FLAGS   = $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MOREFLAGS)
-XXHSUM_VERSION=$(LIBVER)
+CFLAGS ?= -O3
+DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
+            -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+            -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
+            -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
+            -Wredundant-decls -Wstrict-overflow=5
+CFLAGS += $(DEBUGFLAGS)
+FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
+XXHSUM_VERSION = $(LIBVER)
 MD2ROFF = ronn
 MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
@@ -76,59 +70,70 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
 .PHONY: default
+default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
+xxhsum : xxhash.o xxhsum.o
+
 xxhsum32: CFLAGS += -m32
-xxhsum xxhsum32: xxhash.c xxhsum.c
-	$(CC) $(FLAGS) $^ -o $@$(EXT)
+xxhsum32: xxhash.c xxhsum.c
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
+
+xxhash.o: xxhash.h xxh3.h
+
+xxhsum.o: xxhash.h
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum
-	ln -sf xxhsum xxh32sum
-	ln -sf xxhsum xxh64sum
+xxhsum_and_links: xxhsum xxh32sum xxh64sum
 
+xxh32sum xxh64sum: xxhsum
+	ln -sf $^ $@
+
+xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
 xxhsum_inlinedXXH: xxhsum.c
-	$(CC) $(FLAGS) -DXXH_PRIVATE_API $^ -o $@$(EXT)
+	$(CC) $(FLAGS) $^ -o $@$(EXT)
 
 
 # library
 
 libxxhash.a: ARFLAGS = rcs
 libxxhash.a: xxhash.o
-	@echo compiling static library
-	@$(AR) $(ARFLAGS) $@ $^
+	$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
-$(LIBXXH): LDFLAGS += -fPIC
+$(LIBXXH): CFLAGS += -fPIC
 endif
 $(LIBXXH): xxhash.c
-	@echo compiling dynamic library $(LIBVER)
-	@$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
-	@echo creating versioned links
-	@ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
-	@ln -sf $@ libxxhash.$(SHARED_EXT)
+	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
+	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
+	ln -sf $@ libxxhash.$(SHARED_EXT)
 
 libxxhash : $(LIBXXH)
 
+.PHONY: lib
 lib: libxxhash.a libxxhash
 
 
+# =================================================
 # tests
+# =================================================
 
+# make check can be run with cross-compiled binaries on emulated environments (qemu user mode)
+# by setting $(RUN_ENV) to the target emulation environment
 .PHONY: check
 check: xxhsum
 	# stdin
-	./xxhsum < xxhash.c
+	$(RUN_ENV) ./xxhsum < xxhash.c
 	# multiple files
-	./xxhsum xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum xxhash.* xxhsum.*
 	# internal bench
-	./xxhsum -bi1
+	$(RUN_ENV) ./xxhsum -bi1
 	# file bench
-	./xxhsum -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
 
 .PHONY: test-mem
 test-mem: xxhsum
@@ -166,19 +171,23 @@ test-xxhsum-c: xxhsum
 
 armtest: clean
 	@echo ---- test ARM compilation ----
-	$(MAKE) xxhsum CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static"
+	CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static" $(MAKE) xxhsum
 
 clangtest: clean
 	@echo ---- test clang compilation ----
-	$(MAKE) all CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion"
+	CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion" $(MAKE) all
 
-gpptest: clean
-	@echo ---- test g++ compilation ----
-	$(MAKE) all CC=g++ CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+cxxtest: clean
+	@echo ---- test C++ compilation ----
+	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
-c90test: clean
+.PHONY: c90test
+c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
+c90test: CFLAGS += -std=c90 -Werror -pedantic
+c90test: xxhash.c
 	@echo ---- test strict C90 compilation [xxh32 only] ----
-	$(CC) -std=c90 -Werror -pedantic -DXXH_NO_LONG_LONG -c xxhash.c
+	$(RM) xxhash.o
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
 	$(RM) xxhash.o
 
 usan: CC=clang
@@ -186,10 +195,17 @@ usan: clean
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) clean test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
+.PHONY: staticAnalyze
 staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
 
+.PHONY: cppcheck
+cppcheck:
+	@echo ---- static analyzer - cppcheck ----
+	cppcheck . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
+
+.PHONY: namespaceTest
 namespaceTest:
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
@@ -199,6 +215,7 @@ namespaceTest:
 xxhsum.1: xxhsum.1.md
 	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 
+.PHONY: man
 man: xxhsum.1
 
 clean-man:
@@ -209,7 +226,8 @@ preview-man: clean-man man
 
 test: all namespaceTest check test-xxhsum-c c90test
 
-test-all: test test32 armtest clangtest gpptest usan listL120 trailingWhitespace staticAnalyze
+test-all: CFLAGS += -Werror
+test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

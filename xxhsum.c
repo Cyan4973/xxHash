@@ -44,7 +44,6 @@
 #  define _LARGEFILE64_SOURCE
 #endif
 
-
 /* ************************************
  *  Includes
  **************************************/
@@ -55,6 +54,7 @@
 #include <sys/stat.h>   /* stat, stat64, _stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
 #include <assert.h>     /* assert */
+#include <errno.h>      /* errno */
 
 #define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #include "xxhash.h"
@@ -164,13 +164,86 @@ static unsigned BMK_isLittleEndian(void)
 #define QUOTE(str) #str
 #define EXPAND_AND_QUOTE(str) QUOTE(str)
 #define PROGRAM_VERSION EXPAND_AND_QUOTE(LIB_VERSION)
+
+/* Show compiler versions in WELCOME_MESSAGE. VERSION_FMT will return the printf specifiers,
+ * and VERSION will contain the comma separated list of arguments to the VERSION_FMT string. */
+#if defined(__clang_version__)
+/* Clang does its own thing. */
+#  ifdef __apple_build_version__
+#    define VERSION_FMT ", Apple Clang %s"
+#  else
+#    define VERSION_FMT ", Clang %s"
+#  endif
+#  define VERSION  __clang_version__
+#elif defined(__VERSION__)
+/* GCC and ICC */
+#  define VERSION_FMT ", %s"
+#  ifdef __INTEL_COMPILER /* icc adds its prefix */
+#    define VERSION_STRING __VERSION__
+#  else /* assume GCC */
+#    define VERSION "GCC " __VERSION__
+#  endif
+#elif defined(_MSC_FULL_VER) && defined(_MSC_BUILD)
+/* "For example, if the version number of the Visual C++ compiler is 15.00.20706.01, the _MSC_FULL_VER macro
+ * evaluates to 150020706." https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017 */
+#  define VERSION  _MSC_FULL_VER / 10000000 % 100, _MSC_FULL_VER / 100000 % 100, _MSC_FULL_VER % 100000, _MSC_BUILD
+#  define VERSION_FMT ", MSVC %02i.%02i.%05i.%02i"
+#elif defined(__TINYC__)
+/* tcc stores its version in the __TINYC__ macro. */
+#  define VERSION_FMT ", tcc %i.%i.%i"
+#  define VERSION __TINYC__ / 10000 % 100, __TINYC__ / 100 % 100, __TINYC__ % 100
+#else
+#  define VERSION_FMT "%s"
+#  define VERSION ""
+#endif
+
+/* makes the next part easier */
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
+#   define ARCH_X86 "x86_64"
+#elif defined(__i386__) || defined(_M_X86) || defined(_M_X86_FP)
+#   define ARCH_X86 "i386"
+#endif
+
+/* Try to detect the architecture. */
+#if defined(ARCH_X86)
+#  if defined(__AVX2__)
+#    define ARCH ARCH_X86 " + AVX2"
+#  elif defined(__AVX__)
+#    define ARCH ARCH_X86 " + AVX"
+#  elif defined(__SSE2__)
+#     define ARCH ARCH_X86 " + SSE2"
+#  else
+#      define ARCH ARCH_X86
+#  endif
+#elif defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+#  define ARCH "aarch64"
+#elif defined(__arm__) || defined(__thumb__) || defined(__thumb2__) || defined(_M_ARM)
+#  if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#    define ARCH "arm + NEON"
+#  else
+#    define ARCH "arm"
+#  endif
+#elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
+#  define ARCH "ppc64"
+#elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+#  define ARCH "ppc"
+#elif defined(__AVR)
+#  define ARCH "AVR"
+#elif defined(__mips64)
+#  define ARCH "mips64"
+#elif defined(__mips)
+#  define ARCH "mips"
+#else
+#  define ARCH "unknown"
+#endif
+
 static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s), by %s \n", \
-                    exename, PROGRAM_VERSION, g_nbBits, ENDIAN_NAME, author
+#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s %s)" VERSION_FMT ", by %s \n", \
+                    exename, PROGRAM_VERSION, g_nbBits, ARCH, ENDIAN_NAME, VERSION, author
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)
@@ -350,7 +423,7 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
         BMK_benchHash(localXXH3_64b, "XXH3_64b unaligned", ((const char*)buffer)+3, bufferSize);
 
     if (specificTest > 6) {
-        DISPLAY("benchmark mode invalid \n");
+        DISPLAY("Benchmark mode invalid.\n");
         return 1;
     }
     return 0;
@@ -384,12 +457,12 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
 
             /* Checks */
             if (inFile==NULL){
-                DISPLAY("Pb opening %s\n", inFileName);
+                DISPLAY("Error: Could not open '%s': %s.\n", inFileName, strerror(errno));
                 free(buffer);
                 return 11;
             }
             if(!buffer) {
-                DISPLAY("\nError: not enough memory!\n");
+                DISPLAY("\nError: Out of memory.\n");
                 fclose(inFile);
                 return 12;
             }
@@ -399,7 +472,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
             {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
                 fclose(inFile);
                 if(readSize != benchedSize) {
-                    DISPLAY("\nError: problem reading file '%s' !!    \n", inFileName);
+                    DISPLAY("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
                     free(buffer);
                     return 13;
             }   }
@@ -419,7 +492,7 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
 {
     void* const buffer = calloc(keySize+16+3, 1);
     if (!buffer) {
-        DISPLAY("\nError: not enough memory!\n");
+        DISPLAY("\nError: Out of memory.\n");
         return 12;
     }
 
@@ -451,7 +524,10 @@ static void BMK_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
-        DISPLAY("\rERROR : Test%3i : 0x%08X <> 0x%08X   !!!!!   \n", nbTests, r1, r2);
+        DISPLAY("\rError: 32-bit hash test %i: Internal sanity check failed!\n", nbTests);
+        DISPLAY("\rGot 0x%08X, expected 0x%08X.\n", r1, r2);
+        DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
+                  "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
     }
     nbTests++;
@@ -461,8 +537,10 @@ static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
-        DISPLAY("\rERROR : Test%3i : 64-bit values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r 0x%08X%08XULL != 0x%08X%08XULL \n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        DISPLAY("\rError: 64-bit hash test %i: Internal sanity check failed!\n", nbTests);
+        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
+                  "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
     }
     nbTests++;
@@ -472,10 +550,12 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 {
     static int nbTests = 1;
     if ((r1.low64 != r2.low64) || (r1.high64 != r2.high64)) {
-        DISPLAY("\rERROR : Test%3i : 128-bit values non equals   !!!!!   \n", nbTests);
-        DISPLAY("\r { 0x%08X%08XULL, 0x%08X%08XULL } != { 0x%08X%08XULL, %08X%08XULL } \n",
+        DISPLAY("\rError: 128-bit hash test %i: Internal sanity check failed.\n", nbTests);
+        DISPLAY("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, %08X%08XULL } \n",
                 (U32)(r1.low64>>32), (U32)r1.low64, (U32)(r1.high64>>32), (U32)r1.high64,
                 (U32)(r2.low64>>32), (U32)r2.low64, (U32)(r2.high64>>32), (U32)r2.high64 );
+        DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
+                  "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
     }
     nbTests++;
@@ -783,19 +863,20 @@ static int BMK_hash(const char* fileName,
     /* Check file existence */
     if (fileName == stdinName) {
         inFile = stdin;
+        fileName = "stdin";
         SET_BINARY_MODE(stdin);
     }
     else
         inFile = fopen( fileName, "rb" );
     if (inFile==NULL) {
-        DISPLAY( "Pb opening %s\n", fileName);
+        DISPLAY("Error: Could not open '%s': %s.\n", fileName, strerror(errno));
         return 1;
     }
 
     /* Memory allocation & restrictions */
     buffer = malloc(blockSize);
     if(!buffer) {
-        DISPLAY("\nError: not enough memory!\n");
+        DISPLAY("\nError: Out of memory.\n");
         fclose(inFile);
         return 1;
     }
@@ -1104,7 +1185,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
         if (lineNumber == 0) {
             /* This is unlikely happen, but md5sum.c has this
              * error check. */
-            DISPLAY("%s : too many checksum lines\n", inFileName);
+            DISPLAY("%s: Error: Too many checksum lines\n", inFileName);
             report->quit = 1;
             break;
         }
@@ -1123,15 +1204,15 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 break;
 
             default:
-                DISPLAY("%s : %lu: unknown error\n", inFileName, lineNumber);
+                DISPLAY("%s:%lu: Error: Unknown error.\n", inFileName, lineNumber);
                 break;
 
             case GetLine_exceedMaxLineLength:
-                DISPLAY("%s : %lu: too long line\n", inFileName, lineNumber);
+                DISPLAY("%s:%lu: Error: Line too long.\n", inFileName, lineNumber);
                 break;
 
             case GetLine_outOfMemory:
-                DISPLAY("%s : %lu: out of memory\n", inFileName, lineNumber);
+                DISPLAY("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
                 break;
             }
             report->quit = 1;
@@ -1141,7 +1222,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
         if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: improperly formatted XXHASH checksum line\n"
+                DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n"
                     , inFileName, lineNumber);
             }
             continue;
@@ -1152,7 +1233,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             report->nMixedFormatLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: improperly formatted XXHASH checksum line (XXH32/64)\n"
+                DISPLAY("%s : %lu: Error: Multiple hash types in one file.\n"
                     , inFileName, lineNumber);
             }
             continue;
@@ -1195,15 +1276,15 @@ static void parseFile1(ParseFileArg* parseFileArg)
         switch (lineStatus)
         {
         default:
-            DISPLAY("%s : unknown error\n", inFileName);
+            DISPLAY("%s: Error: Unknown error.\n", inFileName);
             report->quit = 1;
             break;
 
         case LineStatus_failedToOpen:
             report->nOpenOrReadFailures++;
             if (!parseFileArg->statusOnly) {
-                DISPLAYRESULT("%s : %lu: FAILED open or read %s\n"
-                    , inFileName, lineNumber, parsedLine.filename);
+                DISPLAYRESULT("%s:%lu: Could not open or read '%s': %s.\n",
+                    inFileName, lineNumber, parsedLine.filename, strerror(errno));
             }
             break;
 
@@ -1266,13 +1347,14 @@ static int checkFile(const char* inFileName,
     if (inFileName == stdinName) {
         /* note : Since we expect text input for xxhash -c mode,
          * Don't set binary mode for stdin */
+        inFileName = "stdin";
         inFile = stdin;
     } else {
         inFile = fopen( inFileName, "rt" );
     }
 
     if (inFile == NULL) {
-        DISPLAY( "Pb opening %s\n", inFileName);
+        DISPLAY("Error: Could not open '%s': %s\n", inFileName, strerror(errno));
         return 0;
     }
 
@@ -1297,19 +1379,22 @@ static int checkFile(const char* inFileName,
     /* Show error/warning messages.  All messages are copied from md5sum.c
      */
     if (report->nProperlyFormattedLines == 0) {
-        DISPLAY("%s: no properly formatted XXHASH checksum lines found\n", inFileName);
+        DISPLAY("%s: no properly formatted xxHash checksum lines found\n", inFileName);
     } else if (!statusOnly) {
         if (report->nImproperlyFormattedLines) {
-            DISPLAYRESULT("%lu lines are improperly formatted\n"
-                , report->nImproperlyFormattedLines);
+            DISPLAYRESULT("%lu %s are improperly formatted\n"
+                , report->nImproperlyFormattedLines
+                , report->nImproperlyFormattedLines == 1 ? "line" : "lines");
         }
         if (report->nOpenOrReadFailures) {
-            DISPLAYRESULT("%lu listed files could not be read\n"
-                , report->nOpenOrReadFailures);
+            DISPLAYRESULT("%lu listed %s could not be read\n"
+                , report->nOpenOrReadFailures
+                , report->nOpenOrReadFailures == 1 ? "file" : "files");
         }
         if (report->nMismatchedChecksums) {
-            DISPLAYRESULT("%lu computed checksums did NOT match\n"
-                , report->nMismatchedChecksums);
+            DISPLAYRESULT("%lu computed %s did NOT match\n"
+                , report->nMismatchedChecksums
+                , report->nMismatchedChecksums == 1 ? "checksum" : "checksums");
     }   }
 
     /* Result (exit) code logic is copied from
@@ -1432,7 +1517,7 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
 static unsigned readU32FromChar(const char** stringPtr) {
     unsigned result;
     if (readU32FromCharChecked(stringPtr, &result)) {
-        static const char errorMsg[] = "error: numeric value too large";
+        static const char errorMsg[] = "Error: numeric value too large";
         errorOut(errorMsg);
     }
     return result;

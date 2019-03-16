@@ -144,8 +144,10 @@ XXH3_mul128(U64 ll1, U64 ll2)
     return (U64)lll + (U64)(lll >> 64);
 
 #elif defined(_M_X64) || defined(_M_IA64)
-
+    
+#ifndef _MSC_VER
 #   pragma intrinsic(_umul128)
+#endif
     U64 llhigh;
     U64 const lllow = _umul128(ll1, ll2, &llhigh);
     return lllow + llhigh;
@@ -613,7 +615,7 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const U32* key, U64 start)
     return XXH3_avalanche(result64);
 }
 
-__attribute__((noinline)) static XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
     ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, -seed, 0 };
@@ -688,7 +690,8 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
         U64  const ll11 = XXH_mult32to64(l1 + seed + key32[0], l2 + key32[1]);
         U64  const ll12 = XXH_mult32to64(l1 + key32[2], l2 - seed + key32[3]);
-        return (XXH128_hash_t) { XXH3_avalanche(ll11), XXH3_avalanche(ll12) };
+        XXH128_hash_t const h128 = { XXH3_avalanche(ll11), XXH3_avalanche(ll12) };
+        return h128;
     }
 }
 
@@ -705,7 +708,9 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U32 const l2 = XXH_readLE32((const BYTE*)data + len - 4);
         acc1 += XXH_mult32to64(l1 + key32[0], l2 + key32[1]);
         acc2 += XXH_mult32to64(l1 - key32[2], l2 + key32[3]);
-        return (XXH128_hash_t){ XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
+        {   XXH128_hash_t const h128 = { XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
+            return h128;
+        }
     }
 }
 
@@ -722,7 +727,9 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8);
         acc1 += XXH3_mul128(ll1 + XXH3_readKey64(key64+0), ll2 + XXH3_readKey64(key64+1));
         acc2 += XXH3_mul128(ll1 + XXH3_readKey64(key64+2), ll2 + XXH3_readKey64(key64+3));
-        return (XXH128_hash_t){ XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
+        {   XXH128_hash_t const h128 = { XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
+            return h128;
+        }
     }
 }
 
@@ -734,11 +741,13 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
     {   if (len > 8) return XXH3_len_9to16_128b(data, len, kKey, seed);
         if (len >= 4) return XXH3_len_4to8_128b(data, len, kKey, seed);
         if (len) return XXH3_len_1to3_128b(data, len, kKey, seed);
-        return (XXH128_hash_t) { seed, -seed };
+        {   XXH128_hash_t const h128 = { seed, -seed };
+            return h128;
+        }
     }
 }
 
-__attribute__((noinline)) static XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 {
     ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, -seed, 0 };
@@ -750,7 +759,8 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
     assert(sizeof(acc) == 64);
     {   U64 const low64 = XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1);
         U64 const high64 = XXH3_mergeAccs(acc, kKey+16, ((U64)len+1) * PRIME64_2);
-        return (XXH128_hash_t) { low64, high64 };
+        XXH128_hash_t const h128 = { low64, high64 };
+        return h128;
     }
 }
 
@@ -786,7 +796,8 @@ XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 
         {   U64 const part1 = acc1 + acc2;
             U64 const part2 = (acc1 * PRIME64_3) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);
-            return (XXH128_hash_t) { XXH3_avalanche(part1), -XXH3_avalanche(part2) };
+            XXH128_hash_t const h128 = { XXH3_avalanche(part1), -XXH3_avalanche(part2) };
+            return h128;
         }
     }
 }

@@ -107,7 +107,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #    define XXH_PUBLIC_API static
 #  endif
 #else
-#  if defined(WIN32) && !defined(__GNUC__)
+#  if defined(WIN32) && defined(_MSC_VER)
 #    ifdef XXH_EXPORT
 #      define XXH_PUBLIC_API __declspec(dllexport)
 #    else

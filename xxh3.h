@@ -619,7 +619,7 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const U32* key, U64 start)
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, -seed, 0 };
+    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
 
     XXH3_hashLong(acc, data, len);
 
@@ -742,7 +742,7 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
     {   if (len > 8) return XXH3_len_9to16_128b(data, len, kKey, seed);
         if (len >= 4) return XXH3_len_4to8_128b(data, len, kKey, seed);
         if (len) return XXH3_len_1to3_128b(data, len, kKey, seed);
-        {   XXH128_hash_t const h128 = { seed, -seed };
+        {   XXH128_hash_t const h128 = { seed, (XXH64_hash_t)0 - seed };
             return h128;
         }
     }
@@ -751,7 +751,7 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
 XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, -seed, 0 };
+    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     assert(len > 128);
 
     XXH3_hashLong(acc, data, len);
@@ -797,7 +797,7 @@ XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 
         {   U64 const part1 = acc1 + acc2;
             U64 const part2 = (acc1 * PRIME64_3) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);
-            XXH128_hash_t const h128 = { XXH3_avalanche(part1), -XXH3_avalanche(part2) };
+            XXH128_hash_t const h128 = { XXH3_avalanche(part1), (XXH64_hash_t)0 - XXH3_avalanche(part2) };
             return h128;
         }
     }

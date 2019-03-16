@@ -1,6 +1,10 @@
 version: 1.0.{build}
 environment:
   matrix:
+  - COMPILER: "visual"
+    PLATFORM: "visual_x64"
+  - COMPILER: "visual"
+    PLATFORM: "visual_x86"
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
@@ -38,31 +42,22 @@ build_script:
         make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion"
       )
     )
-  - if [%COMPILER%]==[visual] (
-      ECHO *** &&
-      ECHO *** Building Visual Studio 2010 %PLATFORM%\%CONFIGURATION% &&
-      ECHO *** &&
-      msbuild "visual\VS2010\lz4.sln" %ADDITIONALPARAM% /m /verbosity:minimal /property:PlatformToolset=v100 /t:Clean,Build /p:Platform=%PLATFORM% /p:Configuration=%CONFIGURATION% /p:EnableWholeProgramOptimization=true /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" &&
-      ECHO *** &&
-      ECHO *** Building Visual Studio 2012 %PLATFORM%\%CONFIGURATION% &&
-      ECHO *** &&
-      msbuild "visual\VS2010\lz4.sln" /m /verbosity:minimal /property:PlatformToolset=v110 /t:Clean,Build /p:Platform=%PLATFORM% /p:Configuration=%CONFIGURATION% /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" &&
-      ECHO *** &&
-      ECHO *** Building Visual Studio 2013 %PLATFORM%\%CONFIGURATION% &&
-      ECHO *** &&
-      msbuild "visual\VS2010\lz4.sln" /m /verbosity:minimal /property:PlatformToolset=v120 /t:Clean,Build /p:Platform=%PLATFORM% /p:Configuration=%CONFIGURATION% /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" &&
-      ECHO *** &&
-      ECHO *** Building Visual Studio 2015 %PLATFORM%\%CONFIGURATION% &&
-      ECHO *** &&
-      msbuild "visual\VS2010\lz4.sln" /m /verbosity:minimal /property:PlatformToolset=v140 /t:Clean,Build /p:Platform=%PLATFORM% /p:Configuration=%CONFIGURATION% /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll" &&
-      COPY visual\VS2010\bin\%PLATFORM%_%CONFIGURATION%\*.exe programs\
+  - if "%PLATFORM%"=="visual_x64" (
+      cd cmake_unofficial &&
+      cmake . -DCMAKE_BUILD_TYPE=Release -A x64 &&
+      cmake --build . --config Release
+    )
+  - if "%PLATFORM%"=="visual_x86" (
+      cd cmake_unofficial &&
+      cmake . -DCMAKE_BUILD_TYPE=Release &&
+      cmake --build . --config Release
     )
 
 test_script:
   - ECHO *** &&
       ECHO Testing %COMPILER% %PLATFORM% %CONFIGURATION% &&
       ECHO ***
-  - if not [%COMPILER%]==[unknown] (
+  - if not [%COMPILER%]==[visual] (
       xxhsum -h &&
       xxhsum xxhsum.exe &&
       xxhsum -bi1 &&

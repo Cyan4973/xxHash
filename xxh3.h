@@ -47,6 +47,7 @@
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
+#undef NDEBUG   /* avoid redefinition */
 #define NDEBUG
 #include <assert.h>
 
@@ -144,7 +145,7 @@ XXH3_mul128(U64 ll1, U64 ll2)
     return (U64)lll + (U64)(lll >> 64);
 
 #elif defined(_M_X64) || defined(_M_IA64)
-    
+
 #ifndef _MSC_VER
 #   pragma intrinsic(_umul128)
 #endif

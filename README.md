@@ -92,6 +92,7 @@ they modify xxhash behavior. They are all disabled by default.
                               Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
                        for targets without 64-bit support.
+- `XXH_IMPORT` : should only be defined for dynamic linking, it prevents linkage errors with MSVC.
 
 
 ### Example

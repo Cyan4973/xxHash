@@ -627,16 +627,34 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const U32* key, U64 start)
     return XXH3_avalanche(result64);
 }
 
+
+XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
+{
+    U32 const seed1 = (U32)seed64;
+    U32 const seed2 = (U32)(seed64 >> 32);
+    int i;
+    assert(KEYSET_DEFAULT_SIZE & 3 == 0);
+    for (i=0; i < KEYSET_DEFAULT_SIZE; i+=4) {
+        key[i+0] = kKey[i+0] + seed1;
+        key[i+1] = kKey[i+1] - seed2;
+        key[i+2] = kKey[i+2] + seed2;
+        key[i+3] = kKey[i+3] - seed1;
+    }
+}
+
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
     ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
+
+    XXH3_initKeySeed(key, seed);
 
     XXH3_hashLong(acc, data, len);
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);
-    return XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1);
+    return XXH3_mergeAccs(acc, key, (U64)len * PRIME64_1);
 }
 
 
@@ -666,7 +684,6 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 
             acc += XXH3_mix16B(p+16, key+32, seed);
             acc += XXH3_mix16B(p+len-32, key+48, seed);
-
         }
 
         acc += XXH3_mix16B(p+0, key+0, seed);

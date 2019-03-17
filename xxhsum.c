@@ -643,7 +643,8 @@ static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nre
 #define SANITY_BUFFER_SIZE 2243
 static void BMK_sanityCheck(void)
 {
-    static const U32 prime = 2654435761U;
+    const U32 prime = 2654435761U;
+    const U64 prime64 = 11400714785074694793ULL;
     BYTE sanityBuffer[SANITY_BUFFER_SIZE];
     U32 byteGen = prime;
 
@@ -671,10 +672,10 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer,222, 0,     0x9DD507880DEBB03DULL);
     BMK_testSequence64(sanityBuffer,222, prime, 0xDC515172B8EE0600ULL);
 
-    BMK_testXXH3(NULL,           0, 0,     0);                      /* zero-length hash is the seed == 0 by default */
-    BMK_testXXH3(NULL,           0, prime, prime);
-    BMK_testXXH3(sanityBuffer,   1, 0,     0xE2C6D3B40D6F9203ULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   1, prime, 0xCEE5DF124E6135DCULL);  /*  1 -  3 */
+    BMK_testXXH3(NULL,           0, 0,      0);                      /* zero-length hash is the seed == 0 by default */
+    BMK_testXXH3(NULL,           0, prime64, prime64);
+    BMK_testXXH3(sanityBuffer,   1, 0,      0xE2C6D3B40D6F9203ULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   1, prime64,0x3C629B5A9E3EBE19ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   6, 0,     0x585D6F8D1AAD96A2ULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,   6, prime, 0x133EC8CA1739250FULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,  12, 0,     0x0E85E122FE5356ACULL);  /*  9 - 16 */

@@ -1630,7 +1630,7 @@ int main(int argc, const char** argv)
     /* Check benchmark mode */
     if (benchmarkMode) {
         DISPLAYLEVEL(2, WELCOME_MESSAGE(exename) );
-        //BMK_sanityCheck();
+        if (0) BMK_sanityCheck();
         if (filenamesStart==0) return BMK_benchInternal(keySize, specificTest);
         return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart, specificTest);
     }

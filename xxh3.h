@@ -373,7 +373,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
             __m256i const d   = _mm256_loadu_si256 (xdata+i);
             __m256i const k   = _mm256_loadu_si256 (xkey+i);
-            __m256i const dk  = _mm256_add_epi32 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
+            __m256i const dk  = _mm256_xor_si256 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
             __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
             __m256i const add = _mm256_add_epi64(d, xacc[i]);
             xacc[i]  = _mm256_add_epi64(res, add);
@@ -391,14 +391,14 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
             __m128i const d   = _mm_loadu_si128 (xdata+i);
             __m128i const k   = _mm_loadu_si128 (xkey+i);
-            __m128i const dk  = _mm_add_epi32 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+            __m128i const dk  = _mm_xor_si128 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
             __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
             __m128i const add = _mm_add_epi64(d, xacc[i]);
             xacc[i]  = _mm_add_epi64(res, add);
         }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)   /* to be updated, no longer in sync */
+#elif (XXH_VECTOR == XXH_NEON)   /* to be updated, no longer with latest sse/avx updates */
 
     assert(((size_t)acc) & 15 == 0);
     {       uint64x2_t* const xacc  =     (uint64x2_t *)acc;
@@ -447,7 +447,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         int const right= 2*i + 1;
         U32 const dataLeft  = XXH_readLE32(xdata + left);
         U32 const dataRight = XXH_readLE32(xdata + right);
-        xacc[i] += XXH_mult32to64(dataLeft + xkey[left], dataRight + xkey[right]);
+        xacc[i] += XXH_mult32to64(dataLeft ^ xkey[left], dataRight ^ xkey[right]);
         xacc[i] += dataLeft + ((U64)dataRight << 32);
     }
 

@@ -137,7 +137,7 @@ ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
 __attribute__((__target__("no-sse")))
 #endif
 static U64
-XXH3_mul128(U64 ll1, U64 ll2)
+XXH3_mul128_fold64(U64 ll1, U64 ll2)
 {
 #if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
@@ -307,11 +307,9 @@ XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
     assert(data != NULL);
     assert(len >= 4 && len <= 8);
     {   const U32* const key32 = (const U32*) keyPtr;
-        U64 acc = PRIME64_1 * len;
         U32 const l1 = XXH_readLE32(data) + (U32)seed + key32[0];
         U32 const l2 = XXH_readLE32((const BYTE*)data + len - 4) + (U32)(seed >> 32) + key32[1];
-        acc += XXH_mult32to64(l1, l2);
-        acc += l1 + ((U64)l2 << 32);
+        U64 const acc = len + l1 + ((U64)l2 << 32) + XXH_mult32to64(l1, l2);
         return XXH3_avalanche(acc);
     }
 }
@@ -337,7 +335,7 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     {   const U64* const key64 = (const U64*) keyPtr;
         U64 const ll1 = XXH_readLE64(data) + XXH3_readKey64(key64) + seed;
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) + XXH3_readKey64(key64+1) - seed;
-        U64 const acc = len + ll1 + ll2 + XXH3_mul128(ll1, ll2);
+        U64 const acc = len + ll1 + ll2 + XXH3_mul128_fold64(ll1, ll2);
         return XXH3_avalanche(acc);
     }
 }
@@ -595,20 +593,10 @@ XXH3_hashLong(U64* acc, const void* data, size_t len)
 }
 
 
-XXH_FORCE_INLINE U64 XXH3_mix16B(const void* data, const void* key, U64 seed64)
-{
-    const U64* const key64 = (const U64*)key;
-    U64 const ll1 = XXH_readLE64(data);
-    U64 const ll2 = XXH_readLE64((const BYTE*)data+8);
-    return XXH3_mul128(
-               ll1 ^ (XXH3_readKey64(key64)   + seed64),
-               ll2 ^ (XXH3_readKey64(key64+1) - seed64) ) ;
-}
-
 XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
 {
     const U64* const key64 = (const U64*)key;
-    return XXH3_mul128(
+    return XXH3_mul128_fold64(
                acc[0] ^ XXH3_readKey64(key64),
                acc[1] ^ XXH3_readKey64(key64+1) );
 }
@@ -653,6 +641,17 @@ XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
     /* converge into final hash */
     assert(sizeof(acc) == 64);
     return XXH3_mergeAccs(acc, key, (U64)len * PRIME64_1);
+}
+
+
+XXH_FORCE_INLINE U64 XXH3_mix16B(const void* data, const void* key, U64 seed64)
+{
+    const U64* const key64 = (const U64*)key;
+    U64 const ll1 = XXH_readLE64(data);
+    U64 const ll2 = XXH_readLE64((const BYTE*)data+8);
+    return XXH3_mul128_fold64(
+               ll1 ^ (XXH3_readKey64(key64)   + seed64),
+               ll2 ^ (XXH3_readKey64(key64+1) - seed64) ) ;
 }
 
 
@@ -752,8 +751,8 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
         U64 acc2 = PRIME64_2 * ((U64)len - seed);
         U64 const ll1 = XXH_readLE64(data);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8);
-        acc1 += XXH3_mul128(ll1 + XXH3_readKey64(key64+0), ll2 + XXH3_readKey64(key64+1));
-        acc2 += XXH3_mul128(ll1 + XXH3_readKey64(key64+2), ll2 + XXH3_readKey64(key64+3));
+        acc1 += XXH3_mul128_fold64(ll1 + XXH3_readKey64(key64+0), ll2 + XXH3_readKey64(key64+1));
+        acc2 += XXH3_mul128_fold64(ll1 + XXH3_readKey64(key64+2), ll2 + XXH3_readKey64(key64+3));
         {   XXH128_hash_t const h128 = { XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
             return h128;
         }

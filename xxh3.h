@@ -295,7 +295,7 @@ XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll11 = XXH_mult32to64((l1 + seed + key32[0]), (l2 + key32[1]));
+        U64  const ll11 = XXH_mult32to64((l1 + seed + key32[0]), (l2 + key32[1])); // fixme: MSVC warns that seed is truncated to 32bits
         return XXH3_avalanche(ll11);
     }
 }
@@ -540,7 +540,7 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         xacc[i] ^= xacc[i] >> 47;
 
         {   U64 const p1 = XXH_mult32to64(xacc[i] & 0xFFFFFFFF, xkey[left]);
-            U64 const p2 = XXH_mult32to64(xacc[i] >> 32,        xkey[right]);
+            U64 const p2 = XXH_mult32to64(xacc[i] >> 32,        xkey[right]); // warning C5045, Spectre related - may decrease the speed with some circumstances (the /Qspectre option may be turned on by default and a fence instruction may appear = UD on older processors)
             xacc[i] = p1 ^ p2;
     }   }
 
@@ -619,7 +619,7 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const U32* key, U64 start)
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 }; // fixme: MSVC warns that there's a non-constant initializer
 
     XXH3_hashLong(acc, data, len);
 
@@ -689,9 +689,9 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll11 = XXH_mult32to64(l1 + seed + key32[0], l2 + key32[1]);
-        U64  const ll12 = XXH_mult32to64(l1 + key32[2], l2 - seed + key32[3]);
-        XXH128_hash_t const h128 = { XXH3_avalanche(ll11), XXH3_avalanche(ll12) };
+        U64  const ll11 = XXH_mult32to64(l1 + seed + key32[0], l2 + key32[1]); // fixme: MSVC warns that seed is truncated to 32bits
+        U64  const ll12 = XXH_mult32to64(l1 + key32[2], l2 - seed + key32[3]); // fixme: MSVC warns that seed is truncated to 32bits
+        XXH128_hash_t const h128 = { XXH3_avalanche(ll11), XXH3_avalanche(ll12) }; // fixme: non-constant initializer, there are few more instances of this "bug"
         return h128;
     }
 }

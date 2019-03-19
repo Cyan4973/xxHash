@@ -381,10 +381,10 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
                     /* fallthrough */
       case 1:       PROCESS1;
                     /* fallthrough */
-      case 0:       return XXH32_avalanche(h32);
+      default:      break;
     }
-    assert(0);
-    return h32;   /* reaching this point is deemed impossible */
+
+    return XXH32_avalanche(h32);
 }
 
 XXH_FORCE_INLINE U32
@@ -423,7 +423,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
 
     h32 += (U32)len;
 
-    return XXH32_finalize(h32, p, len&15, align);
+    return XXH32_finalize(h32, p, len, align);
 }
 
 
@@ -808,12 +808,10 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
                     /* fallthrough */
       case  1: PROCESS1_64;
                     /* fallthrough */
-      case  0: return XXH64_avalanche(h64);
+      default: break;
     }
 
-    /* impossible to reach */
-    assert(0);
-    return 0;  /* unreachable, but some compilers complain without it */
+    return XXH64_avalanche(h64);
 }
 
 XXH_FORCE_INLINE U64
@@ -993,7 +991,7 @@ XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state)
 
     h64 += (U64) state->total_len;
 
-    return XXH64_finalize(h64, state->mem64, (size_t)state->total_len, XXH_aligned);
+    return XXH64_finalize(h64, state->mem64, (size_t)state->memsize, XXH_aligned);
 }
 
 

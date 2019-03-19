@@ -291,7 +291,7 @@ struct XXH64_state_s {
    uint64_t v4;
    uint64_t mem64[4];
    uint32_t memsize;
-   uint32_t reserved[2];   /* never read nor write, might be removed in a future version */
+   uint32_t reserved;   /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
 
 # else
@@ -317,7 +317,7 @@ struct XXH64_state_s {
    XXH64_hash_t v4;
    XXH64_hash_t mem64[4];
    XXH32_hash_t memsize;
-   XXH32_hash_t reserved[2];     /* never read nor write, might be removed in a future version */
+   XXH32_hash_t reserved;     /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
 #    endif
 

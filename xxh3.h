@@ -90,7 +90,9 @@
 #  elif defined(__SSE2__)
 #    define XXH_VECTOR XXH_SSE2
 /* msvc support maybe later */
-#  elif defined(__GNUC__) && (defined(__ARM_NEON__) || defined(__ARM_NEON))
+#  elif defined(__GNUC__) \
+  && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
+  && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
 #  else
 #    define XXH_VECTOR XXH_SCALAR
@@ -409,7 +411,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
             uint32x4_t const d = vld1q_u32(xdata+i*4);                           /* U32 d[4] = xdata[i]; */
             uint32x4_t const k = vld1q_u32(xkey+i*4);                            /* U32 k[4] = xkey[i]; */
-            uint32x4_t dk = vaddq_u32(d, k);                                     /* U32 dk[4] = {d0+k0, d1+k1, d2+k2, d3+k3} */
+            uint32x4_t dk = veorq_u32(d, k);                                     /* U32 dk[4] = {d0^k0, d1^k1, d2^k2, d3^k3} */
 #if !defined(__aarch64__) && !defined(__arm64__) /* ARM32-specific hack */
             /* vzip on ARMv7 Clang generates a lot of vmovs (technically vorrs) without this.
              * vzip on 32-bit ARM NEON will overwrite the original register, and I think that Clang
@@ -514,22 +516,21 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
     {       uint64x2_t* const xacc =     (uint64x2_t*) acc;
         const uint32_t* const xkey = (const uint32_t*) key;
         size_t i;
+        uint32x2_t const k1 = vdup_n_u32(PRIME32_1);
+        uint32x2_t const k2 = vdup_n_u32(PRIME32_2);
 
         for (i=0; i < STRIPE_LEN/sizeof(uint64x2_t); i++) {
             uint64x2_t data = xacc[i];
             uint64x2_t const shifted = vshrq_n_u64(data, 47);          /* uint64 shifted[2] = data >> 47; */
             data = veorq_u64(data, shifted);                           /* data ^= shifted; */
             {
+                uint32x4_t const k = vld1q_u32(xkey+i*4);               /* load */
+                uint32x4_t const dk = veorq_u32(vreinterpretq_u32_u64(data), k); /* dk = data ^ key */
                 /* shuffle: 0, 1, 2, 3 -> 0, 2, 1, 3 */
-                uint32x2x2_t const d =
-                    vzip_u32(
-                        vget_low_u32(vreinterpretq_u32_u64(data)),
-                        vget_high_u32(vreinterpretq_u32_u64(data))
-                    );
-                uint32x2x2_t const k = vld2_u32(xkey+i*4);               /* load and swap */
-                uint64x2_t const dk  = vmull_u32(d.val[0],k.val[0]);     /* U64 dk[2]  = {(U64)d0*k0, (U64)d2*k2} */
-                uint64x2_t const dk2 = vmull_u32(d.val[1],k.val[1]);     /* U64 dk2[2] = {(U64)d1*k1, (U64)d3*k3} */
-                xacc[i] = veorq_u64(dk, dk2);                            /* xacc[i] = dk^dk2;             */
+                uint32x2x2_t const split = vzip_u32(vget_low_u32(dk), vget_high_u32(dk));
+                uint64x2_t const dk1 = vmull_u32(split.val[0],k1);     /* U64 dk[2]  = {(U64)d0*k0, (U64)d2*k2} */
+                uint64x2_t const dk2 = vmull_u32(split.val[1],k2);     /* U64 dk2[2] = {(U64)d1*k1, (U64)d3*k3} */
+                xacc[i] = veorq_u64(dk1, dk2);                         /* xacc[i] = dk^dk2;             */
         }   }
     }
 

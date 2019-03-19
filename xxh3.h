@@ -729,12 +729,10 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     assert(data != NULL);
     assert(len >= 4 && len <= 8);
     {   const U32* const key32 = (const U32*) keyPtr;
-        U64 acc1 = PRIME64_1 * ((U64)len + seed);
-        U64 acc2 = PRIME64_2 * ((U64)len - seed);
-        U32 const l1 = XXH_readLE32(data);
-        U32 const l2 = XXH_readLE32((const BYTE*)data + len - 4);
-        acc1 += XXH_mult32to64(l1 + key32[0], l2 + key32[1]);
-        acc2 += XXH_mult32to64(l1 - key32[2], l2 + key32[3]);
+        U32 const l1 = XXH_readLE32(data) + (U32)seed + key32[0];
+        U32 const l2 = XXH_readLE32((const BYTE*)data + len - 4) + (U32)(seed >> 32) + key32[1];
+        U64 const acc1 = len + l1 + ((U64)l2 << 32) + XXH_mult32to64(l1, l2);
+        U64 const acc2 = len*PRIME64_1 + l1*PRIME64_2 + l2*PRIME64_3;
         {   XXH128_hash_t const h128 = { XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
             return h128;
         }

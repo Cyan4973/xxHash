@@ -2,7 +2,7 @@
 
 CPPFLAGS += -I../..
 CFLAGS   ?= -O3
-CFLAGS   += -Wall -Wextra -Wstrict-aliasing=1
+CFLAGS   += -std=c99 -Wall -Wextra -Wstrict-aliasing=1
 CXXFLAGS ?= -O3
 
 

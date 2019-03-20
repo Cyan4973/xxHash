@@ -36,6 +36,10 @@
 #ifndef BH_DISPLAY_H_192088098
 #define BH_DISPLAY_H_192088098
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 
 /* ===  Dependencies  === */
 
@@ -57,5 +61,10 @@ void bench_throughput_randomInputLength(Bench_Entry const* hashDescTable, int nb
 void bench_latency_smallInputs(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax);
 void bench_latency_randomInputLength(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax);
 
+
+
+#if defined (__cplusplus)
+}
+#endif
 
 #endif   /* BH_DISPLAY_H_192088098 */

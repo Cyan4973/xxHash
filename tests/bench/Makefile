@@ -6,7 +6,7 @@ CFLAGS   += -Wall -Wextra -Wstrict-aliasing=1
 CXXFLAGS ?= -O3
 
 
-OBJ_LIST  = main.o bhDisplay.o benchHash.o benchfn.o util.o
+OBJ_LIST  = main.o bhDisplay.o benchHash.o benchfn.o timefn.o
 
 
 default: benchHash
@@ -25,7 +25,7 @@ benchHash benchHash32 benchHash_avx2 benchHash_nosimd benchHash_hw: $(OBJ_LIST)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
 
 
-main.o: bhDisplay.h hashes.h 
+main.o: bhDisplay.h hashes.h
 
 bhDisplay.o: bhDisplay.h benchHash.h
 

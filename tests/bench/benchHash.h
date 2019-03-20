@@ -37,6 +37,10 @@
 #ifndef BENCH_HASH_H_983426678
 #define BENCH_HASH_H_983426678
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 
 /* ===  Dependencies  === */
 
@@ -61,5 +65,10 @@ double bench_hash(BMK_benchFn_t hashfn,
                   size_t size, BMK_sizeMode sizeMode,
                   unsigned total_time_ms, unsigned iter_time_ms);
 
+
+
+#if defined (__cplusplus)
+}
+#endif
 
 #endif /* BENCH_HASH_H_983426678 */

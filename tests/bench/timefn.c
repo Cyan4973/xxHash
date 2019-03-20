@@ -22,7 +22,7 @@
 
 UTIL_time_t UTIL_getTime(void) { UTIL_time_t x; QueryPerformanceCounter(&x); return x; }
 
-U64 UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
+PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 {
     static LARGE_INTEGER ticksPerSecond;
     static int init = 0;
@@ -34,7 +34,7 @@ U64 UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
     return 1000000ULL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart;
 }
 
-U64 UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
+PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 {
     static LARGE_INTEGER ticksPerSecond;
     static int init = 0;
@@ -99,19 +99,19 @@ UTIL_time_t UTIL_getSpanTime(UTIL_time_t begin, UTIL_time_t end)
     return diff;
 }
 
-U64 UTIL_getSpanTimeMicro(UTIL_time_t begin, UTIL_time_t end)
+PTime UTIL_getSpanTimeMicro(UTIL_time_t begin, UTIL_time_t end)
 {
     UTIL_time_t const diff = UTIL_getSpanTime(begin, end);
-    U64 micro = 0;
+    PTime micro = 0;
     micro += 1000000ULL * diff.tv_sec;
     micro += diff.tv_nsec / 1000ULL;
     return micro;
 }
 
-U64 UTIL_getSpanTimeNano(UTIL_time_t begin, UTIL_time_t end)
+PTime UTIL_getSpanTimeNano(UTIL_time_t begin, UTIL_time_t end)
 {
     UTIL_time_t const diff = UTIL_getSpanTime(begin, end);
-    U64 nano = 0;
+    PTime nano = 0;
     nano += 1000000000ULL * diff.tv_sec;
     nano += diff.tv_nsec;
     return nano;
@@ -120,8 +120,8 @@ U64 UTIL_getSpanTimeNano(UTIL_time_t begin, UTIL_time_t end)
 #else   /* relies on standard C (note : clock_t measurements can be wrong when using multi-threading) */
 
 UTIL_time_t UTIL_getTime(void) { return clock(); }
-U64 UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd) { return 1000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC; }
-U64 UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd) { return 1000000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC; }
+PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd) { return 1000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC; }
+PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd) { return 1000000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC; }
 
 #endif
 

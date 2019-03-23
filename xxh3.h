@@ -274,7 +274,7 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
 
 static XXH64_hash_t XXH3_avalanche(U64 h64)
 {
-    h64 ^= h64 >> 29;
+    h64 ^= h64 >> 37;
     h64 *= PRIME64_3;
     h64 ^= h64 >> 32;
     return h64;
@@ -307,12 +307,14 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
     assert(data != NULL);
+    assert(key != NULL);
     assert(len >= 4 && len <= 8);
     {   const U32* const key32 = (const U32*) keyPtr;
-        U32 const l1 = XXH_readLE32(data) ^ key32[0];
+        U32 const l1 = XXH_readLE32(data) + key32[0];
         U32 const l2 = XXH_readLE32((const BYTE*)data + len - 4) ^ key32[1];
-        U64 const ll1 = l1 + ((U64)l2 << 32) + seed;
-        return XXH3_avalanche(len + (ll1 * PRIME64_1));
+        U64 const ll1 = (l1 ^ (l2>>3)) + ((U64)l2 << 32) + seed;
+        U64 const ll11 = len + (ll1 * PRIME64_1);
+        return XXH3_avalanche(ll11);
     }
 }
 

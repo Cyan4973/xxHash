@@ -40,7 +40,8 @@ build_script:
         make -B clean test MOREFLAGS=-Werror
       ) ELSE (
         make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion"
-      )
+      ) &&
+      make -C tests/bench
     )
   - if "%PLATFORM%"=="visual_x64" (
       cd cmake_unofficial &&

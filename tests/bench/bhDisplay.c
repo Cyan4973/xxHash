@@ -64,8 +64,8 @@ static void bench_oneHash_largeInput(Bench_Entry hashDesc, int minlog, int maxlo
 
 void bench_largeInput(Bench_Entry const* hashDescTable, int nbHashes, int minlog, int maxlog)
 {
-    assert(maxlog <= 31);
-    assert(minlog >= 0);
+    assert(maxlog <  31);
+    assert(minlog >=  0);
     printf("benchmarking large inputs : from %i bytes (log%i) to %u MB (log%i) \n",
         1U << minlog, minlog,
         (1U << maxlog) >> 20, maxlog);

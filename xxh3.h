@@ -339,7 +339,7 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     {   const U64* const key64 = (const U64*) keyPtr;
         U64 const ll1 = XXH_readLE64(data) + XXH3_readKey64(key64) + seed;
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) + XXH3_readKey64(key64+1) - seed;
-        U64 const acc = len + ll1 + ll2 + XXH3_mul128_fold64(ll1, ll2);
+        U64 const acc = len + (ll1 ^ ll2) + XXH3_mul128_fold64(ll1, ll2);
         return XXH3_avalanche(acc);
     }
 }

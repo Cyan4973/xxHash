@@ -144,7 +144,7 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
 #if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
     __uint128_t lll = (__uint128_t)ll1 * ll2;
-    return (U64)lll + (U64)(lll >> 64);
+    return (U64)lll ^ (U64)(lll >> 64);
 
 #elif defined(_M_X64) || defined(_M_IA64)
 
@@ -153,14 +153,14 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
 #endif
     U64 llhigh;
     U64 const lllow = _umul128(ll1, ll2, &llhigh);
-    return lllow + llhigh;
+    return lllow ^ llhigh;
 
 #elif defined(__aarch64__) && defined(__GNUC__)
 
     U64 llow;
     U64 llhigh;
     __asm__("umulh %0, %1, %2" : "=r" (llhigh) : "r" (ll1), "r" (ll2));
-    __asm__("madd  %0, %1, %2, %3" : "=r" (llow) : "r" (ll1), "r" (ll2), "r" (llhigh));
+    __asm__("madd  %0, %1, %2, %3" : "=r" (llow) : "r" (ll1), "r" (ll2), "r" (llhigh));  /* <===================   to be modified => xor instead of add */
     return lllow;
 
     /* Do it out manually on 32-bit.
@@ -244,7 +244,7 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
             : "r" (u[0]), "r" (v[0]));
     w[0] = k;
 
-    return (w[1] | ((U64)w[0] << 32)) + (w[3] | ((U64)w[2] << 32));
+    return (w[1] | ((U64)w[0] << 32)) ^ (w[3] | ((U64)w[2] << 32));
 
 #else /* Portable scalar version */
 
@@ -266,7 +266,7 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
     U64 const carry2 = lllow < t;
     U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
 
-    return llhigh + lllow;
+    return llhigh ^ lllow;
 
 #endif
 }
@@ -337,9 +337,9 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     assert(key != NULL);
     assert(len >= 9 && len <= 16);
     {   const U64* const key64 = (const U64*) keyPtr;
-        U64 const ll1 = XXH_readLE64(data) + XXH3_readKey64(key64) + seed;
-        U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) + XXH3_readKey64(key64+1) - seed;
-        U64 const acc = len + (ll1 ^ ll2) + XXH3_mul128_fold64(ll1, ll2);
+        U64 const ll1 = XXH_readLE64(data) ^ (XXH3_readKey64(key64) + seed);
+        U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH3_readKey64(key64+1) - seed);
+        U64 const acc = len + (ll1 + ll2) + XXH3_mul128_fold64(ll1, ll2);
         return XXH3_avalanche(acc);
     }
 }
@@ -668,7 +668,7 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 
     if (len <= 16) return XXH3_len_0to16_64b(data, len, seed);
 
-    {   U64 acc = PRIME64_1 * len;
+    {   U64 acc = len * PRIME64_1;
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {

@@ -543,10 +543,10 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
     int i;
     assert(((size_t)acc) & 7 == 0);
     for (i=0; i < (int)ACC_NB; i++) {
-        U64 const key = XXH3_readKey64(xkey + 2*i);
+        U64 const key64 = XXH3_readKey64(xkey + 2*i);
         U64 acc64 = xacc[i];
         acc64 ^= acc64 >> 47;
-        acc64 ^= key;
+        acc64 ^= key64;
         acc64 *= PRIME32_1;
         xacc[i] = acc64;
     }

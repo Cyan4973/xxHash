@@ -482,7 +482,7 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
                 __m256i const dk2 = _mm256_mul_epu32 (d2, k1);
                 __m256i const dk2h= _mm256_slli_epi64 (dk2, 32);
 
-                xacc[i] = _mm256_add_epi64(dk1, dk2);
+                xacc[i] = _mm256_add_epi64(dk1, dk2h);
         }   }
     }
 

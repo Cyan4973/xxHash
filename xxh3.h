@@ -439,7 +439,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         }
     }
 
-#else   /* scalar variant - universal */
+#else   /* scalar variant of Accumulator - universal */
 
           U64* const xacc  =       (U64*) acc;   /* presumed aligned */
     const U32* const xdata = (const U32*) data;
@@ -466,7 +466,6 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
     {   ALIGN(32) __m256i* const xacc = (__m256i*) acc;
         const     __m256i* const xkey  = (const __m256i *) key;
         const __m256i k1 = _mm256_set1_epi32((int)PRIME32_1);
-        const __m256i k2 = _mm256_set1_epi32((int)PRIME32_2);
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
@@ -475,24 +474,23 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
             data = _mm256_xor_si256(data, shifted);
 
             {   __m256i const k   = _mm256_loadu_si256 (xkey+i);
-                __m256i const dk  = _mm256_xor_si256   (data,k);          /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+                __m256i const dk  = _mm256_xor_si256   (data, k);          /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
 
-                __m256i const dk1 = _mm256_mul_epu32 (dk,k1);
+                __m256i const dk1 = _mm256_mul_epu32 (dk, k1);
 
                 __m256i const d2  = _mm256_shuffle_epi32 (dk, 0x31);
-                __m256i const dk2 = _mm256_mul_epu32 (d2,k2);
+                __m256i const dk2 = _mm256_mul_epu32 (d2, k1);
+                __m256i const dk2h= _mm256_slli_epi64 (dk2, 32);
 
-                xacc[i] = _mm256_xor_si256(dk1, dk2);
+                xacc[i] = _mm256_add_epi64(dk1, dk2);
         }   }
     }
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    assert(((size_t)acc) & 15 == 0);
     {   ALIGN(16) __m128i* const xacc = (__m128i*) acc;
         const     __m128i* const xkey  = (const __m128i *) key;
         const __m128i k1 = _mm_set1_epi32((int)PRIME32_1);
-        const __m128i k2 = _mm_set1_epi32((int)PRIME32_2);
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -506,13 +504,14 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
                 __m128i const dk1 = _mm_mul_epu32 (dk,k1);
 
                 __m128i const d2  = _mm_shuffle_epi32 (dk, 0x31);
-                __m128i const dk2 = _mm_mul_epu32 (d2,k2);
+                __m128i const dk2 = _mm_mul_epu32 (d2,k1);
+                __m128i const dk2h= _mm_slli_epi64(dk2, 32);
 
-                xacc[i] = _mm_xor_si128(dk1, dk2);
+                xacc[i] = _mm_add_epi64(dk1, dk2h);
         }   }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)
+#elif (XXH_VECTOR == XXH_NEON)   /*  <============================================ Needs update !!!!!!!!!!! */
 
     assert(((size_t)acc) & 15 == 0);
     {       uint64x2_t* const xacc =     (uint64x2_t*) acc;
@@ -536,21 +535,21 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         }   }
     }
 
-#else   /* scalar variant - universal */
+#else   /* scalar variant of Scrambler - universal */
 
           U64* const xacc =       (U64*) acc;
     const U32* const xkey = (const U32*) key;
 
     int i;
+    assert(((size_t)acc) & 7 == 0);
     for (i=0; i < (int)ACC_NB; i++) {
-        int const left = 2*i;
-        int const right= 2*i + 1;
-        xacc[i] ^= xacc[i] >> 47;
-
-        {   U64 const p1 = XXH_mult32to64((U32)(xacc[i] & 0xFFFFFFFF) ^ xkey[left],  PRIME32_1);
-            U64 const p2 = XXH_mult32to64((U32)(xacc[i] >> 32)        ^ xkey[right], PRIME32_2);
-            xacc[i] = p1 ^ p2;
-    }   }
+        U64 const key = XXH3_readKey64(xkey + 2*i);
+        U64 acc64 = xacc[i];
+        acc64 ^= acc64 >> 47;
+        acc64 ^= key;
+        acc64 *= PRIME32_1;
+        xacc[i] = acc64;
+    }
 
 #endif
 }

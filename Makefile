@@ -34,16 +34,29 @@ LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 CFLAGS ?= -O3
-DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
-            -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-            -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
-            -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
-            -Wredundant-decls -Wstrict-overflow=5
+DEBUGFLAGS += -Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
+              -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+              -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
+              -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
+              -Wredundant-decls -Wstrict-overflow=5
 CFLAGS += $(DEBUGFLAGS)
 FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION = $(LIBVER)
 MD2ROFF = ronn
 MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
+
+# We don't build the multi target code by default, as it is overkill for someone who is only testing.
+ifndef MULTI_TARGET
+   TARGET_OBJS :=
+else
+  # Multi targeting only works for x86 and x86_64 right now.
+  ifneq (,$(filter __i386__ __x86_64__ _M_IX86 _M_X64 _M_AMD64,$(shell $(CC) -E -dM -xc /dev/null)))
+    TARGET_OBJS := xxh3-avx2.o xxh3-sse2.o xxh3-scalar.o
+    CFLAGS += -DXXH_MULTI_TARGET
+  else
+    TARGET_OBJS :=
+  endif
+endif
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -76,13 +89,20 @@ default: lib xxhsum_and_links
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
-xxhsum : xxhash.o xxhsum.o
+xxhsum : xxhash.o xxhsum.o $(TARGET_OBJS)
 
 xxhsum32: CFLAGS += -m32
-xxhsum32: xxhash.c xxhsum.c
+xxhsum32: xxhash.c xxhsum.c $(TARGET_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.h xxh3.h
+xxhash.o: xxhash.h xxh3.h xxh3-target.c
+
+xxh3-avx2.o: xxh3-target.c xxhash.h
+	$(CC) -c $(FLAGS) $< -mavx2 -o $@
+xxh3-sse2.o: xxh3-target.c xxhash.h
+	$(CC) -c $(FLAGS) $< -msse2 -mno-sse3 -o $@
+xxh3-scalar.o: xxh3-target.c xxhash.h
+	$(CC) -c $(FLAGS) $< -mno-sse2 -o $@
 
 xxhsum.o: xxhash.h
 
@@ -100,14 +120,14 @@ xxhsum_inlinedXXH: xxhsum.c
 # library
 
 libxxhash.a: ARFLAGS = rcs
-libxxhash.a: xxhash.o
+libxxhash.a: xxhash.o $(TARGET_OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
-$(LIBXXH): xxhash.c
+$(LIBXXH): xxhash.c $(TARGET_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
 	ln -sf $@ libxxhash.$(SHARED_EXT)

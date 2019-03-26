@@ -422,6 +422,19 @@ XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);  /* == XXH128() */
 
+typedef enum {
+    XXH_CPU_MODE_AUTO = -1,
+    XXH_CPU_MODE_SCALAR = 0,
+    XXH_CPU_MODE_SSE2 = 1,
+    XXH_CPU_MODE_AVX2 = 2
+} XXH_cpu_mode_t;
+
+/* Forces the hash mode to XXH_cpuMode.
+ * FORCING THE MODE IS NOT RECOMMENDED!
+ * The API is given mainly for testing. Once a mode is set to non-auto mode, XXH3 does
+ * not guarantee compatibility to a certain instruction set.
+ * If xxHash is compiled without XXH_MULTI_TARGET, this will have no effect. */
+XXH_PUBLIC_API void XXH3_forceCpuMode(XXH_cpu_mode_t mode);
 
 #endif  /* XXH_NO_LONG_LONG */
 

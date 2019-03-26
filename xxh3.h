@@ -328,7 +328,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
    /* MSVC has intrinsics for this. */
 #     include <intrin.h>
 #     define XXH_CPUID __cpuid
-#     define XXH_CPUIDEX __cpuidext
+#     define XXH_CPUIDEX __cpuidex
 #  elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
    /* The GCC family can easily use inline assembly. */
    static void XXH_CPUIDEX(int* cpuInfo, int function_id, int function_ext)

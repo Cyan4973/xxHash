@@ -154,12 +154,13 @@
 typedef __m256i XXH_vec;
 #  define XXH_MM(x) XXH_CONCAT(_mm256_,x)
 #  define XXH_MM_SI(x) XXH_MM(XXH_CONCAT(x,_si256))
+#  define VEC_SIZE 32
 #elif XXH_VECTOR == XXH_SSE2
 typedef __m128i XXH_vec;
 #  define XXH_MM(x) XXH_CONCAT(_mm_,x)
 #  define XXH_MM_SI(x) XXH_MM(XXH_CONCAT(x,_si128))
+#  define VEC_SIZE 16
 #endif
-#define VEC_SIZE sizeof(XXH_vec)
 
 #ifndef ACC_NB
 #  define ACC_NB (STRIPE_LEN / sizeof(U64))

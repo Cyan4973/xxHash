@@ -1,3 +1,47 @@
+/*
+   xxHash - Extremely Fast Hash algorithm
+   Development source file for `xxh3`
+   Copyright (C) 2019-present, Yann Collet.
+
+   BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+
+       * Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+       * Redistributions in binary form must reproduce the above
+   copyright notice, this list of conditions and the following disclaimer
+   in the documentation and/or other materials provided with the
+   distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   You can contact the author at :
+   - xxHash source repository : https://github.com/Cyan4973/xxHash
+*/
+
+/* Note :
+   This contains the target-dependent code for XXH3, namely
+   for the hashLong routine.
+   When XXH_MULTI_TARGET is defined, this will be compiled three times
+   for x86-based targets: One for scalar-only code, one for SSE2 code,
+   and one for AVX2 code. It will emit a different symbol each time.
+   When it is not defined, this file is included directly from xxh3.h.
+*/
+
+
 /* ===   Dependencies   === */
 
 #ifndef XXH3_TARGET_C
@@ -36,13 +80,17 @@
 
 #ifndef XXH_MULTI_TARGET
 #  define XXH_HIDDEN_API static
-#  define HASH_LONG XXH3_hashLong
 #else
 #  if !defined(_WIN32) && defined(__GNUC__) && __GNUC__ >= 4
    /* Avoid leaking a symbol */
-#    define XXH_HIDDEN_API  __attribute__ ((visibility ("hidden")))
+#    define XXH_VISIBILITY_HIDDEN  __attribute__ ((visibility ("hidden")))
 #  else
-#    define XXH_HIDDEN_API
+#    define XXH_VISIBILITY_HIDDEN
+#  endif
+#  ifdef __cplusplus
+#    define XXH_HIDDEN_API extern "C" XXH_VISIBILITY_HIDDEN
+#  else
+#    define XXH_HIDDEN_API XXH_VISIBILITY_HIDDEN
 #  endif
 #endif
 
@@ -69,14 +117,8 @@
 #ifndef XXH_VECTOR
 #  if defined(__AVX2__)
 #    define XXH_VECTOR XXH_AVX2
-#    ifdef XXH_MULTI_TARGET
-#        define HASH_LONG __XXH3_HASH_LONG_AVX2
-#    endif
 #  elif defined(__SSE2__)
 #    define XXH_VECTOR XXH_SSE2
-#    ifdef XXH_MULTI_TARGET
-#        define HASH_LONG __XXH3_HASH_LONG_SSE2
-#    endif
 /* msvc support maybe later */
 #  elif defined(__GNUC__) \
     && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
@@ -84,11 +126,22 @@
 #    define XXH_VECTOR XXH_NEON
 #  else
 #    define XXH_VECTOR XXH_SCALAR
-#    ifdef XXH_MULTI_TARGET
-#        define HASH_LONG __XXH3_HASH_LONG_SCALAR
-#    endif
 #  endif
 #endif
+
+#ifdef XXH_MULTI_TARGET
+/* The use of reserved identifiers is intentional; these are not to be used directly. */
+#  if XXH_VECTOR == XXH_AVX2
+#    define hashLong _XXH3_hashLong_AVX2
+#  elif XXH_VECTOR == XXH_SSE2
+#    define hashLong _XXH3_hashLong_SSE2
+#  else
+#    define hashLong _XXH3_hashLong_Scalar
+#  endif
+#else
+#  define hashLong XXH3_hashLong
+#endif
+
 
 #define XXH_CONCAT_2(x, y) x##y
 #define XXH_CONCAT(x, y) XXH_CONCAT_2(x, y)
@@ -355,7 +408,7 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
 }
 
 XXH_HIDDEN_API void
-HASH_LONG(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
+hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
 {
     #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
@@ -389,5 +442,7 @@ HASH_LONG(U64* restrict acc, const void* restrict data, size_t len, const U32* r
             XXH3_accumulate_512(acc, p, key + nbStripes*2);
     }   }
 }
+
+#undef hashLong
 
 #endif /* XXH3_TARGET_C */

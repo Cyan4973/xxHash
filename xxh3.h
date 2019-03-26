@@ -365,9 +365,16 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
 
 #ifdef XXH_MULTI_TARGET
 
-void __XXH3_HASH_LONG_AVX2(U64* acc, const void* data, size_t len, const U32* key);
-void __XXH3_HASH_LONG_SSE2(U64* acc, const void* data, size_t len, const U32* key);
-void __XXH3_HASH_LONG_SCALAR(U64* acc, const void* data, size_t len, const U32* key);
+/* Prototypes for our code */
+#ifdef __cplusplus
+extern "C" {
+#endif
+void _XXH3_hashLong_AVX2(U64* acc, const void* data, size_t len, const U32* key);
+void _XXH3_hashLong_SSE2(U64* acc, const void* data, size_t len, const U32* key);
+void _XXH3_hashLong_Scalar(U64* acc, const void* data, size_t len, const U32* key);
+#ifdef __cplusplus
+}
+#endif
 
 /* What hashLong version we decided on. cpuid is a SLOW instruction -- calling it takes anywhere
  * from 30-40 to THOUSANDS of cycles), so we really don't want to call it more than once. */
@@ -415,13 +422,13 @@ XXH3_hashLong(U64* restrict acc, const void* restrict data, size_t len, const U3
     }
     switch (cpu_mode) {
     case XXH_CPU_MODE_AVX2:
-        __XXH3_HASH_LONG_AVX2(acc, data, len, key);
+        _XXH3_hashLong_AVX2(acc, data, len, key);
         return;
     case XXH_CPU_MODE_SSE2:
-         __XXH3_HASH_LONG_SSE2(acc, data, len, key);
+         _XXH3_hashLong_SSE2(acc, data, len, key);
          return;
     default:
-         __XXH3_HASH_LONG_SCALAR(acc, data, len, key);
+         _XXH3_hashLong_Scalar(acc, data, len, key);
          return;
     }
 }

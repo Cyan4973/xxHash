@@ -596,7 +596,7 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     }
 }
 
-static void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
+void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
 {
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSeed(data, len, seed);
         BMK_checkResult128(Dresult, Nresult);

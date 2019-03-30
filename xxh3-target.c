@@ -113,6 +113,7 @@
 #define XXH_SSE2   1
 #define XXH_AVX2   2
 #define XXH_NEON   3
+#define XXH_VSX    4
 
 #ifndef XXH_VECTOR
 #  if defined(__AVX2__)
@@ -124,6 +125,11 @@
     && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
     && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
+/* Right now, we are only supporting ppc64le, don't have a ppc64be right now to test.
+ * code is very fast with recent clang versions (30 GB/s vs 15 GB/s XXH64 on POWER9),
+ * but hasn't been verified for correctness yet. */
+#  elif defined(__LITTLE_ENDIAN__) && defined(__PPC64__) && defined(__VSX__) && defined(__GNUC__)
+#    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
 #  endif
@@ -160,6 +166,33 @@ typedef __m128i XXH_vec;
 #  define XXH_MM(x) XXH_CONCAT(_mm_,x)
 #  define XXH_MM_SI(x) XXH_MM(XXH_CONCAT(x,_si128))
 #  define VEC_SIZE 16
+#endif
+
+/* VSX stuff */
+#if XXH_VECTOR == XXH_VSX
+#  include <altivec.h>
+typedef __vector unsigned long long U64x2;
+typedef __vector unsigned U32x4;
+/* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h.
+ * Leaving the BE code here just to be safe. */
+XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
+    U64x2 result;
+#ifdef __LITTLE_ENDIAN__
+    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+#else
+    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+#endif
+    return result;
+}
+XXH_FORCE_INLINE U64x2 XXH_vsxMultOdd(U32x4 a, U32x4 b) {
+    U64x2 result;
+#ifdef __LITTLE_ENDIAN__
+    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+#else
+    __asm__("vmuloww %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+#endif
+    return result;
+}
 #endif
 
 #ifndef ACC_NB
@@ -252,12 +285,33 @@ XXH3_accumulate_512(void *restrict acc, const void *restrict data, const void *r
 #endif
         }
     }
+#elif XXH_VECTOR == XXH_VSX
+          U64x2* const xacc =        (U64x2*) acc;
+    U64x2 const* const xdata = (U64x2 const*) data;
+    U64x2 const* const xkey  = (U64x2 const*) key;
+    U64x2 const v32 = { 32,  32 };
 
+    size_t i;
+    for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
+        /* data_vec = xdata[i]; */
+        U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
+        /* key_vec = xkey[i]; */
+        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
+        U64x2 data_key = data_vec ^ key_vec;
+        /* shuffled = (data_key << 32) | (data_key >> 32); */
+        U32x4 shuffled = (U32x4)vec_rl(data_key, v32);
+        /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
+        U64x2 product = XXH_vsxMultEven((U32x4)data_key, shuffled);
+
+        xacc[i] += product;
+        xacc[i] += data_vec;
+    }
 #else   /* scalar variant - universal */
           U64* const xacc  =       (U64*) acc;   /* presumed aligned */
     const U32* const xdata = (const U32*) data;
     const U32* const xkey  = (const U32*) key;
     size_t i;
+
     for (i=0; i < ACC_NB; i++) {
         U64 const data_val = XXH_readLE64(xdata + 2 * i);
         U64 const key_val = XXH3_readKey64(xkey + 2 * i);
@@ -277,13 +331,8 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         ALIGN(VEC_SIZE)
         XXH_vec      * const xacc =       (XXH_vec*) acc;
         XXH_vec const* const xkey = (const XXH_vec*) key;
-
-#if 0
-        XXH_vec const prime1 = XXH_MM(set1_epi32) ((int) PRIME32_1);
-        XXH_vec const prime2 = XXH_MM(set1_epi32) ((int) PRIME32_2);
-#else
         XXH_vec const prime = XXH_MM(set1_epi32) ((int) PRIME32_1);
-#endif
+
         size_t i;
         for (i=0; i < STRIPE_LEN / VEC_SIZE; i++) {
             /* data_vec = xacc[i] ^ (xacc[i] >> 47); */
@@ -297,25 +346,15 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             XXH_vec const data_key = XXH_MM_SI(xor)        (data_vec, key_vec);
             /* shuffled = data_key[1, undef, 3, undef]; // essentially data_key >> 32; */
             XXH_vec const shuffled = XXH_MM(shuffle_epi32) (data_key, 0x31);
-
-#if 0
-            /* product1 = (data_key & 0xFFFFFFFF) * (uint64x2_t) PRIME32_1; */
-            XXH_vec const product1 = XXH_MM(mul_epu32)     (data_key, prime1);
-            /* product2 = (shuffled & 0xFFFFFFFF) * (uint64x2_t) PRIME32_2; */
-            XXH_vec const product2 = XXH_MM(mul_epu32)     (shuffled, prime2);
-            /* xacc[i] = product1 ^ product2; */
-            xacc[i] = XXH_MM_SI(xor) (product1, product2);
-#else
             /* data_key *= PRIME32_1; // 32-bit * 64-bit */
             /* prod_hi = data_key >> 32 * PRIME32_1; */
-            XXH_vec const prod_hi = XXH_MM(mul_epu32)     (shuffled, prime);
+            XXH_vec const prod_hi = XXH_MM(mul_epu32)      (shuffled, prime);
             /* prod_hi_top = prod_hi << 32; */
             XXH_vec const prod_hi_top = XXH_MM(slli_epi64) (prod_hi, 32);
             /* prod_lo = (data_key & 0xFFFFFFFF) * PRIME32_1; */
-            XXH_vec const prod_lo = XXH_MM(mul_epu32)     (data_key, prime);
+            XXH_vec const prod_lo = XXH_MM(mul_epu32)      (data_key, prime);
             /* xacc[i] = prod_hi_top + prod_lo; */
             xacc[i] = XXH_MM(add_epi64) (prod_hi_top, prod_lo);
-#endif
         }
     }
 #elif (XXH_VECTOR == XXH_NEON)
@@ -325,12 +364,7 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             uint64x2_t* const xacc =     (uint64x2_t*) acc;
         uint32_t const* const xkey = (uint32_t const*) key;
 
-#if 0
-        uint32x2_t const prime1    = vdup_n_u32 (PRIME32_1);
-        uint32x2_t const prime2    = vdup_n_u32 (PRIME32_2);
-#else
         uint32x2_t const prime     = vdup_n_u32 (PRIME32_1);
-#endif
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(uint64x2_t); i++) {
@@ -345,69 +379,90 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
             /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
             uint32x2x2_t const shuffled = vzip_u32    (vget_low_u32(data_key), vget_high_u32(data_key));
-#if 0
-            /* product1 = (uint64x2_t) shuffled[0] * (uint64x2_t) PRIME32_1; */
-            uint64x2_t const   product1 = vmull_u32   (shuffled.val[0], prime1);
-            /* product2 = (uint64x2_t) shuffled[1] * (uint64x2_t) PRIME32_2; */
-            uint64x2_t const   product2 = vmull_u32   (shuffled.val[1], prime2);
-            /* xacc[i] = product1 ^ product2; */
-            xacc[i] = veorq_u64(product1, product2);
-#else /* todo: test, comment */
+
+            /* data_key *= PRIME32_1 */
+
+            /* prod_hi = (data_key >> 32) * PRIME32_1; */
             uint64x2_t const   prod_hi = vmull_u32    (shuffled.val[1], prime);
+            /* xacc[i] = prod_hi << 32; */
             xacc[i] = vshlq_n_u64(prod_hi, 32);
+            /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
             xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
-#endif
         }
     }
-
-#else   /* scalar variant - universal */
-#if 0
-          U64* const xacc =       (U64*) acc;
-    const U32* const xkey = (const U32*) key;
-
+#elif (XXH_VECTOR == XXH_VSX)
+          U64x2* const xacc =       (U64x2*) acc;
+    const U64x2* const xkey = (const U64x2*) key;
+    /* constants */
+    U64x2 const v32  = { 32, 32 };
+    U64x2 const v47 = { 32, 32 };
+    U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
     size_t i;
-    for (i = 0; i < ACC_NB; i++) {
-        U64 const acc_val   = xacc[i];
-        U64 const shifted   = acc_val >> 47;
-        U64 const data      = acc_val ^ shifted;
 
-        U64 const key_val = XXH3_readKey64(xkey + 2 * i);
+    for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
+        U64x2 const acc_vec  = xacc[i];
+        U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
+        /* key_vec = xkey[i]; */
+        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
+        U64x2 const data_key = data_vec ^ key_vec;
 
-        U64 const data_key  = key_val ^ data;
+        /* data_key *= PRIME32_1 */
 
-        U64 const product1 = XXH_mult32to64(PRIME32_1, (data_key & 0xFFFFFFFF));
-        U64 const product2 = XXH_mult32to64(PRIME32_2, (data_key >> 32));
-
-        xacc[i] = product1 ^ product2;
+        /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
+        U64x2 const prod_lo  = XXH_vsxMultEven((U32x4)data_key, prime);
+        /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */
+        U64x2 const prod_hi  = XXH_vsxMultOdd((U32x4)data_key, prime);
+        xacc[i] = prod_lo + (prod_hi << v32);
     }
-#else
-    /* wip algorithm */
+#else   /* scalar variant - universal */
+
           U64* const xacc =       (U64*) acc;
     const U32* const xkey = (const U32*) key;
 
-    int i;
+    size_t  i;
     assert(((size_t)acc) & 7 == 0);
-    for (i=0; i < (int)ACC_NB; i++) {
-        U64 const key64 = XXH3_readKey64(xkey + 2*i);
-        U64 acc64 = xacc[i];
-        acc64 ^= acc64 >> 47;
-        acc64 ^= key64;
-        acc64 *= PRIME32_1;
-        xacc[i] = acc64;
+
+    for (i=0; i < ACC_NB; i++) {
+        U64 const key_val = XXH3_readKey64(xkey + (2 * i));
+        U64 const acc_val = xacc[i];
+        U64 const data_val = acc_val ^ (acc_val >> 47);
+        U64 const data_key = data_val ^ key_val;
+        /* U64 * U32
+         * On 64-bit machines, this is a normal multiply.
+         * On a 32-bit machine, the multiply would have a 32-bit add,
+         * a 32-bit multiply, and a 32-bit to 64-bit multiply.
+         *
+         * In ARM assembly, it would be this:
+         *
+         * r0: before: data_key & 0xFFFFFFFF after: product & 0xFFFFFFFF
+         * r1: before: data_key >> 32        after: product >> 32
+         * r2: before: PRIME32_1             after: unchanged
+         *
+         *    umull   r0, r3, r0, r2     @ r0 = ((U64)r0 * (U64)r2) & 0xFFFFFFFF;
+         *                               @ r3 = ((U64)r0 * (U64)r2) >> 32;
+         *    mla     r1, r1, r2, r3     @ r1 = (r1 * r2) + r3;
+         */
+        U64 const productLo = (data_key & 0xFFFFFFFF) * PRIME32_1;
+        U64 const productHi = (data_key >> 32) * PRIME32_1;
+        xacc[i] = productLo + (productHi << 32);
     }
-#endif
+
 #endif
 }
 
 static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
     size_t n;
+
     for (n = 0; n < nbStripes; n++ ) {
-        XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
+        XXH3_accumulate_512(acc, (const BYTE*)data + n * STRIPE_LEN, key);
         key += 2;
     }
 }
 
+#ifdef __GNUC__ /* inlining often slows this down */
+__attribute__((__noinline__))
+#endif
 XXH_HIDDEN_API void
 hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
 {
@@ -421,12 +476,16 @@ hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* re
         size_t i;
 
         /* Clang doesn't unroll this loop without the pragma. Unrolling can make things much faster.
-         * For some reason, Clang reaches the end of the cost model if this is in XXH3_accumulate. */
-#       if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+         * For some reason, Clang has trouble unrolling if this is in XXH3_accumulate.
+         * ARM does not benefit from unrolling more than 2 times, but PPC and x86 do. */
+#       if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) \
+               && (defined(__PPC__) || defined(__x86_64__) || defined(__i386__))
 #           pragma clang loop unroll(enable)
 #       endif
-        for (i = 0; i < NB_KEYS; i++)
+        for (i = 0; i < NB_KEYS; i += 2) {
             XXH3_accumulate_512(acc, (const BYTE*) data + n * STRIPE_LEN, key + (2 * i));
+            XXH3_accumulate_512(acc, (const BYTE*) data + n * STRIPE_LEN, key + (2 * (i + 1)));
+        }
 
         XXH3_scrambleAcc(acc, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }

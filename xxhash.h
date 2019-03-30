@@ -406,6 +406,8 @@ struct XXH64_state_s {
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH3_setCpuMode XXH_NAME2(XXH_NAMESPACE, XXH3_setCpuMode)
+#  define XXH3_getCpuMode XXH_NAME2(XXH_NAMESPACE, XXH3_getCpuMode)
 #endif
 
 
@@ -426,7 +428,9 @@ typedef enum {
     XXH_CPU_MODE_AUTO = -1,
     XXH_CPU_MODE_SCALAR = 0,
     XXH_CPU_MODE_SSE2 = 1,
-    XXH_CPU_MODE_AVX2 = 2
+    XXH_CPU_MODE_AVX2 = 2,
+    XXH_CPU_MODE_NEON = 3,
+    XXH_CPU_MODE_VSX = 4
 } XXH_cpu_mode_t;
 
 /* Forces the hash mode to XXH_cpuMode.
@@ -434,8 +438,8 @@ typedef enum {
  * The API is given mainly for testing. Once a mode is set to non-auto mode, XXH3 does
  * not guarantee compatibility to a certain instruction set.
  * If xxHash is compiled without XXH_MULTI_TARGET, this will have no effect. */
-XXH_PUBLIC_API void XXH3_forceCpuMode(XXH_cpu_mode_t mode);
-
+XXH_PUBLIC_API XXH_cpu_mode_t XXH3_setCpuMode(XXH_cpu_mode_t mode);
+XXH_PUBLIC_API XXH_cpu_mode_t XXH3_getCpuMode(void);
 #endif  /* XXH_NO_LONG_LONG */
 
 

@@ -224,7 +224,11 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH "arm"
 #  endif
 #elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
-#  define ARCH "ppc64"
+#  if defined(__VSX__) && defined(__LITTLE_ENDIAN__)
+#    define ARCH "ppc64 + VSX"
+#  else
+#    define ARCH "ppc64"
+#  endif
 #elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 #  define ARCH "ppc"
 #elif defined(__AVR)
@@ -278,12 +282,12 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 #define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
 static int g_displayLevel = 2;
 
-
 /* ************************************
  *  Local variables
  **************************************/
 static U32 g_nbIterations = NBLOOPS;
 
+static XXH_cpu_mode_t g_wantedCpuMode = XXH_CPU_MODE_AUTO;
 
 /* ************************************
  *  Benchmark Functions
@@ -414,18 +418,54 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     if ((specificTest==0) | (specificTest==4))
         BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
 
-    /* Bench XXH3 */
+    XXH3_setCpuMode(XXH_CPU_MODE_AUTO);
+
     if ((specificTest==0) | (specificTest==5))
         BMK_benchHash(localXXH3_64b, "XXH3_64bits", buffer, bufferSize);
 
     /* Bench XXH3 on Unaligned input */
     if ((specificTest==0) | (specificTest==6))
-        BMK_benchHash(localXXH3_64b, "XXH3_64b unaligned", ((const char*)buffer)+3, bufferSize);
+        BMK_benchHash(localXXH3_64b, "XXH3_64 unaligned", ((const char*)buffer)+3, bufferSize);
 
-    if (specificTest > 6) {
+    /* don't bother with this if we don't have multi target. */
+#if defined(XXH_MULTI_TARGET) && (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64) || defined(_M_AMD64))
+    if (g_wantedCpuMode == XXH_CPU_MODE_AUTO) { /* don't do this if -mN was used */
+        /* Bench XXH3 */
+        if (XXH3_setCpuMode(XXH_CPU_MODE_AVX2) == XXH_CPU_MODE_AVX2) {
+            if ((specificTest==0) | (specificTest==7))
+                BMK_benchHash(localXXH3_64b, "XXH3_64 AVX2", buffer, bufferSize);
+
+            /* Bench XXH3 on Unaligned input */
+            if ((specificTest==0) | (specificTest==8))
+                BMK_benchHash(localXXH3_64b, "XXH3_64 AVX2 unaligned", ((const char*)buffer)+3, bufferSize);
+        }
+
+        /* Bench XXH3 */
+        if (XXH3_setCpuMode(XXH_CPU_MODE_SSE2) == XXH_CPU_MODE_SSE2) {
+            if ((specificTest==0) | (specificTest==9))
+                BMK_benchHash(localXXH3_64b, "XXH3_64 SSE2", buffer, bufferSize);
+
+            /* Bench XXH3 on Unaligned input */
+            if ((specificTest==0) | (specificTest==10))
+                BMK_benchHash(localXXH3_64b, "XXH3_64b SSE2 unaligned", ((const char*)buffer)+3, bufferSize);
+        }
+
+        /* Bench XXH3 */
+        if (XXH3_setCpuMode(XXH_CPU_MODE_SCALAR) == XXH_CPU_MODE_SCALAR) {
+            if ((specificTest==0) | (specificTest==11))
+                BMK_benchHash(localXXH3_64b, "XXH3_64 Scalar", buffer, bufferSize);
+
+            /* Bench XXH3 on Unaligned input */
+            if ((specificTest==0) | (specificTest==12))
+                BMK_benchHash(localXXH3_64b, "XXH3_64b Scalar unaligned", ((const char*)buffer)+3, bufferSize);
+        }
+    }
+#endif
+    if (specificTest > 12) {
         DISPLAY("Benchmark mode invalid.\n");
         return 1;
     }
+
     return 0;
 }
 
@@ -1627,17 +1667,20 @@ int main(int argc, const char** argv)
                 argument++;
                 switch (argument[0]) {
                 case '2': /* -m2 */
-                    XXH3_forceCpuMode(XXH_CPU_MODE_AVX2);
+                    g_wantedCpuMode = XXH_CPU_MODE_AVX2;
+                    XXH3_setCpuMode(XXH_CPU_MODE_AVX2);
                     break;
                 case '1': /* -m1 */
-                    XXH3_forceCpuMode(XXH_CPU_MODE_SSE2);
+                    g_wantedCpuMode = XXH_CPU_MODE_SSE2;
+                    XXH3_setCpuMode(XXH_CPU_MODE_SSE2);
                     break;
                 case '0': /* -m0 */
-                     XXH3_forceCpuMode(XXH_CPU_MODE_SCALAR);
+                    g_wantedCpuMode = XXH_CPU_MODE_SCALAR;
+                     XXH3_setCpuMode(XXH_CPU_MODE_SCALAR);
                      break;
                 case '-':
                      if (argument[1] == '1') { /* -m-1 */
-                        XXH3_forceCpuMode(XXH_CPU_MODE_AUTO);
+                        XXH3_setCpuMode(XXH_CPU_MODE_AUTO);
                         argument++;
                         break;
                      }

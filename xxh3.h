@@ -113,32 +113,41 @@ ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
 __attribute__((__target__("no-sse")))
 #endif
 static U64
-XXH3_mul128_fold64(U64 ll1, U64 ll2)
+XXH3_mul128_fold64(U64 lhs, U64 rhs)
 {
 #if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
-    __uint128_t lll = (__uint128_t)ll1 * ll2;
-    return (U64)lll ^ (U64)(lll >> 64);
+    __uint128_t product = (__uint128_t)lhs * (__uint128_t) rhs;
+    return (U64)product ^ (U64)(product >> 64);
 
 #elif defined(_M_X64) || defined(_M_IA64)
 
 #ifndef _MSC_VER
 #   pragma intrinsic(_umul128)
 #endif
-    U64 llhigh;
-    U64 const lllow = _umul128(ll1, ll2, &llhigh);
-    return lllow ^ llhigh;
+    U64 product_high;
+    U64 const product_low = _umul128(lhs, rhs, &product_high);
+    return product_low ^ product_high;
 
-    /* Do it out manually on 32-bit.
-     * This is a modified, unrolled, widened, and optimized version of the
-     * mulqdu routine from Hacker's Delight.
+    /* Unfortunately, if we got here, we have to do it out manually. This is usually the
+     * case for a 32-bit target.
+     *
+     * The algorithm used below is a modified, unrolled, widened, and optimized version of the
+     * "mulqdu" routine from Hacker's Delight.
      *
      *   https://www.hackersdelight.org/hdcodetxt/mulqdu.c.txt
      *
      * This was modified to use U32->U64 multiplication instead
      * of U16->U32, to add the high and low values in the end,
-     * be endian-independent, and I added a partial assembly
+     * be endian-independent, and I added an inline assembly
      * implementation for ARM. */
+
+     /* GCC-compatible, ARMv6T2 or ARMv7+, non-M variant, and 32-bit */
+#elif defined(__GNUC__) /* GCC-compatible */ \
+    && defined(__ARM_ARCH) && !defined(__aarch64__) && !defined(__arm64__) /* 32-bit ARM */ \
+    && !defined(__ARM_ARCH_7M__) /* <- Not ARMv7-M  vv*/ \
+        && !(defined(__TARGET_ARCH_ARM) && __TARGET_ARCH_ARM == 0 && __TARGET_ARCH_THUMB == 4) \
+    && (defined(__ARM_ARCH_6T2__) || __ARM_ARCH > 6) /* ARMv6T2 or later */
 
     /* An easy 128-bit folding multiply on ARMv6T2 and ARMv7-A/R can be done with
      * the mighty umaal (Unsigned Multiply Accumulate Accumulate Long) which takes 4 cycles
@@ -165,75 +174,57 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
      *
      * Getting the compiler to emit them is like pulling teeth, and checking
      * for it is annoying because ARMv7-M lacks this instruction. However, it
-     * is worth it, because this is an otherwise expensive operation. */
+     * is worth it, because this is an otherwise expensive operation.
+     *
+     * This is the exact same algorithm as below, it is just in assembly. */
+    U64 product_lo, product_hi;
 
-     /* GCC-compatible, ARMv6t2 or ARMv7+, non-M variant, and 32-bit */
-#elif defined(__GNUC__) /* GCC-compatible */ \
-    && defined(__ARM_ARCH) && !defined(__aarch64__) && !defined(__arm64__) /* 32-bit ARM */\
-    && !defined(__ARM_ARCH_7M__) /* <- Not ARMv7-M  vv*/ \
-        && !(defined(__TARGET_ARCH_ARM) && __TARGET_ARCH_ARM == 0 && __TARGET_ARCH_THUMB == 4) \
-    && (defined(__ARM_ARCH_6T2__) || __ARM_ARCH > 6) /* ARMv6T2 or later */
+    /* We only need (and want) two of them to be zero initialized. */
+    U32 lo_lo, mid_prod = 0, carry1, carry2 = 0;
 
-    U32 w[4] = { 0 };
-    U32 u[2] = { (U32)(ll1 >> 32), (U32)ll1 };
-    U32 v[2] = { (U32)(ll2 >> 32), (U32)ll2 };
-    U32 k;
+    /* These have to be pre-split, otherwise it makes excess temporaries */
+    U32 const lhs_lo = (U32)(lhs & 0xFFFFFFFF);
+    U32 const rhs_lo = (U32)(rhs & 0xFFFFFFFF);
+    U32 const lhs_hi = (U32)(lhs >> 32);
+    U32 const rhs_hi = (U32)(rhs >> 32);
 
-    /* U64 t = (U64)u[1] * (U64)v[1];
-     * w[3] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
+    /* {lo_lo, carry1} = (U64) lhs_lo * (U64) rhs_lo */
     __asm__("umull %0, %1, %2, %3"
-            : "=r" (w[3]), "=r" (k)
-            : "r" (u[1]), "r" (v[1]));
+            : "=r" (lo_lo), "=r" (carry1)
+            : "r" (lhs_lo), "r" (rhs_lo));
 
-    /* t = (U64)u[0] * (U64)v[1] + w[2] + k;
-     * w[2] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
+    /* {mid_prod, carry1} = ((U64) lhs_hi * (U64) rhs_lo) + carry1 */
     __asm__("umaal %0, %1, %2, %3"
-            : "+r" (w[2]), "+r" (k)
-            : "r" (u[0]), "r" (v[1]));
-    w[1] = k;
-    k = 0;
+            : "+r" (mid_prod), "+r" (carry1)
+            : "r" (lhs_hi), "r" (rhs_lo));
 
-    /* t = (U64)u[1] * (U64)v[0] + w[2] + k;
-     * w[2] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
+    /* {mid_prod, carry2} = ((U64) lhs_lo * (U64) rhs_hi) + mid_prod */
     __asm__("umaal %0, %1, %2, %3"
-            : "+r" (w[2]), "+r" (k)
-            : "r" (u[1]), "r" (v[0]));
+            : "+r" (mid_prod), "+r" (carry2)
+            : "r" (lhs_lo), "r" (rhs_hi));
 
-    /* t = (U64)u[0] * (U64)v[0] + w[1] + k;
-     * w[1] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
+    /* {carry1, carry2} = ((U64) lhs_hi * (U64) rhs_hi) + carry1 + carry2 */
     __asm__("umaal %0, %1, %2, %3"
-            : "+r" (w[1]), "+r" (k)
-            : "r" (u[0]), "r" (v[0]));
-    w[0] = k;
+            : "+r" (carry1), "+r" (carry2)
+            : "r" (lhs_hi), "r" (rhs_hi));
 
-    return (w[1] | ((U64)w[0] << 32)) ^ (w[3] | ((U64)w[2] << 32));
+    /* join together */
+    product_lo = lo_lo | ((U64)mid_prod << 32);
+    product_hi = carry1 | ((U64)carry2 << 32);
+
+    /* xor */
+    return product_lo ^ product_hi;
 
 #else /* Portable scalar version */
 
-    /* emulate 64x64->128b multiplication, using four 32x32->64 */
-    U32 const h1 = (U32)(ll1 >> 32);
-    U32 const h2 = (U32)(ll2 >> 32);
-    U32 const l1 = (U32)ll1;
-    U32 const l2 = (U32)ll2;
+    U64 const lo_lo      = XXH_mult32to64(lhs & 0xFFFFFFFF, rhs & 0xFFFFFFFF);
+    U64 const hi_lo      = XXH_mult32to64(lhs >> 32,        rhs & 0xFFFFFFFF) + (lo_lo >> 32);
+    U64 const lo_hi      = XXH_mult32to64(lhs & 0xFFFFFFFF, rhs >> 32)        + (hi_lo & 0xFFFFFFFF);
+    U64 const product_hi = XXH_mult32to64(lhs >> 32,        rhs >> 32)        + (lo_hi >> 32) + (hi_lo >> 32);
 
-    U64 const llh  = XXH_mult32to64(h1, h2);
-    U64 const llm1 = XXH_mult32to64(l1, h2);
-    U64 const llm2 = XXH_mult32to64(h1, l2);
-    U64 const lll  = XXH_mult32to64(l1, l2);
+    U64 const product_lo = (lo_lo & 0xFFFFFFFF) | (lo_hi << 32);
 
-    U64 const t = lll + (llm1 << 32);
-    U64 const carry1 = t < lll;
-
-    U64 const lllow = t + (llm2 << 32);
-    U64 const carry2 = lllow < t;
-    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
-
-    return llhigh ^ lllow;
-
+    return product_hi ^ product_lo;
 #endif
 }
 
@@ -330,6 +321,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
 #     define XXH_CPUID __cpuid
 #     define XXH_CPUIDEX __cpuidex
 #  elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+
    /* The GCC family can easily use inline assembly. */
    static void XXH_CPUIDEX(int* cpuInfo, int function_id, int function_ext)
    {
@@ -364,7 +356,6 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
 #ifdef XXH_MULTI_TARGET
-
 /* Prototypes for our code */
 #ifdef __cplusplus
 extern "C" {
@@ -380,15 +371,47 @@ void _XXH3_hashLong_Scalar(U64* acc, const void* data, size_t len, const U32* ke
  * from 30-40 to THOUSANDS of cycles), so we really don't want to call it more than once. */
 static XXH_cpu_mode_t cpu_mode = XXH_CPU_MODE_AUTO;
 
-/* xxh3-target.c will include this file. If we don't do this, the constructor will be called
+/* What the best version supported is. This is used for verification on XXH_setCpuMode to prevent
+ * a SIGILL. It can be turned off with -DXXH_NO_VERIFY_MULTI_TARGET, in which the selected hash will
+ * be used unconditionally. */
+static XXH_cpu_mode_t supported_cpu_mode = XXH_CPU_MODE_AUTO;
+
+/* We also store this as a function pointer, so we can just jump to it at runtime. */
+static void (*XXH3_hashLong)(U64* acc, const void* data, size_t len, const U32* key);
+
+/* Tests features for x86 targets and sets the cpu_mode and the XXH3_hashLong function pointer
+ * to the correct value.
+ *
+ * On GCC compatible compilers, this will be run at program startup.
+ *
+ * xxh3-target.c will include this file. If we don't do this, the constructor will be called
  * multiple times. We don't want that. */
 #if !defined(XXH3_TARGET_C) && defined(__GNUC__)
 __attribute__((__constructor__))
 #endif
-static void
-XXH3_featureTest(void)
+static void XXH3_featureTest(void)
 {
+    if (supported_cpu_mode != XXH_CPU_MODE_AUTO) {
+        switch (supported_cpu_mode) {
+        case XXH_CPU_MODE_AVX2:
+            cpu_mode = XXH_CPU_MODE_AVX2;
+            XXH3_hashLong = &_XXH3_hashLong_AVX2;
+            return;
+        case XXH_CPU_MODE_SSE2:
+            cpu_mode = XXH_CPU_MODE_SSE2;
+            XXH3_hashLong = &_XXH3_hashLong_SSE2;
+            return;
+        case XXH_CPU_MODE_SCALAR:
+            cpu_mode = XXH_CPU_MODE_SCALAR;
+            XXH3_hashLong = &_XXH3_hashLong_Scalar;
+            return;
+        default:
+            break;
+        }
+    }
+
     int max, data[4];
+
     /* First, get how many CPUID function parameters there are by calling CPUID with eax = 0. */
     XXH_CPUID(data, /* eax */ 0);
     max = data[0];
@@ -396,7 +419,8 @@ XXH3_featureTest(void)
     if (max >= 7) {
         XXH_CPUIDEX(data, /* eax */ 7, /* ecx */ 0);
         if (data[1] & (1 << 5)) {
-            cpu_mode = XXH_CPU_MODE_AVX2;
+            cpu_mode = supported_cpu_mode = XXH_CPU_MODE_AVX2;
+            XXH3_hashLong = &_XXH3_hashLong_AVX2;
             return;
         }
     }
@@ -404,47 +428,94 @@ XXH3_featureTest(void)
     if (max >= 1) {
         XXH_CPUID(data, /* eax */ 1);
         if (data[3] & (1 << 26)) {
-            cpu_mode = XXH_CPU_MODE_SSE2;
+            cpu_mode = supported_cpu_mode = XXH_CPU_MODE_SSE2;
+            XXH3_hashLong = &_XXH3_hashLong_SSE2;
             return;
         }
     }
     /* Must be scalar. */
-    cpu_mode = XXH_CPU_MODE_SCALAR;
+    cpu_mode = supported_cpu_mode = XXH_CPU_MODE_SCALAR;
+    XXH3_hashLong = &_XXH3_hashLong_Scalar;
 }
 
+/* Sets up the dispatcher and then calls the actual hash function. */
 static void
-XXH3_hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
+XXH3_dispatcher(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
 {
     /* We haven't checked CPUID yet, so we check it now. On GCC, we try to get this to run
      * at program startup to hide our very dirty secret from the benchmarks. */
-    if (cpu_mode == XXH_CPU_MODE_AUTO) {
-        XXH3_featureTest();
-    }
-    switch (cpu_mode) {
-    case XXH_CPU_MODE_AVX2:
-        _XXH3_hashLong_AVX2(acc, data, len, key);
-        return;
-    case XXH_CPU_MODE_SSE2:
-         _XXH3_hashLong_SSE2(acc, data, len, key);
-         return;
-    default:
-         _XXH3_hashLong_Scalar(acc, data, len, key);
-         return;
-    }
+    XXH3_featureTest();
+    XXH3_hashLong(acc, data, len, key);
 }
+static void (*XXH3_hashLong)(U64* acc, const void* data, size_t len, const U32* key) = &XXH3_dispatcher;
+
 #else /* !XXH_MULTI_TARGET */
    /* Include the C file directly and let the compiler decide which implementation to use. */
 #  include "xxh3-target.c"
 #endif /* XXH_MULTI_TARGET */
 
-/* Should we keep this? */
-XXH_PUBLIC_API void XXH3_forceCpuMode(XXH_cpu_mode_t mode)
+/* Sets the XXH3_hashLong variant. When XXH_MULTI_TARGET is not defined, this
+ * does nothing.
+ *
+ * Unless XXH_NO_VERIFY_MULTI_TARGET is defined, this will automatically fall back
+ * to the next best XXH3 mode, so, for example, even if you set it to AVX2, the code
+ * will not crash even if it is run on, for example, a Core 2 Duo which doesn't support
+ * AVX2. */
+XXH_PUBLIC_API XXH_cpu_mode_t XXH3_setCpuMode(XXH_cpu_mode_t mode)
 {
 #ifdef XXH_MULTI_TARGET
-    cpu_mode = mode;
+/* Defining XXH_NO_VERIFY_MULTI_TARGET will allow you to set the CPU mode to
+ * an unsupported mode. */
+#ifndef XXH_NO_VERIFY_MULTI_TARGET
+    /* Call the featureTest if it hasn't been called already */
+    if (supported_cpu_mode == XXH_CPU_MODE_AUTO)
+        XXH3_featureTest();
+
+#   define TRY_SET_MODE(mode, funcptr) \
+        if (supported_cpu_mode >= (mode)) { \
+            cpu_mode = (mode); \
+            XXH3_hashLong = &(funcptr); \
+            return (mode); \
+        }
+#else
+#   define TRY_SET_MODE(mode, funcptr) \
+        cpu_mode = (mode); \
+        XXH3_hashLong = &(funcptr); \
+        return (mode);
+#endif
+
+    switch (mode) {
+    case XXH_CPU_MODE_AVX2:
+        TRY_SET_MODE(XXH_CPU_MODE_AVX2, _XXH3_hashLong_AVX2);
+        /* FALLTHROUGH */
+    case XXH_CPU_MODE_SSE2:
+        TRY_SET_MODE(XXH_CPU_MODE_SSE2, _XXH3_hashLong_SSE2);
+        /* FALLTHROUGH */
+    case XXH_CPU_MODE_SCALAR:
+        cpu_mode = XXH_CPU_MODE_SCALAR;
+        XXH3_hashLong = &_XXH3_hashLong_Scalar;
+        return XXH_CPU_MODE_SCALAR;
+    default:
+        cpu_mode = XXH_CPU_MODE_AUTO;
+        XXH3_hashLong = &XXH3_dispatcher;
+        return XXH_CPU_MODE_AUTO;
+    }
+#undef TRY_SET_MODE
+#else
+    (void) mode;
+    return (XXH_cpu_mode_t)XXH_VECTOR;
 #endif
 }
 
+/* Should we keep this? */
+XXH_PUBLIC_API XXH_cpu_mode_t XXH3_getCpuMode(void)
+{
+#ifdef XXH_MULTI_TARGET
+    return cpu_mode;
+#else
+    return (XXH_cpu_mode_t) XXH_VECTOR;
+#endif
+}
 
 XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
 {

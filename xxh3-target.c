@@ -395,7 +395,7 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
     const U64x2* const xkey = (const U64x2*) key;
     /* constants */
     U64x2 const v32  = { 32, 32 };
-    U64x2 const v47 = { 32, 32 };
+    U64x2 const v47 = { 47, 47 };
     U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
     size_t i;
 

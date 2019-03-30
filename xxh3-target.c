@@ -125,10 +125,7 @@
     && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
     && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
-/* Right now, we are only supporting ppc64le, don't have a ppc64be right now to test.
- * code is very fast with recent clang versions (30 GB/s vs 15 GB/s XXH64 on POWER9),
- * but hasn't been verified for correctness yet. */
-#  elif defined(__LITTLE_ENDIAN__) && defined(__PPC64__) && defined(__VSX__) && defined(__GNUC__)
+#  elif defined(__PPC64__) && defined(__VSX__) && defined(__GNUC__)
 #    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
@@ -294,9 +291,16 @@ XXH3_accumulate_512(void *restrict acc, const void *restrict data, const void *r
     size_t i;
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         /* data_vec = xdata[i]; */
-        U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
         /* key_vec = xkey[i]; */
+#ifdef __BIG_ENDIAN__
+        /* byteswap */
+        U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
+        /* swap 32-bit words */
+        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+#else
+        U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
         U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
+#endif
         U64x2 data_key = data_vec ^ key_vec;
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         U32x4 shuffled = (U32x4)vec_rl(data_key, v32);
@@ -403,7 +407,12 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         U64x2 const acc_vec  = xacc[i];
         U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
         /* key_vec = xkey[i]; */
+#ifdef __BIG_ENDIAN__
+        /* swap 32-bit words */
+        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), c32);
+#else
         U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
+#endif
         U64x2 const data_key = data_vec ^ key_vec;
 
         /* data_key *= PRIME32_1 */

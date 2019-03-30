@@ -714,7 +714,7 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
     BMK_testSequence64(sanityBuffer,222, 0,     0x9DD507880DEBB03DULL);
     BMK_testSequence64(sanityBuffer,222, prime, 0xDC515172B8EE0600ULL);
-//#if 0
+#if 0
     BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is the seed == 0 by default */
     BMK_testXXH3(NULL,           0, prime64, prime64);
     BMK_testXXH3(sanityBuffer,   1, 0,       0xD00398B418222F66ULL);  /*  1 -  3 */
@@ -822,7 +822,7 @@ static void BMK_sanityCheck(void)
     {   XXH128_hash_t const expected = { 0x9DDF09ABA2B93DD6ULL, 0xB9CEDBE2582CA371ULL };
         BMK_testXXH128(sanityBuffer,2237, prime, expected);         /* two blocks, ends at stripe boundary */
     }
-//#endif
+#endif
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");

@@ -1,10 +1,15 @@
 # objects
 *.o
+*.obj
 
 # libraries
 libxxhash.*
+*.dll
+*.lib
+*.a
 
 # Executables
+*.exe
 xxh32sum
 xxh64sum
 xxhsum
@@ -17,3 +22,7 @@ xxhsum_inlinedXXH.exe
 # Mac OS-X artefacts
 *.dSYM
 .DS_Store
+
+# Visual Studio
+.vs
+CMakeSettings.json

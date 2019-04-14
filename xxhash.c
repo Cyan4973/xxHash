@@ -104,27 +104,22 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
 
-
 /* *************************************
 *  Compiler Specific Options
 ***************************************/
-#ifdef _MSC_VER    /* Visual Studio */
+#if defined(_MSC_VER) && !defined(__clang__)    /* Visual Studio */
 #  pragma warning(disable : 4127)      /* disable: C4127: conditional expression is constant */
 #  define XXH_FORCE_INLINE static __forceinline
 #  define XXH_NO_INLINE static __declspec(noinline)
-#else
-#  if defined (__cplusplus) || defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
-#    ifdef __GNUC__
-#      define XXH_FORCE_INLINE static inline __attribute__((always_inline))
-#      define XXH_NO_INLINE static __attribute__((noinline))
-#    else
+#elif defined(__GNUC__) || defined(__clang__)
+#  define XXH_FORCE_INLINE static __inline__ __attribute__((always_inline))
+#  define XXH_NO_INLINE static __attribute__((noinline))
+#elif defined (__cplusplus) || defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
 #      define XXH_FORCE_INLINE static inline
 #      define XXH_NO_INLINE static
-#    endif
 #  else
 #    define XXH_FORCE_INLINE static
 #    define XXH_NO_INLINE static
-#  endif /* __STDC_VERSION__ */
 #endif
 
 
@@ -152,21 +147,21 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
-static U32 XXH_read32(const void* memPtr) { return *(const U32*) memPtr; }
+XXH_FORCE_INLINE U32 XXH_read32(const void* memPtr) { return *(const U32*) memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
 /* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union { U32 u32; } __attribute__((packed)) unalign;
-static U32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
+XXH_FORCE_INLINE U32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
 
 #else
 
 /* portable and safe solution. Generally efficient.
  * see : http://stackoverflow.com/a/32095106/646947
  */
-static U32 XXH_read32(const void* memPtr)
+XXH_FORCE_INLINE U32 XXH_read32(const void* memPtr)
 {
     U32 val;
     memcpy(&val, memPtr, sizeof(val));
@@ -181,12 +176,18 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
+#  if defined(__BIG_ENDIAN__)
+#    define XXH_CPU_LITTLE_ENDIAN XXH_bigEndian
+#  elif defined(__LITTLE_ENDIAN__) || defined(_WIN32)
+#    define XXH_CPU_LITTLE_ENDIAN XXH_littleEndian
+#else
 static int XXH_isLittleEndian(void)
 {
     const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
     return one.c[0];
 }
 #   define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
+#endif
 #endif
 
 
@@ -211,7 +212,7 @@ static int XXH_isLittleEndian(void)
 #elif XXH_GCC_VERSION >= 403
 #  define XXH_swap32 __builtin_bswap32
 #else
-static U32 XXH_swap32 (U32 x)
+XXH_FORCE_INLINE U32 XXH_swap32 (U32 x)
 {
     return  ((x << 24) & 0xff000000 ) |
             ((x <<  8) & 0x00ff0000 ) |
@@ -231,7 +232,7 @@ XXH_FORCE_INLINE U32 XXH_readLE32(const void* ptr)
     return XXH_CPU_LITTLE_ENDIAN ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));
 }
 
-static U32 XXH_readBE32(const void* ptr)
+XXH_FORCE_INLINE U32 XXH_readBE32(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
 }
@@ -263,7 +264,7 @@ static const U32 PRIME32_3 = 3266489917U;   /* 0b1100001010110010101011100011110
 static const U32 PRIME32_4 =  668265263U;   /* 0b00100111110101001110101100101111 */
 static const U32 PRIME32_5 =  374761393U;   /* 0b00010110010101100110011110110001 */
 
-static U32 XXH32_round(U32 acc, U32 input)
+XXH_FORCE_INLINE U32 XXH32_round(U32 acc, U32 input)
 {
     acc += input * PRIME32_2;
     acc  = XXH_rotl32(acc, 13);
@@ -316,7 +317,7 @@ static U32 XXH32_round(U32 acc, U32 input)
 }
 
 /* mix all bits */
-static U32 XXH32_avalanche(U32 h32)
+XXH_FORCE_INLINE U32 XXH32_avalanche(U32 h32)
 {
     h32 ^= h32 >> 15;
     h32 *= PRIME32_2;
@@ -609,14 +610,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
-static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
+XXH_FORCE_INLINE U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
 /* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign64;
-static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
+XXH_FORCE_INLINE U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
 
 #else
 
@@ -624,7 +625,7 @@ static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
  * see : http://stackoverflow.com/a/32095106/646947
  */
 
-static U64 XXH_read64(const void* memPtr)
+XXH_FORCE_INLINE U64 XXH_read64(const void* memPtr)
 {
     U64 val;
     memcpy(&val, memPtr, sizeof(val));
@@ -638,7 +639,7 @@ static U64 XXH_read64(const void* memPtr)
 #elif XXH_GCC_VERSION >= 403
 #  define XXH_swap64 __builtin_bswap64
 #else
-static U64 XXH_swap64 (U64 x)
+XXH_FORCE_INLINE U64 XXH_swap64 (U64 x)
 {
     return  ((x << 56) & 0xff00000000000000ULL) |
             ((x << 40) & 0x00ff000000000000ULL) |
@@ -656,7 +657,7 @@ XXH_FORCE_INLINE U64 XXH_readLE64(const void* ptr)
     return XXH_CPU_LITTLE_ENDIAN ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
 }
 
-static U64 XXH_readBE64(const void* ptr)
+XXH_FORCE_INLINE U64 XXH_readBE64(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
 }
@@ -679,7 +680,7 @@ static const U64 PRIME64_3 =  1609587929392839161ULL;   /* 0b0001011001010110011
 static const U64 PRIME64_4 =  9650029242287828579ULL;   /* 0b1000010111101011110010100111011111000010101100101010111001100011 */
 static const U64 PRIME64_5 =  2870177450012600261ULL;   /* 0b0010011111010100111010110010111100010110010101100110011111000101 */
 
-static U64 XXH64_round(U64 acc, U64 input)
+XXH_FORCE_INLINE U64 XXH64_round(U64 acc, U64 input)
 {
     acc += input * PRIME64_2;
     acc  = XXH_rotl64(acc, 31);
@@ -687,7 +688,7 @@ static U64 XXH64_round(U64 acc, U64 input)
     return acc;
 }
 
-static U64 XXH64_mergeRound(U64 acc, U64 val)
+XXH_FORCE_INLINE U64 XXH64_mergeRound(U64 acc, U64 val)
 {
     val  = XXH64_round(0, val);
     acc ^= val;
@@ -695,7 +696,7 @@ static U64 XXH64_mergeRound(U64 acc, U64 val)
     return acc;
 }
 
-static U64 XXH64_avalanche(U64 h64)
+XXH_FORCE_INLINE U64 XXH64_avalanche(U64 h64)
 {
     h64 ^= h64 >> 33;
     h64 *= PRIME64_2;

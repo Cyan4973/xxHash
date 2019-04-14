@@ -55,7 +55,11 @@
 /* ===   Compiler versions   === */
 
 #if !(defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)   /* C99+ */
-#  define restrict   /* disable */
+#  if defined(_MSC_VER) || defined(__GNUC__) /* MSVC and GCC both support this. */
+#    define restrict __restrict
+#  else
+#    define restrict   /* disable */
+#  endif
 #endif
 
 #if defined(__GNUC__)
@@ -75,10 +79,10 @@
 #endif
 
 /* U64 XXH_mult32to64(U32 a, U64 b) { return (U64)a * (U64)b; } */
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_M_X64)
 #   include <intrin.h>
     /* MSVC doesn't do a good job with the mull detection. */
-#   define XXH_mult32to64 __emulu
+#   define XXH_mult32to64(x, y) __emulu((U32)((x) & 0xFFFFFFFF), (U32)((y) & 0xFFFFFFFF))
 #else
 #   define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
 #endif
@@ -120,7 +124,7 @@ XXH3_mul128_fold64(U64 lhs, U64 rhs)
     __uint128_t product = (__uint128_t)lhs * (__uint128_t) rhs;
     return (U64)product ^ (U64)(product >> 64);
 
-#elif defined(_M_X64) || defined(_M_IA64)
+#elif defined(_M_X64) || defined(_M_AMD64) || defined(_M_IX64) || defined(_M_IA64)
 
 #ifndef _MSC_VER
 #   pragma intrinsic(_umul128)
@@ -360,9 +364,9 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
 #ifdef __cplusplus
 extern "C" {
 #endif
-void _XXH3_hashLong_AVX2(U64* acc, const void* data, size_t len, const U32* key);
-void _XXH3_hashLong_SSE2(U64* acc, const void* data, size_t len, const U32* key);
-void _XXH3_hashLong_Scalar(U64* acc, const void* data, size_t len, const U32* key);
+extern void _XXH3_hashLong_AVX2(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
+extern void _XXH3_hashLong_SSE2(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
+extern void _XXH3_hashLong_Scalar(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
 #ifdef __cplusplus
 }
 #endif
@@ -376,8 +380,12 @@ static XXH_cpu_mode_t cpu_mode = XXH_CPU_MODE_AUTO;
  * be used unconditionally. */
 static XXH_cpu_mode_t supported_cpu_mode = XXH_CPU_MODE_AUTO;
 
+/* We need to add a prototype for XXH3_dispatcher so we can refer to it later. */
+static void
+XXH3_dispatcher(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
+
 /* We also store this as a function pointer, so we can just jump to it at runtime. */
-static void (*XXH3_hashLong)(U64* acc, const void* data, size_t len, const U32* key);
+static void (*XXH3_hashLong)(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key) = &XXH3_dispatcher;
 
 /* Tests features for x86 targets and sets the cpu_mode and the XXH3_hashLong function pointer
  * to the correct value.
@@ -447,7 +455,6 @@ XXH3_dispatcher(U64* restrict acc, const void* restrict data, size_t len, const 
     XXH3_featureTest();
     XXH3_hashLong(acc, data, len, key);
 }
-static void (*XXH3_hashLong)(U64* acc, const void* data, size_t len, const U32* key) = &XXH3_dispatcher;
 
 #else /* !XXH_MULTI_TARGET */
    /* Include the C file directly and let the compiler decide which implementation to use. */

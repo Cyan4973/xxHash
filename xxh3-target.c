@@ -118,7 +118,8 @@
 #ifndef XXH_VECTOR
 #  if defined(__AVX2__)
 #    define XXH_VECTOR XXH_AVX2
-#  elif defined(__SSE2__)
+#  elif defined(__SSE2__) \
+    || (defined(_MSC_VER) && (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2))) /* MSVC doesn't define __SSE2__. */
 #    define XXH_VECTOR XXH_SSE2
 /* msvc support maybe later */
 #  elif defined(__GNUC__) \
@@ -200,7 +201,7 @@ XXH3_accumulate_512(void *restrict acc, const void *restrict data, const void *r
 {
 
 #if (XXH_VECTOR == XXH_AVX2) || (XXH_VECTOR == XXH_SSE2)
-    assert(((size_t)acc) & (VEC_SIZE - 1) == 0);
+    assert(((size_t)acc) & (VEC_SIZE - 1) == 0); 
     {   ALIGN(VEC_SIZE) XXH_vec* const xacc  =       (XXH_vec *) acc;
         const           XXH_vec* const xdata = (const XXH_vec *) data;
         const           XXH_vec* const xkey  = (const XXH_vec *) key;
@@ -217,13 +218,13 @@ XXH3_accumulate_512(void *restrict acc, const void *restrict data, const void *r
             XXH_vec const shuffled = XXH_MM(shuffle_epi32) (data_key, 0x31);
             /* product  = (shuffled & 0xFFFFFFFF) * (data_key & 0xFFFFFFFF); */
             XXH_vec const product  = XXH_MM(mul_epu32)     (shuffled, data_key);
+
             /* xacc[i] += data_vec; */
             xacc[i] = XXH_MM(add_epi64) (xacc[i], data_vec);
             /* xacc[i] += product; */
             xacc[i] = XXH_MM(add_epi64) (xacc[i], product);
         }
     }
-
 #elif (XXH_VECTOR == XXH_NEON)   /* to be updated, no longer with latest sse/avx updates */
 
     assert(((size_t)acc) & 15 == 0);
@@ -459,7 +460,7 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 #endif
 }
 
-static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
+static void XXH3_accumulate(U64* restrict acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
     size_t n;
 
@@ -475,11 +476,16 @@ __attribute__((__noinline__))
 XXH_HIDDEN_API void
 hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
 {
-    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
+#define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
     size_t const block_len = STRIPE_LEN * NB_KEYS;
     size_t const nb_blocks = len / block_len;
     size_t n;
+
+    /* MSVC generates TERRIBLE code if we read directly from the pointer. Simply creating a copy
+     * can generate code that is more than 2x faster. It is incredibly stupid. */
+    ALIGN(32) U64 acc_cpy[ACC_NB];
+    XXH_memcpy(acc_cpy, acc, sizeof(acc_cpy));
 
     for (n = 0; n < nb_blocks; n++) {
         size_t i;
@@ -492,24 +498,26 @@ hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* re
 #           pragma clang loop unroll(enable)
 #       endif
         for (i = 0; i < NB_KEYS; i += 2) {
-            XXH3_accumulate_512(acc, (const BYTE*) data + n * STRIPE_LEN, key + (2 * i));
-            XXH3_accumulate_512(acc, (const BYTE*) data + n * STRIPE_LEN, key + (2 * (i + 1)));
+            XXH3_accumulate_512(acc_cpy, (const BYTE*) data + n * STRIPE_LEN, key + (2 * i));
+            XXH3_accumulate_512(acc_cpy, (const BYTE*)data + n * STRIPE_LEN, key + (2 * (i + 1)));
         }
 
-        XXH3_scrambleAcc(acc, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+        XXH3_scrambleAcc(acc_cpy, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
     /* last partial block */
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
         assert(nbStripes < NB_KEYS);
-        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, key, nbStripes);
+        XXH3_accumulate(acc_cpy, (const BYTE*)data + nb_blocks*block_len, key, nbStripes);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
-            XXH3_accumulate_512(acc, p, key + nbStripes*2);
+            XXH3_accumulate_512(acc_cpy, p, key + nbStripes*2);
     }   }
+    /* Store back our working copy. */
+    XXH_memcpy(acc, acc_cpy, sizeof(acc_cpy));
 }
 
 #undef hashLong

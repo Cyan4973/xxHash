@@ -210,7 +210,8 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH ARCH_X86 " + AVX2"
 #  elif defined(__AVX__)
 #    define ARCH ARCH_X86 " + AVX"
-#  elif defined(__SSE2__)
+#  elif defined(__SSE2__) \
+    || (defined(_MSC_VER) && (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)))
 #     define ARCH ARCH_X86 " + SSE2"
 #  else
 #      define ARCH ARCH_X86
@@ -277,7 +278,9 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 /* ************************************
  *  Display macros
  **************************************/
-#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
+
+/* MinGW terminal doesn't update the display without this */
+#define DISPLAY(...)         do { fprintf(stderr, __VA_ARGS__); fflush(stderr); } while (0)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
 #define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
 static int g_displayLevel = 2;
@@ -417,8 +420,6 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     /* Bench XXH64 on Unaligned input */
     if ((specificTest==0) | (specificTest==4))
         BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
-
-    XXH3_setCpuMode(XXH_CPU_MODE_AUTO);
 
     if ((specificTest==0) | (specificTest==5))
         BMK_benchHash(localXXH3_64b, "XXH3_64bits", buffer, bufferSize);

@@ -35,9 +35,9 @@ extern "C" {
 
 #if !defined (__VMS) && (defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 # include <stdint.h>
-  typedef uint64_t PTime;  /* Precise Time */
+  typedef uint64_t           PTime;  /* Precise Time */
 #else
-  typedef unsigned long long PTime;   /* does not support compilers without long long support */
+  typedef unsigned long long PTime;  /* does not support compilers without long long support */
 #endif
 
 
@@ -47,42 +47,36 @@ extern "C" {
 ******************************************/
 #if defined(_WIN32)   /* Windows */
 
-    #define UTIL_TIME_INITIALIZER { { 0, 0 } }
+    #include <Windows.h>   /* LARGE_INTEGER */
     typedef LARGE_INTEGER UTIL_time_t;
+    #define UTIL_TIME_INITIALIZER { { 0, 0 } }
 
 #elif defined(__APPLE__) && defined(__MACH__)
 
     #include <mach/mach_time.h>
-    #define UTIL_TIME_INITIALIZER 0
     typedef PTime UTIL_time_t;
+    #define UTIL_TIME_INITIALIZER 0
 
-#elif (PLATFORM_POSIX_VERSION >= 200112L) \
-   && (defined(__UCLIBC__)                \
-      || (defined(__GLIBC__)              \
-          && ((__GLIBC__ == 2 && __GLIBC_MINOR__ >= 17) \
-             || (__GLIBC__ > 2))))
+#elif (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
+    && defined(TIME_UTC) /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11 compliance */
 
-    #define UTIL_TIME_INITIALIZER { 0, 0 }
-    typedef struct timespec UTIL_freq_t;
     typedef struct timespec UTIL_time_t;
+    #define UTIL_TIME_INITIALIZER { 0, 0 }
 
-    UTIL_time_t UTIL_getSpanTime(UTIL_time_t begin, UTIL_time_t end);
-
-#else   /* relies on standard C (note : clock_t measurements can be wrong when using multi-threading) */
+#else   /* relies on standard C90 (note : clock_t measurements can be wrong when using multi-threading) */
 
     typedef clock_t UTIL_time_t;
     #define UTIL_TIME_INITIALIZER 0
 
 #endif
 
+
 UTIL_time_t UTIL_getTime(void);
 PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd);
 PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd);
 
-
-#define SEC_TO_MICRO 1000000
+#define SEC_TO_MICRO ((PTime)1000000)
 PTime UTIL_clockSpanMicro(UTIL_time_t clockStart);
-
 PTime UTIL_clockSpanNano(UTIL_time_t clockStart);
 
 void UTIL_waitForNextTick(void);

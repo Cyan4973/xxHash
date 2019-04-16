@@ -11,6 +11,8 @@ OBJ_LIST  = main.o bhDisplay.o benchHash.o benchfn.o timefn.o
 
 default: benchHash
 
+all: benchHash
+
 benchHash32: CFLAGS   += -m32
 benchHash32: CXXFLAGS += -m32
 

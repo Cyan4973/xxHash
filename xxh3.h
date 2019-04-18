@@ -363,19 +363,24 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
 #define STRIPE_ELTS (STRIPE_LEN / sizeof(U32))
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
-#ifdef XXH_MULTI_TARGET /* xxh3-dispatch may #undef XXH_MULTI_TARGET! */
+/* Check for __has_include so we can automatically include xxh3-target.c if it exists. */
+#ifndef __has_include
+#  define __has_include(x) 0
+#  define XXH_NO_HAS_INCLUDE 1
+#else
+#   define XXH_NO_HAS_INCLUDE 0
+#endif
+
+#ifdef XXH_MULTI_TARGET \
+    && (XXH_NO_HAS_INCLUDE \
+        || (__has_include("xxh3-target.c") && __has_include("xxh3-dispatch.h")))
+ /* xxh3-dispatch may #undef XXH_MULTI_TARGET! */
 #  include "xxh3-dispatch.h"
+#else
+#  undef XXH_MULTI_TARGET
 #endif
 
 #ifndef XXH_MULTI_TARGET
-/* Check for __has_include so we can automatically include xxh3-target.c if it exists. */
-#  ifndef __has_include
-#     define __has_include(x) 0
-#     define XXH_NO_HAS_INCLUDE 1
-#  else
-#     define XXH_NO_HAS_INCLUDE 0
-#  endif
-
 /* Define to 1 force native target if __has_include is missing or to 0 to force
  * scalar */
 #  ifndef XXH_NATIVE_TARGET

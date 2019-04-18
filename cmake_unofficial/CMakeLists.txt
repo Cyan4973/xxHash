@@ -20,6 +20,7 @@ mark_as_advanced(XXHASH_VERSION_MAJOR XXHASH_VERSION_MINOR XXHASH_VERSION_RELEAS
 
 option(BUILD_XXHSUM "Build the xxhsum binary" ON)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
+option(MULTI_TARGET "Enable CPU dispatching if supported (Linux ARM32/x86/x86_64, MSVC, GCC, Clang, ICC only)" OFF)
 
 if("${CMAKE_VERSION}" VERSION_LESS "3.0")
   project(XXHASH C)
@@ -55,8 +56,71 @@ CMAKE_DEPENDENT_OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON "NOT XXHASH
 
 include_directories("${XXHASH_DIR}")
 
+set(MULTI_TARGET_LIBS "")
+if (MULTI_TARGET)
+    string (TOUPPER "${CMAKE_SYSTEM_PROCESSOR}" processor_name)
+    string (REGEX MATCH ".*ARM[^6].*" is_arm "${processor_name}")
+    string (REGEX MATCH ".*(AMD64|X86_64).*"  is_x86_64 "${processor_name}")
+    string (REGEX MATCH ".*(I386|I686|X86).*"  is_x86 "${processor_name}")
+    string (REGEX MATCH ".*(AppleClang|Clang|GNU|Intel).*" is_gcc_family "${CMAKE_C_COMPILER_ID} ${CMAKE_CXX_COMPILER_ID}")
+    if (((is_x86 OR is_x86_64) AND (is_gcc_family OR MSVC)) OR ((is_arm AND UNIX AND NOT APPLE) AND is_gcc_family))
+        set (CMAKE_C_FLAGS "-DXXH_MULTI_TARGET=1  ${CMAKE_C_FLAGS} ")
+        add_library(xxh3-scalar OBJECT  "${XXHASH_DIR}/xxh3-target.c")
+        set_property(TARGET xxh3-scalar PROPERTY POSITION_INDEPENDENT_CODE 1)
+        if (is_gcc_family)
+            target_compile_options(xxh3-scalar PRIVATE "-fno-tree-vectorize" "-fno-tree-slp-vectorize")
+        endif (is_gcc_family)
+        target_compile_definitions(xxh3-scalar PRIVATE XXH_VECTOR=0)
+
+        if (is_x86 OR is_x86_64)
+            add_library(xxh3-sse2 OBJECT "${XXHASH_DIR}/xxh3-target.c")
+            set_property(TARGET xxh3-sse2 PROPERTY POSITION_INDEPENDENT_CODE 1)
+            target_compile_definitions(xxh3-sse2 PRIVATE XXH_VECTOR=1)
+
+            add_library(xxh3-avx2 OBJECT "${XXHASH_DIR}/xxh3-target.c")
+            set_property(TARGET xxh3-avx2 PROPERTY POSITION_INDEPENDENT_CODE 1)
+            target_compile_definitions(xxh3-avx2 PRIVATE XXH_VECTOR=2)
+
+            if (MSVC)
+                if (NOT is_x86_64)
+                    target_compile_options(xxh3-sse2 PRIVATE "-arch:SSE2")
+                endif (NOT is_x86_64)
+                target_compile_options(xxh3-avx2 PRIVATE "-arch:AVX2")
+            else (MSVC)
+                target_compile_options(xxh3-sse2 PRIVATE "-msse2")
+                target_compile_options(xxh3-avx2 PRIVATE "-mavx2")
+            endif (MSVC)
+            set(MULTI_TARGET_LIBS "$<TARGET_OBJECTS:xxh3-scalar>" "$<TARGET_OBJECTS:xxh3-sse2>" "$<TARGET_OBJECTS:xxh3-avx2>")
+
+        else (is_x86 OR is_x86_64) # ARM
+            add_library(xxh3-neon OBJECT "${XXHASH_DIR}/xxh3-target.c")
+            set_property(TARGET xxh3-neon PROPERTY POSITION_INDEPENDENT_CODE 1)
+            target_compile_definitions(xxh3-neon PRIVATE XXH_VECTOR=3)
+            target_compile_options(xxh3-neon PRIVATE "-march=armv7-a" "-mfloat-abi=softfp" "-mfpu=neon-vfpv4")
+            set(MULTI_TARGET_LIBS "$<TARGET_OBJECTS:xxh3-scalar>" "$<TARGET_OBJECTS:xxh3-neon>")
+
+        endif (is_x86 OR is_x86_64)
+
+        message(STATUS "Multi target code enabled.")
+    else()
+        message(STATUS "Multi target code disabled (incompatible architecture)")
+    endif()
+    unset(processor_name)
+    unset(is_x86)
+    unset(is_x86_64)
+    unset(is_arm)
+    unset(is_gcc_family)
+endif (MULTI_TARGET)
+
+
+
+# Compile xxhash.c once as an object library.
+add_library(xxhash.c OBJECT "${XXHASH_DIR}/xxhash.c")
+set_property(TARGET xxhash.c PROPERTY POSITION_INDEPENDENT_CODE 1)
+
 # libxxhash
-add_library(xxhash "${XXHASH_DIR}/xxhash.c")
+add_library(xxhash "$<TARGET_OBJECTS:xxhash.c>" ${MULTI_TARGET_LIBS})
+
 if (BUILD_SHARED_LIBS)
   target_compile_definitions(xxhash PUBLIC XXH_EXPORT)
 endif ()
@@ -66,7 +130,7 @@ set_target_properties(xxhash PROPERTIES
 
 # xxhsum
 add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
-target_link_libraries(xxhsum xxhash)
+target_link_libraries(xxhsum "$<TARGET_OBJECTS:xxhash.c>" ${MULTI_TARGET_LIBS})
 
 # Extra warning flags
 include (CheckCCompilerFlag)

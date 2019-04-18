@@ -45,8 +45,32 @@ XXHSUM_VERSION = $(LIBVER)
 MD2ROFF = ronn
 MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
+# Get all the compiler's predefined macros
+COMPILER_MACROS = $(shell $(CC) $(FLAGS) -E -dM -xc /dev/null)
+
+# We don't build the multi target code by default, as it is overkill for someone who is only testing.
+ifndef MULTI_TARGET
+   TARGET_OBJS :=
+else
+  # Multi targeting only works for ARMv7-a Linux, x86, and x86_64 right now.
+  # We always enable PIC to make the build process simpler.
+  ifneq (,$(filter __i386__ __x86_64__ _M_IX86 _M_X64 _M_AMD64,$(COMPILER_MACROS)))
+    TARGET_OBJS := xxh3-avx2.o xxh3-sse2.o xxh3-scalar.o
+    CFLAGS += -DXXH_MULTI_TARGET  -fPIC
+    DISABLE_SIMD := -mno-sse2
+  else # ARMv7-a Linux. iOS always supports NEON.
+    ifneq (,$(filter __linux__ __arm__ __thumb__ __thumb2__,$(COMPILER_MACROS)))
+        TARGET_OBJS := xxh3-scalar.o xxh3-neon.o
+        CFLAGS += -DXXH_MULTI_TARGET -fPIC
+        DISABLE_SIMD :=
+    else
+        TARGET_OBJS :=
+    endif
+  endif
+endif
+
 # Define *.exe as extension for Windows systems
-ifneq (,$(filter Windows%,$(OS)))
+ifneq (,$(filter _WIN32 _WIN64 Windows%,$(OS) $(COMPILER_MACROS)))
 EXT =.exe
 else
 EXT =
@@ -76,13 +100,22 @@ default: lib xxhsum_and_links
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
-xxhsum : xxhash.o xxhsum.o
+xxhsum : xxhash.o xxhsum.o $(TARGET_OBJS)
 
 xxhsum32: CFLAGS += -m32
 xxhsum32: xxhash.c xxhsum.c
-	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
+	$(CC) $(FLAGS) -UXXH_MULTI_TARGET $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.h xxh3.h
+xxhash.o: xxhash.h xxh3.h xxh3-target.c
+
+xxh3-scalar.o: xxh3-target.c xxhash.h
+	$(CC) -c $(FLAGS) $< -fno-tree-vectorize -DXXH_VECTOR=0 -o $@
+xxh3-sse2.o: xxh3-target.c xxhash.h
+	$(CC) -c $(FLAGS) $< -msse2 -mno-sse3 -DXXH_VECTOR=1 -o $@
+xxh3-avx2.o: xxh3-target.c xxhash.h
+	$(CC) -c $(FLAGS) $< -mavx2 -DXXH_VECTOR=2 -o $@
+xxh3-neon.o: xxh3-target.c xxhash.h # TODO: proper flags
+	$(CC) -c $(FLAGS) $< -march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 -DXXH_VECTOR=3 -o $@
 
 xxhsum.o: xxhash.h
 
@@ -107,7 +140,7 @@ $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
-$(LIBXXH): xxhash.c
+$(LIBXXH): xxhash.c $(TARGET_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
 	ln -sf $@ libxxhash.$(SHARED_EXT)

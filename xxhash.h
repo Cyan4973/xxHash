@@ -406,6 +406,14 @@ struct XXH64_state_s {
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH3_setCpuMode XXH_NAME2(XXH_NAMESPACE, XXH3_setCpuMode)
+#  define XXH3_getCpuMode XXH_NAME2(XXH_NAMESPACE, XXH3_getCpuMode)
+/* Private API, but it still needs a namespace because the mulit target code always
+ * emits a symbol. */
+#  define _XXH3_hashLong_Scalar XXH_NAME2(XXH_NAMESPACE, _XXH3_hashLong_Scalar)
+#  define _XXH3_hashLong_SSE2 XXH_NAME2(XXH_NAMESPACE, _XXH3_hashLong_SSE2)
+#  define _XXH3_hashLong_AVX2 XXH_NAME2(XXH_NAMESPACE, _XXH3_hashLong_AVX2)
+#  define _XXH3_hashLong_NEON XXH_NAME2(XXH_NAMESPACE, _XXH3_hashLong_NEON)
 #endif
 
 
@@ -422,6 +430,22 @@ XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);  /* == XXH128() */
 
+typedef enum { /* KEEP IN SYNC WITH XXH_VECTOR */
+    XXH_CPU_MODE_AUTO = -1,
+    XXH_CPU_MODE_SCALAR = 0,
+    XXH_CPU_MODE_SSE2 = 1,
+    XXH_CPU_MODE_AVX2 = 2,
+    XXH_CPU_MODE_NEON = 3
+} XXH_cpu_mode_t;
+
+/* Tries to change the hashLong method to one of the above. If the selected CPU mode
+ * is not supported, it selects what it deems to be the next best one and returns it
+ * Setting it to XXH_CPU_MODE_AUTO will use the automatically detected version.
+ *
+ * If XXH_MULTI_TARGET was not defined, this does nothing but return the mode that
+ * it was compiled with. */
+XXH_PUBLIC_API XXH_cpu_mode_t XXH3_setCpuMode(XXH_cpu_mode_t mode);
+XXH_PUBLIC_API XXH_cpu_mode_t XXH3_getCpuMode(void);
 
 #endif  /* XXH_NO_LONG_LONG */
 

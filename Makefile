@@ -45,6 +45,7 @@ XXHSUM_VERSION = $(LIBVER)
 MD2ROFF = ronn
 MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
+XXH3_TARGET_SRCS = $(wildcard xxh3-target.c xxh3-dispatch.h)
 # Get all the compiler's predefined macros
 COMPILER_MACROS = $(shell $(CC) $(FLAGS) -E -dM -xc /dev/null)
 
@@ -52,20 +53,24 @@ COMPILER_MACROS = $(shell $(CC) $(FLAGS) -E -dM -xc /dev/null)
 ifndef MULTI_TARGET
    TARGET_OBJS :=
 else
-  # Multi targeting only works for ARMv7-a Linux, x86, and x86_64 right now.
-  # We always enable PIC to make the build process simpler.
-  ifneq (,$(filter __i386__ __x86_64__ _M_IX86 _M_X64 _M_AMD64,$(COMPILER_MACROS)))
-    TARGET_OBJS := xxh3-avx2.o xxh3-sse2.o xxh3-scalar.o
-    CFLAGS += -DXXH_MULTI_TARGET  -fPIC
-    DISABLE_SIMD := -mno-sse2
-  else # ARMv7-a Linux. iOS always supports NEON.
-    ifneq (,$(filter __linux__ __arm__ __thumb__ __thumb2__,$(COMPILER_MACROS)))
+  ifeq (xxh3-target.c xxh3-dispatch.h,$(XXH3_TARGET_SRCS))
+    # Multi targeting only works for ARMv7-a Linux, x86, and x86_64 right now.
+    # We always enable PIC to make the build process simpler.
+    ifneq (,$(filter __i386__ __x86_64__ _M_IX86 _M_X64 _M_AMD64,$(COMPILER_MACROS)))
+      TARGET_OBJS := xxh3-avx2.o xxh3-sse2.o xxh3-scalar.o
+      CFLAGS += -DXXH_MULTI_TARGET  -fPIC
+      DISABLE_SIMD := -mno-sse2
+    else # ARMv7-a Linux. iOS always supports NEON.
+      ifneq (,$(filter __linux__ __arm__ __thumb__ __thumb2__,$(COMPILER_MACROS)))
         TARGET_OBJS := xxh3-scalar.o xxh3-neon.o
         CFLAGS += -DXXH_MULTI_TARGET -fPIC
         DISABLE_SIMD :=
-    else
+      else
         TARGET_OBJS :=
+      endif
     endif
+  else
+    TARGET_OBJS :=
   endif
 endif
 
@@ -106,15 +111,15 @@ xxhsum32: CFLAGS += -m32
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) -UXXH_MULTI_TARGET $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.h xxh3.h xxh3-target.c
+xxhash.o: xxhash.h xxh3.h $(XXH3_TARGET_SRCS)
 
-xxh3-scalar.o: xxh3-target.c xxhash.h
+xxh3-scalar.o: $(XXH3_TARGET_SRCS) xxhash.c xxhash.h
 	$(CC) -c $(FLAGS) $< -fno-tree-vectorize -DXXH_VECTOR=0 -o $@
-xxh3-sse2.o: xxh3-target.c xxhash.h
+xxh3-sse2.o: $(XXH3_TARGET_SRCS) xxhash.c xxhash.h
 	$(CC) -c $(FLAGS) $< -msse2 -mno-sse3 -DXXH_VECTOR=1 -o $@
-xxh3-avx2.o: xxh3-target.c xxhash.h
+xxh3-avx2.o: $(XXH3_TARGET_SRCS) xxhash.c xxhash.h
 	$(CC) -c $(FLAGS) $< -mavx2 -DXXH_VECTOR=2 -o $@
-xxh3-neon.o: xxh3-target.c xxhash.h # TODO: proper flags
+xxh3-neon.o: $(XXH3_TARGET_SRCS) xxhash.c xxhash.h # TODO: Proper flags
 	$(CC) -c $(FLAGS) $< -march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 -DXXH_VECTOR=3 -o $@
 
 xxhsum.o: xxhash.h

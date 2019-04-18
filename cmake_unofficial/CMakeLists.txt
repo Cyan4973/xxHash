@@ -57,7 +57,7 @@ CMAKE_DEPENDENT_OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON "NOT XXHASH
 include_directories("${XXHASH_DIR}")
 
 set(MULTI_TARGET_LIBS "")
-if (MULTI_TARGET)
+if (MULTI_TARGET AND EXISTS "${XXHASH_DIR}/xxh3-target.c" AND EXISTS "${XXHASH_DIR}/xxh3-dispatch.h")
     string (TOUPPER "${CMAKE_SYSTEM_PROCESSOR}" processor_name)
     string (REGEX MATCH ".*ARM[^6].*" is_arm "${processor_name}")
     string (REGEX MATCH ".*(AMD64|X86_64).*"  is_x86_64 "${processor_name}")
@@ -86,20 +86,20 @@ if (MULTI_TARGET)
                     target_compile_options(xxh3-sse2 PRIVATE "-arch:SSE2")
                 endif (NOT is_x86_64)
                 target_compile_options(xxh3-avx2 PRIVATE "-arch:AVX2")
-            else (MSVC)
+            else ()
                 target_compile_options(xxh3-sse2 PRIVATE "-msse2")
                 target_compile_options(xxh3-avx2 PRIVATE "-mavx2")
-            endif (MSVC)
+            endif ()
             set(MULTI_TARGET_LIBS "$<TARGET_OBJECTS:xxh3-scalar>" "$<TARGET_OBJECTS:xxh3-sse2>" "$<TARGET_OBJECTS:xxh3-avx2>")
 
-        else (is_x86 OR is_x86_64) # ARM
+        else () # ARM
             add_library(xxh3-neon OBJECT "${XXHASH_DIR}/xxh3-target.c")
             set_property(TARGET xxh3-neon PROPERTY POSITION_INDEPENDENT_CODE 1)
             target_compile_definitions(xxh3-neon PRIVATE XXH_VECTOR=3)
             target_compile_options(xxh3-neon PRIVATE "-march=armv7-a" "-mfloat-abi=softfp" "-mfpu=neon-vfpv4")
             set(MULTI_TARGET_LIBS "$<TARGET_OBJECTS:xxh3-scalar>" "$<TARGET_OBJECTS:xxh3-neon>")
 
-        endif (is_x86 OR is_x86_64)
+        endif ()
 
         message(STATUS "Multi target code enabled.")
     else()
@@ -110,7 +110,7 @@ if (MULTI_TARGET)
     unset(is_x86_64)
     unset(is_arm)
     unset(is_gcc_family)
-endif (MULTI_TARGET)
+endif ()
 
 
 

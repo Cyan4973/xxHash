@@ -353,268 +353,135 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
     }
 }
 
-#define XXH_TARGET_MODE_NONE 0
-#define XXH_TARGET_MODE_X86 1
-#define XXH_TARGET_MODE_ARM 2
 
-#ifdef XXH_MULTI_TARGET
-/* Figure out the best way to get a cpuid. */
-#  if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64))
-   /* MSVC has intrinsics for this. */
-#     include <intrin.h>
-#     define XXH_CPUID __cpuid
-#     define XXH_CPUIDEX __cpuidex
-#     define XXH_TARGET_MODE XXH_TARGET_MODE_X86
-#  elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-
-   /* The GCC family can easily use inline assembly. */
-   static void XXH_CPUIDEX(int* cpuInfo, int function_id, int function_ext)
-   {
-       int eax, ecx;
-       eax = function_id;
-       ecx = function_ext;
-       __asm__ __volatile__(
-#ifdef (__x86_64__) /* EBX is required for PIC so save it */
-            "pushq %%rbx\n"
-#else
-            "pushl %%ebx\n"
-#endif
-            "cpuid\n"
-            "movl %%ebx, %1\n"
-#ifdef __x86_64__
-            "popq %%rbx\n"
-#else
-            "popl %%ebx\n"
-#endif
-         : "+a" (eax), "=r" (cpuInfo[1]), "+c" (ecx), "=d" (cpuInfo[3]));
-       cpuInfo[0] = eax;
-       cpuInfo[2] = ecx;
-   }
-   static void XXH_CPUID(int *cpuInfo, int function_id)
-   {
-       XXH_CPUIDEX(cpuInfo, function_id, 0);
-   }
-#  define XXH_TARGET_MODE XXH_TARGET_MODE_X86
-/* ARM Linux */
-#elif defined(__linux__) && (defined(__arm__) || defined(__thumb__) || defined(__thumb2__))
-   #include <stdio.h>
-   /* Parse /proc/cpuinfo. This is the best version on Linux because the test instruction
-    * stupidly needs privledged mode. The cpufeatures library from the NDK also uses
-    * this method. */
-   static int supports_neon(void)
-   {
-       char buf[1024];
-       FILE *f = fopen("/proc/cpuinfo", "rb");
-
-       if (f == NULL) {
-           return 0;
-       }
-       while (fgets(buf, 1024, f) != NULL) {
-           if (strstr(buf, "neon") != NULL || strstr(buf, "asimd") != NULL) {
-                fclose(f);
-                return 1;
-           }
-       }
-       fclose(f);
-       return 0;
-   }
-#  define XXH_TARGET_MODE XXH_TARGET_MODE_ARM
-#else
-     /* We don't know how to do this, just let them use the default. */
-#    undef XXH_MULTI_TARGET
-#    define XXH_TARGET_MODE XXH_TARGET_MODE_NONE
-#  endif /* else */
-#endif /* XXH_MULTI_TARGET */
-
+#define XXH_SCALAR 0
+#define XXH_SSE2   1
+#define XXH_AVX2   2
+#define XXH_NEON   3
 
 #define STRIPE_LEN 64
 #define STRIPE_ELTS (STRIPE_LEN / sizeof(U32))
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
-#ifdef XXH_MULTI_TARGET
-/* Prototypes for our code. Because the code is in separate files, we need a symbol.
- * The reserved identifiers are intentional. */
-#ifdef __cplusplus
-extern "C" {
-#endif
-void _XXH3_hashLong_AVX2(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
-void _XXH3_hashLong_SSE2(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
-void _XXH3_hashLong_Scalar(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
-void _XXH3_hashLong_NEON(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
-#ifdef __cplusplus
-}
+#ifdef XXH_MULTI_TARGET /* xxh3-dispatch may #undef XXH_MULTI_TARGET! */
+#  include "xxh3-dispatch.h"
 #endif
 
-/* What hashLong version we decided on. cpuid is a SLOW instruction -- calling it takes anywhere
- * from 30-40 to THOUSANDS of cycles), so we really don't want to call it more than once. */
-static XXH_cpu_mode_t cpu_mode = XXH_CPU_MODE_AUTO;
+#ifndef XXH_MULTI_TARGET
+/* Check for __has_include so we can automatically include xxh3-target.c if it exists. */
+#  ifndef __has_include
+#     define __has_include(x) 0
+#     define XXH_NO_HAS_INCLUDE 1
+#  else
+#     define XXH_NO_HAS_INCLUDE 0
+#  endif
 
-/* What the best version supported is. This is used for verification on XXH_setCpuMode to prevent
- * a SIGILL. It can be turned off with -DXXH_NO_VERIFY_MULTI_TARGET, in which the selected hash will
- * be used unconditionally. */
-static XXH_cpu_mode_t supported_cpu_mode = XXH_CPU_MODE_AUTO;
+/* Define to 1 force native target if __has_include is missing or to 0 to force
+ * scalar */
+#  ifndef XXH_NATIVE_TARGET
+#     define XXH_NATIVE_TARGET !XXH_NO_HAS_INCLUDE
+#  endif
 
-/* We need to add a prototype for XXH3_dispatcher so we can refer to it later. */
-static void
-XXH3_dispatcher(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key);
-
-/* We also store this as a function pointer, so we can just jump to it at runtime. */
-static void (*XXH3_hashLong)(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key) = &XXH3_dispatcher;
-
-/* Tests features for x86 targets and sets the cpu_mode and the XXH3_hashLong function pointer
- * to the correct value.
- *
- * On GCC compatible compilers, this will be run at program startup.
- *
- * xxh3-target.c will include this file. If we don't do this, the constructor will be called
- * multiple times. We don't want that. */
-#if !defined(XXH3_TARGET_C) && defined(__GNUC__)
-__attribute__((__constructor__))
-#endif
-static void XXH3_featureTest(void)
-{
-    if (supported_cpu_mode != XXH_CPU_MODE_AUTO) {
-#if XXH_TARGET_MODE == XXH_TARGET_MODE_X86
-        if (supported_cpu_mode == XXH_CPU_MODE_AVX2) {
-            cpu_mode = XXH_CPU_MODE_AVX2;
-            XXH3_hashLong = &_XXH3_hashLong_AVX2;
-            return;
-        }
-        if (supported_cpu_mode == XXH_CPU_MODE_SSE2 {
-            cpu_mode = XXH_CPU_MODE_SSE2;
-            XXH3_hashLong = &_XXH3_hashLong_SSE2;
-            return;
-        }
-#elif XXH_TARGET_MODE == XXH_TARGET_MODE_ARM
-        if (supported_cpu_mode == XXH_CPU_MODE_NEON) {
-            cpu_mode = XXH_CPU_MODE_NEON;
-            XXH3_hashLong = &_XXH3_hashLong_NEON;
-            return;
-        }
-#endif
-        cpu_mode = XXH_CPU_MODE_SCALAR;
-        XXH3_hashLong = &_XXH3_hashLong_Scalar;
-        return;
-    }
-
-#if XXH_TARGET_MODE == XXH_TARGET_MODE_X86
-    int max, data[4];
-
-    /* First, get how many CPUID function parameters there are by calling CPUID with eax = 0. */
-    XXH_CPUID(data, /* eax */ 0);
-    max = data[0];
-    /* AVX2 is on the Extended Features page (eax = 7, ecx = 0), on bit 5 of ebx. */
-    if (max >= 7) {
-        XXH_CPUIDEX(data, /* eax */ 7, /* ecx */ 0);
-        if (data[1] & (1 << 5)) {
-            cpu_mode = supported_cpu_mode = XXH_CPU_MODE_AVX2;
-            XXH3_hashLong = &_XXH3_hashLong_AVX2;
-            return;
-        }
-    }
-    /* SSE2 is on the Processor Info and Feature Bits page (eax = 1), on bit 26 of edx. */
-    if (max >= 1) {
-        XXH_CPUID(data, /* eax */ 1);
-        if (data[3] & (1 << 26)) {
-            cpu_mode = supported_cpu_mode = XXH_CPU_MODE_SSE2;
-            XXH3_hashLong = &_XXH3_hashLong_SSE2;
-            return;
-        }
-    }
-#elif XXH_TARGET_MODE == XXH_TARGET_MODE_ARM
-    if (supports_neon()) {
-        cpu_mode = supported_cpu_mode = XXH_CPU_MODE_NEON;
-        XXH3_hashLong = &_XXH3_hashLong_NEON;
-        return;
-    }
-#endif
-    /* Must be scalar. */
-    cpu_mode = supported_cpu_mode = XXH_CPU_MODE_SCALAR;
-    XXH3_hashLong = &_XXH3_hashLong_Scalar;
-}
-
-/* Sets up the dispatcher and then calls the actual hash function. */
-static void
-XXH3_dispatcher(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
-{
-    /* We haven't checked CPUID yet, so we check it now. On GCC, we try to get this to run
-     * at program startup to hide our very dirty secret from the benchmarks. */
-    XXH3_featureTest();
-    XXH3_hashLong(acc, data, len, key);
-}
-
-#else /* !XXH_MULTI_TARGET */
+#  if XXH_NATIVE_TARGET && (XXH_NO_HAS_INCLUDE || __has_include("xxh3-target.c"))
    /* Include the C file directly and let the compiler decide which implementation to use. */
-#  include "xxh3-target.c"
-#endif /* XXH_MULTI_TARGET */
-
-/* Sets the XXH3_hashLong variant. When XXH_MULTI_TARGET is not defined, this
- * does nothing.
+#     include "xxh3-target.c"
+#  else
+#     undef XXH_VECTOR
+#     define XXH_VECTOR XXH_SCALAR
+/* Always include the scalar version. It has good performance even without SIMD, and
+ * it allows XXH3 to be included with only xxhash.c and xxhash.h (once xxh3 is merged).
  *
- * Unless XXH_NO_VERIFY_MULTI_TARGET is defined, this will automatically fall back
- * to the next best XXH3 mode, so, for example, even if you set it to AVX2, the code
- * will not crash even if it is run on, for example, a Core 2 Duo which doesn't support
- * AVX2. */
+ * However, it is strongly recommended to use the SIMD or multi target code. */
+XXH_FORCE_INLINE void
+XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict key)
+{
+          U64* const xacc  =       (U64*) acc;   /* presumed aligned */
+    const U32* const xdata = (const U32*) data;
+    const U32* const xkey  = (const U32*) key;
+
+    int i;
+    for (i=0; i < (int)ACC_NB; i++) {
+        int const left = 2*i;
+        int const right= 2*i + 1;
+        U32 const dataLeft  = XXH_readLE32(xdata + left);
+        U32 const dataRight = XXH_readLE32(xdata + right);
+        xacc[i] += XXH_mult32to64(dataLeft ^ xkey[left], dataRight ^ xkey[right]);
+        xacc[i] += dataLeft + ((U64)dataRight << 32);
+    }
+}
+
+
+XXH_FORCE_INLINE void
+XXH3_scrambleAcc(void* acc, const void* key)
+{
+
+          U64* const xacc =       (U64*) acc;
+    const U32* const xkey = (const U32*) key;
+
+    int i;
+    assert(((size_t)acc) & 7 == 0);
+    for (i=0; i < (int)ACC_NB; i++) {
+        U64 const key64 = XXH3_readKey64(xkey + 2*i);
+        U64 acc64 = xacc[i];
+        acc64 ^= acc64 >> 47;
+        acc64 ^= key64;
+        acc64 *= PRIME32_1;
+        xacc[i] = acc64;
+    }
+}
+
+static void
+XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
+{
+    size_t n;
+    for (n = 0; n < nbStripes; n++ ) {
+        XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
+        key += 2;
+    }
+}
+
+static void
+XXH3_hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* restrict key)
+{
+    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
+
+    size_t const block_len = STRIPE_LEN * NB_KEYS;
+    size_t const nb_blocks = len / block_len;
+
+    size_t n;
+    for (n = 0; n < nb_blocks; n++) {
+        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, key, NB_KEYS);
+        XXH3_scrambleAcc(acc, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+    }
+
+    /* last partial block */
+    assert(len > STRIPE_LEN);
+    {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
+        assert(nbStripes < NB_KEYS);
+        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, key, nbStripes);
+
+        /* last stripe */
+        if (len & (STRIPE_LEN - 1)) {
+            const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
+            XXH3_accumulate_512(acc, p, key + nbStripes*2);
+    }   }
+}
+
+#endif /* has xxh3-target.c */
+
+/* Dummies for the mode swap functions */
 XXH_PUBLIC_API XXH_cpu_mode_t XXH3_setCpuMode(XXH_cpu_mode_t mode)
 {
-#ifdef XXH_MULTI_TARGET
-/* Defining XXH_NO_VERIFY_MULTI_TARGET will allow you to set the CPU mode to
- * an unsupported mode. */
-#ifndef XXH_NO_VERIFY_MULTI_TARGET
-    /* Call the featureTest if it hasn't been called already */
-    if (supported_cpu_mode == XXH_CPU_MODE_AUTO)
-        XXH3_featureTest();
-/* Even thougu XXH_CPU_MODE_NEON is greater than that, it will never
- * be defined */
-#   define TRY_SET_MODE(mode_num, funcptr) \
-    do { \
-        if (mode == (mode_num) && supported_cpu_mode >= (mode_num)) { \
-            cpu_mode = (mode_num); \
-            XXH3_hashLong = &(funcptr); \
-            return (mode_num); \
-        } \
-   } while (0)
-#else
-#   define TRY_SET_MODE(mode_num, funcptr) \
-   do { \
-       if (mode == (mode_num)) { \
-            cpu_mode = (mode_num); \
-            XXH3_hashLong = &(funcptr); \
-            return (mode_num); \
-       }
-    } while (0)
-#endif
-
-#if XXH_TARGET_MODE == XXH_TARGET_MODE_X86
-    TRY_SET_MODE(XXH_CPU_MODE_AVX2, _XXH3_hashLong_AVX2);
-    TRY_SET_MODE(XXH_CPU_MODE_SSE2, _XXH3_hashLong_SSE2);
-#elif XXH_TARGET_MODE == XXH_TARGET_MODE_ARM
-    TRY_SET_MODE(XXH_CPU_MODE_NEON, _XXH3_hashLong_NEON);
-#endif
-    if (mode == XXH_CPU_MODE_SCALAR) {
-        cpu_mode = XXH_CPU_MODE_SCALAR;
-        XXH3_hashLong = &_XXH3_hashLong_Scalar;
-        return XXH_CPU_MODE_SCALAR;
-    }
-    cpu_mode = XXH_CPU_MODE_AUTO;
-    XXH3_hashLong = &XXH3_dispatcher;
-    return XXH_CPU_MODE_AUTO;
-#undef TRY_SET_MODE
-#else
     (void) mode;
     return (XXH_cpu_mode_t)XXH_VECTOR;
-#endif
 }
 
-/* Should we keep this? */
 XXH_PUBLIC_API XXH_cpu_mode_t XXH3_getCpuMode(void)
 {
-#ifdef XXH_MULTI_TARGET
-    return cpu_mode;
-#else
     return (XXH_cpu_mode_t) XXH_VECTOR;
-#endif
 }
+#endif /* !XXH_MULTI_TARGET */
+
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)

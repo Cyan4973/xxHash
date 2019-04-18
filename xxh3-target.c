@@ -56,10 +56,6 @@
 /* ==========================================
  * Vectorization detection
  * ========================================== */
-#define XXH_SCALAR 0
-#define XXH_SSE2   1
-#define XXH_AVX2   2
-#define XXH_NEON   3
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX2__)
@@ -118,7 +114,7 @@
 
 
 XXH_FORCE_INLINE void
-XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict key)
+XXH3_accumulate_512_target(void* acc, const void *restrict data, const void *restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -212,7 +208,7 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
 #endif
 }
 
-static void XXH3_scrambleAcc(void* acc, const void* key)
+static void XXH3_scrambleAcc_target(void* acc, const void* key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -308,7 +304,7 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 #endif
 }
 
-static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
+static void XXH3_accumulate_target(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
@@ -316,7 +312,7 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
 #  pragma clang loop unroll(enable)
 #endif
     for (n = 0; n < nbStripes; n++ ) {
-        XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
+        XXH3_accumulate_512_target(acc, (const BYTE*)data + n*STRIPE_LEN, key);
         key += 2;
     }
 }
@@ -331,20 +327,20 @@ hashLong(U64* restrict acc, const void* restrict data, size_t len, const U32* re
 
     size_t n;
     for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, key, NB_KEYS);
-        XXH3_scrambleAcc(acc, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+        XXH3_accumulate_target(acc, (const BYTE*)data + n*block_len, key, NB_KEYS);
+        XXH3_scrambleAcc_target(acc, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
     /* last partial block */
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
         assert(nbStripes < NB_KEYS);
-        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, key, nbStripes);
+        XXH3_accumulate_target(acc, (const BYTE*)data + nb_blocks*block_len, key, nbStripes);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
-            XXH3_accumulate_512(acc, p, key + nbStripes*2);
+            XXH3_accumulate_512_target(acc, p, key + nbStripes*2);
     }   }
 }
 

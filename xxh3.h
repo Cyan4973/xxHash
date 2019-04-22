@@ -716,8 +716,8 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll11 = XXH_mult32to64(l1 + seed + key32[0], l2 + key32[1]);
-        U64  const ll12 = XXH_mult32to64(l1 + key32[2], l2 - seed + key32[3]);
+        U64  const ll11 = XXH_mult32to64((unsigned int)(l1 + seed + key32[0]), (unsigned int)(l2 + key32[1]));
+        U64  const ll12 = XXH_mult32to64((unsigned int)(l1 + key32[2]), (unsigned int)(l2 - seed + key32[3]));
         XXH128_hash_t const h128 = { XXH3_avalanche(ll11), XXH3_avalanche(ll12) };
         return h128;
     }

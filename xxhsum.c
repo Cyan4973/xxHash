@@ -693,15 +693,16 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer, 112, prime64, 0x5DC1A8081633724EULL);  /* 97 -128 */
     BMK_testXXH3(sanityBuffer, 192, 0,       0x944C286DF5682C8CULL);  /* one block, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer, 192, prime64, 0x87F2E5E8102906E0ULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer, 222, 0,       0x5EB0E26C52E65CFBULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer, 222, prime64, 0xEA096DA835DE9483ULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2048, 0,       0xC1B55DD62278D3F6ULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2048, prime64, 0xA8416CC591E6057EULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2240, 0,       0x0222DF03A2F13322ULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2240, prime64, 0x02C46760EC80602FULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2243, 0,       0x072D949235D92E59ULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2243, prime64, 0xBEDD0F5239FB92C8ULL);  /* 3 blocks, last stripe is overlapping */
+
 #if 0
-    BMK_testXXH3(sanityBuffer, 222, 0,     0xB62929C362EF3BF5ULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 222, prime, 0x2782C3C49E3FD25EULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2048, 0,     0x802EB54C97564FD7ULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2048, prime, 0xC9F188CFAFDA22CDULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2240, 0,     0x16B0035F6ABC1F46ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2240, prime, 0x389E68C2348B9161ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2243, 0,     0xE7C1890BDBD2B245ULL);  /* 3 blocks, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2243, prime, 0x3A68386AED0C50A7ULL);  /* 3 blocks, last stripe is overlapping */
 
     {   XXH128_hash_t const expected = { 0, 0 };
         BMK_testXXH128(NULL,           0, 0,     expected);         /* zero-length hash is { seed, -seed } by default */

@@ -376,9 +376,9 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             __m256i const d   = _mm256_loadu_si256 (xdata+i);
             __m256i const k   = _mm256_loadu_si256 (xkey+i);
             __m256i const dk  = _mm256_xor_si256 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
-            __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
+            __m256i const mul = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 mul[4] = {dk0*dk1, dk2*dk3, ...} */
             __m256i const add = _mm256_add_epi64(d, xacc[i]);
-            xacc[i]  = _mm256_add_epi64(res, add);
+            xacc[i]  = _mm256_add_epi64(mul, add);
         }
     }
 
@@ -394,9 +394,9 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
             __m128i const d   = _mm_loadu_si128 (xdata+i);
             __m128i const k   = _mm_loadu_si128 (xkey+i);
             __m128i const dk  = _mm_xor_si128 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
-            __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
+            __m128i const mul = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 mul[2] = {dk0*dk1,dk2*dk3} */
             __m128i const add = _mm_add_epi64(d, xacc[i]);
-            xacc[i]  = _mm_add_epi64(res, add);
+            xacc[i]  = _mm_add_epi64(mul, add);
         }
     }
 
@@ -777,10 +777,136 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
 XXH_FORCE_INLINE void
 XXH3_accumulate128_512bits(void* acc, const void* restrict data, const void* restrict key)
 {
+#if 1 // (XXH_VECTOR == XXH_SSE2)
+
+#if 0
+    assert(((size_t)acc) & 15 == 0);
+    {   ALIGN(16) __m128i* const xacc = (__m128i*) acc;
+        const     __m128i* const xdata = (const __m128i *) data;
+        const     __m128i* const xkey  = (const __m128i *) key;
+
+        const __m128i k1 = _mm_set1_epi32((int)PRIME32_1);
+        const __m128i k2 = _mm_set1_epi32((int)PRIME32_2);
+
+        size_t i;
+        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+            __m128i const d  = _mm_loadu_si128 (xdata+i);
+            __m128i const k  = _mm_loadu_si128 (xkey+i);
+            __m128i const dk = _mm_xor_si128 (d,k);   /* uint32 dk[4] = {d0+k0, d1+k1, d2+k2, d3+k3} */
+
+            __m128i Vacc = xacc[i];
+
+            Vacc = _mm_add_epi64(Vacc, dk);
+            Vacc = _mm_xor_si128(Vacc, _mm_srli_epi64(Vacc, 43));  /* Vacc ^= (Vacc >> 43); */
+
+            {   __m128i const lok1 = _mm_mul_epu32 (Vacc, k1);
+                __m128i const hi   = _mm_shuffle_epi32 (Vacc, 0x31);
+                __m128i const hik1 = _mm_mul_epu32 (hi, k1);
+                __m128i const hi64 = _mm_slli_epi64(hik1, 32);
+                Vacc = _mm_add_epi64(lok1, hi64);
+            }
+
+            Vacc = _mm_add_epi64(Vacc, _mm_shuffle_epi32(dk, _MM_SHUFFLE(1,0,3,2)) );
+            Vacc = _mm_xor_si128(Vacc, _mm_srli_epi64(Vacc, 37));  /* Vacc ^= (Vacc >> 37); */
+
+            {   __m128i const lok2 = _mm_mul_epu32 (Vacc, k2);
+                __m128i const hi   = _mm_shuffle_epi32 (Vacc, 0x31);
+                __m128i const hik2 = _mm_mul_epu32 (hi, k2);
+                __m128i const hi64 = _mm_slli_epi64(hik2, 32);
+                Vacc = _mm_add_epi64(lok2, hi64);
+            }
+
+            xacc[i] = Vacc;
+        }
+    }
+
+#elif 1 // SSE2
+
+// merged, then mix
+// note : actually a 64-bits mixer
+
+assert(((size_t)acc) & 15 == 0);
+{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+    const     __m128i* const xdata = (const __m128i *) data;
+    const     __m128i* const xkey  = (const __m128i *) key;
+
+    const     __m128i k1 = _mm_set1_epi32((int)(PRIME32_1-1));
+
+    size_t i;
+    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        __m128i const d   = _mm_loadu_si128 (xdata+i);
+        __m128i const k   = _mm_loadu_si128 (xkey+i);
+        __m128i const dk  = _mm_xor_si128 (d,k);
+
+        __m128i const Vacc = _mm_add_epi64(xacc[i], dk);
+
+        __m128i const shifted = _mm_srli_epi64(Vacc, 32);
+        __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
+
+        __m128i const mul = _mm_mul_epu32 (xored, k1);
+        __m128i const muladd = _mm_add_epi64(xored, mul);
+
+        xacc[i]  = muladd;
+    }
+}
+
+#elif 1 // SSE2
+
+// independent mixing, then merge
+
+assert(((size_t)acc) & 15 == 0);
+{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+    const     __m128i* const xdata = (const __m128i *) data;
+    const     __m128i* const xkey  = (const __m128i *) key;
+
+    const     __m128i k1 = _mm_set1_epi32((int)(PRIME32_1-1));
+
+    size_t i;
+    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        __m128i const d   = _mm_loadu_si128 (xdata+i);
+        __m128i const k   = _mm_loadu_si128 (xkey+i);
+        __m128i const dk  = _mm_xor_si128 (d,k);
+
+        __m128i const shifted = _mm_srli_epi64(dk, 32);
+        __m128i const xored  = _mm_xor_si128 (dk,shifted);
+
+        __m128i const mul = _mm_mul_epu32 (xored, k1);   /* uint64 mul[2] = {dk0*dk1, dk2*dk3} */
+        __m128i const muladd = _mm_add_epi64(xored, mul);
+
+        xacc[i]  = _mm_add_epi64(xacc[i], muladd);
+    }
+}
+
+#else  // SSE2
+
+assert(((size_t)acc) & 15 == 0);
+{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+    const     __m128i* const xdata = (const __m128i *) data;
+    const     __m128i* const xkey  = (const __m128i *) key;
+
+    size_t i;
+    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        __m128i const d   = _mm_loadu_si128 (xdata+i);
+        __m128i const k   = _mm_loadu_si128 (xkey+i);
+        __m128i const dk  = _mm_xor_si128 (d,k);                                /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+        __m128i const mul = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));   /* uint64 mul[2] = {dk0*dk1, dk2*dk3} */
+        __m128i const add = _mm_add_epi64(d, xacc[i]);
+        __m128i const h1  = _mm_srli_epi64(mul, 32);
+        __m128i const h3  = _mm_shuffle_epi32(mul, _MM_SHUFFLE(0,1,0,3));
+        __m128i const r64 = _mm_add_epi64(mul, add);
+        __m128i const mask= _mm_mul_epu32(h1, h3);
+        xacc[i]  = _mm_xor_si128(r64, mask);
+    }
+}
+
+#endif
+
+#else
+
     /* scalar variant of Accumulator - universal */
-          U64* const xacc  =       (U64*) acc;   /* presumed aligned */
-    const U64* const xdata = (const U64*) data;  /* not necessarily aligned */
-    const U64* const xkey  = (const U64*) key;   /* presumed aligned */
+          U64* const xacc  =       (U64*) acc; /* presumed aligned */
+    const U64* const xdata = (const U64*) data;   /* not necessarily aligned */
+    const U64* const xkey  = (const U64*) key;    /* presumed aligned */
 
     int i;
     for (i=0; i < (int)ACC_NB; i+=2) {
@@ -805,6 +931,8 @@ XXH3_accumulate128_512bits(void* acc, const void* restrict data, const void* res
         xacc[left]  *= PRIME32_2;
         xacc[right] *= PRIME32_2;
     }
+
+#endif  /* vect arch */
 }
 
 static void XXH3_accumulate128(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)

@@ -780,6 +780,8 @@ XXH3_accumulate128_512bits(void* acc, const void* restrict data, const void* res
 #if 1 // (XXH_VECTOR == XXH_SSE2)
 
 #if 0
+    // 128 bits mixer, lossless: shift - xor - mul , but slow
+
     assert(((size_t)acc) & 15 == 0);
     {   ALIGN(16) __m128i* const xacc = (__m128i*) acc;
         const     __m128i* const xdata = (const __m128i *) data;
@@ -820,10 +822,10 @@ XXH3_accumulate128_512bits(void* acc, const void* restrict data, const void* res
         }
     }
 
-#elif 1 // SSE2
+#elif 0 // SSE2
 
-// merged, then mix
 // note : actually a 64-bits mixer
+// merged, then mix
 
 assert(((size_t)acc) & 15 == 0);
 {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
@@ -850,9 +852,10 @@ assert(((size_t)acc) & 15 == 0);
     }
 }
 
+
 #elif 1 // SSE2
 
-// independent mixing, then merge
+// merge, then mix, then interleave
 
 assert(((size_t)acc) & 15 == 0);
 {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
@@ -867,17 +870,62 @@ assert(((size_t)acc) & 15 == 0);
         __m128i const k   = _mm_loadu_si128 (xkey+i);
         __m128i const dk  = _mm_xor_si128 (d,k);
 
-        __m128i const shifted = _mm_srli_epi64(dk, 32);
-        __m128i const xored  = _mm_xor_si128 (dk,shifted);
+        __m128i const Vacc = _mm_add_epi64(xacc[i], dk);
 
-        __m128i const mul = _mm_mul_epu32 (xored, k1);   /* uint64 mul[2] = {dk0*dk1, dk2*dk3} */
+        __m128i const shifted = _mm_srli_epi64(Vacc, 32);
+        __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
+
+        __m128i const mul = _mm_mul_epu32 (xored, k1);
         __m128i const muladd = _mm_add_epi64(xored, mul);
 
-        xacc[i]  = _mm_add_epi64(xacc[i], muladd);
+        xacc[i]  = _mm_shuffle_epi32(muladd, _MM_SHUFFLE(0,3,2,1));;
     }
 }
 
+#elif 1 // SSE2
+
+// merged, then mix, 2 rounds for 128 bits
+
+assert(((size_t)acc) & 15 == 0);
+{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+    const     __m128i* const xdata = (const __m128i *) data;
+    const     __m128i* const xkey  = (const __m128i *) key;
+
+    const     __m128i k1 = _mm_set1_epi32((int)(PRIME32_1-1));
+    const     __m128i k2 = _mm_set1_epi32((int)(PRIME32_2-1));
+
+    size_t i;
+    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        __m128i const d   = _mm_loadu_si128 (xdata+i);
+        __m128i const k   = _mm_loadu_si128 (xkey+i);
+        __m128i const dk  = _mm_xor_si128 (d,k);
+
+        /* round 1 */
+        __m128i round1;
+        {   __m128i const Vacc = _mm_add_epi64(xacc[i], dk);
+            __m128i const shifted = _mm_srli_epi64(Vacc, 32);
+            __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
+            __m128i const mul = _mm_mul_epu32 (xored, k1);
+            __m128i const muladd = _mm_add_epi64(xored, mul);
+            round1 = muladd;
+        }
+
+        /* round 2 */
+        {   __m128i const dk2 = _mm_shuffle_epi32(dk, _MM_SHUFFLE(1,0,3,2));
+            __m128i const Vacc = _mm_add_epi64(round1, dk2);
+            __m128i const shifted = _mm_srli_epi64(Vacc, 32);
+            __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
+            __m128i const mul = _mm_mul_epu32 (xored, k2);
+            __m128i const muladd = _mm_add_epi64(xored, mul);
+            xacc[i] = muladd;
+        }
+    }
+}
+
+
 #else  // SSE2
+
+// 128 bits mixer, lossy ingestion
 
 assert(((size_t)acc) & 15 == 0);
 {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;

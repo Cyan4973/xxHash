@@ -511,7 +511,7 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         }   }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)   /*  <============================================ Needs update !!!!!!!!!!! */
+#elif 0 && (XXH_VECTOR == XXH_NEON)   /*  <============================================ Disabled : Needs update !!!!!!!!!!! */
 
     assert(((size_t)acc) & 15 == 0);
     {       uint64x2_t* const xacc =     (uint64x2_t*) acc;

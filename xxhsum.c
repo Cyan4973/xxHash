@@ -677,8 +677,8 @@ static void BMK_sanityCheck(void)
 
     BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is the seed == 0 by default */
     BMK_testXXH3(NULL,           0, prime64, prime64);
-    BMK_testXXH3(sanityBuffer,   1, 0,       0xD00398B418222F66ULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   1, prime64, 0x5EF5C7337AA1168CULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   1, 0,       0x604EDEFFA64F64ADULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   1, prime64, 0xE43D0EA790A31CA0ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   6, 0,       0x68537B93CD65EAFCULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,   6, prime64, 0xA36B56604D3DBE82ULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,  12, 0,       0x2FE2FCCCA6588881ULL);  /*  9 - 16 */

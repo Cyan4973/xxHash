@@ -536,12 +536,12 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 #else   /* scalar variant of Scrambler - universal */
 
           U64* const xacc =       (U64*) acc;
-    const U32* const xkey = (const U32*) key;
+    const U64* const xkey = (const U64*) key;
 
     int i;
     assert(((size_t)acc) & 7 == 0);
     for (i=0; i < (int)ACC_NB; i++) {
-        U64 const key64 = XXH3_readKey64(xkey + 2*i);
+        U64 const key64 = XXH3_readKey64(xkey + i);
         U64 acc64 = xacc[i];
         acc64 ^= acc64 >> 47;
         acc64 ^= key64;
@@ -774,6 +774,79 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
     }
 }
 
+XXH_FORCE_INLINE void
+XXH3_accumulate128_512bits(void* acc, const void* restrict data, const void* restrict key)
+{
+    /* scalar variant of Accumulator - universal */
+          U64* const xacc  =       (U64*) acc;   /* presumed aligned */
+    const U64* const xdata = (const U64*) data;  /* not necessarily aligned */
+    const U64* const xkey  = (const U64*) key;   /* presumed aligned */
+
+    int i;
+    for (i=0; i < (int)ACC_NB; i+=2) {
+        int const left = i;
+        int const right= i + 1;
+        U64 const dataLeft  = XXH_readLE64(xdata + left);
+        U64 const dataRight = XXH_readLE64(xdata + right);
+        U64 const leftKeyed = dataLeft ^ xkey[left];
+        U64 const rightKeyed= dataRight^ xkey[right];
+
+        xacc[left]  += leftKeyed;
+        xacc[right] += rightKeyed;
+        xacc[left]  ^= (xacc[left] >> 43);
+        xacc[right] ^= (xacc[right]>> 43);
+        xacc[left]  *= PRIME32_1;
+        xacc[right] *= PRIME32_1;
+
+        xacc[left]  += rightKeyed;
+        xacc[right] += leftKeyed;
+        xacc[left]  ^= (xacc[left] >> 37);
+        xacc[right] ^= (xacc[right]>> 37);
+        xacc[left]  *= PRIME32_2;
+        xacc[right] *= PRIME32_2;
+    }
+}
+
+static void XXH3_accumulate128(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
+{
+    size_t n;
+    /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
+#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+#  pragma clang loop unroll(enable)
+#endif
+    for (n = 0; n < nbStripes; n++ ) {
+        XXH3_accumulate128_512bits(acc, (const BYTE*)data + n*STRIPE_LEN, key);
+        key += 2;
+    }
+}
+
+static void
+XXH3_hashLong128(U64* acc, const void* data, size_t len)
+{
+    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
+
+    size_t const block_len = STRIPE_LEN * NB_KEYS;
+    size_t const nb_blocks = len / block_len;
+
+    size_t n;
+    for (n = 0; n < nb_blocks; n++) {
+        XXH3_accumulate128(acc, (const BYTE*)data + n*block_len, kKey, NB_KEYS);
+        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+    }
+
+    /* last partial block */
+    assert(len > STRIPE_LEN);
+    {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
+        assert(nbStripes < NB_KEYS);
+        XXH3_accumulate128(acc, (const BYTE*)data + nb_blocks*block_len, kKey, nbStripes);
+
+        /* last stripe */
+        if (len & (STRIPE_LEN - 1)) {
+            const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
+            XXH3_accumulate128_512bits(acc, p, kKey + nbStripes*2);
+    }   }
+}
+
 
 XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
@@ -781,7 +854,7 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
     ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     assert(len > 128);
 
-    XXH3_hashLong(acc, data, len);
+    XXH3_hashLong128(acc, data, len);
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);

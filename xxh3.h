@@ -118,22 +118,14 @@
 typedef __vector unsigned long long U64x2;
 typedef __vector unsigned U32x4;
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
-XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
-    U64x2 result;
-#ifdef __LITTLE_ENDIAN__
-    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
-#else
-    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
-#endif
-    return result;
-}
 XXH_FORCE_INLINE U64x2 XXH_vsxMultOdd(U32x4 a, U32x4 b) {
     U64x2 result;
-#ifdef __LITTLE_ENDIAN__
+    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
+XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
+    U64x2 result;
     __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
-#else
-    __asm__("vmuloww %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
-#endif
     return result;
 }
 #endif
@@ -509,7 +501,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         U32x4 shuffled = (U32x4)vec_rl(data_key, v32);
         /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
-        U64x2 product = XXH_vsxMultEven((U32x4)data_key, shuffled);
+        U64x2 product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
 
         xacc[i] += product;
         xacc[i] += data_vec;
@@ -633,7 +625,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         /* key_vec = xkey[i]; */
 #ifdef __BIG_ENDIAN__
         /* swap 32-bit words */
-        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), c32);
+        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);
 #else
         U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
 #endif
@@ -642,9 +634,9 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         /* data_key *= PRIME32_1 */
 
         /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
-        U64x2 const prod_lo  = XXH_vsxMultEven((U32x4)data_key, prime);
+        U64x2 const prod_lo  = XXH_vsxMultOdd((U32x4)data_key, prime);
         /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */
-        U64x2 const prod_hi  = XXH_vsxMultOdd((U32x4)data_key, prime);
+        U64x2 const prod_hi  = XXH_vsxMultEven((U32x4)data_key, prime);
         xacc[i] = prod_lo + (prod_hi << v32);
     }
 #else   /* scalar variant of Scrambler - universal */

@@ -633,7 +633,7 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 }; // fixme: warning C4204: nonstandard extension used: non-constant aggregate initializer
     ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
 
     XXH3_initKeySeed(key, seed);
@@ -718,7 +718,7 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
         U64  const ll11 = XXH_mult32to64((unsigned int)(l1 + seed + key32[0]), (unsigned int)(l2 + key32[1]));
         U64  const ll12 = XXH_mult32to64((unsigned int)(l1 + key32[2]), (unsigned int)(l2 - seed + key32[3]));
-        XXH128_hash_t const h128 = { XXH3_avalanche(ll11), XXH3_avalanche(ll12) };
+        XXH128_hash_t const h128 = { XXH3_avalanche(ll11), XXH3_avalanche(ll12) }; // fixme: warning C4204: nonstandard extension used: non-constant aggregate initializer
         return h128;
     }
 }

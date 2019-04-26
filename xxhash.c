@@ -98,6 +98,29 @@ static void  XXH_free  (void* p)  { free(p); }
 /*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
+// there's a significant performance penalty in the stream version of XXH
+// when you use the traditional library memcpy in MSVC!!
+// we always copy a maximum of 32 bytes, which is pretty small number
+// and the overhead of the call to memcpy (which is not inlined)
+// and the decision whether it is worth using fast memcpy (SSE etc.)
+// is time-expensive for such small buffers
+
+/*
+XXH_FORCEINLINE void XXH_SmallMemCpy( void* pDest, const void* pSrc, const U32 u32Size )
+{
+	BYTE* const pu8Dest = (BYTE*)pDest;
+	const BYTE* const pu8Src = (const BYTE*)pSrc;
+
+	for ( uint32_t i = 0U; i < u32Size; i++ )
+	{
+		pu8Dest[ i ] = pu8Src[ i ];
+	}
+
+	return;
+}
+*/
+
+// the "dummy" inlined memcpy above gives better results for the small buffers
 
 #include <assert.h>   /* assert */
 
@@ -109,7 +132,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 *  Compiler Specific Options
 ***************************************/
 #ifdef _MSC_VER    /* Visual Studio */
-#  pragma warning(disable : 4127)      /* disable: C4127: conditional expression is constant */
+#  pragma warning(disable : 4127 5045)      /* disable: C4127: conditional expression is constant, C5045: Spectre mitigation warning */
 #  define XXH_FORCE_INLINE static __forceinline
 #  define XXH_NO_INLINE static __declspec(noinline)
 #else
@@ -328,6 +351,13 @@ static U32 XXH32_avalanche(U32 h32)
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
+// handle switch fallthrough
+#if defined( __GNUC__ )
+	#define FALL_INTENDED	__attribute__((fallthrough))
+#else
+	#define FALL_INTENDED
+#endif
+
 static U32
 XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 
@@ -343,48 +373,94 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
     p+=4;                                \
     h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
 
-    switch(len&15)  /* or switch(bEnd - p) */
-    {
-      case 12:      PROCESS4;
-                    /* fallthrough */
-      case 8:       PROCESS4;
-                    /* fallthrough */
-      case 4:       PROCESS4;
-                    return XXH32_avalanche(h32);
+	switch ( len & 15U )
+	{
+		case 12:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 8:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 4:
+		{
+			PROCESS4;
+			return XXH32_avalanche( h32 );
+		}
+		case 13:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 9:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 5:
+		{
+			PROCESS4;
+			PROCESS1;
+			return XXH32_avalanche( h32 );
+		}
+		case 14:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 10:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 6:
+		{
+			PROCESS4;
+			PROCESS1;
+			PROCESS1;
+			return XXH32_avalanche( h32 );
+		}
+		case 15:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 11:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 7:
+		{
+			PROCESS4;
+			FALL_INTENDED;
+		}
+		case 3:
+		{
+			PROCESS1;
+			FALL_INTENDED;
+		}
+		case 2:
+		{
+			PROCESS1;
+			FALL_INTENDED;
+		}
+		case 1:
+		{
+			PROCESS1;
+			FALL_INTENDED;
+		}
+		case 0:
+		default:
+		{
+			break;
+		}
+	}
 
-      case 13:      PROCESS4;
-                    /* fallthrough */
-      case 9:       PROCESS4;
-                    /* fallthrough */
-      case 5:       PROCESS4;
-                    PROCESS1;
-                    return XXH32_avalanche(h32);
-
-      case 14:      PROCESS4;
-                    /* fallthrough */
-      case 10:      PROCESS4;
-                    /* fallthrough */
-      case 6:       PROCESS4;
-                    PROCESS1;
-                    PROCESS1;
-                    return XXH32_avalanche(h32);
-
-      case 15:      PROCESS4;
-                    /* fallthrough */
-      case 11:      PROCESS4;
-                    /* fallthrough */
-      case 7:       PROCESS4;
-                    /* fallthrough */
-      case 3:       PROCESS1;
-                    /* fallthrough */
-      case 2:       PROCESS1;
-                    /* fallthrough */
-      case 1:       PROCESS1;
-                    /* fallthrough */
-      case 0:       return XXH32_avalanche(h32);
-    }
-    assert(0);
-    return h32;   /* reaching this point is deemed impossible */
+	return XXH32_avalanche( h32 );
 }
 
 XXH_FORCE_INLINE U32
@@ -423,7 +499,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
 
     h32 += (U32)len;
 
-    return XXH32_finalize(h32, p, len&15, align);
+    return XXH32_finalize(h32, p, len, align);
 }
 
 
@@ -635,6 +711,36 @@ static U64 XXH_read64(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap64 _byteswap_uint64
+#if defined(_M_IX86)
+typedef union _XXH_ULARGE_INTEGER
+{
+	U64	Quad;
+	struct
+	{
+		U32	Lo;	// 32bit Win is always LE
+		U32	Hi;
+	} s;
+} XXH_ULARGE_INTEGER;
+
+// 64bit multiplication emits __aullmul on Win32, which is slow as hell
+// let's replace it with an inline multiplication based on intrinsic
+// we can gain nearly 80% on performance of XXH64 compiled for 32bit
+XXH_FORCE_INLINE U64 XXH_Mul64x64to64( const U64 u64A, const U64 u64B )
+{
+	XXH_ULARGE_INTEGER a;
+	a.Quad = u64A;
+	XXH_ULARGE_INTEGER b;
+	b.Quad = u64B;
+
+	XXH_ULARGE_INTEGER c;
+	c.Quad = __emulu( a.s.Lo, b.s.Lo );
+
+	c.s.Hi += (U32)(a.s.Hi * b.s.Lo);
+	c.s.Hi += (U32)(a.s.Lo * b.s.Hi);
+
+	return c.Quad;
+}
+#endif
 #elif XXH_GCC_VERSION >= 403
 #  define XXH_swap64 __builtin_bswap64
 #else
@@ -649,6 +755,10 @@ static U64 XXH_swap64 (U64 x)
             ((x >> 40) & 0x000000000000ff00ULL) |
             ((x >> 56) & 0x00000000000000ffULL);
 }
+#endif
+
+#if !defined( XXH_Mul64x64to64 )
+#define XXH_Mul64x64to64( a, b )	((U64)(a) * (U64)(b))
 #endif
 
 XXH_FORCE_INLINE U64 XXH_readLE64(const void* ptr)
@@ -681,9 +791,9 @@ static const U64 PRIME64_5 =  2870177450012600261ULL;   /* 0b0010011111010100111
 
 static U64 XXH64_round(U64 acc, U64 input)
 {
-    acc += input * PRIME64_2;
-    acc  = XXH_rotl64(acc, 31);
-    acc *= PRIME64_1;
+	acc += XXH_Mul64x64to64( input, PRIME64_2 );
+	acc = XXH_rotl64( acc, 31 );
+	acc = XXH_Mul64x64to64( acc, PRIME64_1 );
     return acc;
 }
 
@@ -691,16 +801,16 @@ static U64 XXH64_mergeRound(U64 acc, U64 val)
 {
     val  = XXH64_round(0, val);
     acc ^= val;
-    acc  = acc * PRIME64_1 + PRIME64_4;
+    acc  = XXH_Mul64x64to64( acc, PRIME64_1 ) + PRIME64_4;
     return acc;
 }
 
 static U64 XXH64_avalanche(U64 h64)
 {
     h64 ^= h64 >> 33;
-    h64 *= PRIME64_2;
+    h64 = XXH_Mul64x64to64( h64, PRIME64_2 );
     h64 ^= h64 >> 29;
-    h64 *= PRIME64_3;
+    h64 = XXH_Mul64x64to64( h64, PRIME64_3 );
     h64 ^= h64 >> 32;
     return h64;
 }
@@ -713,107 +823,195 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 {
     const BYTE* p = (const BYTE*)ptr;
 
-#define PROCESS1_64            \
-    h64 ^= (*p++) * PRIME64_5; \
-    h64 = XXH_rotl64(h64, 11) * PRIME64_1;
+#define PROCESS1_64 \
+	h64 ^= XXH_Mul64x64to64( (U64)(*p++), PRIME64_5 ); \
+	h64 = XXH_Mul64x64to64( XXH_rotl64( h64, 11 ), PRIME64_1 );
 
-#define PROCESS4_64          \
-    h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1; \
-    p+=4;                    \
-    h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
+#define PROCESS4_64 \
+	h64 ^= XXH_Mul64x64to64( (U64)XXH_get32bits(p), PRIME64_1 ); \
+	p += 4; \
+	h64 = XXH_Mul64x64to64( XXH_rotl64( h64, 23 ), PRIME64_2 ) + PRIME64_3;
 
-#define PROCESS8_64 {        \
-    U64 const k1 = XXH64_round(0, XXH_get64bits(p)); \
-    p+=8;                    \
-    h64 ^= k1;               \
-    h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4; \
-}
+#define PROCESS8_64 \
+	U64 const k1 = XXH64_round( 0, XXH_get64bits(p) ); \
+	p += 8; \
+	h64 ^= k1; \
+	h64 = XXH_Mul64x64to64( XXH_rotl64( h64, 27 ), PRIME64_1 ) + PRIME64_4;
 
-    switch(len&31) {
-      case 24: PROCESS8_64;
-                    /* fallthrough */
-      case 16: PROCESS8_64;
-                    /* fallthrough */
-      case  8: PROCESS8_64;
-               return XXH64_avalanche(h64);
+	switch ( len & 31U )
+	{
+		case 24:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 16:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 8:
+		{
+			PROCESS8_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 28:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 20:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 12:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 4:
+		{
+			PROCESS4_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 25:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 17:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 9:
+		{
+			PROCESS8_64;
+			PROCESS1_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 29:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 21:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 13:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 5:
+		{
+			PROCESS4_64;
+			PROCESS1_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 26:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 18:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 10:
+		{
+			PROCESS8_64;
+			PROCESS1_64;
+			PROCESS1_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 30:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 22:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 14:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 6:
+		{
+			PROCESS4_64;
+			PROCESS1_64;
+			PROCESS1_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 27:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 19:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 11:
+		{
+			PROCESS8_64;
+			PROCESS1_64;
+			PROCESS1_64;
+			PROCESS1_64;
+			return XXH64_avalanche( h64 );
+		}
+		case 31:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 23:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 15:
+		{
+			PROCESS8_64;
+			FALL_INTENDED;
+		}
+		case 7:
+		{
+			PROCESS4_64;
+			FALL_INTENDED;
+		}
+		case 3:
+		{
+			PROCESS1_64;
+			FALL_INTENDED;
+		}
+		case 2:
+		{
+			PROCESS1_64;
+			FALL_INTENDED;
+		}
+		case 1:
+		{
+			PROCESS1_64;
+			FALL_INTENDED;
+		}
+		case 0:
+		default:
+		{
+			break;
+		}
+	}
 
-      case 28: PROCESS8_64;
-                    /* fallthrough */
-      case 20: PROCESS8_64;
-                    /* fallthrough */
-      case 12: PROCESS8_64;
-                    /* fallthrough */
-      case  4: PROCESS4_64;
-               return XXH64_avalanche(h64);
-
-      case 25: PROCESS8_64;
-                    /* fallthrough */
-      case 17: PROCESS8_64;
-                    /* fallthrough */
-      case  9: PROCESS8_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
-
-      case 29: PROCESS8_64;
-                    /* fallthrough */
-      case 21: PROCESS8_64;
-                    /* fallthrough */
-      case 13: PROCESS8_64;
-                    /* fallthrough */
-      case  5: PROCESS4_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
-
-      case 26: PROCESS8_64;
-                    /* fallthrough */
-      case 18: PROCESS8_64;
-                    /* fallthrough */
-      case 10: PROCESS8_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
-
-      case 30: PROCESS8_64;
-                    /* fallthrough */
-      case 22: PROCESS8_64;
-                    /* fallthrough */
-      case 14: PROCESS8_64;
-                    /* fallthrough */
-      case  6: PROCESS4_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
-
-      case 27: PROCESS8_64;
-                    /* fallthrough */
-      case 19: PROCESS8_64;
-                    /* fallthrough */
-      case 11: PROCESS8_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
-
-      case 31: PROCESS8_64;
-                    /* fallthrough */
-      case 23: PROCESS8_64;
-                    /* fallthrough */
-      case 15: PROCESS8_64;
-                    /* fallthrough */
-      case  7: PROCESS4_64;
-                    /* fallthrough */
-      case  3: PROCESS1_64;
-                    /* fallthrough */
-      case  2: PROCESS1_64;
-                    /* fallthrough */
-      case  1: PROCESS1_64;
-                    /* fallthrough */
-      case  0: return XXH64_avalanche(h64);
-    }
-
-    /* impossible to reach */
-    assert(0);
-    return 0;  /* unreachable, but some compilers complain without it */
+	return XXH64_avalanche( h64 );
 }
 
 XXH_FORCE_INLINE U64
@@ -993,7 +1191,7 @@ XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state)
 
     h64 += (U64) state->total_len;
 
-    return XXH64_finalize(h64, state->mem64, (size_t)state->total_len, XXH_aligned);
+    return XXH64_finalize(h64, state->mem64, (size_t)state->memsize, XXH_aligned);
 }
 
 

@@ -224,7 +224,11 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH "arm"
 #  endif
 #elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
-#  define ARCH "ppc64"
+#  if defined(__GNUC__) && defined(__VSX__)
+#    define ARCH "ppc64 + VSX"
+#  else
+#    define ARCH "ppc64"
+#  endif
 #elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 #  define ARCH "ppc"
 #elif defined(__AVR)

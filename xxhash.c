@@ -98,14 +98,14 @@ static void  XXH_free  (void* p)  { free(p); }
 /*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
-// there's a significant performance penalty in the stream version of XXH
-// when you use the traditional library memcpy in MSVC!!
-// we always copy a maximum of 32 bytes, which is pretty small number
-// and the overhead of the call to memcpy (which is not inlined)
-// and the decision whether it is worth using fast memcpy (SSE etc.)
-// is time-expensive for such small buffers
+/* there's a significant performance penalty in the stream version of XXH
+ when you use the traditional library memcpy in MSVC!!
+ we always copy a maximum of 32 bytes, which is pretty small number
+ and the overhead of the call to memcpy (which is not inlined)
+ and the decision whether it is worth using fast memcpy (SSE etc.)
+ is time-expensive for such small buffers
 
-/*
+
 XXH_FORCEINLINE void XXH_SmallMemCpy( void* pDest, const void* pSrc, const U32 u32Size )
 {
 	BYTE* const pu8Dest = (BYTE*)pDest;
@@ -118,9 +118,9 @@ XXH_FORCEINLINE void XXH_SmallMemCpy( void* pDest, const void* pSrc, const U32 u
 
 	return;
 }
-*/
 
-// the "dummy" inlined memcpy above gives better results for the small buffers
+
+the "dummy" inlined memcpy above gives better results for the small buffers */
 
 #include <assert.h>   /* assert */
 

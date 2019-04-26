@@ -351,7 +351,7 @@ static U32 XXH32_avalanche(U32 h32)
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
-// handle switch fallthrough
+/* handle switch fallthrough */
 #if defined( __GNUC__ )
 	#define FALL_INTENDED	__attribute__((fallthrough))
 #else
@@ -717,14 +717,14 @@ typedef union _XXH_ULARGE_INTEGER
 	U64	Quad;
 	struct
 	{
-		U32	Lo;	// 32bit Win is always LE
+		U32	Lo;	/* 32bit Win is always LE */
 		U32	Hi;
 	} s;
 } XXH_ULARGE_INTEGER;
 
-// 64bit multiplication emits __aullmul on Win32, which is slow as hell
-// let's replace it with an inline multiplication based on intrinsic
-// we can gain nearly 80% on performance of XXH64 compiled for 32bit
+/* 64bit multiplication emits __aullmul on Win32, which is slow as hell
+ let's replace it with an inline multiplication based on intrinsic
+ we can gain nearly 80% on performance of XXH64 compiled for 32bit */
 XXH_FORCE_INLINE U64 XXH_Mul64x64to64( const U64 u64A, const U64 u64B )
 {
 	XXH_ULARGE_INTEGER a;

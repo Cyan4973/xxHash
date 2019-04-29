@@ -83,6 +83,7 @@
 #define XXH_SSE2   1
 #define XXH_AVX2   2
 #define XXH_NEON   3
+#define XXH_VSX    4
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX2__)
@@ -94,6 +95,8 @@
   && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
   && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
+#  elif defined(__PPC64__) && defined(__VSX__) && defined(__GNUC__)
+#    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
 #  endif
@@ -106,6 +109,25 @@
 #   define XXH_mult32to64 __emulu
 #else
 #   define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
+#endif
+
+/* VSX stuff */
+#if XXH_VECTOR == XXH_VSX
+#  include <altivec.h>
+#  undef vector
+typedef __vector unsigned long long U64x2;
+typedef __vector unsigned U32x4;
+/* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
+XXH_FORCE_INLINE U64x2 XXH_vsxMultOdd(U32x4 a, U32x4 b) {
+    U64x2 result;
+    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
+XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
+    U64x2 result;
+    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
 #endif
 
 
@@ -455,6 +477,35 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 #endif
         }
     }
+
+#elif XXH_VECTOR == XXH_VSX
+          U64x2* const xacc =        (U64x2*) acc;
+    U64x2 const* const xdata = (U64x2 const*) data;
+    U64x2 const* const xkey  = (U64x2 const*) key;
+    U64x2 const v32 = { 32,  32 };
+
+    size_t i;
+    for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
+        /* data_vec = xdata[i]; */
+        /* key_vec = xkey[i]; */
+#ifdef __BIG_ENDIAN__
+        /* byteswap */
+        U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
+        /* swap 32-bit words */
+        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+#else
+        U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
+        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
+#endif
+        U64x2 data_key = data_vec ^ key_vec;
+        /* shuffled = (data_key << 32) | (data_key >> 32); */
+        U32x4 shuffled = (U32x4)vec_rl(data_key, v32);
+        /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
+        U64x2 product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
+
+        xacc[i] += product;
+        xacc[i] += data_vec;
+    }
 #else   /* scalar variant of Accumulator - universal */
     ALIGN(16) U64* const xacc  =       (U64*) acc;   /* presumed aligned */
     const U32* const xdata = (const U32*) data;
@@ -557,6 +608,36 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
             xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
         }
+    }
+
+#elif (XXH_VECTOR == XXH_VSX)
+          U64x2* const xacc =       (U64x2*) acc;
+    const U64x2* const xkey = (const U64x2*) key;
+    /* constants */
+    U64x2 const v32  = { 32, 32 };
+    U64x2 const v47 = { 47, 47 };
+    U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
+    size_t i;
+
+    for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
+        U64x2 const acc_vec  = xacc[i];
+        U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
+        /* key_vec = xkey[i]; */
+#ifdef __BIG_ENDIAN__
+        /* swap 32-bit words */
+        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+#else
+        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
+#endif
+        U64x2 const data_key = data_vec ^ key_vec;
+
+        /* data_key *= PRIME32_1 */
+
+        /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
+        U64x2 const prod_lo  = XXH_vsxMultOdd((U32x4)data_key, prime);
+        /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */
+        U64x2 const prod_hi  = XXH_vsxMultEven((U32x4)data_key, prime);
+        xacc[i] = prod_lo + (prod_hi << v32);
     }
 #else   /* scalar variant of Scrambler - universal */
 

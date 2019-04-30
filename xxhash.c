@@ -351,13 +351,6 @@ static U32 XXH32_avalanche(U32 h32)
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
-/* handle switch fallthrough */
-#if defined( __GNUC__ )
-	#define FALL_INTENDED	__attribute__((fallthrough))
-#else
-	#define FALL_INTENDED
-#endif
-
 static U32
 XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 
@@ -378,12 +371,12 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 		case 12:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 8:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 4:
 		{
@@ -393,12 +386,12 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 		case 13:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 9:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 5:
 		{
@@ -409,12 +402,12 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 		case 14:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 10:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 6:
 		{
@@ -426,32 +419,32 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 		case 15:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 11:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 7:
 		{
 			PROCESS4;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 3:
 		{
 			PROCESS1;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 2:
 		{
 			PROCESS1;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 1:
 		{
 			PROCESS1;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 0:
 		default:
@@ -711,36 +704,38 @@ static U64 XXH_read64(const void* memPtr)
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap64 _byteswap_uint64
-#if defined(_M_IX86)
-typedef union _XXH_ULARGE_INTEGER
-{
-	U64	Quad;
-	struct
-	{
-		U32	Lo;	/* 32bit Win is always LE */
-		U32	Hi;
-	} s;
-} XXH_ULARGE_INTEGER;
 
-/* 64bit multiplication emits __aullmul on Win32, which is slow as hell
- let's replace it with an inline multiplication based on intrinsic
- we can gain nearly 80% on performance of XXH64 compiled for 32bit */
-XXH_FORCE_INLINE U64 XXH_Mul64x64to64( const U64 u64A, const U64 u64B )
-{
-	XXH_ULARGE_INTEGER a;
-	a.Quad = u64A;
-	XXH_ULARGE_INTEGER b;
-	b.Quad = u64B;
+  #if defined(_M_IX86)
+  typedef union _XXH_ULARGE_INTEGER
+  {
+  	U64	Quad;
+  	struct
+  	{
+		  U32	Lo;	/* 32bit Win is always LE */
+		  U32	Hi;
+	  } s;
+  } XXH_ULARGE_INTEGER;
 
-	XXH_ULARGE_INTEGER c;
-	c.Quad = __emulu( a.s.Lo, b.s.Lo );
+  /* 64bit multiplication emits __aullmul on Win32, which is slow as hell
+   let's replace it with an inline multiplication based on intrinsic
+   we can gain nearly 80% on performance of XXH64 compiled for 32bit */
+  XXH_FORCE_INLINE U64 XXH_Mul64x64to64( const U64 u64A, const U64 u64B )
+  {
+  	XXH_ULARGE_INTEGER a;
+  	a.Quad = u64A;
+  	XXH_ULARGE_INTEGER b;
+  	b.Quad = u64B;
 
-	c.s.Hi += (U32)(a.s.Hi * b.s.Lo);
-	c.s.Hi += (U32)(a.s.Lo * b.s.Hi);
+  	XXH_ULARGE_INTEGER c;
+  	c.Quad = __emulu( a.s.Lo, b.s.Lo );
 
-	return c.Quad;
-}
-#endif
+  	c.s.Hi += (U32)(a.s.Hi * b.s.Lo);
+  	c.s.Hi += (U32)(a.s.Lo * b.s.Hi);
+
+  	return c.Quad;
+ }
+ #endif
+
 #elif XXH_GCC_VERSION >= 403
 #  define XXH_swap64 __builtin_bswap64
 #else
@@ -758,7 +753,7 @@ static U64 XXH_swap64 (U64 x)
 #endif
 
 #if !defined( XXH_Mul64x64to64 )
-#define XXH_Mul64x64to64( a, b )	((U64)(a) * (U64)(b))
+# define XXH_Mul64x64to64( a, b )	((U64)(a) * (U64)(b))
 #endif
 
 XXH_FORCE_INLINE U64 XXH_readLE64(const void* ptr)
@@ -843,12 +838,12 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 24:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 16:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 8:
 		{
@@ -858,17 +853,17 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 28:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 20:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 12:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 4:
 		{
@@ -878,12 +873,12 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 25:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 17:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 9:
 		{
@@ -894,17 +889,17 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 29:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 21:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 13:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 5:
 		{
@@ -915,12 +910,12 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 26:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 18:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 10:
 		{
@@ -932,17 +927,17 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 30:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 22:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 14:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 6:
 		{
@@ -954,12 +949,12 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 27:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 19:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 11:
 		{
@@ -972,37 +967,37 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 		case 31:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 23:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 15:
 		{
 			PROCESS8_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 7:
 		{
 			PROCESS4_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 3:
 		{
 			PROCESS1_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 2:
 		{
 			PROCESS1_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 1:
 		{
 			PROCESS1_64;
-			FALL_INTENDED;
+			/* fallthrough */
 		}
 		case 0:
 		default:

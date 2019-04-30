@@ -284,6 +284,8 @@ static XXH64_hash_t XXH3_avalanche(U64 h64)
 /* ==========================================
  * Short keys
  * ========================================== */
+//#undef  XXH_FORCE_INLINE  // disable for debug (print target line nb)
+//#define XXH_FORCE_INLINE
 
  XXH_FORCE_INLINE U64
  XXH3_readKey64(const void* ptr)
@@ -552,7 +554,9 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
 #endif
 }
 
-static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
+static void XXH3_accumulate(U64* restrict acc,
+                      const void* restrict data, size_t nbStripes,
+                      const U32* restrict key)
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
@@ -560,30 +564,32 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
 #  pragma clang loop unroll(enable)
 #endif
     for (n = 0; n < nbStripes; n++ ) {
-        XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
-        key += 2;
+        XXH3_accumulate_512(acc,
+               (const BYTE*)data + n*STRIPE_LEN,
+                            key + n*2);
     }
 }
 
 static void
-XXH3_hashLong(U64* acc, const void* data, size_t len)
+XXH3_hashLong(U64*  restrict acc,
+        const void* restrict data, size_t len)
 {
-    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
+    #define NB_STRIPES_PER_ROUND ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
-    size_t const block_len = STRIPE_LEN * NB_KEYS;
+    size_t const block_len = STRIPE_LEN * NB_STRIPES_PER_ROUND;
     size_t const nb_blocks = len / block_len;
 
     size_t n;
     for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, kKey, NB_KEYS);
+        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, NB_STRIPES_PER_ROUND, kKey);
         XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
     /* last partial block */
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
-        assert(nbStripes < NB_KEYS);
-        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, kKey, nbStripes);
+        assert(nbStripes < NB_STRIPES_PER_ROUND);
+        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, nbStripes, kKey);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
@@ -593,7 +599,7 @@ XXH3_hashLong(U64* acc, const void* data, size_t len)
 }
 
 
-XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
+XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* restrict acc, const void* restrict key)
 {
     const U64* const key64 = (const U64*)key;
     return XXH3_mul128_fold64(
@@ -601,7 +607,7 @@ XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
                acc[1] ^ XXH3_readKey64(key64+1) );
 }
 
-static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const U32* key, U64 start)
+static XXH64_hash_t XXH3_mergeAccs(const U64* restrict acc, const U32* restrict key, U64 start)
 {
     U64 result64 = start;
 
@@ -625,6 +631,16 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
         key[i+1] = kKey[i+1] - seed2;
         key[i+2] = kKey[i+2] + seed2;
         key[i+3] = kKey[i+3] - seed1;
+    }
+}
+
+XXH_FORCE_INLINE void XXH3_initMultipliers(U32* multipliers, size_t nbMult)
+{
+    size_t s;
+    U32 m = PRIME32_1;
+    for (s=0; s<nbMult; s++){
+        multipliers[s] = m-1;
+        m *= PRIME32_2;
     }
 }
 
@@ -775,186 +791,98 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 XXH_FORCE_INLINE void
-XXH3_accumulate128_512bits(void* acc, const void* restrict data, const void* restrict key)
+XXH3_accumulate128_512bits(void* restrict acc,
+                     const void* restrict data,
+                     const void* restrict key,
+                     U32 mul1, U32 mul2)
 {
-#if 1 // (XXH_VECTOR == XXH_SSE2)
+    (void)mul1; (void)mul2;
 
-#if 0
-    // 128 bits mixer, lossless: shift - xor - mul , but slow
+#if (XXH_VECTOR == XXH_AVX2)
 
-    assert(((size_t)acc) & 15 == 0);
-    {   ALIGN(16) __m128i* const xacc = (__m128i*) acc;
-        const     __m128i* const xdata = (const __m128i *) data;
-        const     __m128i* const xkey  = (const __m128i *) key;
+    // merge, then mix, then interleave
 
-        const __m128i k1 = _mm_set1_epi32((int)PRIME32_1);
-        const __m128i k2 = _mm_set1_epi32((int)PRIME32_2);
+    assert(((size_t)acc) & 31 == 0);
+    assert(mul1 & 1 == 0);
+    assert(mul2 & 1 == 0);
+    {   ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
+        const     __m256i* const xdata = (const __m256i *) data;
+        const     __m256i* const xkey  = (const __m256i *) key;
+
+        const     __m256i k1 = _mm256_set1_epi32((int)(mul1));
+        const     __m256i k2 = _mm256_set1_epi32((int)(mul2));
 
         size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-            __m128i const d  = _mm_loadu_si128 (xdata+i);
-            __m128i const k  = _mm_loadu_si128 (xkey+i);
-            __m128i const dk = _mm_xor_si128 (d,k);   /* uint32 dk[4] = {d0+k0, d1+k1, d2+k2, d3+k3} */
+        for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
+            // ingest and merge
+            __m256i const d   = _mm256_loadu_si256 (xdata+i);
+            __m256i const k   = _mm256_loadu_si256 (xkey+i);
+            __m256i const dk  = _mm256_xor_si256 (d, k);
+            __m256i      Vacc = _mm256_add_epi64(xacc[i], dk);
 
-            __m128i Vacc = xacc[i];
-
-            Vacc = _mm_add_epi64(Vacc, dk);
-            Vacc = _mm_xor_si128(Vacc, _mm_srli_epi64(Vacc, 43));  /* Vacc ^= (Vacc >> 43); */
-
-            {   __m128i const lok1 = _mm_mul_epu32 (Vacc, k1);
-                __m128i const hi   = _mm_shuffle_epi32 (Vacc, 0x31);
-                __m128i const hik1 = _mm_mul_epu32 (hi, k1);
-                __m128i const hi64 = _mm_slli_epi64(hik1, 32);
-                Vacc = _mm_add_epi64(lok1, hi64);
+            // mix 1
+            {   __m256i const shifted= _mm256_srli_epi64(Vacc, 32);
+                __m256i const xored  = _mm256_xor_si256 (Vacc, shifted);
+                __m256i const mul    = _mm256_mul_epu32 (xored, k1);
+                Vacc = _mm256_add_epi64(xored, mul);
             }
 
-            Vacc = _mm_add_epi64(Vacc, _mm_shuffle_epi32(dk, _MM_SHUFFLE(1,0,3,2)) );
-            Vacc = _mm_xor_si128(Vacc, _mm_srli_epi64(Vacc, 37));  /* Vacc ^= (Vacc >> 37); */
-
-            {   __m128i const lok2 = _mm_mul_epu32 (Vacc, k2);
-                __m128i const hi   = _mm_shuffle_epi32 (Vacc, 0x31);
-                __m128i const hik2 = _mm_mul_epu32 (hi, k2);
-                __m128i const hi64 = _mm_slli_epi64(hik2, 32);
-                Vacc = _mm_add_epi64(lok2, hi64);
+            // shuffle, merge, and mix 2 // ~22.2 GB/s
+            {   __m256i const shuffle= _mm256_shuffle_epi32(dk, _MM_SHUFFLE(0,1,2,3));
+                __m256i const xored  = _mm256_xor_si256 (Vacc, shuffle);
+                __m256i const mul    = _mm256_mul_epu32 (shuffle, k2);
+                Vacc = _mm256_add_epi64(xored, mul);
             }
 
             xacc[i] = Vacc;
         }
     }
 
-#elif 0 // SSE2
+#elif (XXH_VECTOR == XXH_SSE2)
 
-// note : actually a 64-bits mixer
-// merged, then mix
+    // merge, then mix, then interleave
 
-assert(((size_t)acc) & 15 == 0);
-{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-    const     __m128i* const xdata = (const __m128i *) data;
-    const     __m128i* const xkey  = (const __m128i *) key;
+    assert(((size_t)acc) & 15 == 0);
+    {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+        const     __m128i* const xdata = (const __m128i *) data;
+        const     __m128i* const xkey  = (const __m128i *) key;
 
-    const     __m128i k1 = _mm_set1_epi32((int)(PRIME32_1-1));
+        const     __m128i k1 = _mm_set1_epi32((int)(mul1));
+        const     __m128i k2 = _mm_set1_epi32((int)(mul2));
 
-    size_t i;
-    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-        __m128i const d   = _mm_loadu_si128 (xdata+i);
-        __m128i const k   = _mm_loadu_si128 (xkey+i);
-        __m128i const dk  = _mm_xor_si128 (d,k);
+        size_t i;
+        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+            // ingest and merge
+            __m128i const d   = _mm_loadu_si128 (xdata+i);
+            __m128i const k   = _mm_loadu_si128 (xkey+i);
+            __m128i const dk  = _mm_xor_si128 (d, k);
+            __m128i      Vacc = _mm_add_epi64(xacc[i], dk);
 
-        __m128i const Vacc = _mm_add_epi64(xacc[i], dk);
+            // mix 1
+            {   __m128i const shifted= _mm_srli_epi64(Vacc, 32);
+                __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
+                __m128i const mul    = _mm_mul_epu32 (xored, k1);
+                Vacc = _mm_add_epi64(xored, mul);
+            }
 
-        __m128i const shifted = _mm_srli_epi64(Vacc, 32);
-        __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
+            // shuffle, merge and mix 2
+            {   __m128i const shuffle= _mm_shuffle_epi32(dk, _MM_SHUFFLE(0,1,2,3));
+                __m128i const xored  = _mm_xor_si128 (Vacc, shuffle);
+                __m128i const mul    = _mm_mul_epu32 (shuffle, k2);
+                Vacc = _mm_add_epi64(xored, mul);
+            }
 
-        __m128i const mul = _mm_mul_epu32 (xored, k1);
-        __m128i const muladd = _mm_add_epi64(xored, mul);
-
-        xacc[i]  = muladd;
-    }
-}
-
-
-#elif 1 // SSE2
-
-// merge, then mix, then interleave
-
-assert(((size_t)acc) & 15 == 0);
-{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-    const     __m128i* const xdata = (const __m128i *) data;
-    const     __m128i* const xkey  = (const __m128i *) key;
-
-    const     __m128i k1 = _mm_set1_epi32((int)(PRIME32_1-1));
-
-    size_t i;
-    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-        __m128i const d   = _mm_loadu_si128 (xdata+i);
-        __m128i const k   = _mm_loadu_si128 (xkey+i);
-        __m128i const dk  = _mm_xor_si128 (d,k);
-
-        __m128i const Vacc = _mm_add_epi64(xacc[i], dk);
-
-        __m128i const shifted = _mm_srli_epi64(Vacc, 32);
-        __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
-
-        __m128i const mul = _mm_mul_epu32 (xored, k1);
-        __m128i const muladd = _mm_add_epi64(xored, mul);
-
-        xacc[i]  = _mm_shuffle_epi32(muladd, _MM_SHUFFLE(0,3,2,1));;
-    }
-}
-
-#elif 1 // SSE2
-
-// merged, then mix, 2 rounds for 128 bits
-
-assert(((size_t)acc) & 15 == 0);
-{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-    const     __m128i* const xdata = (const __m128i *) data;
-    const     __m128i* const xkey  = (const __m128i *) key;
-
-    const     __m128i k1 = _mm_set1_epi32((int)(PRIME32_1-1));
-    const     __m128i k2 = _mm_set1_epi32((int)(PRIME32_2-1));
-
-    size_t i;
-    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-        __m128i const d   = _mm_loadu_si128 (xdata+i);
-        __m128i const k   = _mm_loadu_si128 (xkey+i);
-        __m128i const dk  = _mm_xor_si128 (d,k);
-
-        /* round 1 */
-        __m128i round1;
-        {   __m128i const Vacc = _mm_add_epi64(xacc[i], dk);
-            __m128i const shifted = _mm_srli_epi64(Vacc, 32);
-            __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
-            __m128i const mul = _mm_mul_epu32 (xored, k1);
-            __m128i const muladd = _mm_add_epi64(xored, mul);
-            round1 = muladd;
-        }
-
-        /* round 2 */
-        {   __m128i const dk2 = _mm_shuffle_epi32(dk, _MM_SHUFFLE(1,0,3,2));
-            __m128i const Vacc = _mm_add_epi64(round1, dk2);
-            __m128i const shifted = _mm_srli_epi64(Vacc, 32);
-            __m128i const xored  = _mm_xor_si128 (Vacc, shifted);
-            __m128i const mul = _mm_mul_epu32 (xored, k2);
-            __m128i const muladd = _mm_add_epi64(xored, mul);
-            xacc[i] = muladd;
+            xacc[i] = Vacc;
         }
     }
-}
-
-
-#else  // SSE2
-
-// 128 bits mixer, lossy ingestion
-
-assert(((size_t)acc) & 15 == 0);
-{   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-    const     __m128i* const xdata = (const __m128i *) data;
-    const     __m128i* const xkey  = (const __m128i *) key;
-
-    size_t i;
-    for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-        __m128i const d   = _mm_loadu_si128 (xdata+i);
-        __m128i const k   = _mm_loadu_si128 (xkey+i);
-        __m128i const dk  = _mm_xor_si128 (d,k);                                /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
-        __m128i const mul = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));   /* uint64 mul[2] = {dk0*dk1, dk2*dk3} */
-        __m128i const add = _mm_add_epi64(d, xacc[i]);
-        __m128i const h1  = _mm_srli_epi64(mul, 32);
-        __m128i const h3  = _mm_shuffle_epi32(mul, _MM_SHUFFLE(0,1,0,3));
-        __m128i const r64 = _mm_add_epi64(mul, add);
-        __m128i const mask= _mm_mul_epu32(h1, h3);
-        xacc[i]  = _mm_xor_si128(r64, mask);
-    }
-}
-
-#endif
 
 #else
 
     /* scalar variant of Accumulator - universal */
-          U64* const xacc  =       (U64*) acc; /* presumed aligned */
-    const U64* const xdata = (const U64*) data;   /* not necessarily aligned */
-    const U64* const xkey  = (const U64*) key;    /* presumed aligned */
+    /* merge, then mix, then interleave */
+          U64* const xacc  =       (U64*) acc;  /* presumed aligned */
+    const U64* const xdata = (const U64*) data; /* not necessarily aligned */
+    const U64* const xkey  = (const U64*) key;  /* presumed aligned */
 
     int i;
     for (i=0; i < (int)ACC_NB; i+=2) {
@@ -965,25 +893,37 @@ assert(((size_t)acc) & 15 == 0);
         U64 const leftKeyed = dataLeft ^ xkey[left];
         U64 const rightKeyed= dataRight^ xkey[right];
 
-        xacc[left]  += leftKeyed;
-        xacc[right] += rightKeyed;
-        xacc[left]  ^= (xacc[left] >> 43);
-        xacc[right] ^= (xacc[right]>> 43);
-        xacc[left]  *= PRIME32_1;
-        xacc[right] *= PRIME32_1;
+        /* merge */
+        U64 accLeft  = xacc[left] + leftKeyed;
+        U64 accRight = xacc[right]+ rightKeyed;
 
-        xacc[left]  += rightKeyed;
-        xacc[right] += leftKeyed;
-        xacc[left]  ^= (xacc[left] >> 37);
-        xacc[right] ^= (xacc[right]>> 37);
-        xacc[left]  *= PRIME32_2;
-        xacc[right] *= PRIME32_2;
+        /* mix1 */
+        accLeft  ^= (accLeft >> 32);
+        accRight ^= (accRight >> 32);
+        accLeft  += (U64)(mul1) * (U32)accLeft;
+        accRight += (U64)(mul1) * (U32)accRight;
+
+        /* interleave */
+        /* note : this operation seems to disable/confuse clang's auto-vectorizer */
+        {   U64 const shuffleLeft = (rightKeyed >> 32) + (rightKeyed << 32);
+            U64 const shuffleRight = (leftKeyed >> 32) + (leftKeyed << 32);
+            accLeft  ^= shuffleLeft;
+            accRight ^= shuffleRight;
+            accLeft  += (U64)(mul2) * (U32)shuffleLeft;
+            accRight += (U64)(mul2) * (U32)shuffleRight;
+        }
+
+        xacc[left] = accLeft;
+        xacc[right]= accRight;
     }
 
 #endif  /* vect arch */
 }
 
-static void XXH3_accumulate128(U64* acc, const void* restrict data, const U32* restrict key, size_t nbStripes)
+static void XXH3_accumulate128(U64*  restrict acc,
+                         const void* restrict data, size_t nbStripes,
+                         const U32*  restrict key,
+                         const U32*  restrict mul)
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
@@ -991,13 +931,17 @@ static void XXH3_accumulate128(U64* acc, const void* restrict data, const U32* r
 #  pragma clang loop unroll(enable)
 #endif
     for (n = 0; n < nbStripes; n++ ) {
-        XXH3_accumulate128_512bits(acc, (const BYTE*)data + n*STRIPE_LEN, key);
-        key += 2;
+        XXH3_accumulate128_512bits(acc,
+                      (const BYTE*)data + n*STRIPE_LEN,
+                                   key + n*2,
+                                   mul[2*n], mul[2*n+1] );
     }
 }
 
 static void
-XXH3_hashLong128(U64* acc, const void* data, size_t len)
+XXH3_hashLong128(U64*  restrict acc,
+           const void* restrict data, size_t len,
+           const U32*  restrict mul)
 {
     #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
@@ -1006,7 +950,10 @@ XXH3_hashLong128(U64* acc, const void* data, size_t len)
 
     size_t n;
     for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate128(acc, (const BYTE*)data + n*block_len, kKey, NB_KEYS);
+        XXH3_accumulate128(acc,
+              (const BYTE*)data + n*block_len, NB_KEYS,
+                           kKey,
+                           mul);
         XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
@@ -1014,12 +961,18 @@ XXH3_hashLong128(U64* acc, const void* data, size_t len)
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
         assert(nbStripes < NB_KEYS);
-        XXH3_accumulate128(acc, (const BYTE*)data + nb_blocks*block_len, kKey, nbStripes);
+        XXH3_accumulate128(acc,
+              (const BYTE*)data + nb_blocks*block_len, nbStripes,
+                           kKey,
+                           mul);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
-            XXH3_accumulate128_512bits(acc, p, kKey + nbStripes*2);
+            XXH3_accumulate128_512bits(acc,
+                                       p,
+                                       kKey + nbStripes*2,
+                                       PRIME32_4-1, PRIME32_5-1);
     }   }
 }
 
@@ -1028,9 +981,15 @@ XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashL
 XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 {
     ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    U32 key[KEYSET_DEFAULT_SIZE];
+    U32 mult[NB_STRIPES_PER_ROUND*2];
+
+    XXH3_initKeySeed(key, seed);
+    XXH3_initMultipliers(mult, NB_STRIPES_PER_ROUND*2);
+
     assert(len > 128);
 
-    XXH3_hashLong128(acc, data, len);
+    XXH3_hashLong128(acc, data, len, mult);
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);

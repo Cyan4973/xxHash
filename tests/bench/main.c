@@ -112,11 +112,23 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
 #endif
 
 
+static int display_hash_names(void)
+{
+    int i;
+    printf("available hashes : \n");
+    for (i=0; i<NB_HASHES; i++) {
+        printf("%s, ", hashCandidates[i].name);
+    }
+    printf("\b\b  \n");
+    return 0;
+}
+
 static int help(const char* exename)
 {
     printf("usage : %s [options] \n\n", exename);
     printf("Options: \n");
     printf("--n=#    : nb of hash algorithms to bench (default:%i) \n", NB_HASHES);
+    printf("--list   : name of available hash algorithms \n");
     printf("--mins=# : starting length for small size bench (default:%i) \n", SMALL_SIZE_MIN_DEFAULT);
     printf("--maxs=# : end length for small size bench (default:%i) \n", SMALL_SIZE_MAX_DEFAULT);
     printf("--minl=# : starting log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MIN_DEFAULT);
@@ -144,6 +156,7 @@ int main(int argc, const char** argv)
     for (arg_nb = 1; arg_nb < argc; arg_nb++) {
         const char** arg = argv + arg_nb;
         if (longCommandWArg(arg, "-h")) { assert(argc >= 1); return help(exename); }
+        if (longCommandWArg(arg, "--list")) { return display_hash_names(); }
         if (longCommandWArg(arg, "--n=")) { nb_h_test = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--minl=")) { largeTest_log_min = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--maxl=")) { largeTest_log_max = readIntFromChar(arg); continue; }

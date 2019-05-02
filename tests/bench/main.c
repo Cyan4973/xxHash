@@ -112,9 +112,28 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
 #endif
 
 
+static int help(const char* exename)
+{
+    printf("usage : %s [options] \n\n", exename);
+    printf("Options: \n");
+    printf("--n=#    : nb of hash algorithms to bench (default:%i) \n", NB_HASHES);
+    printf("--mins=# : starting length for small size bench (default:%i) \n", SMALL_SIZE_MIN_DEFAULT);
+    printf("--maxs=# : end length for small size bench (default:%i) \n", SMALL_SIZE_MAX_DEFAULT);
+    printf("--minl=# : starting log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MIN_DEFAULT);
+    printf("--maxl=# : end log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MAX_DEFAULT);
+    return 0;
+}
+
+static int badusage(const char* exename)
+{
+    printf("Bad command ... \n");
+    help(exename);
+    return 1;
+}
 
 int main(int argc, const char** argv)
 {
+    const char* const exename = argv[0];
     int nb_h_test = NB_HASHES;
     int largeTest_log_min = LARGE_SIZELOG_MIN_DEFAULT;
     int largeTest_log_max = LARGE_SIZELOG_MAX_DEFAULT;
@@ -124,11 +143,13 @@ int main(int argc, const char** argv)
     int arg_nb;
     for (arg_nb = 1; arg_nb < argc; arg_nb++) {
         const char** arg = argv + arg_nb;
+        if (longCommandWArg(arg, "-h")) { assert(argc >= 1); return help(exename); }
         if (longCommandWArg(arg, "--n=")) { nb_h_test = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--minl=")) { largeTest_log_min = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--maxl=")) { largeTest_log_max = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--mins=")) { smallTest_size_min = (size_t)readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--maxs=")) { smallTest_size_max = (size_t)readIntFromChar(arg); continue; }
+        return badusage(exename);
     }
 
     printf(" ===  benchmarking %i hash functions  === \n", nb_h_test);

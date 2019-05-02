@@ -796,7 +796,6 @@ XXH3_accumulate128_512bits(void* restrict acc,
                      const void* restrict key,
                      U32 mul1, U32 mul2)
 {
-    (void)mul1; (void)mul2;
 
 #if (XXH_VECTOR == XXH_AVX2)
 

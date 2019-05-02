@@ -879,42 +879,44 @@ XXH3_accumulate128_512bits(void* restrict acc,
 #else
 
     /* scalar variant of Accumulator - universal */
-    /* merge, then mix, then interleave */
-          U64* const xacc  =       (U64*) acc;  /* presumed aligned */
-    const U64* const xdata = (const U64*) data; /* not necessarily aligned */
-    const U64* const xkey  = (const U64*) key;  /* presumed aligned */
+    {
+        /* merge, then mix, then interleave */
+              U64* const xacc  =       (U64*) acc;  /* presumed aligned */
+        const U64* const xdata = (const U64*) data; /* not necessarily aligned */
+        const U64* const xkey  = (const U64*) key;  /* presumed aligned */
 
-    int i;
-    for (i=0; i < (int)ACC_NB; i+=2) {
-        int const left = i;
-        int const right= i + 1;
-        U64 const dataLeft  = XXH_readLE64(xdata + left);
-        U64 const dataRight = XXH_readLE64(xdata + right);
-        U64 const leftKeyed = dataLeft ^ xkey[left];
-        U64 const rightKeyed= dataRight^ xkey[right];
+        int i;
+        for (i=0; i < (int)ACC_NB; i+=2) {
+            int const left = i;
+            int const right= i + 1;
+            U64 const dataLeft  = XXH_readLE64(xdata + left);
+            U64 const dataRight = XXH_readLE64(xdata + right);
+            U64 const leftKeyed = dataLeft ^ xkey[left];
+            U64 const rightKeyed= dataRight^ xkey[right];
 
-        /* merge */
-        U64 accLeft  = xacc[left] + leftKeyed;
-        U64 accRight = xacc[right]+ rightKeyed;
+            /* merge */
+            U64 accLeft  = xacc[left] + leftKeyed;
+            U64 accRight = xacc[right]+ rightKeyed;
 
-        /* mix1 */
-        accLeft  ^= (accLeft >> 32);
-        accRight ^= (accRight >> 32);
-        accLeft  += (U64)(mul1) * (U32)accLeft;
-        accRight += (U64)(mul1) * (U32)accRight;
+            /* mix1 */
+            accLeft  ^= (accLeft >> 32);
+            accRight ^= (accRight >> 32);
+            accLeft  += (U64)(mul1) * (U32)accLeft;
+            accRight += (U64)(mul1) * (U32)accRight;
 
-        /* interleave */
-        /* note : this operation seems to disable/confuse clang's auto-vectorizer */
-        {   U64 const shuffleLeft = (rightKeyed >> 32) + (rightKeyed << 32);
-            U64 const shuffleRight = (leftKeyed >> 32) + (leftKeyed << 32);
-            accLeft  ^= shuffleLeft;
-            accRight ^= shuffleRight;
-            accLeft  += (U64)(mul2) * (U32)shuffleLeft;
-            accRight += (U64)(mul2) * (U32)shuffleRight;
+            /* interleave */
+            /* note : this operation seems to disable/confuse clang's auto-vectorizer */
+            {   U64 const shuffleLeft = (rightKeyed >> 32) + (rightKeyed << 32);
+                U64 const shuffleRight = (leftKeyed >> 32) + (leftKeyed << 32);
+                accLeft  ^= shuffleLeft;
+                accRight ^= shuffleRight;
+                accLeft  += (U64)(mul2) * (U32)shuffleLeft;
+                accRight += (U64)(mul2) * (U32)shuffleRight;
+            }
+
+            xacc[left] = accLeft;
+            xacc[right]= accRight;
         }
-
-        xacc[left] = accLeft;
-        xacc[right]= accRight;
     }
 
 #endif  /* vect arch */

@@ -197,6 +197,8 @@ int main(int argc, const char** argv)
         }
     }
 
+    if (hashNb + nb_h_test > NB_HASHES) { printf("wrong hash selection \n"); return 1; }  /* border case (requires (mis)using hidden command `--n=#`) */
+
     printf(" ===  benchmarking %i hash functions  === \n", nb_h_test);
     if (largeTest_log_max >= largeTest_log_min) {
         bench_largeInput(hashCandidates+hashNb, nb_h_test, largeTest_log_min, largeTest_log_max);

@@ -1,3 +1,6 @@
+# compilation chain
+.clang_complete
+
 # objects
 *.o
 

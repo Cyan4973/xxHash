@@ -83,6 +83,7 @@
 #define XXH_SSE2   1
 #define XXH_AVX2   2
 #define XXH_NEON   3
+#define XXH_VSX    4
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX2__)
@@ -94,6 +95,8 @@
   && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
   && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
+#  elif defined(__PPC64__) && defined(__VSX__) && defined(__GNUC__)
+#    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
 #  endif
@@ -106,6 +109,25 @@
 #   define XXH_mult32to64 __emulu
 #else
 #   define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
+#endif
+
+/* VSX stuff */
+#if XXH_VECTOR == XXH_VSX
+#  include <altivec.h>
+#  undef vector
+typedef __vector unsigned long long U64x2;
+typedef __vector unsigned U32x4;
+/* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
+XXH_FORCE_INLINE U64x2 XXH_vsxMultOdd(U32x4 a, U32x4 b) {
+    U64x2 result;
+    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
+XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
+    U64x2 result;
+    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
 #endif
 
 
@@ -155,15 +177,7 @@ XXH3_mul128_fold64(U64 ll1, U64 ll2)
     U64 const lllow = _umul128(ll1, ll2, &llhigh);
     return lllow ^ llhigh;
 
-#elif defined(__aarch64__) && defined(__GNUC__)
-
-    U64 llow;
-    U64 llhigh;
-    __asm__("umulh %0, %1, %2" : "=r" (llhigh) : "r" (ll1), "r" (ll2));
-    __asm__("madd  %0, %1, %2, %3" : "=r" (llow) : "r" (ll1), "r" (ll2), "r" (llhigh));  /* <===================   to be modified => xor instead of add */
-    return lllow;
-
-    /* Do it out manually on 32-bit.
+    /* We have to do it out manually on 32-bit.
      * This is a modified, unrolled, widened, and optimized version of the
      * mulqdu routine from Hacker's Delight.
      *
@@ -364,7 +378,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
 XXH_FORCE_INLINE void
-XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict key)
+XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -402,19 +416,18 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
         }
     }
 
-#elif (XXH_VECTOR == XXH_NEON)   /* to be updated, no longer with latest sse/avx updates */
+#elif (XXH_VECTOR == XXH_NEON)
 
     assert(((size_t)acc) & 15 == 0);
-    {       uint64x2_t* const xacc  =     (uint64x2_t *)acc;
-        const uint32_t* const xdata = (const uint32_t *)data;
-        const uint32_t* const xkey  = (const uint32_t *)key;
+    {
+        ALIGN(16) uint64x2_t* const xacc  =     (uint64x2_t *) acc;
+        /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
+        uint32_t const* const xdata = (const uint32_t *) data;
+        uint32_t const* const xkey  = (const uint32_t *) key;
 
         size_t i;
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
-            uint32x4_t const d = vld1q_u32(xdata+i*4);                           /* U32 d[4] = xdata[i]; */
-            uint32x4_t const k = vld1q_u32(xkey+i*4);                            /* U32 k[4] = xkey[i]; */
-            uint32x4_t dk = veorq_u32(d, k);                                     /* U32 dk[4] = {d0^k0, d1^k1, d2^k2, d3^k3} */
-#if !defined(__aarch64__) && !defined(__arm64__) /* ARM32-specific hack */
+#if !defined(__aarch64__) && !defined(__arm64__) && defined(__GNUC__) /* ARM32-specific hack */
             /* vzip on ARMv7 Clang generates a lot of vmovs (technically vorrs) without this.
              * vzip on 32-bit ARM NEON will overwrite the original register, and I think that Clang
              * assumes I don't want to destroy it and tries to make a copy. This slows down the code
@@ -426,39 +439,90 @@ XXH3_accumulate_512(void* acc, const void *restrict data, const void *restrict k
              *    zip2   v2.2s, v0.2s, v1.2s   // second zip
              * ...to do what ARM does in one:
              *    vzip.32 d0, d1               // Interleave high and low bits and overwrite. */
-            __asm__("vzip.32 %e0, %f0" : "+w" (dk));                             /* dk = { dk0, dk2, dk1, dk3 }; */
-            xacc[i] = vaddq_u64(xacc[i], vreinterpretq_u64_u32(d));              /* xacc[i] += (U64x2)d; */
-            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(dk), vget_high_u32(dk));   /* xacc[i] += { (U64)dk0*dk1, (U64)dk2*dk3 }; */
+
+            /* data_vec = xdata[i]; */
+            uint32x4_t const data_vec    = vld1q_u32(xdata + (i * 4));
+            /* key_vec  = xkey[i];  */
+            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
+            /* data_key = data_vec ^ key_vec; */
+            uint32x4_t       data_key;
+            /* Add first to prevent register swaps */
+            /* xacc[i] += data_vec; */
+            xacc[i] = vaddq_u64(xacc[i], vreinterpretq_u64_u32(data_vec));
+
+            data_key = veorq_u32(data_vec, key_vec);
+
+            /* Here's the magic. We use the quirkiness of vzip to shuffle data_key in place.
+             * shuffle: data_key[0, 1, 2, 3] = data_key[0, 2, 1, 3] */
+            __asm__("vzip.32 %e0, %f0" : "+w" (data_key));
+            /* xacc[i] += (uint64x2_t) data_key[0, 1] * (uint64x2_t) data_key[2, 3]; */
+            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(data_key), vget_high_u32(data_key));
 #else
             /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
-            uint32x2_t dkL = vmovn_u64(vreinterpretq_u64_u32(dk));               /* U32 dkL[2] = dk & 0xFFFFFFFF; */
-            uint32x2_t dkH = vshrn_n_u64(vreinterpretq_u64_u32(dk), 32);         /* U32 dkH[2] = dk >> 32; */
-            xacc[i] = vaddq_u64(xacc[i], vreinterpretq_u64_u32(d));              /* xacc[i] += (U64x2)d; */
-            xacc[i] = vmlal_u32(xacc[i], dkL, dkH);                              /* xacc[i] += (U64x2)dkL*(U64x2)dkH; */
+
+            /* data_vec = xdata[i]; */
+            uint32x4_t const data_vec    = vld1q_u32(xdata + (i * 4));
+            /* key_vec  = xkey[i];  */
+            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
+            /* data_key = data_vec ^ key_vec; */
+            uint32x4_t const data_key    = veorq_u32(data_vec, key_vec);
+            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
+            uint32x2_t const data_key_lo = vmovn_u64  (vreinterpretq_u64_u32(data_key));
+            /* data_key_hi = (uint32x2_t) (data_key >> 32); */
+            uint32x2_t const data_key_hi = vshrn_n_u64 (vreinterpretq_u64_u32(data_key), 32);
+            /* xacc[i] += data_vec; */
+            xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u32(data_vec));
+            /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
+            xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
 #endif
         }
     }
 
-#else   /* scalar variant of Accumulator - universal */
+#elif XXH_VECTOR == XXH_VSX
+          U64x2* const xacc =        (U64x2*) acc;
+    U64x2 const* const xdata = (U64x2 const*) data;
+    U64x2 const* const xkey  = (U64x2 const*) key;
+    U64x2 const v32 = { 32,  32 };
 
-          U64* const xacc  =       (U64*) acc;   /* presumed aligned */
+    size_t i;
+    for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
+        /* data_vec = xdata[i]; */
+        /* key_vec = xkey[i]; */
+#ifdef __BIG_ENDIAN__
+        /* byteswap */
+        U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
+        /* swap 32-bit words */
+        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+#else
+        U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
+        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
+#endif
+        U64x2 data_key = data_vec ^ key_vec;
+        /* shuffled = (data_key << 32) | (data_key >> 32); */
+        U32x4 shuffled = (U32x4)vec_rl(data_key, v32);
+        /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
+        U64x2 product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
+
+        xacc[i] += product;
+        xacc[i] += data_vec;
+    }
+#else   /* scalar variant of Accumulator - universal */
+    ALIGN(16) U64* const xacc  =       (U64*) acc;   /* presumed aligned */
     const U32* const xdata = (const U32*) data;
     const U32* const xkey  = (const U32*) key;
+    size_t i;
 
-    int i;
-    for (i=0; i < (int)ACC_NB; i++) {
-        int const left = 2*i;
-        int const right= 2*i + 1;
-        U32 const dataLeft  = XXH_readLE32(xdata + left);
-        U32 const dataRight = XXH_readLE32(xdata + right);
-        xacc[i] += XXH_mult32to64(dataLeft ^ xkey[left], dataRight ^ xkey[right]);
-        xacc[i] += dataLeft + ((U64)dataRight << 32);
+    for (i=0; i < ACC_NB; i++) {
+        U64 const data_val = XXH_readLE64(xdata + 2 * i);
+        U64 const key_val = XXH3_readKey64(xkey + 2 * i);
+        U64 const data_key  = key_val ^ data_val;
+        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+        xacc[i] += data_val;
     }
-
 #endif
 }
 
-static void XXH3_scrambleAcc(void* acc, const void* key)
+static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -511,30 +575,70 @@ static void XXH3_scrambleAcc(void* acc, const void* key)
         }   }
     }
 
-#elif 0 && (XXH_VECTOR == XXH_NEON)   /*  <============================================ Disabled : Needs update !!!!!!!!!!! */
+#elif (XXH_VECTOR == XXH_NEON)
 
     assert(((size_t)acc) & 15 == 0);
-    {       uint64x2_t* const xacc =     (uint64x2_t*) acc;
-        const uint32_t* const xkey = (const uint32_t*) key;
-        size_t i;
-        uint32x2_t const k1 = vdup_n_u32(PRIME32_1);
-        uint32x2_t const k2 = vdup_n_u32(PRIME32_2);
+    {
+            uint64x2_t* const xacc =     (uint64x2_t*) acc;
 
+        uint32_t const* const xkey = (uint32_t const*) key;
+
+        uint32x2_t const prime     = vdup_n_u32 (PRIME32_1);
+
+        size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(uint64x2_t); i++) {
-            uint64x2_t data = xacc[i];
-            uint64x2_t const shifted = vshrq_n_u64(data, 47);          /* uint64 shifted[2] = data >> 47; */
-            data = veorq_u64(data, shifted);                           /* data ^= shifted; */
-            {
-                uint32x4_t const k = vld1q_u32(xkey+i*4);               /* load */
-                uint32x4_t const dk = veorq_u32(vreinterpretq_u32_u64(data), k); /* dk = data ^ key */
-                /* shuffle: 0, 1, 2, 3 -> 0, 2, 1, 3 */
-                uint32x2x2_t const split = vzip_u32(vget_low_u32(dk), vget_high_u32(dk));
-                uint64x2_t const dk1 = vmull_u32(split.val[0],k1);     /* U64 dk[2]  = {(U64)d0*k0, (U64)d2*k2} */
-                uint64x2_t const dk2 = vmull_u32(split.val[1],k2);     /* U64 dk2[2] = {(U64)d1*k1, (U64)d3*k3} */
-                xacc[i] = veorq_u64(dk1, dk2);                         /* xacc[i] = dk^dk2;             */
-        }   }
+            /* data_vec = xacc[i] ^ (xacc[i] >> 47); */
+            uint64x2_t const   acc_vec  = xacc[i];
+            uint64x2_t const   shifted  = vshrq_n_u64 (acc_vec, 47);
+            uint64x2_t const   data_vec = veorq_u64   (acc_vec, shifted);
+
+            /* key_vec  = xkey[i]; */
+            uint32x4_t const   key_vec  = vld1q_u32   (xkey + (i * 4));
+            /* data_key = data_vec ^ key_vec; */
+            uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
+            /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
+            uint32x2x2_t const shuffled = vzip_u32    (vget_low_u32(data_key), vget_high_u32(data_key));
+
+            /* data_key *= PRIME32_1 */
+
+            /* prod_hi = (data_key >> 32) * PRIME32_1; */
+            uint64x2_t const   prod_hi = vmull_u32    (shuffled.val[1], prime);
+            /* xacc[i] = prod_hi << 32; */
+            xacc[i] = vshlq_n_u64(prod_hi, 32);
+            /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
+            xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
+        }
     }
 
+#elif (XXH_VECTOR == XXH_VSX)
+          U64x2* const xacc =       (U64x2*) acc;
+    const U64x2* const xkey = (const U64x2*) key;
+    /* constants */
+    U64x2 const v32  = { 32, 32 };
+    U64x2 const v47 = { 47, 47 };
+    U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
+    size_t i;
+
+    for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
+        U64x2 const acc_vec  = xacc[i];
+        U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
+        /* key_vec = xkey[i]; */
+#ifdef __BIG_ENDIAN__
+        /* swap 32-bit words */
+        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+#else
+        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
+#endif
+        U64x2 const data_key = data_vec ^ key_vec;
+
+        /* data_key *= PRIME32_1 */
+
+        /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
+        U64x2 const prod_lo  = XXH_vsxMultOdd((U32x4)data_key, prime);
+        /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */
+        U64x2 const prod_hi  = XXH_vsxMultEven((U32x4)data_key, prime);
+        xacc[i] = prod_lo + (prod_hi << v32);
+    }
 #else   /* scalar variant of Scrambler - universal */
 
           U64* const xacc =       (U64*) acc;
@@ -560,7 +664,7 @@ static void XXH3_accumulate(U64* restrict acc,
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
-#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) && !defined(__ARM_ARCH)
 #  pragma clang loop unroll(enable)
 #endif
     for (n = 0; n < nbStripes; n++ ) {

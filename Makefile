@@ -174,6 +174,7 @@ test32: clean xxhsum32
 	@echo ---- test 32-bit ----
 	./xxhsum32 -bi1 xxhash.c
 
+.PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
 	./xxhsum lib* | ./xxhsum -c -
@@ -196,14 +197,17 @@ test-xxhsum-c: xxhsum
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	@$(RM) -f .test.xxh32 .test.xxh64
 
+.PHONY: armtest
 armtest: clean
 	@echo ---- test ARM compilation ----
 	CC=arm-linux-gnueabi-gcc MOREFLAGS="-Werror -static" $(MAKE) xxhsum
 
+.PHONY: clangtest
 clangtest: clean
 	@echo ---- test clang compilation ----
 	CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion" $(MAKE) all
 
+.PHONY: cxxtest
 cxxtest: clean
 	@echo ---- test C++ compilation ----
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
@@ -218,12 +222,13 @@ c90test: xxhash.c
 	$(RM) xxhash.o
 
 usan: CC=clang
-usan: clean
+usan:  ## check CLI runtime for undefined behavior, using clang's sanitizer
 	@echo ---- check undefined behavior - sanitize ----
-	$(MAKE) clean test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
+	$(MAKE) clean
+	$(MAKE) test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 .PHONY: staticAnalyze
-staticAnalyze: clean
+staticAnalyze: clean  ## check C source files using scan-build static analyzer
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
 
@@ -234,7 +239,7 @@ cppcheck:  ## check C source files using cppcheck static analyzer
 	$(CPPCHECK) . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
 .PHONY: namespaceTest
-namespaceTest:
+namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
 	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
@@ -248,14 +253,18 @@ xxhsum.1: xxhsum.1.md
 .PHONY: man
 man: xxhsum.1  ## generate man page from markdown source
 
+.PHONY: clean-man
 clean-man:
 	$(RM) xxhsum.1
 
-preview-man: clean-man man
+.PHONY: preview-man
+preview-man: man
 	man ./xxhsum.1
 
+.PHONY: test
 test: all namespaceTest check test-xxhsum-c c90test
 
+.PHONY: test-all
 test-all: CFLAGS += -Werror
 test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
 

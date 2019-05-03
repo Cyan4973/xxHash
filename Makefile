@@ -42,8 +42,6 @@ DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
 CFLAGS += $(DEBUGFLAGS)
 FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION = $(LIBVER)
-MD2ROFF = ronn
-MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -70,15 +68,16 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
 .PHONY: default
+default:  ## generate CLI and libraries in release mode (default for `make`)
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
-xxhsum : xxhash.o xxhsum.o
+xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
 
-xxhsum32: CFLAGS += -m32
+xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
 xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
@@ -112,10 +111,37 @@ $(LIBXXH): xxhash.c
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
 	ln -sf $@ libxxhash.$(SHARED_EXT)
 
-libxxhash : $(LIBXXH)
+.PHONY: libxxhash
+libxxhash:  ## generate dynamic xxhash library
+libxxhash: $(LIBXXH)
 
 .PHONY: lib
+lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
+
+
+# helper targets
+
+AWK = awk
+GREP = grep
+SORT = sort
+
+.PHONY: list
+list:  ## list all Makefile targets
+	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | $(AWK) -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | $(SORT) | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
+
+.PHONY: help
+help:  ## list documented targets
+	@$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	$(SORT) | \
+	$(AWK) 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: clean
+clean:  ## remove all build artifacts
+	@$(RM) -r *.dSYM   # Mac OS-X specific
+	@$(RM) core *.o libxxhash.*
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
+	@echo cleaning completed
 
 
 # =================================================
@@ -125,7 +151,7 @@ lib: libxxhash.a libxxhash
 # make check can be run with cross-compiled binaries on emulated environments (qemu user mode)
 # by setting $(RUN_ENV) to the target emulation environment
 .PHONY: check
-check: xxhsum
+check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
 	# stdin
 	$(RUN_ENV) ./xxhsum < xxhash.c
 	# multiple files
@@ -135,12 +161,13 @@ check: xxhsum
 	# file bench
 	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
 
+
 .PHONY: test-mem
-test-mem: xxhsum
-	# memory tests
-	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -bi1 xxhash.c
-	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H0  xxhash.c
-	valgrind --leak-check=yes --error-exitcode=1 ./xxhsum -H1  xxhash.c
+VALGRIND = valgrind --leak-check=yes --error-exitcode=1
+test-mem: xxhsum  ## valgrind tests for xxhsum CLI, looking for memory leaks
+	$(VALGRIND) ./xxhsum -bi1 xxhash.c
+	$(VALGRIND) ./xxhsum -H0  xxhash.c
+	$(VALGRIND) ./xxhsum -H1  xxhash.c
 
 .PHONY: test32
 test32: clean xxhsum32
@@ -200,10 +227,11 @@ staticAnalyze: clean
 	@echo ---- static analyzer - scan-build ----
 	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
 
+CPPCHECK = cppcheck
 .PHONY: cppcheck
-cppcheck:
+cppcheck:  ## check C source files using cppcheck static analyzer
 	@echo ---- static analyzer - cppcheck ----
-	cppcheck . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
+	$(CPPCHECK) . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
 .PHONY: namespaceTest
 namespaceTest:
@@ -212,11 +240,13 @@ namespaceTest:
 	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
+MD2ROFF = ronn
+MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 xxhsum.1: xxhsum.1.md
 	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
-man: xxhsum.1
+man: xxhsum.1  ## generate man page from markdown source
 
 clean-man:
 	$(RM) xxhsum.1
@@ -235,24 +265,13 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	! grep -E "`printf '[ \\t]$$'`" *.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
-
-.PHONY: clean
-clean:
-	@$(RM) -r *.dSYM   # Mac OS-X specific
-	@$(RM) core *.o libxxhash.*
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
-	@echo cleaning completed
+	! $(GREP) -E "`printf '[ \\t]$$'`" *.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 
-#-----------------------------------------------------------------------------
+# =========================================================
 # make install is validated only for the following targets
-#-----------------------------------------------------------------------------
+# =========================================================
 ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
-
-.PHONY: list
-list:
-	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
 
 DESTDIR     ?=
 # directory variables : GNU conventions prefer lowercase
@@ -288,7 +307,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 
 
 .PHONY: install
-install: lib xxhsum
+install: lib xxhsum  ## install libraries, CLI, links and man page
 	@echo Installing libxxhash
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
 	@$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
@@ -309,7 +328,7 @@ install: lib xxhsum
 	@echo xxhash installation completed
 
 .PHONY: uninstall
-uninstall:
+uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.a
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)

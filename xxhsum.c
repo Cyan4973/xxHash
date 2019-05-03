@@ -579,22 +579,18 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 static void BMK_testSequence64(const void* sentence, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
-    U64 Dresult;
     size_t pos;
 
-    Dresult = XXH64(sentence, len, seed);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(XXH64(sentence, len, seed), Nresult);
 
     (void)XXH64_reset(&state, seed);
     (void)XXH64_update(&state, sentence, len);
-    Dresult = XXH64_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(XXH64_digest(&state), Nresult);
 
     (void)XXH64_reset(&state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH64_update(&state, ((const char*)sentence)+pos, 1);
-    Dresult = XXH64_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult64(XXH64_digest(&state), Nresult);
 }
 
 static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
@@ -638,22 +634,18 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
 static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
     XXH32_state_t state;
-    U32 Dresult;
     size_t pos;
 
-    Dresult = XXH32(sequence, len, seed);
-    BMK_checkResult32(Dresult, Nresult);
+    BMK_checkResult32(XXH32(sequence, len, seed), Nresult);
 
     (void)XXH32_reset(&state, seed);
     (void)XXH32_update(&state, sequence, len);
-    Dresult = XXH32_digest(&state);
-    BMK_checkResult32(Dresult, Nresult);
+    BMK_checkResult32(XXH32_digest(&state), Nresult);
 
     (void)XXH32_reset(&state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
-    Dresult = XXH32_digest(&state);
-    BMK_checkResult32(Dresult, Nresult);
+    BMK_checkResult32(XXH32_digest(&state), Nresult);
 }
 
 

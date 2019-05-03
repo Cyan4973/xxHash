@@ -382,7 +382,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
-    assert(((size_t)acc) & 31 == 0);
+    assert((((size_t)acc) & 31) == 0);
     {   ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
         const     __m256i* const xdata = (const __m256i *) data;
         const     __m256i* const xkey  = (const __m256i *) key;
@@ -400,7 +400,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    assert(((size_t)acc) & 15 == 0);
+    assert((((size_t)acc) & 15) == 0);
     {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
         const     __m128i* const xdata = (const __m128i *) data;
         const     __m128i* const xkey  = (const __m128i *) key;
@@ -418,7 +418,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
 #elif (XXH_VECTOR == XXH_NEON)
 
-    assert(((size_t)acc) & 15 == 0);
+    assert((((size_t)acc) & 15) == 0);
     {
         ALIGN(16) uint64x2_t* const xacc  =     (uint64x2_t *) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
@@ -526,7 +526,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
-    assert(((size_t)acc) & 31 == 0);
+    assert((((size_t)acc) & 31) == 0);
     {   ALIGN(32) __m256i* const xacc = (__m256i*) acc;
         const     __m256i* const xkey  = (const __m256i *) key;
         const __m256i k1 = _mm256_set1_epi32((int)PRIME32_1);
@@ -577,7 +577,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 
 #elif (XXH_VECTOR == XXH_NEON)
 
-    assert(((size_t)acc) & 15 == 0);
+    assert((((size_t)acc) & 15) == 0);
     {
             uint64x2_t* const xacc =     (uint64x2_t*) acc;
 
@@ -645,7 +645,6 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
     const U64* const xkey = (const U64*) key;
 
     int i;
-    assert(((size_t)acc) & 7 == 0);
     for (i=0; i < (int)ACC_NB; i++) {
         U64 const key64 = XXH3_readKey64(xkey + i);
         U64 acc64 = xacc[i];
@@ -729,7 +728,7 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
     U32 const seed1 = (U32)seed64;
     U32 const seed2 = (U32)(seed64 >> 32);
     int i;
-    assert(KEYSET_DEFAULT_SIZE & 3 == 0);
+    assert((KEYSET_DEFAULT_SIZE & 3) == 0);
     for (i=0; i < KEYSET_DEFAULT_SIZE; i+=4) {
         key[i+0] = kKey[i+0] + seed1;
         key[i+1] = kKey[i+1] - seed2;
@@ -901,13 +900,12 @@ XXH3_accumulate128_512bits(void* restrict acc,
                      U32 mul1, U32 mul2)
 {
 
+    assert((mul1 & 1) == 0);
+    assert((mul2 & 1) == 0);
+
 #if (XXH_VECTOR == XXH_AVX2)
 
-    // merge, then mix, then interleave
-
-    assert(((size_t)acc) & 31 == 0);
-    assert(mul1 & 1 == 0);
-    assert(mul2 & 1 == 0);
+    assert((((size_t)acc) & 31) == 0);
     {   ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
         const     __m256i* const xdata = (const __m256i *) data;
         const     __m256i* const xkey  = (const __m256i *) key;
@@ -943,9 +941,7 @@ XXH3_accumulate128_512bits(void* restrict acc,
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    // merge, then mix, then interleave
-
-    assert(((size_t)acc) & 15 == 0);
+    assert((((size_t)acc) & 15) == 0);
     {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
         const     __m128i* const xdata = (const __m128i *) data;
         const     __m128i* const xkey  = (const __m128i *) key;
@@ -981,9 +977,8 @@ XXH3_accumulate128_512bits(void* restrict acc,
 
 #else
 
-    /* scalar variant of Accumulator - universal */
+    /* scalar variant of Accumulator for 128-bit variant - universal */
     {
-        /* merge, then mix, then interleave */
               U64* const xacc  =       (U64*) acc;  /* presumed aligned */
         const U64* const xdata = (const U64*) data; /* not necessarily aligned */
         const U64* const xkey  = (const U64*) key;  /* presumed aligned */

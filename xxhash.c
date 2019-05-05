@@ -860,7 +860,7 @@ XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_alignment align)
 }
 
 
-XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
+XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, unsigned long long seed)
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */

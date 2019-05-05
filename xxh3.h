@@ -834,7 +834,7 @@ XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
 }
 
 XXH_PUBLIC_API XXH_errorcode
-XXH3_reset(XXH3_state_t* statePtr, unsigned long long seed)
+XXH3_reset(XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
     XXH3_state_t state;
     memset(&state, 0, sizeof(state));
@@ -932,7 +932,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_digest (const XXH3_state_t* state)
         return XXH3_mergeAccs(acc, state->key, (U64)state->total_len * PRIME64_1);
     }
     /* len <= 128 : short code */
-    return XXH3_64bits_withSeed(state->buffer, state->total_len, state->seed);
+    return XXH3_64bits_withSeed(state->buffer, (size_t)state->total_len, state->seed);
 }
 
 

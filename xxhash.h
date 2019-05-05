@@ -402,13 +402,13 @@ typedef struct {
     XXH64_hash_t high64;
 } XXH128_hash_t;
 
-XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, unsigned long long seed);
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 
 /* note : variants without seed produce same result as variant with seed == 0 */
 XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);  /* == XXH128() */
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);  /* == XXH128() */
 
 
 
@@ -445,7 +445,7 @@ XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
 XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
 
-XXH_PUBLIC_API XXH_errorcode XXH3_reset  (XXH3_state_t* statePtr, unsigned long long seed);
+XXH_PUBLIC_API XXH_errorcode XXH3_reset  (XXH3_state_t* statePtr, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH_errorcode XXH3_update (XXH3_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH64_hash_t  XXH3_digest (const XXH3_state_t* statePtr);
 

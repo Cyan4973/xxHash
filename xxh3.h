@@ -47,14 +47,14 @@
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
-#undef NDEBUG   /* avoid redefinition */
-#define NDEBUG
+#undef NDEBUG    /* avoid redefinition */
+#define NDEBUG   /* disable assert (release mode) */
 #include <assert.h>
 
 
-/* ===   Compiler versions   === */
+/* ===   Compiler specifics   === */
 
-#if !(defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)   /* C99+ */
+#if !(defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)   /* < C99 */
 #  define restrict   /* disable */
 #endif
 
@@ -62,16 +62,12 @@
 #  if defined(__SSE2__)
 #    include <x86intrin.h>
 #  elif defined(__ARM_NEON__) || defined(__ARM_NEON)
-#    define inline __inline__ /* clang bug */
+#    define inline __inline__  /* clang bug */
 #    include <arm_neon.h>
 #    undef inline
 #  endif
-#  define ALIGN(n)      __attribute__ ((aligned(n)))
 #elif defined(_MSC_VER)
 #  include <intrin.h>
-#  define ALIGN(n)      __declspec(align(n))
-#else
-#  define ALIGN(n)   /* disabled */
 #endif
 
 
@@ -675,7 +671,8 @@ static void XXH3_accumulate(U64* restrict acc,
 
 static void
 XXH3_hashLong(U64*  restrict acc,
-        const void* restrict data, size_t len)
+        const void* restrict data, size_t len,
+        const U32*  restrict key)
 {
     #define NB_STRIPES_PER_ROUND ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
@@ -684,20 +681,20 @@ XXH3_hashLong(U64*  restrict acc,
 
     size_t n;
     for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, NB_STRIPES_PER_ROUND, kKey);
-        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, NB_STRIPES_PER_ROUND, key);
+        XXH3_scrambleAcc(acc, key + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
     /* last partial block */
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
         assert(nbStripes < NB_STRIPES_PER_ROUND);
-        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, nbStripes, kKey);
+        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, nbStripes, key);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
-            XXH3_accumulate_512(acc, p, kKey + nbStripes*2);
+            XXH3_accumulate_512(acc, p, key + nbStripes*2);
     }   }
 }
 
@@ -723,17 +720,18 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* restrict acc, const U32* restrict 
 }
 
 
-XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
+XXH_FORCE_INLINE void
+XXH3_initKeySeed(U32* restrict key, const U32* restrict origKey, U64 seed64)
 {
     U32 const seed1 = (U32)seed64;
     U32 const seed2 = (U32)(seed64 >> 32);
     int i;
     assert((KEYSET_DEFAULT_SIZE & 3) == 0);
     for (i=0; i < KEYSET_DEFAULT_SIZE; i+=4) {
-        key[i+0] = kKey[i+0] + seed1;
-        key[i+1] = kKey[i+1] - seed2;
-        key[i+2] = kKey[i+2] + seed2;
-        key[i+3] = kKey[i+3] - seed1;
+        key[i+0] = origKey[i+0] + seed1;
+        key[i+1] = origKey[i+1] - seed2;
+        key[i+2] = origKey[i+2] + seed2;
+        key[i+3] = origKey[i+3] - seed1;
     }
 }
 
@@ -748,14 +746,14 @@ XXH_FORCE_INLINE void XXH3_initMultipliers(U32* multipliers, size_t nbMult)
 }
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
+XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed, const U32* origKey)
 {
     ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
 
-    XXH3_initKeySeed(key, seed);
+    XXH3_initKeySeed(key, origKey, seed);
 
-    XXH3_hashLong(acc, data, len);
+    XXH3_hashLong(acc, data, len, key);
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);
@@ -788,7 +786,7 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
-                    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
+                    if (len > 128) return XXH3_hashLong_64b(data, len, seed, kKey);
 
                     acc += XXH3_mix16B(p+48, key+96, seed);
                     acc += XXH3_mix16B(p+len-64, key+112, seed);
@@ -815,6 +813,127 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
     return XXH3_64bits_withSeed(data, len, 0);
 }
 
+
+/* ===   XXH3 streaming   === */
+
+XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
+{
+    return (XXH3_state_t*)XXH_malloc(sizeof(XXH3_state_t));
+}
+
+XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
+{
+    XXH_free(statePtr);
+    return XXH_OK;
+}
+
+XXH_PUBLIC_API void
+XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
+{
+    memcpy(dst_state, src_state, sizeof(*dst_state));
+}
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_reset(XXH3_state_t* statePtr, unsigned long long seed)
+{
+    XXH3_state_t state;
+    memset(&state, 0, sizeof(state));
+    state.acc[0] = seed;
+    state.acc[1] = PRIME64_1;
+    state.acc[2] = PRIME64_2;
+    state.acc[3] = PRIME64_3;
+    state.acc[4] = PRIME64_4;
+    state.acc[5] = PRIME64_5;
+    state.acc[6] = (U64)0 - seed;
+    state.acc[7] = 0;
+    state.keySize = KEYSET_DEFAULT_SIZE - STRIPE_ELTS;  /* for default key only */
+    state.seed = seed;
+    XXH3_initKeySeed(state.key, kKey, seed);
+    *statePtr = state;
+    return XXH_OK;
+}
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_update(XXH3_state_t* state, const void* input, size_t len)
+{
+    if (input==NULL)
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
+        return XXH_OK;
+#else
+        return XXH_ERROR;
+#endif
+
+    {   const BYTE* p = (const BYTE*)input;
+        const BYTE* const bEnd = p + len;
+
+        state->total_len += len;
+
+        if (state->bufferedSize + len <= 128) {  /* fill in tmp buffer */
+            XXH_memcpy(((BYTE*)state->buffer) + state->bufferedSize, input, len);
+            state->bufferedSize += (XXH32_hash_t)len;
+            return XXH_OK;
+        }
+
+        if (state->bufferedSize) {   /* input so far > 128 : fully fill internal buffer */
+            XXH_memcpy(((BYTE*)state->buffer) + state->bufferedSize, input, 128 - state->bufferedSize);
+            p += 128 - state->bufferedSize;
+            XXH3_accumulate(state->acc, state->buffer, 2 /*nbStripes*/, state->key + state->keyIndex);
+            state->bufferedSize = 0;
+            state->keyIndex += 4;
+            if (state->keyIndex == state->keySize) {
+                XXH3_scrambleAcc(state->acc, state->key + state->keySize);
+                state->keyIndex = 0;
+        }   }
+
+        if (p+128 <= bEnd) {
+            const BYTE* const limit = bEnd - 128;
+            do {
+                XXH3_accumulate(state->acc, p, 2 /*nbStripes*/, state->key + state->keyIndex);
+                p += 128;
+                state->keyIndex += 4;
+                if (state->keyIndex == state->keySize) {
+                    XXH3_scrambleAcc(state->acc, state->key + state->keySize);
+                    state->keyIndex = 0;
+                }
+            } while (p<=limit);
+        }
+
+        if (p < bEnd) { /* some input data to buffer */
+            XXH_memcpy(state->buffer, p, (size_t)(bEnd-p));
+            state->bufferedSize = (XXH32_hash_t)(bEnd-p);
+        }
+    }
+
+    return XXH_OK;
+}
+
+
+XXH_PUBLIC_API XXH64_hash_t XXH3_digest (const XXH3_state_t* state)
+{
+    if (state->total_len > 128) {
+        ALIGN(64) XXH64_hash_t acc[8];
+        memcpy(acc, state->acc, sizeof(acc));
+        if (state->bufferedSize >= STRIPE_LEN) {
+            XXH3_accumulate_512(acc, state->buffer, state->key + state->keyIndex);
+            if (state->bufferedSize > STRIPE_LEN) {
+                XXH3_accumulate_512(acc, (const char*)state->buffer + state->bufferedSize - STRIPE_LEN, state->key + state->keyIndex + 2);
+                assert(state->keyIndex < state->keySize);
+                if (state->keyIndex + 4 == state->keySize) {
+                    XXH3_scrambleAcc(acc, state->key + state->keySize);
+        }   }   }
+        else {  /* bufferedSize < STRIPE_LEN */
+            if (state->bufferedSize) {
+                char lastStripe[STRIPE_LEN];
+                size_t const catchupSize = STRIPE_LEN - state->bufferedSize;
+                memcpy(lastStripe, (const char*)state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
+                memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
+                XXH3_accumulate_512(acc, lastStripe, state->key + state->keyIndex);
+        }   }
+        return XXH3_mergeAccs(acc, state->key, (U64)state->total_len * PRIME64_1);
+    }
+    /* len <= 128 : short code */
+    return XXH3_64bits_withSeed(state->buffer, state->total_len, state->seed);
+}
 
 
 /* =========================================================
@@ -1084,7 +1203,7 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
     U32 key[KEYSET_DEFAULT_SIZE];
     U32 mult[NB_STRIPES_PER_ROUND*2];
 
-    XXH3_initKeySeed(key, seed);
+    XXH3_initKeySeed(key, kKey, seed);
     XXH3_initMultipliers(mult, NB_STRIPES_PER_ROUND*2);
 
     assert(len > 128);

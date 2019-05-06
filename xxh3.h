@@ -931,7 +931,7 @@ XXH3_accumulate128_512bits(void* restrict acc,
             }
 
             // shuffle, merge, and mix 2 // ~22.2 GB/s
-            {   __m256i const shuffle= _mm256_shuffle_epi32(dk, _MM_SHUFFLE(0,1,2,3));
+            {   __m256i const shuffle= _mm256_shuffle_epi32(dk, _MM_SHUFFLE(1,0,3,2));
                 __m256i const xored  = _mm256_xor_si256 (Vacc, shuffle);
                 __m256i const mul    = _mm256_mul_epu32 (shuffle, k2);
                 Vacc = _mm256_add_epi64(xored, mul);
@@ -967,7 +967,7 @@ XXH3_accumulate128_512bits(void* restrict acc,
             }
 
             // shuffle, merge and mix 2
-            {   __m128i const shuffle= _mm_shuffle_epi32(dk, _MM_SHUFFLE(0,1,2,3));
+            {   __m128i const shuffle= _mm_shuffle_epi32(dk, _MM_SHUFFLE(1,0,3,2));
                 __m128i const xored  = _mm_xor_si128 (Vacc, shuffle);
                 __m128i const mul    = _mm_mul_epu32 (shuffle, k2);
                 Vacc = _mm_add_epi64(xored, mul);
@@ -1004,15 +1004,12 @@ XXH3_accumulate128_512bits(void* restrict acc,
             accLeft  += (U64)(mul1) * (U32)accLeft;
             accRight += (U64)(mul1) * (U32)accRight;
 
-            /* interleave */
+            /* mix2 */
             /* note : this operation seems to disable/confuse clang's auto-vectorizer */
-            {   U64 const shuffleLeft = (rightKeyed >> 32) + (rightKeyed << 32);
-                U64 const shuffleRight = (leftKeyed >> 32) + (leftKeyed << 32);
-                accLeft  ^= shuffleLeft;
-                accRight ^= shuffleRight;
-                accLeft  += (U64)(mul2) * (U32)shuffleLeft;
-                accRight += (U64)(mul2) * (U32)shuffleRight;
-            }
+            accLeft  ^= rightKeyed;
+            accRight ^= leftKeyed;
+            accLeft  += (U64)(mul2) * (U32)rightKeyed;
+            accRight += (U64)(mul2) * (U32)leftKeyed;
 
             xacc[left] = accLeft;
             xacc[right]= accRight;

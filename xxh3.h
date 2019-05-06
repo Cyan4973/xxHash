@@ -47,9 +47,11 @@
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
-#undef NDEBUG   /* avoid redefinition */
-#define NDEBUG
-#include <assert.h>
+#ifndef NDEBUG
+#  define NDEBUG
+#  define UNDEF_NDEBUG
+#  include <assert.h>
+#endif
 
 
 /* ===   Compiler versions   === */
@@ -943,5 +945,9 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
 {
     return XXH3_128bits_withSeed(data, len, seed);
 }
+
+#ifdef UNDEF_NDEBUG
+#  undef NDEBUG
+#endif
 
 #endif  /* XXH3_H */

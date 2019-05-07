@@ -916,7 +916,7 @@ XXH3_accumulate128_512bits(void* restrict acc,
         const     __m256i k2 = _mm256_set1_epi32((int)(mul2));
 
         size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
+        for (i=0; i < STRIPE_LEN*2/sizeof(__m256i); i++) {
             // ingest and merge
             __m256i const d   = _mm256_loadu_si256 (xdata+i);
             __m256i const k   = _mm256_loadu_si256 (xkey+i);
@@ -952,7 +952,7 @@ XXH3_accumulate128_512bits(void* restrict acc,
         const     __m128i k2 = _mm_set1_epi32((int)(mul2));
 
         size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
+        for (i=0; i < STRIPE_LEN*2/sizeof(__m128i); i++) {
             // ingest and merge
             __m128i const d   = _mm_loadu_si128 (xdata+i);
             __m128i const k   = _mm_loadu_si128 (xkey+i);
@@ -986,7 +986,7 @@ XXH3_accumulate128_512bits(void* restrict acc,
         const U64* const xkey  = (const U64*) key;  /* presumed aligned */
 
         int i;
-        for (i=0; i < (int)ACC_NB; i+=2) {
+        for (i=0; i < (int)ACC_NB*2; i+=2) {
             int const left = i;
             int const right= i + 1;
             U64 const dataLeft  = XXH_readLE64(xdata + left);
@@ -1031,7 +1031,7 @@ static void XXH3_accumulate128(U64*  restrict acc,
 #endif
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate128_512bits(acc,
-                      (const BYTE*)data + n*STRIPE_LEN,
+                      (const BYTE*)data + n*STRIPE_LEN*2,
                                    key + n*2,
                                    mul[2*n], mul[2*n+1] );
     }
@@ -1042,9 +1042,9 @@ XXH3_hashLong128(U64*  restrict acc,
            const void* restrict data, size_t len,
            const U32*  restrict mul)
 {
-    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
+    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - (STRIPE_ELTS*2)) / 2)
 
-    size_t const block_len = STRIPE_LEN * NB_KEYS;
+    size_t const block_len = STRIPE_LEN*2 * NB_KEYS;
     size_t const nb_blocks = len / block_len;
 
     size_t n;
@@ -1053,12 +1053,12 @@ XXH3_hashLong128(U64*  restrict acc,
               (const BYTE*)data + n*block_len, NB_KEYS,
                            kKey,
                            mul);
-        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - (STRIPE_ELTS*2)));
     }
 
     /* last partial block */
     assert(len > STRIPE_LEN);
-    {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
+    {   size_t const nbStripes = (len % block_len) / (STRIPE_LEN*2);
         assert(nbStripes < NB_KEYS);
         XXH3_accumulate128(acc,
               (const BYTE*)data + nb_blocks*block_len, nbStripes,
@@ -1066,8 +1066,8 @@ XXH3_hashLong128(U64*  restrict acc,
                            mul);
 
         /* last stripe */
-        if (len & (STRIPE_LEN - 1)) {
-            const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
+        if (len & (STRIPE_LEN*2 - 1)) {
+            const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN*2;
             XXH3_accumulate128_512bits(acc,
                                        p,
                                        kKey + nbStripes*2,
@@ -1079,7 +1079,7 @@ XXH3_hashLong128(U64*  restrict acc,
 XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    ALIGN(64) U64 acc[ACC_NB*2] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     U32 key[KEYSET_DEFAULT_SIZE];
     U32 mult[NB_STRIPES_PER_ROUND*2];
 
@@ -1092,8 +1092,8 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);
-    {   U64 const low64 = XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1);
-        U64 const high64 = XXH3_mergeAccs(acc, kKey+16, ((U64)len+1) * PRIME64_2);
+    {   U64 const low64 = XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1) + XXH3_mergeAccs(acc+8, kKey, (U64)len * PRIME64_1);
+        U64 const high64 = XXH3_mergeAccs(acc, kKey+16, ((U64)len+1) * PRIME64_2) + XXH3_mergeAccs(acc+8, kKey+16, ((U64)len+1) * PRIME64_2);
         XXH128_hash_t const h128 = { low64, high64 };
         return h128;
     }

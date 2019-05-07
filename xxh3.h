@@ -1026,8 +1026,10 @@ static void XXH3_accumulate128(U64*  restrict acc,
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
-#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
-#  pragma clang loop unroll(enable)
+#if XXH_VECTOR != XXH_SSE2
+#  if defined(__clang__) && !defined(__OPTIMIZE_SIZE__)
+#    pragma clang loop unroll(enable)
+#  endif
 #endif
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate128_512bits(acc,

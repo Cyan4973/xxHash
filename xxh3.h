@@ -61,6 +61,11 @@
 #endif
 
 #if defined(__GNUC__)
+#  if (__GNUC__ < 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ < 4))
+#    /* x86intrin.h was introduced in gcc 4.4 */
+#    undef __SSE2__
+#    undef __AVX2__
+#  endif
 #  if defined(__SSE2__)
 #    include <x86intrin.h>
 #  elif defined(__ARM_NEON__) || defined(__ARM_NEON)

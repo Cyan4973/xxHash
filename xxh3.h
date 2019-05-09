@@ -524,7 +524,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 #endif
 }
 
-static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
+static void XXH3_scramble8Acc(void* restrict acc, const void* restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -687,7 +687,7 @@ XXH3_hashLong(U64*  restrict acc,
     size_t n;
     for (n = 0; n < nb_blocks; n++) {
         XXH3_accumulate(acc, (const BYTE*)data + n*block_len, NB_STRIPES_PER_ROUND, kKey);
-        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
+        XXH3_scramble8Acc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
     /* last partial block */
@@ -1055,7 +1055,8 @@ XXH3_hashLong128(U64*  restrict acc,
               (const BYTE*)data + n*block_len, NB_KEYS,
                            kKey,
                            mul);
-        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - (STRIPE_ELTS*2)));
+        XXH3_scramble8Acc(acc,   kKey + (KEYSET_DEFAULT_SIZE - (STRIPE_ELTS*2)));
+        XXH3_scramble8Acc(acc+8, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
     }
 
     /* last partial block */

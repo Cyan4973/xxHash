@@ -61,8 +61,10 @@
 #endif
 
 #if defined(__GNUC__)
-#  if defined(__SSE2__)
-#    include <x86intrin.h>
+#  if defined(__AVX2__)
+#    include <immintrin.h>
+#  elif defined(__SSE2__)
+#    include <emmintrin.h>
 #  elif defined(__ARM_NEON__) || defined(__ARM_NEON)
 #    define inline __inline__ /* clang bug */
 #    include <arm_neon.h>

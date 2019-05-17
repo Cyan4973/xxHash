@@ -666,7 +666,7 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
-#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) && !defined(__ARM_ARCH)
+#if defined(__clang__) && !defined(__ARM_ARCH) && !XXH_REROLL
 #  pragma clang loop unroll(enable)
 #endif
     for (n = 0; n < nbStripes; n++ ) {
@@ -774,28 +774,33 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
     const char* const key = (const char*)kKey;
 
     if (len <= 16) return XXH3_len_0to16_64b(data, len, seed);
-
+    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
     {   U64 acc = len * PRIME64_1;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
+        if (XXH_REROLL) {
+            size_t i = ((len & 127) - 1) / 32;
+            do {
+                acc += XXH3_mix16B(p + (i * 16), key + (i * 32), seed);
+                acc += XXH3_mix16B(p + len - ((i * 16) + 16), key + (i * 32) + 16, seed);
+            } while (i-- > 0);
+        } else {
+            if (len > 32) {
+                if (len > 64) {
+                    if (len > 96) {
+                        acc += XXH3_mix16B(p+48, key+96, seed);
+                        acc += XXH3_mix16B(p+len-64, key+112, seed);
+                    }
 
-                    acc += XXH3_mix16B(p+48, key+96, seed);
-                    acc += XXH3_mix16B(p+len-64, key+112, seed);
+                    acc += XXH3_mix16B(p+32, key+64, seed);
+                    acc += XXH3_mix16B(p+len-48, key+80, seed);
                 }
 
-                acc += XXH3_mix16B(p+32, key+64, seed);
-                acc += XXH3_mix16B(p+len-48, key+80, seed);
+                acc += XXH3_mix16B(p+16, key+32, seed);
+                acc += XXH3_mix16B(p+len-32, key+48, seed);
             }
 
-            acc += XXH3_mix16B(p+16, key+32, seed);
-            acc += XXH3_mix16B(p+len-32, key+48, seed);
+            acc += XXH3_mix16B(p+0, key+0, seed);
+            acc += XXH3_mix16B(p+len-16, key+16, seed);
         }
-
-        acc += XXH3_mix16B(p+0, key+0, seed);
-        acc += XXH3_mix16B(p+len-16, key+16, seed);
-
         return XXH3_avalanche(acc);
     }
 }
@@ -902,32 +907,39 @@ XXH_PUBLIC_API XXH128_hash_t
 XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     if (len <= 16) return XXH3_len_0to16_128b(data, len, seed);
+    if (len > 128) return XXH3_hashLong_128b(data, len, seed);
 
     {   U64 acc1 = PRIME64_1 * (len + seed);
         U64 acc2 = 0;
         const BYTE* const p = (const BYTE*)data;
         const char* const key = (const char*)kKey;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    if (len > 128) return XXH3_hashLong_128b(data, len, seed);
+        if (XXH_REROLL) {
+            size_t i = ((len & 127) - 1) / 32;
+            do {
+                acc1 += XXH3_mix16B(p + (i * 16), key + (i * 32), seed);
+                acc2 += XXH3_mix16B(p + len - ((i * 16) + 16), key + (i * 32) + 16, seed);
+            } while (i-- > 0);
+        } else {
+            if (len > 32) {
+                if (len > 64) {
+                    if (len > 96) {
 
-                    acc1 += XXH3_mix16B(p+48, key+96, seed);
-                    acc2 += XXH3_mix16B(p+len-64, key+112, seed);
+                        acc1 += XXH3_mix16B(p+48, key+96, seed);
+                        acc2 += XXH3_mix16B(p+len-64, key+112, seed);
+                    }
+
+                    acc1 += XXH3_mix16B(p+32, key+64, seed);
+                    acc2 += XXH3_mix16B(p+len-48, key+80, seed);
                 }
 
-                acc1 += XXH3_mix16B(p+32, key+64, seed);
-                acc2 += XXH3_mix16B(p+len-48, key+80, seed);
+                acc1 += XXH3_mix16B(p+16, key+32, seed);
+                acc2 += XXH3_mix16B(p+len-32, key+48, seed);
+
             }
 
-            acc1 += XXH3_mix16B(p+16, key+32, seed);
-            acc2 += XXH3_mix16B(p+len-32, key+48, seed);
-
+            acc1 += XXH3_mix16B(p+0, key+0, seed);
+            acc2 += XXH3_mix16B(p+len-16, key+16, seed);
         }
-
-        acc1 += XXH3_mix16B(p+0, key+0, seed);
-        acc2 += XXH3_mix16B(p+len-16, key+16, seed);
-
         {   U64 const part1 = acc1 + acc2;
             U64 const part2 = (acc1 * PRIME64_3) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);
             XXH128_hash_t const h128 = { XXH3_avalanche(part1), (XXH64_hash_t)0 - XXH3_avalanche(part2) };

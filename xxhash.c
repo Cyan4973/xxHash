@@ -86,6 +86,18 @@
 #  endif
 #endif
 
+/*!XXH_REROLL:
+ * Whether to reroll XXH32_finalize, XXH64_finalize, and XXH3's accumulate loop
+ * instead of using an unrolled jump table/if statement loop.
+ *
+ * This is automatically defined on -Os/-Oz on GCC and Clang. */
+#ifndef XXH_REROLL
+#  if defined(__OPTIMIZE_SIZE__)
+#    define XXH_REROLL 1
+#  else
+#    define XXH_REROLL 0
+#  endif
+#endif
 
 /* *************************************
 *  Includes & Memory related functions
@@ -343,48 +355,61 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
     p+=4;                                \
     h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
 
-    switch(len&15)  /* or switch(bEnd - p) */
-    {
-      case 12:      PROCESS4;
-                    /* fallthrough */
-      case 8:       PROCESS4;
-                    /* fallthrough */
-      case 4:       PROCESS4;
-                    return XXH32_avalanche(h32);
+    /* Compact rerolled version */
+    if (XXH_REROLL) {
+        len &= 15;
+        while (len >= 4) {
+            PROCESS4;
+            len -= 4;
+        }
+        while (len > 0) {
+            PROCESS1;
+            --len;
+        }
+        return XXH32_avalanche(h32);
+    } else {
+         switch(len&15) /* or switch(bEnd - p) */ {
+           case 12:      PROCESS4;
+                         /* fallthrough */
+           case 8:       PROCESS4;
+                         /* fallthrough */
+           case 4:       PROCESS4;
+                         return XXH32_avalanche(h32);
 
-      case 13:      PROCESS4;
-                    /* fallthrough */
-      case 9:       PROCESS4;
-                    /* fallthrough */
-      case 5:       PROCESS4;
-                    PROCESS1;
-                    return XXH32_avalanche(h32);
+           case 13:      PROCESS4;
+                         /* fallthrough */
+           case 9:       PROCESS4;
+                         /* fallthrough */
+           case 5:       PROCESS4;
+                         PROCESS1;
+                         return XXH32_avalanche(h32);
 
-      case 14:      PROCESS4;
-                    /* fallthrough */
-      case 10:      PROCESS4;
-                    /* fallthrough */
-      case 6:       PROCESS4;
-                    PROCESS1;
-                    PROCESS1;
-                    return XXH32_avalanche(h32);
+           case 14:      PROCESS4;
+                         /* fallthrough */
+           case 10:      PROCESS4;
+                         /* fallthrough */
+           case 6:       PROCESS4;
+                         PROCESS1;
+                         PROCESS1;
+                         return XXH32_avalanche(h32);
 
-      case 15:      PROCESS4;
-                    /* fallthrough */
-      case 11:      PROCESS4;
-                    /* fallthrough */
-      case 7:       PROCESS4;
-                    /* fallthrough */
-      case 3:       PROCESS1;
-                    /* fallthrough */
-      case 2:       PROCESS1;
-                    /* fallthrough */
-      case 1:       PROCESS1;
-                    /* fallthrough */
-      case 0:       return XXH32_avalanche(h32);
+           case 15:      PROCESS4;
+                         /* fallthrough */
+           case 11:      PROCESS4;
+                         /* fallthrough */
+           case 7:       PROCESS4;
+                         /* fallthrough */
+           case 3:       PROCESS1;
+                         /* fallthrough */
+           case 2:       PROCESS1;
+                         /* fallthrough */
+           case 1:       PROCESS1;
+                         /* fallthrough */
+           case 0:       return XXH32_avalanche(h32);
+        }
+        assert(0);
+        return h32;   /* reaching this point is deemed impossible */
     }
-    assert(0);
-    return h32;   /* reaching this point is deemed impossible */
 }
 
 XXH_FORCE_INLINE U32
@@ -605,6 +630,31 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 # endif
 #endif
 
+/*! XXH_REROLL_XXH64:
+ * Whether to reroll the XXH64_finalize() loop.
+ *
+ * Just like XXH32, we can unroll the XXH64_finalize() loop. This can be a performance gain
+ * on 64-bit hosts, as only one jump is required.
+ *
+ * However, on 32-bit hosts, because arithmetic needs to be done with two 32-bit registers,
+ * and 64-bit arithmetic needs to be simulated, it isn't beneficial to unroll. The code becomes
+ * ridiculously large (the largest function in the binary on i386!), and rerolling it saves
+ * anywhere from 3kB to 20kB. It is also slightly faster because it fits into cache better
+ * and is more likely to be inlined by the compiler.
+ *
+ * If XXH_REROLL is defined, this is ignored and the loop is always rerolled. */
+#ifndef XXH_REROLL_XXH64
+#  if (defined(__ILP32__) || defined(_ILP32)) /* ILP32 is often defined on 32-bit GCC family */ \
+   || !(defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64) /* x86-64 */ \
+     || defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) /* aarch64 */ \
+     || defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) || defined(__powerpc64__) /* ppc64 */ \
+     || defined(__mips64__) || defined(__mips64)) /* mips64 */ \
+   || (!defined(SIZE_MAX) || SIZE_MAX < ULLONG_MAX) /* check limits */
+#    define XXH_REROLL_XXH64 1
+#  else
+#    define XXH_REROLL_XXH64 0
+#  endif
+#endif /* !defined(XXH_REROLL_XXH64) */
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
@@ -729,88 +779,105 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
     h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4; \
 }
 
-    switch(len&31) {
-      case 24: PROCESS8_64;
-                    /* fallthrough */
-      case 16: PROCESS8_64;
-                    /* fallthrough */
-      case  8: PROCESS8_64;
-               return XXH64_avalanche(h64);
+    /* Rerolled version for 32-bit targets is faster and much smaller. */
+    if (XXH_REROLL || XXH_REROLL_XXH64) {
+        len &= 31;
+        while (len >= 8) {
+            PROCESS8_64;
+            len -= 8;
+        }
+        if (len > 4) {
+            PROCESS4_64;
+            len -= 4;
+        }
+        while (len > 0) {
+            PROCESS1_64;
+            --len;
+        }
+         return  XXH64_avalanche(h64);
+    } else {
+        switch(len & 31) {
+           case 24: PROCESS8_64;
+                         /* fallthrough */
+           case 16: PROCESS8_64;
+                         /* fallthrough */
+           case  8: PROCESS8_64;
+                    return XXH64_avalanche(h64);
 
-      case 28: PROCESS8_64;
-                    /* fallthrough */
-      case 20: PROCESS8_64;
-                    /* fallthrough */
-      case 12: PROCESS8_64;
-                    /* fallthrough */
-      case  4: PROCESS4_64;
-               return XXH64_avalanche(h64);
+           case 28: PROCESS8_64;
+                         /* fallthrough */
+           case 20: PROCESS8_64;
+                         /* fallthrough */
+           case 12: PROCESS8_64;
+                         /* fallthrough */
+           case  4: PROCESS4_64;
+                    return XXH64_avalanche(h64);
 
-      case 25: PROCESS8_64;
-                    /* fallthrough */
-      case 17: PROCESS8_64;
-                    /* fallthrough */
-      case  9: PROCESS8_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
+           case 25: PROCESS8_64;
+                         /* fallthrough */
+           case 17: PROCESS8_64;
+                         /* fallthrough */
+           case  9: PROCESS8_64;
+                    PROCESS1_64;
+                    return XXH64_avalanche(h64);
 
-      case 29: PROCESS8_64;
-                    /* fallthrough */
-      case 21: PROCESS8_64;
-                    /* fallthrough */
-      case 13: PROCESS8_64;
-                    /* fallthrough */
-      case  5: PROCESS4_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
+           case 29: PROCESS8_64;
+                         /* fallthrough */
+           case 21: PROCESS8_64;
+                         /* fallthrough */
+           case 13: PROCESS8_64;
+                         /* fallthrough */
+           case  5: PROCESS4_64;
+                    PROCESS1_64;
+                    return XXH64_avalanche(h64);
 
-      case 26: PROCESS8_64;
-                    /* fallthrough */
-      case 18: PROCESS8_64;
-                    /* fallthrough */
-      case 10: PROCESS8_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
+           case 26: PROCESS8_64;
+                         /* fallthrough */
+           case 18: PROCESS8_64;
+                         /* fallthrough */
+           case 10: PROCESS8_64;
+                    PROCESS1_64;
+                    PROCESS1_64;
+                    return XXH64_avalanche(h64);
 
-      case 30: PROCESS8_64;
-                    /* fallthrough */
-      case 22: PROCESS8_64;
-                    /* fallthrough */
-      case 14: PROCESS8_64;
-                    /* fallthrough */
-      case  6: PROCESS4_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
+           case 30: PROCESS8_64;
+                         /* fallthrough */
+           case 22: PROCESS8_64;
+                         /* fallthrough */
+           case 14: PROCESS8_64;
+                         /* fallthrough */
+           case  6: PROCESS4_64;
+                    PROCESS1_64;
+                    PROCESS1_64;
+                    return XXH64_avalanche(h64);
 
-      case 27: PROCESS8_64;
-                    /* fallthrough */
-      case 19: PROCESS8_64;
-                    /* fallthrough */
-      case 11: PROCESS8_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               PROCESS1_64;
-               return XXH64_avalanche(h64);
+           case 27: PROCESS8_64;
+                         /* fallthrough */
+           case 19: PROCESS8_64;
+                         /* fallthrough */
+           case 11: PROCESS8_64;
+                    PROCESS1_64;
+                    PROCESS1_64;
+                    PROCESS1_64;
+                    return XXH64_avalanche(h64);
 
-      case 31: PROCESS8_64;
-                    /* fallthrough */
-      case 23: PROCESS8_64;
-                    /* fallthrough */
-      case 15: PROCESS8_64;
-                    /* fallthrough */
-      case  7: PROCESS4_64;
-                    /* fallthrough */
-      case  3: PROCESS1_64;
-                    /* fallthrough */
-      case  2: PROCESS1_64;
-                    /* fallthrough */
-      case  1: PROCESS1_64;
-                    /* fallthrough */
-      case  0: return XXH64_avalanche(h64);
+           case 31: PROCESS8_64;
+                         /* fallthrough */
+           case 23: PROCESS8_64;
+                         /* fallthrough */
+           case 15: PROCESS8_64;
+                         /* fallthrough */
+           case  7: PROCESS4_64;
+                         /* fallthrough */
+           case  3: PROCESS1_64;
+                         /* fallthrough */
+           case  2: PROCESS1_64;
+                         /* fallthrough */
+           case  1: PROCESS1_64;
+                         /* fallthrough */
+           case  0: return XXH64_avalanche(h64);
+        }
     }
-
     /* impossible to reach */
     assert(0);
     return 0;  /* unreachable, but some compilers complain without it */

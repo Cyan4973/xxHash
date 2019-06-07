@@ -92,10 +92,9 @@
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX2__)
 #    define XXH_VECTOR XXH_AVX2
-#  elif defined(__SSE2__)
+#  elif defined(__SSE2__) || defined(_M_AMD64) || defined(_M_X64)
 #    define XXH_VECTOR XXH_SSE2
-/* msvc support maybe later */
-#  elif defined(__GNUC__) \
+#  elif defined(__GNUC__) /* msvc support maybe later */ \
   && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
   && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON

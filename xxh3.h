@@ -670,8 +670,9 @@ static void XXH3_accumulate(U64* acc, const void* restrict data, const U32* rest
 #  pragma clang loop unroll(enable)
 #endif
     for (n = 0; n < nbStripes; n++ ) {
-        XXH3_accumulate_512(acc, (const BYTE*)data + n*STRIPE_LEN, key);
-        key += 2;
+        XXH3_accumulate_512(acc,
+               (const BYTE*)data + n*STRIPE_LEN,
+                            key + n*2);
     }
 }
 

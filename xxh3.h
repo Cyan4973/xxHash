@@ -70,12 +70,12 @@
 #    include <arm_neon.h>
 #    undef inline
 #  endif
-#  define ALIGN(n)      __attribute__ ((aligned(n)))
+#  define XXH_ALIGN(n)  __attribute__ ((aligned(n)))
 #elif defined(_MSC_VER)
 #  include <intrin.h>
-#  define ALIGN(n)      __declspec(align(n))
+#  define XXH_ALIGN(n)  __declspec(align(n))
 #else
-#  define ALIGN(n)   /* disabled */
+#  define XXH_ALIGN(n)  /* disabled */
 #endif
 
 
@@ -141,7 +141,7 @@ XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
 #define KEYSET_DEFAULT_SIZE 48   /* minimum 32 */
 
 
-ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
+XXH_ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
     0xb8fe6c39,0x23a44bbe,0x7c01812c,0xf721ad1c,
     0xded46de9,0x839097db,0x7240a4a4,0xb7b3671f,
     0xcb79e64e,0xccc0e578,0x825ad07d,0xccff7221,
@@ -386,9 +386,9 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 #if (XXH_VECTOR == XXH_AVX2)
 
     assert(((size_t)acc) & 31 == 0);
-    {   ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
-        const     __m256i* const xdata = (const __m256i *) data;
-        const     __m256i* const xkey  = (const __m256i *) key;
+    {   XXH_ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
+        const         __m256i* const xdata = (const __m256i *) data;
+        const         __m256i* const xkey  = (const __m256i *) key;
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
@@ -404,9 +404,9 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 #elif (XXH_VECTOR == XXH_SSE2)
 
     assert(((size_t)acc) & 15 == 0);
-    {   ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-        const     __m128i* const xdata = (const __m128i *) data;
-        const     __m128i* const xkey  = (const __m128i *) key;
+    {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
+        const         __m128i* const xdata = (const __m128i *) data;
+        const         __m128i* const xkey  = (const __m128i *) key;
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -423,7 +423,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
     assert(((size_t)acc) & 15 == 0);
     {
-        ALIGN(16) uint64x2_t* const xacc  =     (uint64x2_t *) acc;
+        XXH_ALIGN(16) uint64x2_t* const xacc = (uint64x2_t *) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
         uint32_t const* const xdata = (const uint32_t *) data;
         uint32_t const* const xkey  = (const uint32_t *) key;
@@ -510,7 +510,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
         xacc[i] += data_vec;
     }
 #else   /* scalar variant of Accumulator - universal */
-    ALIGN(16) U64* const xacc  =       (U64*) acc;   /* presumed aligned */
+    XXH_ALIGN(16) U64* const xacc = (U64*) acc;   /* presumed aligned */
     const U32* const xdata = (const U32*) data;
     const U32* const xkey  = (const U32*) key;
     size_t i;
@@ -530,8 +530,8 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 #if (XXH_VECTOR == XXH_AVX2)
 
     assert(((size_t)acc) & 31 == 0);
-    {   ALIGN(32) __m256i* const xacc = (__m256i*) acc;
-        const     __m256i* const xkey  = (const __m256i *) key;
+    {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
+        const         __m256i* const xkey = (const __m256i *) key;
         const __m256i k1 = _mm256_set1_epi32((int)PRIME32_1);
 
         size_t i;
@@ -555,8 +555,8 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    {   ALIGN(16) __m128i* const xacc = (__m128i*) acc;
-        const     __m128i* const xkey  = (const __m128i *) key;
+    {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
+        const         __m128i* const xkey = (const __m128i *) key;
         const __m128i k1 = _mm_set1_epi32((int)PRIME32_1);
 
         size_t i;
@@ -741,8 +741,8 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
-    ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
+    XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    XXH_ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
 
     XXH3_initKeySeed(key, seed);
 
@@ -884,7 +884,7 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
 XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
 {
-    ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
+    XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     assert(len > 128);
 
     XXH3_hashLong(acc, data, len);

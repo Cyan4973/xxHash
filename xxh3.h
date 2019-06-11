@@ -746,14 +746,14 @@ XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
                acc[1] ^ XXH3_readKey64(key64+1) );
 }
 
-static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const U32* key, U64 start)
+static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const void* key, U64 start)
 {
     U64 result64 = start;
 
-    result64 += XXH3_mix2Accs(acc+0, key+0);
-    result64 += XXH3_mix2Accs(acc+2, key+4);
-    result64 += XXH3_mix2Accs(acc+4, key+8);
-    result64 += XXH3_mix2Accs(acc+6, key+12);
+    result64 += XXH3_mix2Accs(acc+0, (const U64*)key + 0);
+    result64 += XXH3_mix2Accs(acc+2, (const U64*)key + 2);
+    result64 += XXH3_mix2Accs(acc+4, (const U64*)key + 4);
+    result64 += XXH3_mix2Accs(acc+6, (const U64*)key + 6);
 
     return XXH3_avalanche(result64);
 }

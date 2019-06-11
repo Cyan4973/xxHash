@@ -408,7 +408,7 @@ struct XXH64_state_s {
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #endif
- 
+
 /* note : variants without seed produce same result as variant with seed == 0 */
 XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
 

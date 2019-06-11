@@ -408,6 +408,15 @@ struct XXH64_state_s {
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #endif
 
+/* note : variants without seed produce same result as variant with seed == 0 */
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
+
+#define XXH_SECRET_SIZE_MIN  136
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t size);
+
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
+
+
 
 typedef struct {
     XXH64_hash_t low64;
@@ -415,10 +424,6 @@ typedef struct {
 } XXH128_hash_t;
 
 XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, unsigned long long seed);
-
-/* note : variants without seed produce same result as variant with seed == 0 */
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, unsigned long long seed);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, unsigned long long seed);  /* == XXH128() */
 

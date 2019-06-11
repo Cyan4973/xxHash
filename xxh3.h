@@ -681,7 +681,7 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restri
 }
 
 static void
-XXH3_hashLong_s(U64* restrict acc, const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
+XXH3_hashLong_internal(U64* restrict acc, const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
 {
     size_t const nb_rounds = (secretSize - STRIPE_LEN) / 8;   // <---- name this constant
     size_t const block_len = STRIPE_LEN * nb_rounds;
@@ -711,7 +711,7 @@ XXH3_hashLong_s(U64* restrict acc, const void* restrict data, size_t len, const 
 
 
 static void
-XXH3_hashLong(U64* acc, const void* data, size_t len)
+XXH3_hashLong(U64* restrict acc, const void* restrict data, size_t len)
 {
     #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
 
@@ -759,6 +759,19 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const void* key, U64 start)
 }
 
 
+XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+XXH3_hashLong_64b_s(const void* data, size_t len, const void* secret, size_t secretSize)
+{
+    XXH_ALIGN(64) U64 acc[ACC_NB] = { 0, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, 0, 0 };
+
+    XXH3_hashLong_internal(acc, data, len, secret, secretSize);
+
+    /* converge into final hash */
+    XXH_STATIC_ASSERT(sizeof(acc) == 64);
+    assert(secretSize >= sizeof(acc));
+    return XXH3_mergeAccs(acc, secret, (U64)len * PRIME64_1);
+}
+
 XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
 {
     U32 const seed1 = (U32)seed64;
@@ -774,19 +787,6 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
 }
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_s(const void* data, size_t len, const void* secret, size_t secretSize)
-{
-    XXH_ALIGN(64) U64 acc[ACC_NB] = { 0, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, 0, 0 };
-
-    XXH3_hashLong_s(acc, data, len, secret, secretSize);
-
-    /* converge into final hash */
-    XXH_STATIC_ASSERT(sizeof(acc) == 64);
-    assert(secretSize >= sizeof(acc));
-    return XXH3_mergeAccs(acc, secret, (U64)len * PRIME64_1);
-}
-
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
@@ -794,10 +794,14 @@ XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
 
     XXH3_initKeySeed(key, seed);
 
+#if 1
     XXH3_hashLong(acc, data, len);
+#else
+    XXH3_hashLong_internal(acc, data, len, key, sizeof(key));
+#endif
 
     /* converge into final hash */
-    assert(sizeof(acc) == 64);
+    XXH_STATIC_ASSERT(sizeof(acc) == 64);
     return XXH3_mergeAccs(acc, key, (U64)len * PRIME64_1);
 }
 
@@ -854,27 +858,6 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 
-#if 1
-
-XXH_PUBLIC_API XXH64_hash_t
-XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize)
-{
-    if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
-    if (len > 128) return XXH3_hashLong_64b_s(data, len, secret, secretSize);
-    return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
-}
-
-XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
-{
-#if 0
-    return XXH3_64bits_withSeed(data, len, 0);
-#else
-    return XXH3_64bits_withSecret(data, len, kKey, sizeof(kKey));
-#endif
-}
-
-#else
-
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_64bits_withSecret_internal(const void* data, size_t len, const void* secret, size_t secretSize)
 {
@@ -888,6 +871,10 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
 {
     assert(secretSize >= XXH_SECRET_SIZE_MIN);
     assert(((size_t)secret % 8) == 0);
+    /* if an action must be taken should `secret` conditions not be respected,
+     * it should be done here.
+     * For now, it's a contract pre-condition.
+     * Adding a check and a branch here would cost performance at every hash */
     return XXH3_64bits_withSecret_internal(data, len, secret, secretSize);
 }
 
@@ -899,8 +886,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
     return XXH3_64bits_withSecret_internal(data, len, kKey, sizeof(kKey));
 #endif
 }
-
-#endif
 
 
 

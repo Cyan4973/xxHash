@@ -824,25 +824,21 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
     assert(secretSize >= XXH_SECRET_SIZE_MIN);
 
     if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
+    if (len > 128) return XXH3_hashLong_64b_s(data, len, secret, secretSize);
 
     {   U64 acc = len * PRIME64_1;
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
-                    if (len > 128) return XXH3_hashLong_64b_s(data, len, secret, secretSize);
-
                     acc += XXH3_mix16B(p+48, key+96, 0);
                     acc += XXH3_mix16B(p+len-64, key+112, 0);
                 }
-
                 acc += XXH3_mix16B(p+32, key+64, 0);
                 acc += XXH3_mix16B(p+len-48, key+80, 0);
             }
-
             acc += XXH3_mix16B(p+16, key+32, 0);
             acc += XXH3_mix16B(p+len-32, key+48, 0);
         }
-
         acc += XXH3_mix16B(p+0, key+0, 0);
         acc += XXH3_mix16B(p+len-16, key+16, 0);
 
@@ -857,25 +853,21 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
     const char* const key = (const char*)kKey;
 
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
+    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
 
     {   U64 acc = len * PRIME64_1;
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
-                    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
-
                     acc += XXH3_mix16B(p+48, key+96, seed);
                     acc += XXH3_mix16B(p+len-64, key+112, seed);
                 }
-
                 acc += XXH3_mix16B(p+32, key+64, seed);
                 acc += XXH3_mix16B(p+len-48, key+80, seed);
             }
-
             acc += XXH3_mix16B(p+16, key+32, seed);
             acc += XXH3_mix16B(p+len-32, key+48, seed);
         }
-
         acc += XXH3_mix16B(p+0, key+0, seed);
         acc += XXH3_mix16B(p+len-16, key+16, seed);
 

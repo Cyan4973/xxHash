@@ -372,7 +372,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     {   if (len > 8) return XXH3_len_9to16_64b(data, len, keyPtr, seed);
         if (len >= 4) return XXH3_len_4to8_64b(data, len, keyPtr, seed);
         if (len) return XXH3_len_1to3_64b(data, len, keyPtr, seed);
-        return seed;
+        return 0;
     }
 }
 

@@ -679,9 +679,10 @@ static void BMK_sanityCheck(void)
     BMK_testSequence64(sanityBuffer,222, 0,     0x9DD507880DEBB03DULL);
     BMK_testSequence64(sanityBuffer,222, prime, 0xDC515172B8EE0600ULL);
 
-#if 0
 
     BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is the seed == 0 by default */
+    (void)prime64;
+#if 0
     BMK_testXXH3(NULL,           0, prime64, prime64);
     BMK_testXXH3(sanityBuffer,   1, 0,       0xD00398B418222F66ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   1, prime64, 0x5EF5C7337AA1168CULL);  /*  1 -  3 */

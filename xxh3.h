@@ -710,34 +710,6 @@ XXH3_hashLong_internal(U64* restrict acc, const void* restrict data, size_t len,
 }
 
 
-static void
-XXH3_hashLong(U64* restrict acc, const void* restrict data, size_t len)
-{
-    #define NB_KEYS ((KEYSET_DEFAULT_SIZE - STRIPE_ELTS) / 2)
-
-    size_t const block_len = STRIPE_LEN * NB_KEYS;
-    size_t const nb_blocks = len / block_len;
-
-    size_t n;
-    for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate(acc, (const BYTE*)data + n*block_len, kKey, NB_KEYS);
-        XXH3_scrambleAcc(acc, kKey + (KEYSET_DEFAULT_SIZE - STRIPE_ELTS));
-    }
-
-    /* last partial block */
-    assert(len > STRIPE_LEN);
-    {   size_t const nbStripes = (len % block_len) / STRIPE_LEN;
-        assert(nbStripes < NB_KEYS);
-        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, kKey, nbStripes);
-
-        /* last stripe */
-        if (len & (STRIPE_LEN - 1)) {
-            const BYTE* const p = (const BYTE*) data + len - STRIPE_LEN;
-            XXH3_accumulate_512(acc, p, kKey + nbStripes*2);
-    }   }
-}
-
-
 XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
 {
     const U64* const key64 = (const U64*)key;
@@ -760,7 +732,7 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const void* key, U64 start)
 
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_s(const void* data, size_t len, const void* secret, size_t secretSize)
+XXH3_hashLong_64b(const void* data, size_t len, const void* secret, size_t secretSize)
 {
     XXH_ALIGN(64) U64 acc[ACC_NB] = { 0, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, 0, 0 };
 
@@ -786,19 +758,22 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
     }
 }
 
+/* XXH3_hashLong_64b_withSeed() :
+ * Generate a custom key,
+ * based on alteration of default kKey with the seed,
+ * and then use this key for long mode hashing.
+ * This operation is decently fast but nonetheless costs a little bit of time.
+ * Try to avoid it whenever possible (typically when seed==0).
+ */
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b(const void* data, size_t len, XXH64_hash_t seed)
+XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     XXH_ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
 
     XXH3_initKeySeed(key, seed);
 
-#if 1
-    XXH3_hashLong(acc, data, len);
-#else
     XXH3_hashLong_internal(acc, data, len, key, sizeof(key));
-#endif
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
@@ -853,7 +828,7 @@ XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
-    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
+    if (len > 128) return XXH3_hashLong_64b_withSeed(data, len, seed);
     return XXH3_len_17to128_64b(data, len, kKey, sizeof(kKey), seed);
 }
 
@@ -862,7 +837,7 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_64bits_withSecret_internal(const void* data, size_t len, const void* secret, size_t secretSize)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
-    if (len > 128) return XXH3_hashLong_64b_s(data, len, secret, secretSize);
+    if (len > 128) return XXH3_hashLong_64b(data, len, secret, secretSize);
     return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
 }
 
@@ -969,7 +944,7 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
     XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     assert(len > 128);
 
-    XXH3_hashLong(acc, data, len);
+    XXH3_hashLong_internal(acc, data, len, kKey, sizeof(kKey));
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);

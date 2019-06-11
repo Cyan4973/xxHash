@@ -383,18 +383,6 @@ XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
 }
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_0to16_64b_s(const void* data, size_t len, const void* secret)
-{
-    assert(data != NULL);
-    assert(len <= 16);
-    {   if (len > 8) return XXH3_len_9to16_64b_s(data, len, secret);
-        if (len >= 4) return XXH3_len_4to8_64b_s(data, len, secret);
-        if (len) return XXH3_len_1to3_64b_s(data, len, secret);
-        return 0;  /* len == 0 */
-    }
-}
-
-XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
     assert(data != NULL);
@@ -433,6 +421,26 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
         if (len) return XXH3_len_1to3_64b(data, len, kKey, seed);
         return seed;
     }
+}
+
+XXH_FORCE_INLINE XXH64_hash_t
+XXH3_len_0to16_64b_s(const void* data, size_t len, const void* secret)
+{
+    assert(data != NULL);
+    assert(len <= 16);
+#if 1
+    {   if (len > 8) return XXH3_len_9to16_64b_s(data, len, secret);
+        if (len >= 4) return XXH3_len_4to8_64b_s(data, len, secret);
+        if (len) return XXH3_len_1to3_64b_s(data, len, secret);
+        return 0;  /* len == 0 */
+    }
+#else
+    {   if (len > 8) return XXH3_len_9to16_64b(data, len, secret, 0);
+        if (len >= 4) return XXH3_len_4to8_64b(data, len, secret, 0);
+        if (len) return XXH3_len_1to3_64b(data, len, secret, 0);
+        return 0;
+    }
+#endif
 }
 
 

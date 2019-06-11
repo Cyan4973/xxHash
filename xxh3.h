@@ -318,53 +318,6 @@ XXH3_readKey64(const void* ptr)
 }
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_1to3_64b_s(const void* data, size_t len, const void* keyPtr)
-{
-    assert(data != NULL);
-    assert(len > 0 && len <= 3);
-    assert(keyPtr != NULL);
-    {   const U32* const key32 = (const U32*) keyPtr;
-        BYTE const c1 = ((const BYTE*)data)[0];
-        BYTE const c2 = ((const BYTE*)data)[len >> 1];
-        BYTE const c3 = ((const BYTE*)data)[len - 1];
-        U32  const l1 = (U32)(c1) + ((U32)(c2) << 8);
-        U32  const l2 = (U32)(len) + ((U32)(c3) << 2);
-        U64  const ll11 = XXH_mult32to64(l1 + key32[0],
-                                         l2 + key32[1]);
-        return XXH3_avalanche(ll11);
-    }
-}
-
-XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_4to8_64b_s(const void* data, size_t len, const void* keyPtr)
-{
-    assert(data != NULL);
-    assert(key != NULL);
-    assert(len >= 4 && len <= 8);
-    {   U32 const in1 = XXH_readLE32(data);
-        U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
-        U64 const in64 = in1 + ((U64)in2 << 32);
-        U64 const keyed = in64 ^ XXH3_readKey64(keyPtr);
-        U64 const mix64 = len + XXH3_mul128_fold64(keyed, PRIME64_1);
-        return XXH3_avalanche(mix64);
-    }
-}
-
-XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_9to16_64b_s(const void* data, size_t len, const void* keyPtr)
-{
-    assert(data != NULL);
-    assert(key != NULL);
-    assert(len >= 9 && len <= 16);
-    {   const U64* const key64 = (const U64*) keyPtr;
-        U64 const ll1 = XXH_readLE64(data) ^ XXH3_readKey64(key64);
-        U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ XXH3_readKey64(key64+1);
-        U64 const acc = len + (ll1 + ll2) + XXH3_mul128_fold64(ll1, ll2);
-        return XXH3_avalanche(acc);
-    }
-}
-
-XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
     assert(data != NULL);
@@ -412,7 +365,7 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 }
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
+XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
     assert(data != NULL);
     assert(len <= 16);
@@ -421,26 +374,6 @@ XXH3_len_0to16_64b(const void* data, size_t len, XXH64_hash_t seed)
         if (len) return XXH3_len_1to3_64b(data, len, kKey, seed);
         return seed;
     }
-}
-
-XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_0to16_64b_s(const void* data, size_t len, const void* secret)
-{
-    assert(data != NULL);
-    assert(len <= 16);
-#if 1
-    {   if (len > 8) return XXH3_len_9to16_64b_s(data, len, secret);
-        if (len >= 4) return XXH3_len_4to8_64b_s(data, len, secret);
-        if (len) return XXH3_len_1to3_64b_s(data, len, secret);
-        return 0;  /* len == 0 */
-    }
-#else
-    {   if (len > 8) return XXH3_len_9to16_64b(data, len, secret, 0);
-        if (len >= 4) return XXH3_len_4to8_64b(data, len, secret, 0);
-        if (len) return XXH3_len_1to3_64b(data, len, secret, 0);
-        return 0;
-    }
-#endif
 }
 
 
@@ -890,7 +823,7 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
 
     assert(secretSize >= XXH_SECRET_SIZE_MIN);
 
-    if (len <= 16) return XXH3_len_0to16_64b_s(data, len, secret);
+    if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
 
     {   U64 acc = len * PRIME64_1;
         if (len > 32) {
@@ -923,7 +856,7 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)kKey;
 
-    if (len <= 16) return XXH3_len_0to16_64b(data, len, seed);
+    if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
 
     {   U64 acc = len * PRIME64_1;
         if (len > 32) {

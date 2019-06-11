@@ -844,6 +844,18 @@ XXH3_len_17to128_64b(const void* data, size_t len, const void* secret, size_t se
     }
 }
 
+
+XXH_PUBLIC_API XXH64_hash_t
+XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
+{
+    if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
+    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
+    return XXH3_len_17to128_64b(data, len, kKey, sizeof(kKey), seed);
+}
+
+
+#if 1
+
 XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize)
 {
@@ -851,39 +863,6 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
     if (len > 128) return XXH3_hashLong_64b_s(data, len, secret, secretSize);
     return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
 }
-
-XXH_PUBLIC_API XXH64_hash_t
-XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
-{
-    if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
-    if (len > 128) return XXH3_hashLong_64b(data, len, seed);
-
-#if 1
-    return XXH3_len_17to128_64b(data, len, kKey, sizeof(kKey), seed);
-#else
-    {   U64 acc = len * PRIME64_1;
-        const BYTE* const p = (const BYTE*)data;
-        const char* const key = (const char*)kKey;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    acc += XXH3_mix16B(p+48, key+96, seed);
-                    acc += XXH3_mix16B(p+len-64, key+112, seed);
-                }
-                acc += XXH3_mix16B(p+32, key+64, seed);
-                acc += XXH3_mix16B(p+len-48, key+80, seed);
-            }
-            acc += XXH3_mix16B(p+16, key+32, seed);
-            acc += XXH3_mix16B(p+len-32, key+48, seed);
-        }
-        acc += XXH3_mix16B(p+0, key+0, seed);
-        acc += XXH3_mix16B(p+len-16, key+16, seed);
-
-        return XXH3_avalanche(acc);
-    }
-#endif
-}
-
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 {
@@ -893,6 +872,36 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
     return XXH3_64bits_withSecret(data, len, kKey, sizeof(kKey));
 #endif
 }
+
+#else
+
+XXH_FORCE_INLINE XXH64_hash_t
+XXH3_64bits_withSecret_internal(const void* data, size_t len, const void* secret, size_t secretSize)
+{
+    if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
+    if (len > 128) return XXH3_hashLong_64b_s(data, len, secret, secretSize);
+    return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
+}
+
+XXH_PUBLIC_API XXH64_hash_t
+XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize)
+{
+    assert(secretSize >= XXH_SECRET_SIZE_MIN);
+    assert(((size_t)secret % 8) == 0);
+    return XXH3_64bits_withSecret_internal(data, len, secret, secretSize);
+}
+
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
+{
+#if 0
+    return XXH3_64bits_withSeed(data, len, 0);
+#else
+    return XXH3_64bits_withSecret_internal(data, len, kKey, sizeof(kKey));
+#endif
+}
+
+#endif
+
 
 
 

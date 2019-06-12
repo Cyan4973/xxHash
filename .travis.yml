@@ -49,7 +49,7 @@ matrix:
         - CC=aarch64-linux-gnu-gcc CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static RUN_ENV=qemu-aarch64-static make check   # NEON code path
         - make clean
 
-    - name: PowerPC + PPC64 compilation and consistency checks
+    - name: PowerPC + PPC64 compilation and consistency checks (Trusty)
       dist: trusty
       install:
         - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu
@@ -58,4 +58,4 @@ matrix:
         - make clean
         - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64 -maltivec" LDFLAGS="-static -m64" make check   # VSX code path
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64 -maltivec -mvsx" LDFLAGS="-static -m64" make check   # VSX code path

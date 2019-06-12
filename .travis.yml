@@ -54,7 +54,8 @@ matrix:
       install:
         - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu
       script:
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Only scalar code path available
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
         - make clean
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Only scalar code path available
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # VSX code path

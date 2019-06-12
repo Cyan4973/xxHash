@@ -798,8 +798,6 @@ XXH_FORCE_INLINE U64 XXH3_mix16B(const void* restrict data, const void* restrict
 }
 
 
-/* ===   Public entry point   === */
-
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize, XXH64_hash_t seed)
 {
@@ -830,15 +828,6 @@ XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict
 }
 
 
-XXH_PUBLIC_API XXH64_hash_t
-XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
-{
-    if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
-    if (len > 128) return XXH3_hashLong_64b_withSeed(data, len, seed);
-    return XXH3_len_17to128_64b(data, len, kKey, sizeof(kKey), seed);
-}
-
-
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_64bits_withSecret_internal(const void* data, size_t len, const void* secret, size_t secretSize)
 {
@@ -846,6 +835,9 @@ XXH3_64bits_withSecret_internal(const void* data, size_t len, const void* secret
     if (len > 128) return XXH3_hashLong_64b(data, len, secret, secretSize);
     return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
 }
+
+
+/* ===   Public entry point   === */
 
 XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize)
@@ -859,11 +851,28 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
     return XXH3_64bits_withSecret_internal(data, len, secret, secretSize);
 }
 
+XXH_PUBLIC_API XXH64_hash_t
+XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
+{
+    /* note : opened question : would it be faster to
+     * route to XXH3_64bits_withSecret_internal()
+     * when `seed == 0` ?
+     * This would add a branch though.
+     * Maybe do it into XXH3_hashLong_64b_withSeed() instead,
+     * since that's where it matters */
+    if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
+    if (len > 128) return XXH3_hashLong_64b_withSeed(data, len, seed);
+    return XXH3_len_17to128_64b(data, len, kKey, sizeof(kKey), seed);
+}
+
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 {
 #if 0
     return XXH3_64bits_withSeed(data, len, 0);
 #else
+    /* both produce the same result,
+     * but the _withSecret variant is substantially faster on long inputs
+     * since it doesn't need to generate an transformed key */
     return XXH3_64bits_withSecret_internal(data, len, kKey, sizeof(kKey));
 #endif
 }

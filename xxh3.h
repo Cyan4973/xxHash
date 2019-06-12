@@ -138,13 +138,13 @@ XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
  * XXH3 default settings
  * ========================================== */
 
-#define KEYSET_DEFAULT_SIZE 192   /* minimum SECRET_KEY_SIZE_MIN */
+#define XXH_SECRET_DEFAULT_SIZE 192   /* minimum SECRET_KEY_SIZE_MIN */
 
-#if (KEYSET_DEFAULT_SIZE < XXH_SECRET_SIZE_MIN)
+#if (XXH_SECRET_DEFAULT_SIZE < XXH_SECRET_SIZE_MIN)
 #  error "default keyset is not large enough"
 #endif
 
-XXH_ALIGN(64) static const BYTE kKey[KEYSET_DEFAULT_SIZE] = {
+XXH_ALIGN(64) static const BYTE kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0xb8, 0xfe, 0x6c, 0x39, 0x23, 0xa4, 0x4b, 0xbe, 0x7c, 0x01, 0x81, 0x2c, 0xf7, 0x21, 0xad, 0x1c,
     0xde, 0xd4, 0x6d, 0xe9, 0x83, 0x90, 0x97, 0xdb, 0x72, 0x40, 0xa4, 0xa4, 0xb7, 0xb3, 0x67, 0x1f,
     0xcb, 0x79, 0xe6, 0x4e, 0xcc, 0xc0, 0xe5, 0x78, 0x82, 0x5a, 0xd0, 0x7d, 0xcc, 0xff, 0x72, 0x21,
@@ -750,18 +750,18 @@ XXH3_hashLong_64b(const void* restrict data, size_t len, const void* restrict se
 }
 
 /* XXH3_initKeySeed() :
- * destination `key` is presumed allocated and have same size as kKey
- * both `key` and `kKey` are presumed aligned on 8-bytes boundaries
+ * destination `key` is presumed allocated and have same size as kSecret
+ * both `key` and `kSecret` are presumed aligned on 8-bytes boundaries
  */
 XXH_FORCE_INLINE void XXH3_initKeySeed(void* key, U64 seed64)
 {
     U64* const dst = (U64*)key;
-    const U64* const src = (const U64*)kKey;
-    int const nbRounds = KEYSET_DEFAULT_SIZE / 16;
+    const U64* const src = (const U64*)kSecret;
+    int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
     int i;
 
-    XXH_STATIC_ASSERT((KEYSET_DEFAULT_SIZE & 15) == 0);
-    assert(((size_t)kKey & 7) == 0);
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
+    assert(((size_t)kSecret & 7) == 0);
     assert(((size_t)key & 7) == 0);
 
     for (i=0; i < nbRounds; i+=2) {
@@ -772,7 +772,7 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(void* key, U64 seed64)
 
 /* XXH3_hashLong_64b_withSeed() :
  * Generate a custom key,
- * based on alteration of default kKey with the seed,
+ * based on alteration of default kSecret with the seed,
  * and then use this key for long mode hashing.
  * This operation is decently fast but nonetheless costs a little bit of time.
  * Try to avoid it whenever possible (typically when seed==0).
@@ -781,7 +781,7 @@ XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLo
 XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
-    XXH_ALIGN(64) BYTE key[KEYSET_DEFAULT_SIZE];
+    XXH_ALIGN(64) BYTE key[XXH_SECRET_DEFAULT_SIZE];
 
     XXH3_initKeySeed(key, seed);
 
@@ -866,9 +866,9 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
      * This would add a branch though.
      * Maybe do it into XXH3_hashLong_64b_withSeed() instead,
      * since that's where it matters */
-    if (len <= 16) return XXH3_len_0to16_64b(data, len, kKey, seed);
+    if (len <= 16) return XXH3_len_0to16_64b(data, len, kSecret, seed);
     if (len > 128) return XXH3_hashLong_64b_withSeed(data, len, seed);
-    return XXH3_len_17to128_64b(data, len, kKey, sizeof(kKey), seed);
+    return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), seed);
 }
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
@@ -879,7 +879,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
     /* both produce the same result,
      * but the _withSecret variant is substantially faster on long inputs
      * since it doesn't need to generate an transformed key */
-    return XXH3_64bits_withSecret_internal(data, len, kKey, sizeof(kKey));
+    return XXH3_64bits_withSecret_internal(data, len, kSecret, sizeof(kSecret));
 #endif
 }
 
@@ -950,9 +950,9 @@ XXH3_len_0to16_128b(const void* data, size_t len, XXH64_hash_t seed)
 {
     assert(data != NULL);
     assert(len <= 16);
-    {   if (len > 8) return XXH3_len_9to16_128b(data, len, kKey, seed);
-        if (len >= 4) return XXH3_len_4to8_128b(data, len, kKey, seed);
-        if (len) return XXH3_len_1to3_128b(data, len, kKey, seed);
+    {   if (len > 8) return XXH3_len_9to16_128b(data, len, kSecret, seed);
+        if (len >= 4) return XXH3_len_4to8_128b(data, len, kSecret, seed);
+        if (len) return XXH3_len_1to3_128b(data, len, kSecret, seed);
         {   XXH128_hash_t const h128 = { seed, (XXH64_hash_t)0 - seed };
             return h128;
         }
@@ -965,12 +965,12 @@ XXH3_hashLong_128b(const void* data, size_t len, XXH64_hash_t seed)
     XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
     assert(len > 128);
 
-    XXH3_hashLong_internal(acc, data, len, kKey, sizeof(kKey));
+    XXH3_hashLong_internal(acc, data, len, kSecret, sizeof(kSecret));
 
     /* converge into final hash */
     assert(sizeof(acc) == 64);
-    {   U64 const low64 = XXH3_mergeAccs(acc, kKey, (U64)len * PRIME64_1);
-        U64 const high64 = XXH3_mergeAccs(acc, kKey+16, ((U64)len+1) * PRIME64_2);
+    {   U64 const low64 = XXH3_mergeAccs(acc, kSecret, (U64)len * PRIME64_1);
+        U64 const high64 = XXH3_mergeAccs(acc, kSecret+16, ((U64)len+1) * PRIME64_2);
         XXH128_hash_t const h128 = { low64, high64 };
         return h128;
     }
@@ -984,7 +984,7 @@ XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
     {   U64 acc1 = PRIME64_1 * (len + seed);
         U64 acc2 = 0;
         const BYTE* const p = (const BYTE*)data;
-        const char* const key = (const char*)kKey;
+        const char* const key = (const char*)kSecret;
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {

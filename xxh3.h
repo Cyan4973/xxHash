@@ -379,7 +379,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 /* ===    Long Keys    === */
 
 #define STRIPE_LEN 64
-#define STRIPE_ELTS (STRIPE_LEN / sizeof(U32))
+#define XXH_SECRET_CONSUME_RATE 8   /* nb of secret bytes consumed at each accumulation */
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
 XXH_FORCE_INLINE void
@@ -511,19 +511,22 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
         xacc[i] += product;
         xacc[i] += data_vec;
     }
+
 #else   /* scalar variant of Accumulator - universal */
+
     XXH_ALIGN(16) U64* const xacc = (U64*) acc;   /* presumed aligned */
-    const U32* const xdata = (const U32*) data;
-    const U32* const xkey  = (const U32*) key;
+    const U64* const xdata = (const U64*) data;
+    const U64* const xkey  = (const U64*) key;
     size_t i;
 
     for (i=0; i < ACC_NB; i++) {
-        U64 const data_val = XXH_readLE64(xdata + 2 * i);
-        U64 const key_val = XXH3_readKey64(xkey + 2 * i);
+        U64 const data_val = XXH_readLE64(xdata + i);
+        U64 const key_val = XXH3_readKey64(xkey + i);
         U64 const data_key  = key_val ^ data_val;
         xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
         xacc[i] += data_val;
     }
+
 #endif
 }
 
@@ -583,8 +586,8 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 #elif (XXH_VECTOR == XXH_NEON)
 
     assert(((size_t)acc) & 15 == 0);
-    {
-            uint64x2_t* const xacc =     (uint64x2_t*) acc;
+
+    {   uint64x2_t* const xacc =     (uint64x2_t*) acc;
 
         uint32_t const* const xkey = (uint32_t const*) key;
 
@@ -612,10 +615,10 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             xacc[i] = vshlq_n_u64(prod_hi, 32);
             /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
             xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
-        }
-    }
+    }   }
 
 #elif (XXH_VECTOR == XXH_VSX)
+
           U64x2* const xacc =       (U64x2*) acc;
     const U64x2* const xkey = (const U64x2*) key;
     /* constants */
@@ -644,15 +647,16 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         U64x2 const prod_hi  = XXH_vsxMultEven((U32x4)data_key, prime);
         xacc[i] = prod_lo + (prod_hi << v32);
     }
+
 #else   /* scalar variant of Scrambler - universal */
 
           U64* const xacc =       (U64*) acc;
-    const U32* const xkey = (const U32*) key;
+    const U64* const xkey = (const U64*) key;
 
     int i;
     assert(((size_t)acc) & 7 == 0);
     for (i=0; i < (int)ACC_NB; i++) {
-        U64 const key64 = XXH3_readKey64(xkey + 2*i);
+        U64 const key64 = XXH3_readKey64(xkey + i);
         U64 acc64 = xacc[i];
         acc64 ^= acc64 >> 47;
         acc64 ^= key64;
@@ -675,20 +679,20 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restri
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc,
                (const BYTE*)data + n*STRIPE_LEN,
-               (const U64*)secret + n);
+               (const BYTE*)secret + n*XXH_SECRET_CONSUME_RATE);
     }
 }
 
 static void
 XXH3_hashLong_internal(U64* restrict acc, const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
 {
-    size_t const nb_rounds = (secretSize - STRIPE_LEN) / 8;   // <---- name this constant
+    size_t const nb_rounds = (secretSize - STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
     size_t const block_len = STRIPE_LEN * nb_rounds;
     size_t const nb_blocks = len / block_len;
 
     size_t n;
 
-    assert(secretSize > XXH_SECRET_SIZE_MIN);
+    assert(secretSize >= XXH_SECRET_SIZE_MIN);
 
     for (n = 0; n < nb_blocks; n++) {
         XXH3_accumulate(acc, (const char*)data + n*block_len, secret, nb_rounds);
@@ -717,7 +721,7 @@ XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
                acc[1] ^ XXH3_readKey64(key64+1) );
 }
 
-static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const void* key, U64 start)
+static XXH64_hash_t XXH3_mergeAccs(const U64* restrict acc, const void* restrict key, U64 start)
 {
     U64 result64 = start;
 
@@ -731,7 +735,7 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* acc, const void* key, U64 start)
 
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b(const void* data, size_t len, const void* secret, size_t secretSize)
+XXH3_hashLong_64b(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
 {
     XXH_ALIGN(64) U64 acc[ACC_NB] = { 0, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, 0, 0 };
 
@@ -783,7 +787,7 @@ XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 
-XXH_FORCE_INLINE U64 XXH3_mix16B(const void* data, const void* key, U64 seed64)
+XXH_FORCE_INLINE U64 XXH3_mix16B(const void* restrict data, const void* restrict key, U64 seed64)
 {
     const U64* const key64 = (const U64*)key;
     U64 const ll1 = XXH_readLE64(data);
@@ -797,7 +801,7 @@ XXH_FORCE_INLINE U64 XXH3_mix16B(const void* data, const void* key, U64 seed64)
 /* ===   Public entry point   === */
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_17to128_64b(const void* data, size_t len, const void* secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize, XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;

@@ -419,9 +419,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
  * This makes it more difficult for an external actor to prepare an intentional collision.
  * The secret must be large enough (>= XXH_SECRET_SIZE_MIN)
  * and its starting address must be aligned on 8-bytes.
- * The secret is consumed by fields of 8 bytes,
- * meaning that if its size is not a multiple of 8,
- * the last bytes, beyond the last multiple of 8, are ignored.
  */
 #define XXH_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);

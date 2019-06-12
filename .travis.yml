@@ -58,4 +58,4 @@ matrix:
         - make clean
         - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # VSX code path
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64 -maltivec" LDFLAGS="-static -m64" make check   # VSX code path

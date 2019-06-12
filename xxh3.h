@@ -744,12 +744,15 @@ XXH3_hashLong_64b(const void* data, size_t len, const void* secret, size_t secre
     return XXH3_mergeAccs(acc, secret, (U64)len * PRIME64_1);
 }
 
+/* XXH3_initKeySeed() :
+ * destination `key` is presumed allocated and have same size as kKey
+ */
 XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
 {
     U32 const seed1 = (U32)seed64;
     U32 const seed2 = (U32)(seed64 >> 32);
     int i;
-    assert(KEYSET_DEFAULT_SIZE & 3 == 0);
+    XXH_STATIC_ASSERT((KEYSET_DEFAULT_SIZE & 3) == 0);
     for (i=0; i < KEYSET_DEFAULT_SIZE; i+=4) {
         key[i+0] = kKey[i+0] + seed1;
         key[i+1] = kKey[i+1] - seed2;

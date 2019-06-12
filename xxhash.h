@@ -401,37 +401,37 @@ struct XXH64_state_s {
  */
 
 #ifdef XXH_NAMESPACE
-#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
-#  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
 #  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
+#  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #endif
 
 /* XXH3_64bits() :
  * default 64-bit variant, using default secret and a seed of 0.
  * it's also the fastest. */
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 
 /* XXH3_64bits_withSecret() :
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
- * This makes it more difficult for an external observer to trigger an intentional collision.
+ * This makes it more difficult for an external actor to prepare an intentional collision.
  * The secret must be large enough (>= XXH_SECRET_SIZE_MIN)
  * and its starting address must be aligned on 8-bytes.
  * The secret is consumed by fields of 8 bytes,
  * meaning that if its size is not a multiple of 8,
  * the last bytes, beyond the last multiple of 8, are ignored.
  */
-#define XXH_SECRET_SIZE_MIN  136
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
+#define XXH_SECRET_SIZE_MIN 136
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
 /* XXH3_64bits_withSeed() :
  * This variant generates on the fly a custom secret,
  * based on the default secret, altered using the `seed` value.
  * While this operation is decently fast, note that it's not completely free.
  * note : seed==0 produces same results as XXH3_64bits() */
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
 
 
 

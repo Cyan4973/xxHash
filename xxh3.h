@@ -138,26 +138,26 @@ XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
  * XXH3 default settings
  * ========================================== */
 
-#define KEYSET_DEFAULT_SIZE 48   /* minimum SECRET_KEY_SIZE_MIN */
+#define KEYSET_DEFAULT_SIZE 192   /* minimum SECRET_KEY_SIZE_MIN */
 
-#if (KEYSET_DEFAULT_SIZE * 4 < XXH_SECRET_SIZE_MIN)
+#if (KEYSET_DEFAULT_SIZE < XXH_SECRET_SIZE_MIN)
 #  error "default keyset is not large enough"
 #endif
 
-XXH_ALIGN(64) static const U32 kKey[KEYSET_DEFAULT_SIZE] = {
-    0xb8fe6c39,0x23a44bbe,0x7c01812c,0xf721ad1c,
-    0xded46de9,0x839097db,0x7240a4a4,0xb7b3671f,
-    0xcb79e64e,0xccc0e578,0x825ad07d,0xccff7221,
-    0xb8084674,0xf743248e,0xe03590e6,0x813a264c,
-    0x3c2852bb,0x91c300cb,0x88d0658b,0x1b532ea3,
-    0x71644897,0xa20df94e,0x3819ef46,0xa9deacd8,
-    0xa8fa763f,0xe39c343f,0xf9dcbbc7,0xc70b4f1d,
-    0x8a51e04b,0xcdb45931,0xc89f7ec9,0xd9787364,
+XXH_ALIGN(64) static const BYTE kKey[KEYSET_DEFAULT_SIZE] = {
+    0xb8, 0xfe, 0x6c, 0x39, 0x23, 0xa4, 0x4b, 0xbe, 0x7c, 0x01, 0x81, 0x2c, 0xf7, 0x21, 0xad, 0x1c,
+    0xde, 0xd4, 0x6d, 0xe9, 0x83, 0x90, 0x97, 0xdb, 0x72, 0x40, 0xa4, 0xa4, 0xb7, 0xb3, 0x67, 0x1f,
+    0xcb, 0x79, 0xe6, 0x4e, 0xcc, 0xc0, 0xe5, 0x78, 0x82, 0x5a, 0xd0, 0x7d, 0xcc, 0xff, 0x72, 0x21,
+    0xb8, 0x08, 0x46, 0x74, 0xf7, 0x43, 0x24, 0x8e, 0xe0, 0x35, 0x90, 0xe6, 0x81, 0x3a, 0x26, 0x4c,
+    0x3c, 0x28, 0x52, 0xbb, 0x91, 0xc3, 0x00, 0xcb, 0x88, 0xd0, 0x65, 0x8b, 0x1b, 0x53, 0x2e, 0xa3,
+    0x71, 0x64, 0x48, 0x97, 0xa2, 0x0d, 0xf9, 0x4e, 0x38, 0x19, 0xef, 0x46, 0xa9, 0xde, 0xac, 0xd8,
+    0xa8, 0xfa, 0x76, 0x3f, 0xe3, 0x9c, 0x34, 0x3f, 0xf9, 0xdc, 0xbb, 0xc7, 0xc7, 0x0b, 0x4f, 0x1d,
+    0x8a, 0x51, 0xe0, 0x4b, 0xcd, 0xb4, 0x59, 0x31, 0xc8, 0x9f, 0x7e, 0xc9, 0xd9, 0x78, 0x73, 0x64,
 
-    0xeac5ac83,0x34d3ebc3,0xc581a0ff,0xfa1363eb,
-    0x170ddd51,0xb7f0da49,0xd3165526,0x29d4689e,
-    0x2b16be58,0x7d47a1fc,0x8ff8b8d1,0x7ad031ce,
-    0x45cb3a8f,0x95160428,0xafd7fbca,0xbb4b407e,
+    0xea, 0xc5, 0xac, 0x83, 0x34, 0xd3, 0xeb, 0xc3, 0xc5, 0x81, 0xa0, 0xff, 0xfa, 0x13, 0x63, 0xeb,
+    0x17, 0x0d, 0xdd, 0x51, 0xb7, 0xf0, 0xda, 0x49, 0xd3, 0x16, 0x55, 0x26, 0x29, 0xd4, 0x68, 0x9e,
+    0x2b, 0x16, 0xbe, 0x58, 0x7d, 0x47, 0xa1, 0xfc, 0x8f, 0xf8, 0xb8, 0xd1, 0x7a, 0xd0, 0x31, 0xce,
+    0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
 
 
@@ -308,6 +308,9 @@ static XXH64_hash_t XXH3_avalanche(U64 h64)
 XXH_FORCE_INLINE U64
 XXH3_readKey64(const void* ptr)
 {
+#if 1
+    return XXH_readLE64(ptr);
+#else /* old */
     assert(((size_t)ptr & 7) == 0);   /* aligned on 8-bytes boundaries */
     if (XXH_CPU_LITTLE_ENDIAN) {
         return *(const U64*)ptr;
@@ -315,6 +318,7 @@ XXH3_readKey64(const void* ptr)
         const U32* const ptr32 = (const U32*)ptr;
         return (U64)ptr32[0] + (((U64)ptr32[1]) << 32);
     }
+#endif
 }
 
 
@@ -389,8 +393,8 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
     assert(((size_t)acc) & 31 == 0);
     {   XXH_ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
-        const         __m256i* const xdata = (const __m256i *) data;
-        const         __m256i* const xkey  = (const __m256i *) key;
+        const         __m256i* const xdata = (const __m256i *) data;  /* not really aligned, just for ptr arithmetic */
+        const         __m256i* const xkey  = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic */
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
@@ -407,8 +411,8 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
     assert(((size_t)acc) & 15 == 0);
     {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-        const         __m128i* const xdata = (const __m128i *) data;
-        const         __m128i* const xkey  = (const __m128i *) key;
+        const         __m128i* const xdata = (const __m128i *) data;  /* not really aligned, just for ptr arithmetic */
+        const         __m128i* const xkey  = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic */
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -448,7 +452,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
             /* data_vec = xdata[i]; */
             uint32x4_t const data_vec    = vld1q_u32(xdata + (i * 4));
             /* key_vec  = xkey[i];  */
-            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
+            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));   /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t       data_key;
             /* Add first to prevent register swaps */
@@ -468,7 +472,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
             /* data_vec = xdata[i]; */
             uint32x4_t const data_vec    = vld1q_u32(xdata + (i * 4));
             /* key_vec  = xkey[i];  */
-            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
+            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));   /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t const data_key    = veorq_u32(data_vec, key_vec);
             /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
@@ -497,10 +501,10 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
         /* byteswap */
         U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
         /* swap 32-bit words */
-        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);   /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
 #else
         U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
-        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
+        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);                /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
 #endif
         U64x2 data_key = data_vec ^ key_vec;
         /* shuffled = (data_key << 32) | (data_key >> 32); */
@@ -515,8 +519,8 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 #else   /* scalar variant of Accumulator - universal */
 
     XXH_ALIGN(16) U64* const xacc = (U64*) acc;   /* presumed aligned */
-    const U64* const xdata = (const U64*) data;
-    const U64* const xkey  = (const U64*) key;
+    const U64* const xdata = (const U64*) data;   /* not really aligned, just for ptr arithmetic */
+    const U64* const xkey  = (const U64*) key;    /* not really aligned, just for ptr arithmetic */
     size_t i;
 
     for (i=0; i < ACC_NB; i++) {
@@ -536,7 +540,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 
     assert(((size_t)acc) & 31 == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
-        const         __m256i* const xkey = (const __m256i *) key;
+        const         __m256i* const xkey = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic */
         const __m256i k1 = _mm256_set1_epi32((int)PRIME32_1);
 
         size_t i;
@@ -561,7 +565,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 #elif (XXH_VECTOR == XXH_SSE2)
 
     {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
-        const         __m128i* const xkey = (const __m128i *) key;
+        const         __m128i* const xkey = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic */
         const __m128i k1 = _mm_set1_epi32((int)PRIME32_1);
 
         size_t i;
@@ -601,7 +605,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             uint64x2_t const   data_vec = veorq_u64   (acc_vec, shifted);
 
             /* key_vec  = xkey[i]; */
-            uint32x4_t const   key_vec  = vld1q_u32   (xkey + (i * 4));
+            uint32x4_t const   key_vec  = vld1q_u32   (xkey + (i * 4));    /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
             /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
@@ -633,9 +637,9 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         /* key_vec = xkey[i]; */
 #ifdef __BIG_ENDIAN__
         /* swap 32-bit words */
-        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);    /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
 #else
-        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
+        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);                 /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
 #endif
         U64x2 const data_key = data_vec ^ key_vec;
 
@@ -651,7 +655,7 @@ static void XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 #else   /* scalar variant of Scrambler - universal */
 
           U64* const xacc =       (U64*) acc;
-    const U64* const xkey = (const U64*) key;
+    const U64* const xkey = (const U64*) key;   /* not really aligned, just for ptr arithmetic */
 
     int i;
     assert(((size_t)acc) & 7 == 0);
@@ -713,7 +717,7 @@ XXH3_hashLong_internal(U64* restrict acc, const void* restrict data, size_t len,
 }
 
 
-XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* acc, const void* key)
+XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* restrict acc, const void* restrict key)
 {
     const U64* const key64 = (const U64*)key;
     return XXH3_mul128_fold64(
@@ -749,18 +753,22 @@ XXH3_hashLong_64b(const void* restrict data, size_t len, const void* restrict se
 
 /* XXH3_initKeySeed() :
  * destination `key` is presumed allocated and have same size as kKey
+ * both `key` and `kKey` are presumed aligned on 8-bytes boundaries
  */
-XXH_FORCE_INLINE void XXH3_initKeySeed(U32* key, U64 seed64)
+XXH_FORCE_INLINE void XXH3_initKeySeed(void* key, U64 seed64)
 {
-    U32 const seed1 = (U32)seed64;
-    U32 const seed2 = (U32)(seed64 >> 32);
+    U64* const dst = (U64*)key;
+    const U64* const src = (const U64*)kKey;
+    int const nbRounds = KEYSET_DEFAULT_SIZE / 16;
     int i;
-    XXH_STATIC_ASSERT((KEYSET_DEFAULT_SIZE & 3) == 0);
-    for (i=0; i < KEYSET_DEFAULT_SIZE; i+=4) {
-        key[i+0] = kKey[i+0] + seed1;
-        key[i+1] = kKey[i+1] - seed2;
-        key[i+2] = kKey[i+2] + seed2;
-        key[i+3] = kKey[i+3] - seed1;
+
+    XXH_STATIC_ASSERT((KEYSET_DEFAULT_SIZE & 15) == 0);
+    assert(((size_t)kKey & 7) == 0);
+    assert(((size_t)key & 7) == 0);
+
+    for (i=0; i < nbRounds; i+=2) {
+        dst[i+0] = src[i+0] + seed64;
+        dst[i+1] = src[i+1] - seed64;
     }
 }
 
@@ -775,7 +783,7 @@ XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLo
 XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(64) U64 acc[ACC_NB] = { seed, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME64_5, (U64)0 - seed, 0 };
-    XXH_ALIGN(64) U32 key[KEYSET_DEFAULT_SIZE];
+    XXH_ALIGN(64) BYTE key[KEYSET_DEFAULT_SIZE];
 
     XXH3_initKeySeed(key, seed);
 
@@ -829,7 +837,7 @@ XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict
 
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_64bits_withSecret_internal(const void* data, size_t len, const void* secret, size_t secretSize)
+XXH3_64bits_withSecret_internal(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
     if (len > 128) return XXH3_hashLong_64b(data, len, secret, secretSize);

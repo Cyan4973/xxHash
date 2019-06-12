@@ -50,6 +50,7 @@ matrix:
         - make clean
 
     - name: PowerPC + PPC64 compilation and consistency checks
+      dist: trusty
       install:
         - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu
       script:

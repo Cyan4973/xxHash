@@ -393,8 +393,8 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
     assert(((size_t)acc) & 31 == 0);
     {   XXH_ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
-        const         __m256i* const xdata = (const __m256i *) data;  /* not really aligned, just for ptr arithmetic */
-        const         __m256i* const xkey  = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic */
+        const         __m256i* const xdata = (const __m256i *) data;  /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
+        const         __m256i* const xkey  = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
@@ -404,15 +404,14 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
             __m256i const res = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 res[4] = {dk0*dk1, dk2*dk3, ...} */
             __m256i const add = _mm256_add_epi64(d, xacc[i]);
             xacc[i]  = _mm256_add_epi64(res, add);
-        }
-    }
+    }   }
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
     assert(((size_t)acc) & 15 == 0);
-    {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-        const         __m128i* const xdata = (const __m128i *) data;  /* not really aligned, just for ptr arithmetic */
-        const         __m128i* const xkey  = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic */
+    {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;   /* presumed */
+        const         __m128i* const xdata = (const __m128i *) data;  /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
+        const         __m128i* const xkey  = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -422,8 +421,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
             __m128i const res = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 res[2] = {dk0*dk1,dk2*dk3} */
             __m128i const add = _mm_add_epi64(d, xacc[i]);
             xacc[i]  = _mm_add_epi64(res, add);
-        }
-    }
+    }   }
 
 #elif (XXH_VECTOR == XXH_NEON)
 
@@ -452,7 +450,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
             /* data_vec = xdata[i]; */
             uint32x4_t const data_vec    = vld1q_u32(xdata + (i * 4));
             /* key_vec  = xkey[i];  */
-            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));   /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t       data_key;
             /* Add first to prevent register swaps */
@@ -472,7 +470,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
             /* data_vec = xdata[i]; */
             uint32x4_t const data_vec    = vld1q_u32(xdata + (i * 4));
             /* key_vec  = xkey[i];  */
-            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));   /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+            uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t const data_key    = veorq_u32(data_vec, key_vec);
             /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
@@ -488,9 +486,9 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
     }
 
 #elif XXH_VECTOR == XXH_VSX
-          U64x2* const xacc =        (U64x2*) acc;
-    U64x2 const* const xdata = (U64x2 const*) data;
-    U64x2 const* const xkey  = (U64x2 const*) key;
+          U64x2* const xacc =        (U64x2*) acc;    /* presumed aligned */
+    U64x2 const* const xdata = (U64x2 const*) data;   /* no alignment restriction */
+    U64x2 const* const xkey  = (U64x2 const*) key;    /* no alignment restriction */
     U64x2 const v32 = { 32,  32 };
 
     size_t i;
@@ -501,10 +499,10 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
         /* byteswap */
         U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
         /* swap 32-bit words */
-        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);   /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);
 #else
         U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
-        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);                /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+        U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
 #endif
         U64x2 data_key = data_vec ^ key_vec;
         /* shuffled = (data_key << 32) | (data_key >> 32); */
@@ -518,14 +516,14 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
 
 #else   /* scalar variant of Accumulator - universal */
 
-    XXH_ALIGN(16) U64* const xacc = (U64*) acc;   /* presumed aligned */
-    const U64* const xdata = (const U64*) data;   /* not really aligned, just for ptr arithmetic */
-    const U64* const xkey  = (const U64*) key;    /* not really aligned, just for ptr arithmetic */
+    XXH_ALIGN(16) U64* const xacc = (U64*) acc;    /* presumed aligned */
+    const char* const xdata = (const char*) data;  /* no alignment restriction */
+    const char* const xkey  = (const char*) key;   /* no alignment restriction */
     size_t i;
-
+    assert(((size_t)acc & 7) == 0);
     for (i=0; i < ACC_NB; i++) {
-        U64 const data_val = XXH_readLE64(xdata + i);
-        U64 const key_val = XXH3_readKey64(xkey + i);
+        U64 const data_val = XXH_readLE64(xdata + 8*i);
+        U64 const key_val = XXH3_readKey64(xkey + 8*i);
         U64 const data_key  = key_val ^ data_val;
         xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
         xacc[i] += data_val;

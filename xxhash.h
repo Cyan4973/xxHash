@@ -408,8 +408,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 /* XXH3_64bits_withSecret() :
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
  * This makes it more difficult for an external actor to prepare an intentional collision.
- * The secret must be large enough (>= XXH_SECRET_SIZE_MIN)
- * and its starting address must be aligned on 8-bytes boundaries.
+ * The secret *must* be large enough (>= XXH_SECRET_SIZE_MIN).
  */
 #define XXH_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);

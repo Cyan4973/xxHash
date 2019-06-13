@@ -685,8 +685,15 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restri
     }
 }
 
-XXH_FORCE_INLINE void
-XXH3_hashLong_internal_loop(U64* restrict acc, const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
+/* note : using XXH_FORCE_INLINE here makes clang auto-vectorize well in AVX2 mode,
+ *        but unfortunately, clang would no longer auto-vectorize SSE2 properly.
+ *        Since SSE2 has higher priority than AVX2, prefer `static`,
+ *        which makes clang auto-vectorize SSE2 very efficiently.
+ */
+static void
+XXH3_hashLong_internal_loop( U64* restrict acc,
+                      const void* restrict data, size_t len,
+                      const void* restrict secret, size_t secretSize)
 {
     size_t const nb_rounds = (secretSize - STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
     size_t const block_len = STRIPE_LEN * nb_rounds;
@@ -714,7 +721,8 @@ XXH3_hashLong_internal_loop(U64* restrict acc, const void* restrict data, size_t
     }   }
 }
 
-XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* restrict acc, const void* restrict key)
+XXH_FORCE_INLINE U64
+XXH3_mix2Accs(const U64* restrict acc, const void* restrict key)
 {
     const U64* const key64 = (const U64*)key;
     return XXH3_mul128_fold64(
@@ -722,7 +730,8 @@ XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* restrict acc, const void* restrict
                acc[1] ^ XXH_readLE64(key64+1) );
 }
 
-static XXH64_hash_t XXH3_mergeAccs(const U64* restrict acc, const void* restrict key, U64 start)
+static XXH64_hash_t
+XXH3_mergeAccs(const U64* restrict acc, const void* restrict key, U64 start)
 {
     U64 result64 = start;
 
@@ -735,7 +744,8 @@ static XXH64_hash_t XXH3_mergeAccs(const U64* restrict acc, const void* restrict
 }
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_hashLong_internal(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
+XXH3_hashLong_internal(const void* restrict data, size_t len,
+                       const void* restrict secret, size_t secretSize)
 {
     XXH_ALIGN(XXH_ACC_ALIGN) U64 acc[ACC_NB] = { PRIME32_3, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME32_2, PRIME64_5, PRIME32_1 };
 

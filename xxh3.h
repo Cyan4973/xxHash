@@ -386,7 +386,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
 XXH_FORCE_INLINE void
-XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *restrict key)
+XXH3_accumulate_512(void* restrict acc, const void* restrict data, const void* restrict key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -603,7 +603,7 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
             uint64x2_t const   data_vec = veorq_u64   (acc_vec, shifted);
 
             /* key_vec  = xkey[i]; */
-            uint32x4_t const   key_vec  = vld1q_u32   (xkey + (i * 4));    /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+            uint32x4_t const   key_vec  = vld1q_u32   (xkey + (i * 4));
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
             /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
@@ -635,9 +635,9 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
         /* key_vec = xkey[i]; */
 #ifdef __BIG_ENDIAN__
         /* swap 32-bit words */
-        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);    /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);
 #else
-        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);                 /* <================= does this require xkey to be aligned ? if yes, on 4 or 16 bytes boundaries ? */
+        U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
 #endif
         U64x2 const data_key = data_vec ^ key_vec;
 
@@ -680,8 +680,8 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restri
 #endif
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc,
-               (const BYTE*)data + n*STRIPE_LEN,
-               (const BYTE*)secret + n*XXH_SECRET_CONSUME_RATE);
+               (const char*)data   + n*STRIPE_LEN,
+               (const char*)secret + n*XXH_SECRET_CONSUME_RATE);
     }
 }
 
@@ -704,12 +704,12 @@ XXH3_hashLong_internal_loop(U64* restrict acc, const void* restrict data, size_t
     /* last partial block */
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len - (block_len * nb_blocks)) / STRIPE_LEN;
-        assert(nbStripes < NB_KEYS);
-        XXH3_accumulate(acc, (const BYTE*)data + nb_blocks*block_len, secret, nbStripes);
+        assert(nbStripes <= (secretSize / XXH_SECRET_CONSUME_RATE));
+        XXH3_accumulate(acc, (const char*)data + nb_blocks*block_len, secret, nbStripes);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
-            const BYTE* const p = (const BYTE*)data + len - STRIPE_LEN;
+            const void* const p = (const char*)data + len - STRIPE_LEN;
             XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN);
     }   }
 }
@@ -792,7 +792,7 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(void* key, U64 seed64)
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
 XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
-    XXH_ALIGN(64) BYTE secret[XXH_SECRET_DEFAULT_SIZE];
+    XXH_ALIGN(8) char secret[XXH_SECRET_DEFAULT_SIZE];
     XXH3_initKeySeed(secret, seed);
     return XXH3_hashLong_internal(data, len, secret, sizeof(secret));
 }

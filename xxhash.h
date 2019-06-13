@@ -317,8 +317,7 @@ struct XXH64_state_s {
  * XXH3 is a new hash algorithm,
  * featuring vastly improved speed performance
  * for both small and large inputs.
- * A full speed analysis will be published,
- * it requires a lot more space than this comment can handle.
+ * See full speed analysis at : http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
  * In general, expect XXH3 to run about ~2x faster on large inputs,
  * and >3x faster on small ones, though exact difference depend on platform.
  *
@@ -328,16 +327,14 @@ struct XXH64_state_s {
  * XXH3 offers 2 variants, _64bits and _128bits.
  * When only 64 bits are needed, prefer calling the _64bits variant :
  * it reduces the amount of mixing, resulting in faster speed on small inputs.
- * It's also generally simpler to manipulate a scalar type than a struct.
- * Note : the low 64-bit field of the _128bits variant is the same as _64bits result.
+ * It's also generally simpler to manipulate a scalar return type than a struct.
  *
  * The XXH3 algorithm is still considered experimental.
+ * Produced results can still change between versions.
  * It's possible to use it for ephemeral data, but avoid storing long-term values for later re-use.
- * While labelled experimental, the produced result can still change between versions.
  *
  * The API currently supports one-shot hashing only.
- * The full version will include streaming capability, and canonical representation
- * Long term optional feature may include custom secret keys, and secret key generation.
+ * The full version will include streaming capability, and canonical representation.
  *
  * There are still a number of opened questions that community can influence during the experimental period.
  * I'm trying to list a few of them below, though don't consider this list as complete.
@@ -363,11 +360,6 @@ struct XXH64_state_s {
  *                          Would it be beneficial to declare and define a comparator function for XXH128_hash_t ?
  *                          Are there other operations on XXH128_hash_t which would be desirable ?
  *
- * - Variant compatibility : The low 64-bit field of the _128bits variant is the same as the result of _64bits.
- *                          This is not a compulsory behavior. It just felt that it "wouldn't hurt", and might even help in some (unidentified) cases.
- *                          But it might influence the design of XXH128_hash_t, in ways which may block other possibilities.
- *                          Good idea, bad idea ?
- *
  * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bit variant.
  *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
  *                          Although it's also more difficult to use, since it requires to declare and pass a structure instead of a value.
@@ -375,63 +367,70 @@ struct XXH64_state_s {
  *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
  *                          If both 64-bit and 128-bit seeds are possible, which variant should be called XXH128 ?
  *
- * - Result for len==0 : Currently, the result of hashing a zero-length input is the seed.
- *                          This mimics the behavior of a crc : in which case, a seed is effectively an accumulator, so it's not updated if input is empty.
- *                          Consequently, by default, when no seed specified, it returns zero. That part seems okay (it used to be a request for XXH32/XXH64).
- *                          But is it still fine to return the seed when the seed is non-zero ?
- *                          Are there use case which would depend on this behavior, or would prefer a mixing of the seed ?
+ * - Result for len==0 : Currently, the result of hashing a zero-length input is `0`.
+ *                          It seems okay as a return value when using all "default" secret and seed (it used to be a request for XXH32/XXH64).
+ *                          But is it still fine to return `0` when secret or seed are non-default ?
+ *                          Are there use case which would depend on a different hash result when the secret is different ?
  */
 
 #ifdef XXH_NAMESPACE
-#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
+#  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
-#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
-#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+
 #  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
 #  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
 #  define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
 #  define XXH3_reset XXH_NAME2(XXH_NAMESPACE, XXH3_reset)
 #  define XXH3_update XXH_NAME2(XXH_NAMESPACE, XXH3_update)
 #  define XXH3_digest XXH_NAME2(XXH_NAMESPACE, XXH3_digest)
+
+#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
+#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #endif
 
+/* XXH3_64bits() :
+ * default 64-bit variant, using default secret and default seed of 0.
+ * it's also the fastest one. */
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 
-typedef struct {
-    XXH64_hash_t low64;
-    XXH64_hash_t high64;
-} XXH128_hash_t;
+/* XXH3_64bits_withSecret() :
+ * It's possible to provide any blob of bytes as a "secret" to generate the hash.
+ * This makes it more difficult for an external actor to prepare an intentional collision.
+ * The secret *must* be large enough (>= XXH_SECRET_SIZE_MIN).
+ */
+#define XXH_SECRET_SIZE_MIN 136
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
-XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
-
-/* note : variants without seed produce same result as variant with seed == 0 */
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);  /* == XXH128() */
-
+/* XXH3_64bits_withSeed() :
+ * This variant generates on the fly a custom secret,
+ * based on the default secret, altered using the `seed` value.
+ * While this operation is decently fast, note that it's not completely free.
+ * note : seed==0 produces same results as XXH3_64bits() */
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
 
 
-/* streaming */
+/* streaming 64-bit */
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)   /* C11+ */
 #  include <stdalign.h>
-#  define ALIGN(n)      alignas(n)
+#  define XXH_ALIGN(n)      alignas(n)
 #elif defined(__GNUC__)
-#  define ALIGN(n)      __attribute__ ((aligned(n)))
+#  define XXH_ALIGN(n)      __attribute__ ((aligned(n)))
 #elif defined(_MSC_VER)
-#  define ALIGN(n)      __declspec(align(n))
+#  define XXH_ALIGN(n)      __declspec(align(n))
 #else
-#  define ALIGN(n)   /* disabled */
+#  define XXH_ALIGN(n)   /* disabled */
 #endif
 
 typedef struct XXH3_state_s XXH3_state_t;
 
-#define XXH3_KEYSET_DEFAULT_SIZE 48   /* minimum 32 */
+#define XXH3_SECRET_DEFAULT_SIZE 192   /* minimum XXH_SECRET_SIZE_MIN */
 struct XXH3_state_s {
-   ALIGN(64) XXH64_hash_t acc[8];
-   ALIGN(64) XXH32_hash_t key[XXH3_KEYSET_DEFAULT_SIZE];  /* might change */
-   ALIGN(64) XXH64_hash_t buffer[16];
+   XXH_ALIGN(64) XXH64_hash_t acc[8];
+   XXH_ALIGN(64) char key[XXH3_SECRET_DEFAULT_SIZE];  /* might change */
+   XXH_ALIGN(64) XXH64_hash_t buffer[16];
    XXH32_hash_t bufferedSize;
    XXH32_hash_t reserved32;
    XXH32_hash_t keyIndex;
@@ -448,6 +447,18 @@ XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* 
 XXH_PUBLIC_API XXH_errorcode XXH3_reset  (XXH3_state_t* statePtr, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH_errorcode XXH3_update (XXH3_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH64_hash_t  XXH3_digest (const XXH3_state_t* statePtr);
+
+
+/* 128-bit */
+
+typedef struct {
+    XXH64_hash_t low64;
+    XXH64_hash_t high64;
+} XXH128_hash_t;
+
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);  /* == XXH128() */
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 
 
 

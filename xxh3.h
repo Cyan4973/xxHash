@@ -154,7 +154,7 @@ XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
  * XXH3 default settings
  * ========================================== */
 
-#define XXH_SECRET_DEFAULT_SIZE 192   /* minimum SECRET_KEY_SIZE_MIN */
+#define XXH_SECRET_DEFAULT_SIZE 192   /* minimum XXH_SECRET_SIZE_MIN */
 
 #if (XXH_SECRET_DEFAULT_SIZE < XXH_SECRET_SIZE_MIN)
 #  error "default keyset is not large enough"
@@ -769,7 +769,7 @@ XXH_FORCE_INLINE void XXH3_initKeySeed(void* key, U64 seed64)
 {
     U64* const dst = (U64*)key;
     const U64* const src = (const U64*)kSecret;
-    int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
+    int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 8;
     int i;
 
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);

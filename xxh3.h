@@ -689,6 +689,8 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restri
  *        but unfortunately, clang would no longer auto-vectorize SSE2 properly.
  *        Since SSE2 has higher priority than AVX2, prefer `static`,
  *        which makes clang auto-vectorize SSE2 very efficiently.
+ * note2: Visual Studio prefers XXH_FORCE_INLINE too,
+ *        especially for AVX2 code path.
  */
 static void
 XXH3_hashLong_internal_loop( U64* restrict acc,

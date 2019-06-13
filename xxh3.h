@@ -515,11 +515,11 @@ XXH3_accumulate_512(void* restrict acc, const void* restrict data, const void* r
 
 #else   /* scalar variant of Accumulator - universal */
 
-    XXH_ALIGN(16) U64* const xacc = (U64*) acc;    /* presumed aligned */
+    XXH_ALIGN(32) U64* const xacc = (U64*) acc;    /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
     const char* const xdata = (const char*) data;  /* no alignment restriction */
     const char* const xkey  = (const char*) key;   /* no alignment restriction */
     size_t i;
-    assert(((size_t)acc & 7) == 0);
+    assert(((size_t)acc & 31) == 0);
     for (i=0; i < ACC_NB; i++) {
         U64 const data_val = XXH_readLE64(xdata + 8*i);
         U64 const key_val = XXH_readLE64(xkey + 8*i);
@@ -538,7 +538,7 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 
     assert(((size_t)acc) & 31 == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
-        const         __m256i* const xkey = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic */
+        const         __m256i* const xkey = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this argument type */
         const __m256i k1 = _mm256_set1_epi32((int)PRIME32_1);
 
         size_t i;
@@ -652,13 +652,13 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 
 #else   /* scalar variant of Scrambler - universal */
 
-          U64* const xacc =       (U64*) acc;
-    const U64* const xkey = (const U64*) key;   /* not really aligned, just for ptr arithmetic */
-
+    XXH_ALIGN(32) U64* const xacc = (U64*) acc;   /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
+    const char* const xkey = (const char*) key;   /* no alignment restriction */
     int i;
-    assert(((size_t)acc) & 7 == 0);
+    assert((((size_t)acc) & 31) == 0);
+
     for (i=0; i < (int)ACC_NB; i++) {
-        U64 const key64 = XXH_readLE64(xkey + i);
+        U64 const key64 = XXH_readLE64(xkey + 8*i);
         U64 acc64 = xacc[i];
         acc64 ^= acc64 >> 47;
         acc64 ^= key64;
@@ -710,7 +710,7 @@ XXH3_hashLong_internal_loop(U64* restrict acc, const void* restrict data, size_t
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const void* const p = (const char*)data + len - STRIPE_LEN;
-            XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN);
+            XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN - 1);
     }   }
 }
 

@@ -717,7 +717,8 @@ XXH3_hashLong_internal_loop( U64* restrict acc,
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const void* const p = (const char*)data + len - STRIPE_LEN;
-            XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN - 1);
+#define XXH_SECRET_LASTACC_START 7  /* do not align on 8, so that secret is different from scrambler */
+            XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN - XXH_SECRET_LASTACC_START);
     }   }
 }
 
@@ -735,10 +736,10 @@ XXH3_mergeAccs(const U64* restrict acc, const void* restrict key, U64 start)
 {
     U64 result64 = start;
 
-    result64 += XXH3_mix2Accs(acc+0, (const U64*)key + 0);
-    result64 += XXH3_mix2Accs(acc+2, (const U64*)key + 2);
-    result64 += XXH3_mix2Accs(acc+4, (const U64*)key + 4);
-    result64 += XXH3_mix2Accs(acc+6, (const U64*)key + 6);
+    result64 += XXH3_mix2Accs(acc+0, (const char*)key +  0);
+    result64 += XXH3_mix2Accs(acc+2, (const char*)key + 16);
+    result64 += XXH3_mix2Accs(acc+4, (const char*)key + 32);
+    result64 += XXH3_mix2Accs(acc+6, (const char*)key + 48);
 
     return XXH3_avalanche(result64);
 }
@@ -753,8 +754,9 @@ XXH3_hashLong_internal(const void* restrict data, size_t len,
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
-    assert(secretSize >= sizeof(acc));
-    return XXH3_mergeAccs(acc, secret, (U64)len * PRIME64_1);
+#define XXH_SECRET_MERGEACCS_START 11  /* do not align on 8, so that secret is different from accumulator */
+    assert(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
+    return XXH3_mergeAccs(acc, (const char*)secret + XXH_SECRET_MERGEACCS_START, (U64)len * PRIME64_1);
 }
 
 

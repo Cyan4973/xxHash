@@ -522,7 +522,7 @@ XXH3_accumulate_512(void* restrict acc, const void *restrict data, const void *r
     assert(((size_t)acc & 7) == 0);
     for (i=0; i < ACC_NB; i++) {
         U64 const data_val = XXH_readLE64(xdata + 8*i);
-        U64 const key_val = XXH3_readKey64(xkey + 8*i);
+        U64 const key_val = XXH_readLE64(xkey + 8*i);
         U64 const data_key  = key_val ^ data_val;
         xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
         xacc[i] += data_val;
@@ -658,7 +658,7 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
     int i;
     assert(((size_t)acc) & 7 == 0);
     for (i=0; i < (int)ACC_NB; i++) {
-        U64 const key64 = XXH3_readKey64(xkey + i);
+        U64 const key64 = XXH_readLE64(xkey + i);
         U64 acc64 = xacc[i];
         acc64 ^= acc64 >> 47;
         acc64 ^= key64;

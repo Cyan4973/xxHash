@@ -305,23 +305,6 @@ static XXH64_hash_t XXH3_avalanche(U64 h64)
  * Short keys
  * ========================================== */
 
-XXH_FORCE_INLINE U64
-XXH3_readKey64(const void* ptr)
-{
-#if 1
-    return XXH_readLE64(ptr);
-#else /* old */
-    assert(((size_t)ptr & 7) == 0);   /* aligned on 8-bytes boundaries */
-    if (XXH_CPU_LITTLE_ENDIAN) {
-        return *(const U64*)ptr;
-    } else {
-        const U32* const ptr32 = (const U32*)ptr;
-        return (U64)ptr32[0] + (((U64)ptr32[1]) << 32);
-    }
-#endif
-}
-
-
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
@@ -332,7 +315,7 @@ XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
         BYTE const c2 = ((const BYTE*)data)[len >> 1];
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const combined = ((U32)c1) + (((U32)c2) << 8) + (((U32)c3) << 16) + (((U32)len) << 24);
-        U64  const keyed = (U64)combined ^ (XXH3_readKey64(keyPtr) + seed);
+        U64  const keyed = (U64)combined ^ (XXH_readLE64(keyPtr) + seed);
         U64  const mixed = keyed * PRIME64_1;
         return XXH3_avalanche(mixed);
     }
@@ -347,7 +330,7 @@ XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
     {   U32 const in1 = XXH_readLE32(data);
         U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
         U64 const in64 = in1 + ((U64)in2 << 32);
-        U64 const keyed = in64 ^ (XXH3_readKey64(keyPtr) + seed);
+        U64 const keyed = in64 ^ (XXH_readLE64(keyPtr) + seed);
         U64 const mix64 = len + XXH3_mul128_fold64(keyed, PRIME64_1);
         return XXH3_avalanche(mix64);
     }
@@ -360,8 +343,8 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     assert(key != NULL);
     assert(len >= 9 && len <= 16);
     {   const U64* const key64 = (const U64*) keyPtr;
-        U64 const ll1 = XXH_readLE64(data) ^ (XXH3_readKey64(key64) + seed);
-        U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH3_readKey64(key64+1) - seed);
+        U64 const ll1 = XXH_readLE64(data) ^ (XXH_readLE64(key64) + seed);
+        U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
         U64 const acc = len + (ll1 + ll2) + XXH3_mul128_fold64(ll1, ll2);
         return XXH3_avalanche(acc);
     }
@@ -719,8 +702,8 @@ XXH_FORCE_INLINE U64 XXH3_mix2Accs(const U64* restrict acc, const void* restrict
 {
     const U64* const key64 = (const U64*)key;
     return XXH3_mul128_fold64(
-               acc[0] ^ XXH3_readKey64(key64),
-               acc[1] ^ XXH3_readKey64(key64+1) );
+               acc[0] ^ XXH_readLE64(key64),
+               acc[1] ^ XXH_readLE64(key64+1) );
 }
 
 static XXH64_hash_t XXH3_mergeAccs(const U64* restrict acc, const void* restrict key, U64 start)
@@ -799,8 +782,8 @@ XXH_FORCE_INLINE U64 XXH3_mix16B(const void* restrict data, const void* restrict
     U64 const ll1 = XXH_readLE64(data);
     U64 const ll2 = XXH_readLE64((const BYTE*)data+8);
     return XXH3_mul128_fold64(
-               ll1 ^ (XXH3_readKey64(key64)   + seed64),
-               ll2 ^ (XXH3_readKey64(key64+1) - seed64) ) ;
+               ll1 ^ (XXH_readLE64(key64)   + seed64),
+               ll2 ^ (XXH_readLE64(key64+1) - seed64) ) ;
 }
 
 
@@ -937,8 +920,8 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
         U64 acc2 = PRIME64_2 * ((U64)len - seed);
         U64 const ll1 = XXH_readLE64(data);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8);
-        acc1 += XXH3_mul128_fold64(ll1 + XXH3_readKey64(key64+0), ll2 + XXH3_readKey64(key64+1));
-        acc2 += XXH3_mul128_fold64(ll1 + XXH3_readKey64(key64+2), ll2 + XXH3_readKey64(key64+3));
+        acc1 += XXH3_mul128_fold64(ll1 + XXH_readLE64(key64+0), ll2 + XXH_readLE64(key64+1));
+        acc2 += XXH3_mul128_fold64(ll1 + XXH_readLE64(key64+2), ll2 + XXH_readLE64(key64+3));
         {   XXH128_hash_t const h128 = { XXH3_avalanche(acc1), XXH3_avalanche(acc2) };
             return h128;
         }

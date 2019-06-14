@@ -319,20 +319,6 @@ static XXH64_hash_t XXH3_avalanche(U64 h64)
 /* ==========================================
  * Short keys
  * ========================================== */
-//#undef  XXH_FORCE_INLINE  // disable for debug (print target line nb)
-//#define XXH_FORCE_INLINE
-
- XXH_FORCE_INLINE U64
- XXH3_readKey64(const void* ptr)
- {
-     assert(((size_t)ptr & 7) == 0);   /* aligned on 8-bytes boundaries */
-     if (XXH_CPU_LITTLE_ENDIAN) {
-         return *(const U64*)ptr;
-     } else {
-         const U32* const ptr32 = (const U32*)ptr;
-         return (U64)ptr32[0] + (((U64)ptr32[1]) << 32);
-     }
- }
 
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
@@ -921,24 +907,87 @@ XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
     memcpy(dst_state, src_state, sizeof(*dst_state));
 }
 
+static void
+XXH3_64bits_reset_internal(XXH3_state_t* statePtr)
+{
+    assert(statePtr != NULL);
+    statePtr->acc[0] = PRIME32_3;
+    statePtr->acc[1] = PRIME64_1;
+    statePtr->acc[2] = PRIME64_2;
+    statePtr->acc[3] = PRIME64_3;
+    statePtr->acc[4] = PRIME64_4;
+    statePtr->acc[5] = PRIME32_2;
+    statePtr->acc[6] = PRIME64_5;
+    statePtr->acc[7] = PRIME32_1;
+}
+
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_reset(XXH3_state_t* statePtr, XXH64_hash_t seed)
+XXH3_64bits_reset(XXH3_state_t* statePtr)
 {
     XXH3_state_t state;
+    if (statePtr == NULL) return XXH_ERROR;
     memset(&state, 0, sizeof(state));
-    state.acc[0] = PRIME32_3;
-    state.acc[1] = PRIME64_1;
-    state.acc[2] = PRIME64_2;
-    state.acc[3] = PRIME64_3;
-    state.acc[4] = PRIME64_4;
-    state.acc[5] = PRIME32_2;
-    state.acc[6] = PRIME64_5;
-    state.acc[7] = PRIME32_1;
-    state.keyLimit = XXH_SECRET_DEFAULT_SIZE - STRIPE_LEN;  /* for default key only */
-    state.seed = seed;
-    XXH3_initKeySeed(state.key, seed);
+    XXH3_64bits_reset_internal(&state);
+    state.seed = 0;
+    state.secret = kSecret;
+    state.secretLimit = XXH_SECRET_DEFAULT_SIZE - STRIPE_LEN;  /* for default key only */
+    state.nbStripesPerBlock = state.secretLimit / XXH_SECRET_CONSUME_RATE;
     *statePtr = state;
     return XXH_OK;
+}
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
+{
+    XXH3_state_t state;
+    if (statePtr == NULL) return XXH_ERROR;
+    if (secret == NULL) return XXH_ERROR;
+    if (secretSize < XXH_SECRET_SIZE_MIN) return XXH_ERROR;
+    memset(&state, 0, sizeof(state));
+    XXH3_64bits_reset_internal(&state);
+    state.seed = 0;
+    state.secret = secret;
+    assert(secretSize < UINT_MAX);
+    state.secretLimit = (XXH32_hash_t)(secretSize - STRIPE_LEN);
+    state.nbStripesPerBlock = state.secretLimit / XXH_SECRET_CONSUME_RATE;
+    *statePtr = state;
+    return XXH_OK;
+}
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
+{
+    XXH3_state_t state;
+    if (statePtr == NULL) return XXH_ERROR;
+    memset(&state, 0, sizeof(state));
+    XXH3_64bits_reset_internal(&state);
+    state.seed = seed;
+    XXH3_initKeySeed(state.customSecret, seed);
+    state.secret = state.customSecret;
+    state.secretLimit = XXH_SECRET_DEFAULT_SIZE - STRIPE_LEN;  /* for default key only */
+    state.nbStripesPerBlock = state.secretLimit / XXH_SECRET_CONSUME_RATE;
+    *statePtr = state;
+    return XXH_OK;
+}
+
+static void
+XXH3_64bits_consumeStripes( U64* acc,
+                            XXH32_hash_t* nbStripesSoFarPtr, XXH32_hash_t nbStripesPerBlock,
+                            const void* data, size_t totalStripes,
+                            const void* secret, size_t secretLimit)
+{
+    assert(*nbStripesSoFarPtr < nbStripesPerBlock);
+    if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
+        /* need a scrambling operation */
+        size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
+        XXH3_accumulate(acc, data, (const char*)secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes);
+        XXH3_scrambleAcc(acc, (const char*)secret + secretLimit);
+        XXH3_accumulate(acc, (const char*)data + nbStripes * STRIPE_LEN, secret, totalStripes - nbStripes);
+        *nbStripesSoFarPtr = (XXH32_hash_t)(totalStripes - nbStripes);
+    } else {
+        XXH3_accumulate(acc, data, (const char*)secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes);
+        *nbStripesSoFarPtr += totalStripes;
+    }
 }
 
 XXH_PUBLIC_API XXH_errorcode
@@ -954,45 +1003,37 @@ XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
     {   const BYTE* p = (const BYTE*)input;
         const BYTE* const bEnd = p + len;
 
-        state->total_len += len;
+        state->totalLen += len;
 
         if (state->bufferedSize + len <= XXH3_INTERNALBUFFER_SIZE) {  /* fill in tmp buffer */
-            XXH_memcpy(((BYTE*)state->buffer) + state->bufferedSize, input, len);
+            XXH_memcpy(state->buffer + state->bufferedSize, input, len);
             state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
         }
-        /* input so far > XXH3_INTERNALBUFFER_SIZE */
+        /* input now > XXH3_INTERNALBUFFER_SIZE */
 
-#define XXH3_INTERNALBUFFER_STRIPES (XXH3_INTERNALBUFFER_SIZE / STRIPE_LEN)
+        #define XXH3_INTERNALBUFFER_STRIPES (XXH3_INTERNALBUFFER_SIZE / STRIPE_LEN)
         XXH_STATIC_ASSERT(XXH3_INTERNALBUFFER_SIZE % STRIPE_LEN == 0);   /* clean multiple */
 
-        if (state->bufferedSize) {   /* fully fill internal buffer, then consume */
+        if (state->bufferedSize) {   /* some data within internal buffer: fill then consume it */
             size_t const loadSize = XXH3_INTERNALBUFFER_SIZE - state->bufferedSize;
             XXH_memcpy(state->buffer + state->bufferedSize, input, loadSize);
             p += loadSize;
-            /* WARNING : this only works IF there is a guarantee that Secret size is a multiple of XXH3_INTERNALBUFFER_STRIPES.
-             *           but this cannot be guaranteed if the secret has a custom size ! */
-            XXH3_accumulate(state->acc, state->buffer, state->key + state->keyIndex, XXH3_INTERNALBUFFER_STRIPES);
-            state->bufferedSize = 0;   /* empty internal buffer */
-            state->keyIndex += XXH3_INTERNALBUFFER_STRIPES * XXH_SECRET_CONSUME_RATE;
-            if (state->keyIndex == state->keyLimit) {
-                XXH3_scrambleAcc(state->acc, state->key + state->keyLimit);
-                state->keyIndex = 0;
-        }   }
+            XXH3_64bits_consumeStripes(state->acc,
+                                      &state->nbStripesSoFar, state->nbStripesPerBlock,
+                                       state->buffer, XXH3_INTERNALBUFFER_STRIPES,
+                                       state->secret, state->secretLimit);
+        }
 
         /* consume input by full buffer quantities */
         if (p+XXH3_INTERNALBUFFER_SIZE <= bEnd) {
             const BYTE* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {
-                /* WARNING : this only works IF there is a guarantee that Secret size is a multiple of XXH3_INTERNALBUFFER_STRIPES.
-                 *           but this cannot be guaranteed if the secret has a custom size ! */
-                XXH3_accumulate(state->acc, p, state->key + state->keyIndex, XXH3_INTERNALBUFFER_STRIPES);
+                XXH3_64bits_consumeStripes(state->acc,
+                                          &state->nbStripesSoFar, state->nbStripesPerBlock,
+                                           p, XXH3_INTERNALBUFFER_STRIPES,
+                                           state->secret, state->secretLimit);
                 p += XXH3_INTERNALBUFFER_SIZE;
-                state->keyIndex += XXH3_INTERNALBUFFER_STRIPES * XXH_SECRET_CONSUME_RATE;
-                if (state->keyIndex == state->keyLimit) {
-                    XXH3_scrambleAcc(state->acc, state->key + state->keyLimit);
-                    state->keyIndex = 0;
-                }
             } while (p<=limit);
         }
 
@@ -1008,29 +1049,31 @@ XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
 {
-    if (state->total_len > XXH3_INTERNALBUFFER_SIZE) {
+    if (state->totalLen > XXH3_INTERNALBUFFER_SIZE) {
         XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[ACC_NB];
-        memcpy(acc, state->acc, sizeof(acc));
+        memcpy(acc, state->acc, sizeof(acc));  /* digest locally, state is unaltered, and can continue ingesting more data afterwards */
         if (state->bufferedSize >= STRIPE_LEN) {
-            XXH3_accumulate_512(acc, state->buffer, state->key + state->keyIndex);
-            if (state->bufferedSize > STRIPE_LEN) { /* last stripe */
-                XXH3_accumulate_512(acc, state->buffer + state->bufferedSize - STRIPE_LEN, state->key + XXH_SECRET_DEFAULT_SIZE - XXH_SECRET_LASTACC_START);
-                assert(state->keyIndex < state->keyLimit);
-                if (state->keyIndex + XXH3_INTERNALBUFFER_STRIPES * XXH_SECRET_CONSUME_RATE == state->keyLimit) {
-                    XXH3_scrambleAcc(acc, state->key + state->keyLimit);
-        }   }   }
-        else {  /* bufferedSize < STRIPE_LEN */
-            if (state->bufferedSize) {
+            size_t const totalNbStripes = state->bufferedSize / STRIPE_LEN;
+            XXH32_hash_t nbStripesSoFar = state->nbStripesSoFar;
+            XXH3_64bits_consumeStripes(acc,
+                                      &nbStripesSoFar, state->nbStripesPerBlock,
+                                       state->buffer, totalNbStripes,
+                                       state->secret, state->secretLimit);
+            if (state->bufferedSize % STRIPE_LEN) {  /* one last stripe */
+                XXH3_accumulate_512(acc, state->buffer + state->bufferedSize - STRIPE_LEN, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+            }
+        } else {  /* bufferedSize < STRIPE_LEN */
+            if (state->bufferedSize) { /* one last stripe */
                 char lastStripe[STRIPE_LEN];
                 size_t const catchupSize = STRIPE_LEN - state->bufferedSize;
                 memcpy(lastStripe, (const char*)state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
                 memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
-                XXH3_accumulate_512(acc, lastStripe, state->key + XXH_SECRET_DEFAULT_SIZE - XXH_SECRET_LASTACC_START);
+                XXH3_accumulate_512(acc, lastStripe, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
         }   }
-        return XXH3_mergeAccs(acc, state->key, (U64)state->total_len * PRIME64_1);
+        return XXH3_mergeAccs(acc, (const char*)state->secret, (U64)state->totalLen * PRIME64_1);
     }
     /* len <= XXH3_INTERNALBUFFER_SIZE : short code */
-    return XXH3_64bits_withSeed(state->buffer, (size_t)state->total_len, state->seed);
+    return XXH3_64bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
 }
 
 

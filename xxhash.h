@@ -382,6 +382,8 @@ struct XXH64_state_s {
 #  define XXH3_64bits_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_freeState)
 #  define XXH3_64bits_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_copyState)
 #  define XXH3_64bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset)
+#  define XXH3_64bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
+#  define XXH3_64bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
 #  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
 #  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
 
@@ -430,22 +432,35 @@ typedef struct XXH3_state_s XXH3_state_t;
 #define XXH3_INTERNALBUFFER_SIZE 128
 struct XXH3_state_s {
    XXH_ALIGN(64) XXH64_hash_t acc[8];
-   XXH_ALIGN(64) char key[XXH3_SECRET_DEFAULT_SIZE];  /* might change */
+   XXH_ALIGN(64) char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Consume space. Design might change */
    XXH_ALIGN(64) char buffer[XXH3_INTERNALBUFFER_SIZE];
+   const void* secret;
    XXH32_hash_t bufferedSize;
+   XXH32_hash_t nbStripesPerBlock;
+   XXH32_hash_t nbStripesSoFar;
    XXH32_hash_t reserved32;
-   XXH32_hash_t keyIndex;
-   XXH32_hash_t keyLimit;
-   XXH64_hash_t total_len;
+   XXH32_hash_t reserved32_2;
+   XXH32_hash_t secretLimit;
+   XXH64_hash_t totalLen;
    XXH64_hash_t seed;
-   XXH64_hash_t reserved;
+   XXH64_hash_t reserved64;
 };   /* typedef'd to XXH3_state_t */
 
 XXH_PUBLIC_API XXH3_state_t* XXH3_64bits_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_freeState(XXH3_state_t* statePtr);
 XXH_PUBLIC_API void XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
 
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset  (XXH3_state_t* statePtr, XXH64_hash_t seed);
+/* XXH3_64bits_reset() :
+ * initialize with default parameters.
+ * result will be equivalent to `XXH3_64bits()` */
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
+/* XXH3_64bits_reset_withSecret() :
+ * `secret` is referenced, and must outlive the hash streaming session.
+ * secretSize must be >= XXH_SECRET_SIZE_MIN.
+ */
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
 

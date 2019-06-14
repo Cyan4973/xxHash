@@ -607,16 +607,16 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 
     /* streaming API test */
     {   XXH3_state_t state;
-        (void)XXH3_reset(&state, seed);
-        (void)XXH3_update(&state, data, len);
-        BMK_checkResult64(XXH3_digest(&state), Nresult);
+        (void)XXH3_64bits_reset_withSeed(&state, seed);
+        (void)XXH3_64bits_update(&state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_reset(&state, seed);
+            (void)XXH3_64bits_reset_withSeed(&state, seed);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_digest(&state), Nresult);
+                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
     }   }
 }
 

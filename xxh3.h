@@ -674,7 +674,9 @@ XXH_FORCE_INLINE void
 XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restrict secret, size_t nbStripes)
 {
     size_t n;
-    /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster. */
+    /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster.
+     * note from @aras-p : this unroll statement is actually detrimental for WASM.
+     * need to find a detection macro to exclude this case. */
 #if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) && !defined(__ARM_ARCH)
 #  pragma clang loop unroll(enable)
 #endif
@@ -685,14 +687,16 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data, const void* restri
     }
 }
 
-/* note : using XXH_FORCE_INLINE here makes clang auto-vectorize well in AVX2 mode,
- *        but unfortunately, clang would no longer auto-vectorize SSE2 properly.
- *        Since SSE2 has higher priority than AVX2, prefer `static`,
- *        which makes clang auto-vectorize SSE2 very efficiently.
- * note2: Visual Studio prefers XXH_FORCE_INLINE too,
- *        especially for AVX2 code path.
+/* note : clang auto-vectorizes well in SS2 mode _if_ this function is `static`,
+ *        and doesn't auto-vectorize it at all if it is `FORCE_INLINE`.
+ *        However, it auto-vectorizes better AVX2 if it is `FORCE_INLINE`
+ *        Pretty much every other modes and compilers prefer `FORCE_INLINE`.
  */
+#if defined(__clang__) && (XXH_VECTOR==0) && !defined(__AVX2__)
 static void
+#else
+XXH_FORCE_INLINE void
+#endif
 XXH3_hashLong_internal_loop( U64* restrict acc,
                       const void* restrict data, size_t len,
                       const void* restrict secret, size_t secretSize)

@@ -228,15 +228,15 @@ usan:  ## check CLI runtime for undefined behavior, using clang's sanitizer
 	$(MAKE) test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 .PHONY: staticAnalyze
-SCANBUILD = scan-build
+SCANBUILD ?= scan-build
 staticAnalyze: clean  ## check C source files using $(SCANBUILD) static analyzer
 	@echo ---- static analyzer - $(SCANBUILD) ----
 	CFLAGS="-g -Werror" $(SCANBUILD) --status-bugs -v $(MAKE) all
 
-CPPCHECK = cppcheck
+CPPCHECK ?= cppcheck
 .PHONY: cppcheck
-cppcheck:  ## check C source files using cppcheck static analyzer
-	@echo ---- static analyzer - cppcheck ----
+cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
+	@echo ---- static analyzer - $(CPPCHECK) ----
 	$(CPPCHECK) . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
 .PHONY: namespaceTest
@@ -246,8 +246,8 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
-MD2ROFF = ronn
-MD2ROFF_FLAGS = --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
+MD2ROFF ?= ronn
+MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 xxhsum.1: xxhsum.1.md
 	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 

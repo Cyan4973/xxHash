@@ -228,9 +228,10 @@ usan:  ## check CLI runtime for undefined behavior, using clang's sanitizer
 	$(MAKE) test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 .PHONY: staticAnalyze
-staticAnalyze: clean  ## check C source files using scan-build static analyzer
-	@echo ---- static analyzer - scan-build ----
-	CFLAGS="-g -Werror" scan-build --status-bugs -v $(MAKE) all
+SCANBUILD = scan-build
+staticAnalyze: clean  ## check C source files using $(SCANBUILD) static analyzer
+	@echo ---- static analyzer - $(SCANBUILD) ----
+	CFLAGS="-g -Werror" $(SCANBUILD) --status-bugs -v $(MAKE) all
 
 CPPCHECK = cppcheck
 .PHONY: cppcheck

@@ -1073,7 +1073,9 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
         return XXH3_mergeAccs(acc, (const char*)state->secret + XXH_SECRET_MERGEACCS_START, (U64)state->totalLen * PRIME64_1);
     }
     /* len <= XXH3_INTERNALBUFFER_SIZE : short code */
-    return XXH3_64bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
+    if (state->seed)
+        return XXH3_64bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
+    return XXH3_64bits_withSecret(state->buffer, (size_t)(state->totalLen), state->secret, state->secretLimit + STRIPE_LEN);
 }
 
 

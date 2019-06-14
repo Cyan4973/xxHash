@@ -613,14 +613,12 @@ static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
-        printf("XXH3_64bits_withSeed: %llx \n", Dresult);
         BMK_checkResult64(Dresult, Nresult);
     }
 
     /* check that the no-seed variant produces same result as seed==0 */
     if (seed == 0) {
         U64 const Dresult = XXH3_64bits(data, len);
-        printf("XXH3_64bits: %llx \n", Dresult);
         BMK_checkResult64(Dresult, Nresult);
     }
 
@@ -628,7 +626,6 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     {   XXH3_state_t state;
         (void)XXH3_64bits_reset_withSeed(&state, seed);
         (void)XXH3_64bits_update(&state, data, len);
-        printf("XXH3_64bits_digest (one-shot): %llx \n", XXH3_64bits_digest(&state));
         BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
 
         /* byte by byte ingestion */
@@ -636,7 +633,27 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
             (void)XXH3_64bits_reset_withSeed(&state, seed);
             for (pos=0; pos<len; pos++)
                 (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
-            printf("XXH3_64bits_digest (byte-by-byte): %llx \n", XXH3_64bits_digest(&state));
+            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+    }   }
+}
+
+static void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
+{
+    {   U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
+        BMK_checkResult64(Dresult, Nresult);
+    }
+
+    /* streaming API test */
+    {   XXH3_state_t state;
+        (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
+        (void)XXH3_64bits_update(&state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+
+        /* byte by byte ingestion */
+        {   size_t pos;
+            (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
+            for (pos=0; pos<len; pos++)
+                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
             BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
     }   }
 }
@@ -700,7 +717,7 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(sanityBuffer,222, prime, 0x20CB8AB7AE10C14AULL);
 
 
-    BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is the seed == 0 by default */
+    BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is always 0 */
     BMK_testXXH3(NULL,           0, prime64, 0);
     BMK_testXXH3(sanityBuffer,   1, 0,       0x51A09C6754528C92ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   1, prime64, 0xC6A3FA27998F00CDULL);  /*  1 -  3 */
@@ -727,6 +744,24 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer,2240, prime64, 0x4ED38056B87ABC7FULL);  /* 3 blocks, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer,2243, 0,       0xA559D20581D742D3ULL);  /* 3 blocks, last stripe is overlapping */
     BMK_testXXH3(sanityBuffer,2243, prime64, 0x96E051AB57F21FC8ULL);  /* 3 blocks, last stripe is overlapping */
+
+    {   const void* const secret = sanityBuffer + 7;
+        const size_t secretSize = XXH_SECRET_SIZE_MIN + 11;
+        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize,       0);                      /* zero-length hash is always 0 */
+        BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize,       0x420EAC06C004273FULL);  /*  1 -  3 */
+        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize,       0x5A90048A433D5017ULL);  /*  6 -  8 */
+        BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize,       0x8C50DC90AC9206FCULL);  /*  9 - 16 */
+        BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize,       0x1CD2C2EE9B9A0928ULL);  /* 17 - 32 */
+        BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize,       0xA785256D9D65D514ULL);  /* 33 - 64 */
+        BMK_testXXH3_withSecret(sanityBuffer,  80, secret, secretSize,       0x6F3053360D21BBB7ULL);  /* 65 - 96 */
+        BMK_testXXH3_withSecret(sanityBuffer, 112, secret, secretSize,       0x560E82D25684154CULL);  /* 97 -128 */
+
+        BMK_testXXH3_withSecret(sanityBuffer, 192, secret, secretSize,       0x615B7F3B2DA09681ULL);  /* one block, finishing at stripe boundary */
+        BMK_testXXH3_withSecret(sanityBuffer, 222, secret, secretSize,       0x6E5D78EEE071A11AULL);  /* one block, last stripe is overlapping */
+        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize,       0x2836B83880AD3C0CULL);  /* > one block, at least one scrambling */
+        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize,       0x3446E248A00CB44AULL);  /* > one block, at least one scrambling, last stripe unaligned */
+    }
+
 
 #if 0
 

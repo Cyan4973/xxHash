@@ -941,22 +941,18 @@ XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
 XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset(XXH3_state_t* statePtr)
 {
-    XXH3_state_t state;
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_64bits_reset_internal(&state, 0, kSecret, XXH_SECRET_DEFAULT_SIZE);
-    *statePtr = state;
+    XXH3_64bits_reset_internal(statePtr, 0, kSecret, XXH_SECRET_DEFAULT_SIZE);
     return XXH_OK;
 }
 
 XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
 {
-    XXH3_state_t state;
     if (statePtr == NULL) return XXH_ERROR;
+    XXH3_64bits_reset_internal(statePtr, 0, secret, secretSize);
     if (secret == NULL) return XXH_ERROR;
     if (secretSize < XXH_SECRET_SIZE_MIN) return XXH_ERROR;
-    XXH3_64bits_reset_internal(&state, 0, secret, secretSize);
-    *statePtr = state;
     return XXH_OK;
 }
 

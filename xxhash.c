@@ -860,7 +860,7 @@ XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_alignment align)
 }
 
 
-XXH_PUBLIC_API unsigned long long XXH64 (const void* input, size_t len, unsigned long long seed)
+XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, unsigned long long seed)
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
@@ -906,7 +906,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long 
     state.v2 = seed + PRIME64_2;
     state.v3 = seed + 0;
     state.v4 = seed - PRIME64_1;
-     /* do not write into reserved, planned to be removed in a future version */
+     /* do not write into reserved, might be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
@@ -972,7 +972,7 @@ XXH64_update (XXH64_state_t* state, const void* input, size_t len)
 }
 
 
-XXH_PUBLIC_API unsigned long long XXH64_digest (const XXH64_state_t* state)
+XXH_PUBLIC_API XXH64_hash_t XXH64_digest (const XXH64_state_t* state)
 {
     U64 h64;
 

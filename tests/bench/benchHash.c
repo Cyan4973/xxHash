@@ -79,7 +79,7 @@ bench_hash_internal(BMK_benchFn_t hashfn, void* payload,
     initBuffer(srcBuffer, srcBufferSize);
     #define FAKE_DSTSIZE 32
     size_t const dstSize = FAKE_DSTSIZE;
-    char dstBuffer_static[FAKE_DSTSIZE];
+    char dstBuffer_static[FAKE_DSTSIZE] = {0};
 
     #define NB_BLOCKS_MAX 1024
     const void* srcBuffers[NB_BLOCKS_MAX];

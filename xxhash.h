@@ -401,6 +401,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
  * This makes it more difficult for an external actor to prepare an intentional collision.
  * The secret *must* be large enough (>= XXH_SECRET_SIZE_MIN).
+ * It should consist of random bytes.
+ * Avoid repeating same character, and especially avoid swathes of \0.
+ * Avoid repeating sequences of bytes within the secret.
+ * Failure to respect these conditions will result in a bad quality hash.
  */
 #define XXH_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
@@ -432,7 +436,7 @@ typedef struct XXH3_state_s XXH3_state_t;
 #define XXH3_INTERNALBUFFER_SIZE 128
 struct XXH3_state_s {
    XXH_ALIGN(64) XXH64_hash_t acc[8];
-   XXH_ALIGN(64) char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Consume space. Design might change */
+   XXH_ALIGN(64) char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
    XXH_ALIGN(64) char buffer[XXH3_INTERNALBUFFER_SIZE];
    const void* secret;
    XXH32_hash_t bufferedSize;
@@ -446,6 +450,11 @@ struct XXH3_state_s {
    XXH64_hash_t reserved64;
 };   /* typedef'd to XXH3_state_t */
 
+/* Streaming requires state maintenance.
+ * This operation costs memory and cpu.
+ * As a consequence, streaming is slower than one-shot hashing.
+ * For better performance, prefer using one-short functions anytime possible. */
+
 XXH_PUBLIC_API XXH3_state_t* XXH3_64bits_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_freeState(XXH3_state_t* statePtr);
 XXH_PUBLIC_API void XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
@@ -454,6 +463,9 @@ XXH_PUBLIC_API void XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_st
  * initialize with default parameters.
  * result will be equivalent to `XXH3_64bits()` */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
+/* XXH3_64bits_reset_withSeed() :
+ * generate a custom secret from `seed`, and store it into state.
+ * digest will be equivalent to `XXH3_64bits_withSeed()` */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
 /* XXH3_64bits_reset_withSecret() :
  * `secret` is referenced, and must outlive the hash streaming session.

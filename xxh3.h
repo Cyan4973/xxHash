@@ -673,11 +673,12 @@ XXH3_accumulate(U64* restrict acc, const void* restrict data,
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster.
-     * note from @aras-p : this unroll statement is actually detrimental for WASM.
-     * need to find a detection macro to exclude this case. */
-#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) && !defined(__ARM_ARCH)
+     * The unroll statement seems detrimental for WASM (@aras-p) and ARM though.
+     */
+#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) && !defined(__ARM_ARCH) && !defined(__EMSCRIPTEN__)
 #  pragma clang loop unroll(enable)
 #endif
+
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc,
                (const char*)data   + n*STRIPE_LEN,

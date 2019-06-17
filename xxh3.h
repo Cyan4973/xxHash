@@ -859,14 +859,44 @@ XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict
     }
 }
 
+XXH_NO_INLINE XXH64_hash_t
+XXH3_len_129to240_64b(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize, XXH64_hash_t seed)
+{
+    const BYTE* const p = (const BYTE*)data;
+    const char* const key = (const char*)secret;
+
+    assert(secretSize >= XXH_SECRET_SIZE_MIN); (void)secretSize;
+    assert(128 < len && len <= 240);
+
+    #define XXH3_MIDSIZE_STARTOFFSET 3
+    #define XXH3_MIDSIZE_LASTOFFSET  9
+
+    {   U64 acc = len * PRIME64_1;
+        int const nbRounds = (int)len / 16;
+        int i;
+        assert(nbRound >= 8);
+        for (i=0; i<8; i++) {
+            acc += XXH3_mix16B(p+(16*i), key+(16*i), seed);
+        }
+        acc = XXH3_avalanche(acc);
+        for (i=8 ; i < nbRounds; i++) {
+            acc += XXH3_mix16B(p+(16*i), key+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
+        }
+        /* last bytes */
+        acc += XXH3_mix16B(p + len - 16, key + XXH_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
+        return XXH3_avalanche(acc);
+    }
+}
+
 
 /* ===   Public entry point   === */
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kSecret, 0);
-    if (len > 128) return XXH3_hashLong_64b_defaultSecret(data, len);
-    return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), 0);
+    if (len <= 128) return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), 0);
+    if (len <= 240) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
+    return XXH3_hashLong_64b_defaultSecret(data, len);
 }
 
 XXH_PUBLIC_API XXH64_hash_t

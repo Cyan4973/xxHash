@@ -106,21 +106,10 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
  is time-expensive for such small buffers
 
 
-XXH_FORCEINLINE void XXH_SmallMemCpy( void* pDest, const void* pSrc, const U32 u32Size )
-{
-	BYTE* const pu8Dest = (BYTE*)pDest;
-	const BYTE* const pu8Src = (const BYTE*)pSrc;
-
-	for ( uint32_t i = 0U; i < u32Size; i++ )
-	{
-		pu8Dest[ i ] = pu8Src[ i ];
-	}
-
-	return;
-}
+#define XXH_memcpy( dst, src, size ) __movsb( (unsigned char*)(dest), (unsigned char*)(src), (size) )
 
 
-the "dummy" inlined memcpy above gives better results for the small buffers */
+the define above can be wrapped with #ifdef _MSC_VER */
 
 #include <assert.h>   /* assert */
 

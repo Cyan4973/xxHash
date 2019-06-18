@@ -90,6 +90,7 @@ static int readIntFromChar(const char** stringPtr)
 static int isCommand(const char* stringPtr, const char* longCommand)
 {
     size_t const comSize = strlen(longCommand);
+    assert(stringPtr); assert(longCommand);
     return !strncmp(stringPtr, longCommand, comSize);
 }
 
@@ -140,9 +141,11 @@ static int display_hash_names(void)
 static int hashID(const char* hname)
 {
     int id;
+    assert(hname);
     for (id=0; id < NB_HASHES; id++) {
-        if (isCommand(hname, hashCandidates[id].name))
-            return id;
+        assert(hashCandidates[id].name);
+        if (strlen(hname) != strlen(hashCandidates[id].name)) continue;
+        if (isCommand(hname, hashCandidates[id].name)) return id;
     }
     return -1;
 }

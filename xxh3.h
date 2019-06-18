@@ -330,7 +330,7 @@ XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
         BYTE const c2 = ((const BYTE*)data)[len >> 1];
         BYTE const c3 = ((const BYTE*)data)[len - 1];
         U32  const combined = ((U32)c1) + (((U32)c2) << 8) + (((U32)c3) << 16) + (((U32)len) << 24);
-        U64  const keyed = (U64)combined ^ (XXH_readLE64(keyPtr) + seed);
+        U64  const keyed = (U64)combined ^ (XXH_readLE32(keyPtr) + seed);
         U64  const mixed = keyed * PRIME64_1;
         return XXH3_avalanche(mixed);
     }
@@ -346,8 +346,8 @@ XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
         U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
         U64 const in64 = in1 + ((U64)in2 << 32);
         U64 const keyed = in64 ^ (XXH_readLE64(keyPtr) + seed);
-        U64 const mix64 = len + XXH3_mul128_fold64(keyed, PRIME64_1);
-        return XXH3_avalanche(mix64);
+        U64 const mix64 = len + ((keyed ^ (keyed >> 51)) * PRIME32_1);
+        return XXH3_avalanche((mix64 ^ (mix64 >> 47)) * PRIME64_2);
     }
 }
 

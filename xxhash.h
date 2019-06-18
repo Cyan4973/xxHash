@@ -400,13 +400,13 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 /* XXH3_64bits_withSecret() :
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
  * This makes it more difficult for an external actor to prepare an intentional collision.
- * The secret *must* be large enough (>= XXH_SECRET_SIZE_MIN).
+ * The secret *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
  * It should consist of random bytes.
  * Avoid repeating same character, and especially avoid swathes of \0.
  * Avoid repeating sequences of bytes within the secret.
  * Failure to respect these conditions will result in a bad quality hash.
  */
-#define XXH_SECRET_SIZE_MIN 136
+#define XXH3_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
 /* XXH3_64bits_withSeed() :
@@ -432,8 +432,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
 
 typedef struct XXH3_state_s XXH3_state_t;
 
-#define XXH3_SECRET_DEFAULT_SIZE 192   /* minimum XXH_SECRET_SIZE_MIN */
-#define XXH3_INTERNALBUFFER_SIZE 128
+#define XXH3_SECRET_DEFAULT_SIZE 192   /* minimum XXH3_SECRET_SIZE_MIN */
+#define XXH3_INTERNALBUFFER_SIZE 256
 struct XXH3_state_s {
    XXH_ALIGN(64) XXH64_hash_t acc[8];
    XXH_ALIGN(64) char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
@@ -469,7 +469,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
 /* XXH3_64bits_reset_withSecret() :
  * `secret` is referenced, and must outlive the hash streaming session.
- * secretSize must be >= XXH_SECRET_SIZE_MIN.
+ * secretSize must be >= XXH3_SECRET_SIZE_MIN.
  */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
 

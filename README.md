@@ -72,6 +72,7 @@ they modify xxhash behavior. They are all disabled by default.
                      It's especially effective when key length is a compile time constant,
                      with observed performance improvement in the +200% range .
                      See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
+- `XXH_REROLL` : reduce size of generated code
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a null-pointer,
                                     xxhash result is the same as a zero-length key
                                     (instead of a dereference segfault).

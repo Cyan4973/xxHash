@@ -87,7 +87,7 @@
 #endif
 
 /*!XXH_REROLL:
- * Whether to reroll XXH32_finalize, XXH64_finalize, and XXH3's accumulate loop
+ * Whether to reroll XXH32_finalize, and XXH64_finalize,
  * instead of using an unrolled jump table/if statement loop.
  *
  * This is automatically defined on -Os/-Oz on GCC and Clang. */

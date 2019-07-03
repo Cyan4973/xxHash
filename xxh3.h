@@ -1307,10 +1307,11 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
                 memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
                 XXH3_accumulate_512(acc, lastStripe, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
         }   }
-        U64 const low64 = XXH3_mergeAccs(acc, (const char*)state->secret, (U64)state->totalLen * PRIME64_1);
-        U64 const high64 = XXH3_mergeAccs(acc, (const char*)state->secret+16, ((U64)state->totalLen+1) * PRIME64_2);
-        XXH128_hash_t const h128 = { low64, high64 };
-        return h128;
+        {   U64 const low64 = XXH3_mergeAccs(acc, (const char*)state->secret, (U64)state->totalLen * PRIME64_1);
+            U64 const high64 = XXH3_mergeAccs(acc, (const char*)state->secret+16, ((U64)state->totalLen+1) * PRIME64_2);
+            XXH128_hash_t const h128 = { low64, high64 };
+            return h128;
+        }
     }
     /* len <= XXH3_MIDSIZE_MAX : short code */
     if (state->seed)

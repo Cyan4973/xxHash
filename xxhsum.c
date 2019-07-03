@@ -624,9 +624,19 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 
     /* streaming API test */
     {   XXH3_state_t state;
+
+        /* single ingestion */
         (void)XXH3_64bits_reset_withSeed(&state, seed);
         (void)XXH3_64bits_update(&state, data, len);
         BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+
+        if (len > 3) {
+            /* 2 ingestions */
+            (void)XXH3_64bits_reset_withSeed(&state, seed);
+            (void)XXH3_64bits_update(&state, data, 3);
+            (void)XXH3_64bits_update(&state, (const char*)data+3, len-3);
+            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+        }
 
         /* byte by byte ingestion */
         {   size_t pos;
@@ -736,10 +746,10 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer, 195, 0,       0x0F4A0BBE808382AEULL);  /* 129-240 */
     BMK_testXXH3(sanityBuffer, 195, prime64, 0x9DF94C96C46AF6CCULL);  /* 129-240 */
 
-    BMK_testXXH3(sanityBuffer, 384, 0,       0x45CCC94C86BE739FULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer, 384, prime64, 0x79C743D8B9A54FBCULL);  /* one block, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer, 403, 0,       0x4834389B15D981E8ULL);  /* one block, last stripe is overlapping */
     BMK_testXXH3(sanityBuffer, 403, prime64, 0x85CE5DFFC7B07C87ULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer, 512, 0,       0x6A1B982631F059A8ULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer, 512, prime64, 0x10086868CF0ADC99ULL);  /* one block, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer,2048, 0,       0xEFEFD4449323CDD4ULL);  /* 2 blocks, finishing at block boundary */
     BMK_testXXH3(sanityBuffer,2048, prime64, 0x01C85E405ECA3F6EULL);  /* 2 blocks, finishing at block boundary */
     BMK_testXXH3(sanityBuffer,2240, 0,       0x998C0437486672C7ULL);  /* 3 blocks, finishing at stripe boundary */
@@ -759,8 +769,8 @@ static void BMK_sanityCheck(void)
         BMK_testXXH3_withSecret(sanityBuffer, 112, secret, secretSize,       0x560E82D25684154CULL);  /* 97 -128 */
         BMK_testXXH3_withSecret(sanityBuffer, 195, secret, secretSize,       0x08AD6AB5ACA1B218ULL);  /* 129-240 */
 
-        BMK_testXXH3_withSecret(sanityBuffer, 384, secret, secretSize,       0x9656E0F288042CB9ULL);  /* one block, finishing at stripe boundary */
         BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize,       0xFC3911BBA656DB58ULL);  /* one block, last stripe is overlapping */
+        BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize,       0x306137DD875741F1ULL);  /* one block, finishing at stripe boundary */
         BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize,       0x2836B83880AD3C0CULL);  /* > one block, at least one scrambling */
         BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize,       0x3446E248A00CB44AULL);  /* > one block, at least one scrambling, last stripe unaligned */
     }

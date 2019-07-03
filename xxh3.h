@@ -1052,6 +1052,7 @@ XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
                                       &state->nbStripesSoFar, state->nbStripesPerBlock,
                                        state->buffer, XXH3_INTERNALBUFFER_STRIPES,
                                        state->secret, state->secretLimit);
+            state->bufferedSize = 0;
         }
 
         /* consume input by full buffer quantities */

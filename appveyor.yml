@@ -5,6 +5,8 @@ environment:
     PLATFORM: "visual_x64"
   - COMPILER: "visual"
     PLATFORM: "visual_x86"
+  - COMPILER: "visual"
+    PLATFORM: "visual_arm"
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
@@ -51,6 +53,11 @@ build_script:
   - if "%PLATFORM%"=="visual_x86" (
       cd cmake_unofficial &&
       cmake . -DCMAKE_BUILD_TYPE=Release &&
+      cmake --build . --config Release
+    )
+  - if "%PLATFORM%"=="visual_arm" (
+      cd cmake_unofficial &&
+      cmake . -DCMAKE_BUILD_TYPE=Release -A ARM &&
       cmake --build . --config Release
     )
 

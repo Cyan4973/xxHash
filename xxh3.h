@@ -1067,7 +1067,7 @@ XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
             } while (p<=limit);
         }
 
-        if (p < bEnd) { /* some remaining input data : buffer it */
+        if (p <= bEnd) { /* some remaining input data : buffer it */
             XXH_memcpy(state->buffer, p, (size_t)(bEnd-p));
             state->bufferedSize = (XXH32_hash_t)(bEnd-p);
         }

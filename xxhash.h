@@ -390,6 +390,9 @@ struct XXH64_state_s {
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
+
+#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
+#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
 #endif
 
 /* XXH3_64bits() :
@@ -488,6 +491,8 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);  /* == XXH128() */
 XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 
 
 #endif  /* XXH_NO_LONG_LONG */

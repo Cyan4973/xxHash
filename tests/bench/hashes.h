@@ -64,10 +64,11 @@
 
 /* Each hash must be wrapped in a thin redirector conformant with the BMK_benchfn_t.
  * BMK_benchfn_t is generic, not specifically designed for hashes.
- * The following parameters are expected to be useless : dst, dstCapacity, customPayload.
+ * For hashes, the following parameters are expected to be useless :
+ * dst, dstCapacity, customPayload.
  *
  * The result of each hash is assumed to be provided as function return value.
- * This is important for correct latency measurements.
+ * This condition is important for latency measurements.
  */
 
  /* ===  xxHash  === */

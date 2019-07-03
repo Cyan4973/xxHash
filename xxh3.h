@@ -1248,6 +1248,80 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
     return XXH3_128bits_withSeed(data, len, seed);
 }
 
+/* ===   XXH3 128-bit streaming   === */
+
+/* all the functions are actually the same as for 64-bit streaming variant,
+   just the reset one is different (different initial acc values for 0,5,6,7),
+   and near the end of the digest function */
+
+static void
+XXH3_128bits_reset_internal(XXH3_state_t* statePtr,
+                           XXH64_hash_t seed,
+                           const void* secret, size_t secretSize)
+{
+    assert(statePtr != NULL);
+    memset(statePtr, 0, sizeof(*statePtr));
+    statePtr->acc[0] = seed;
+    statePtr->acc[1] = PRIME64_1;
+    statePtr->acc[2] = PRIME64_2;
+    statePtr->acc[3] = PRIME64_3;
+    statePtr->acc[4] = PRIME64_4;
+    statePtr->acc[5] = PRIME64_5;
+    statePtr->acc[6] = (U64)0 - seed;
+    statePtr->acc[7] = 0;
+    statePtr->seed = seed;
+    assert(secret != NULL);
+    statePtr->secret = secret;
+    assert(secretSize >= XXH3_SECRET_SIZE_MIN);
+    statePtr->secretLimit = (XXH32_hash_t)(secretSize - STRIPE_LEN);
+    statePtr->nbStripesPerBlock = statePtr->secretLimit / XXH_SECRET_CONSUME_RATE;
+}
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_128bits_reset(XXH3_state_t* statePtr)
+{
+    if (statePtr == NULL) return XXH_ERROR;
+    XXH3_128bits_reset_internal(statePtr, 0, kSecret, XXH_SECRET_DEFAULT_SIZE);
+    return XXH_OK;
+}
+
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
+{
+    if (state->totalLen > XXH3_MIDSIZE_MAX) {
+        XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[ACC_NB];
+        memcpy(acc, state->acc, sizeof(acc));  /* digest locally, state remains unaltered, and can continue ingesting more data afterwards */
+        if (state->bufferedSize >= STRIPE_LEN) {
+            size_t const totalNbStripes = state->bufferedSize / STRIPE_LEN;
+            XXH32_hash_t nbStripesSoFar = state->nbStripesSoFar;
+            XXH3_64bits_consumeStripes(acc,
+                                      &nbStripesSoFar, state->nbStripesPerBlock,
+                                       state->buffer, totalNbStripes,
+                                       state->secret, state->secretLimit);
+            if (state->bufferedSize % STRIPE_LEN) {  /* one last partial stripe */
+                XXH3_accumulate_512(acc, state->buffer + state->bufferedSize - STRIPE_LEN, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+            }
+        } else {  /* bufferedSize < STRIPE_LEN */
+            if (state->bufferedSize) { /* one last stripe */
+                char lastStripe[STRIPE_LEN];
+                size_t const catchupSize = STRIPE_LEN - state->bufferedSize;
+                memcpy(lastStripe, (const char*)state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
+                memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
+                XXH3_accumulate_512(acc, lastStripe, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+        }   }
+        {   U64 const low64 = XXH3_mergeAccs(acc, (const char*)state->secret, (U64)state->totalLen * PRIME64_1);
+            U64 const high64 = XXH3_mergeAccs(acc, (const char*)state->secret+16, ((U64)state->totalLen+1) * PRIME64_2);
+            XXH128_hash_t const h128 = { low64, high64 };
+            return h128;
+        }
+    }
+    /* len <= XXH3_MIDSIZE_MAX : short code */
+    if (state->seed)
+        return XXH3_128bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
+    /* TODO: there's no 'with secret' for 128b */
+    return XXH3_128bits(state->buffer, (size_t)(state->totalLen));
+}
+
+
 
 #ifdef UNDEF_NDEBUG
 #  undef NDEBUG

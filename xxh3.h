@@ -47,20 +47,20 @@
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
-#undef NDEBUG    /* avoid redefinition */
-#define NDEBUG   /* disable assert (release mode) */
-#include <assert.h>
 #ifndef NDEBUG
-#  define NDEBUG
+#  define NDEBUG   /* disable assert (release mode) */
 #  define UNDEF_NDEBUG
-#  include <assert.h>
 #endif
+#include <assert.h>
 
 
 /* ===   Compiler specifics   === */
 
-#if !(defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)   /* < C99 */
-#  define restrict   /* disable */
+#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* >= C99 */
+#  define XXH_RESTRICT   restrict
+#else
+/* note : it might be useful to define __restrict or __restrict__ for some C++ compilers */
+#  define XXH_RESTRICT   /* disable */
 #endif
 
 #if defined(__GNUC__)
@@ -123,7 +123,7 @@
 /* U64 XXH_mult32to64(U32 a, U64 b) { return (U64)a * (U64)b; } */
 #if defined(_MSC_VER) && defined(_M_IX86)
 #    include <intrin.h>
-#    define XXH_mult32to64 __emulu
+#    define XXH_mult32to64(x, y) __emulu(x, y)
 #else
 #    define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
 #endif
@@ -384,7 +384,7 @@ XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
 XXH_FORCE_INLINE void
-XXH3_accumulate_512(void* restrict acc, const void* restrict data, const void* restrict key)
+XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const void* XXH_RESTRICT key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -530,7 +530,7 @@ XXH3_accumulate_512(void* restrict acc, const void* restrict data, const void* r
 }
 
 XXH_FORCE_INLINE void
-XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
+XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -667,8 +667,8 @@ XXH3_scrambleAcc(void* restrict acc, const void* restrict key)
 
 /* assumption : nbStripes will not overflow secret size */
 XXH_FORCE_INLINE void
-XXH3_accumulate(U64* restrict acc, const void* restrict data,
-                const void* restrict secret, size_t nbStripes)
+XXH3_accumulate(U64* XXH_RESTRICT acc, const void* XXH_RESTRICT data,
+                const void* XXH_RESTRICT secret, size_t nbStripes)
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster.
@@ -695,9 +695,9 @@ static void
 #else
 XXH_FORCE_INLINE void
 #endif
-XXH3_hashLong_internal_loop( U64* restrict acc,
-                      const void* restrict data, size_t len,
-                      const void* restrict secret, size_t secretSize)
+XXH3_hashLong_internal_loop( U64* XXH_RESTRICT acc,
+                      const void* XXH_RESTRICT data, size_t len,
+                      const void* XXH_RESTRICT secret, size_t secretSize)
 {
     size_t const nb_rounds = (secretSize - STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
     size_t const block_len = STRIPE_LEN * nb_rounds;
@@ -727,7 +727,7 @@ XXH3_hashLong_internal_loop( U64* restrict acc,
 }
 
 XXH_FORCE_INLINE U64
-XXH3_mix2Accs(const U64* restrict acc, const void* restrict secret)
+XXH3_mix2Accs(const U64* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     const U64* const key64 = (const U64*)secret;
     return XXH3_mul128_fold64(
@@ -736,7 +736,7 @@ XXH3_mix2Accs(const U64* restrict acc, const void* restrict secret)
 }
 
 static XXH64_hash_t
-XXH3_mergeAccs(const U64* restrict acc, const void* restrict secret, U64 start)
+XXH3_mergeAccs(const U64* XXH_RESTRICT acc, const void* XXH_RESTRICT secret, U64 start)
 {
     U64 result64 = start;
 
@@ -749,8 +749,8 @@ XXH3_mergeAccs(const U64* restrict acc, const void* restrict secret, U64 start)
 }
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_hashLong_internal(const void* restrict data, size_t len,
-                       const void* restrict secret, size_t secretSize)
+XXH3_hashLong_internal(const void* XXH_RESTRICT data, size_t len,
+                       const void* XXH_RESTRICT secret, size_t secretSize)
 {
     XXH_ALIGN(XXH_ACC_ALIGN) U64 acc[ACC_NB] = { PRIME32_3, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME32_2, PRIME64_5, PRIME32_1 };
 
@@ -765,13 +765,13 @@ XXH3_hashLong_internal(const void* restrict data, size_t len,
 
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_defaultSecret(const void* restrict data, size_t len)
+XXH3_hashLong_64b_defaultSecret(const void* XXH_RESTRICT data, size_t len)
 {
     return XXH3_hashLong_internal(data, len, kSecret, sizeof(kSecret));
 }
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_withSecret(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize)
+XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT data, size_t len, const void* XXH_RESTRICT secret, size_t secretSize)
 {
     return XXH3_hashLong_internal(data, len, secret, secretSize);
 }
@@ -818,7 +818,7 @@ XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 
-XXH_FORCE_INLINE U64 XXH3_mix16B(const void* restrict data, const void* restrict key, U64 seed64)
+XXH_FORCE_INLINE U64 XXH3_mix16B(const void* XXH_RESTRICT data, const void* XXH_RESTRICT key, U64 seed64)
 {
     const U64* const key64 = (const U64*)key;
     U64 const ll1 = XXH_readLE64(data);
@@ -830,7 +830,7 @@ XXH_FORCE_INLINE U64 XXH3_mix16B(const void* restrict data, const void* restrict
 
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_len_17to128_64b(const void* XXH_RESTRICT data, size_t len, const void* XXH_RESTRICT secret, size_t secretSize, XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;
@@ -859,7 +859,7 @@ XXH3_len_17to128_64b(const void* restrict data, size_t len, const void* restrict
 }
 
 XXH_NO_INLINE XXH64_hash_t
-XXH3_len_129to240_64b(const void* restrict data, size_t len, const void* restrict secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len, const void* XXH_RESTRICT secret, size_t secretSize, XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;

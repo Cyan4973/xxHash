@@ -16,8 +16,7 @@ environment:
     ARCH: "x64"
   - COMPILER: "visual"
     ARCH: "ARM"
-  - COMPILER: "visual"
-    ARCH: "ARM64"
+    # note : ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
@@ -26,7 +25,7 @@ environment:
     PLATFORM: "clang"
 
 install:
-  - ECHO Installing %COMPILER% %PLATFORM% %CONFIGURATION%
+  - ECHO Installing %COMPILER% %PLATFORM% %ARCH%
   - MKDIR bin
   - if [%COMPILER%]==[gcc] SET PATH_ORIGINAL=%PATH%
   - if [%COMPILER%]==[gcc] (
@@ -44,7 +43,7 @@ build_script:
   - if [%PLATFORM%]==[mingw64] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
   - if [%PLATFORM%]==[clang]   SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
   - ECHO *** &&
-    ECHO Building %COMPILER% %PLATFORM% %CONFIGURATION% &&
+    ECHO Building %COMPILER% %PLATFORM% %ARCH% &&
     ECHO ***
   - if [%PLATFORM%]==[clang] (clang -v)
   - if [%COMPILER%]==[gcc] (gcc -v)
@@ -64,9 +63,6 @@ build_script:
       cd cmake_unofficial &&
       cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
       cmake --build . --config Release &&
-      DIR &&
-      ls &&
-      ls Release &&
       COPY Release\xxhsum.exe . &&
       COPY Release\xxhsum.exe ..
     )
@@ -75,15 +71,14 @@ build_script:
 #       tests configuration       #
 #---------------------------------#
 test_script:
-  - ECHO *** &&
-    ECHO Testing %COMPILER% %PLATFORM% %CONFIGURATION% &&
-    ECHO ***
-  - DIR
+  - ECHO ***
+  - ECHO Testing %COMPILER% %PLATFORM% %ARCH%
+  - ECHO ***
   - ls
-  - xxhsum -h &&
-    xxhsum xxhsum.exe &&
-    xxhsum -bi1 &&
-    echo ------- xxhsum tested -------
+  - xxhsum -h
+  - xxhsum xxhsum.exe
+  - xxhsum -bi1
+  - ECHO ------- xxhsum tested -------
 
 #---------------------------------#
 #      artifacts configuration    #

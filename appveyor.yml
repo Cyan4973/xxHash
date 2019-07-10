@@ -62,7 +62,8 @@ build_script:
       cd cmake_unofficial &&
       cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
       cmake --build . --config Release &&
-      COPY xxhsum.exe ..
+      COPY Release\xxhsum.exe .
+      COPY Release\xxhsum.exe ..
     )
 
 #---------------------------------#

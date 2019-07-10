@@ -40,7 +40,7 @@ install:
 build_script:
   - if [%PLATFORM%]==[mingw32] SET PATH=%PATH_MINGW32%;%PATH_ORIGINAL%
   - if [%PLATFORM%]==[mingw64] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
-  - if [%PLATFORM%]==[clang] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
+  - if [%PLATFORM%]==[clang]   SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
   - ECHO *** &&
     ECHO Building %COMPILER% %PLATFORM% %CONFIGURATION% &&
     ECHO ***
@@ -53,7 +53,7 @@ build_script:
       if not [%PLATFORM%]==[clang] (
         make -B clean test MOREFLAGS=-Werror
       ) ELSE (
-        make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion"
+        make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed=transform-warning"
       ) &&
       make -C tests/bench
     )

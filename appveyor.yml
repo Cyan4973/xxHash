@@ -76,10 +76,9 @@ test_script:
   - ECHO ***
   - ls
   - if [%COMPILER%]==[visual] (
-      xxhsum -bi1
-    ) ELSE (
-      make check
+      xxhsum.exe -bi1
     )
+  # note : already tested, with make test, when %COMPILER%==gcc
   - ECHO ------- xxhsum tested -------
 
 #---------------------------------#

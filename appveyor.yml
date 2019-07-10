@@ -75,9 +75,11 @@ test_script:
   - ECHO Testing %COMPILER% %PLATFORM% %ARCH%
   - ECHO ***
   - ls
-  - xxhsum -h
-  - xxhsum xxhsum.exe
-  - xxhsum -bi1
+  - if [%COMPILER%]==[visual] (
+      xxhsum -bi1
+    ) ELSE (
+      make check
+    )
   - ECHO ------- xxhsum tested -------
 
 #---------------------------------#

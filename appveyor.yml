@@ -1,4 +1,13 @@
+#---------------------------------#
+#      general configuration      #
+#---------------------------------#
 version: 1.0.{build}
+max_jobs: 2
+
+#---------------------------------#
+#    environment configuration    #
+#---------------------------------#
+clone_depth: 2
 environment:
   matrix:
   - COMPILER: "visual"
@@ -23,17 +32,18 @@ install:
       SET "PATH_MINGW64=c:\msys64\mingw64\bin;c:\msys64\usr\bin" &&
       COPY C:\MinGW\bin\mingw32-make.exe C:\MinGW\bin\make.exe &&
       COPY C:\MinGW\bin\gcc.exe C:\MinGW\bin\cc.exe
-    ) else (
-      IF [%PLATFORM%]==[x64] (SET ADDITIONALPARAM=/p:LibraryPath="C:\Program Files\Microsoft SDKs\Windows\v7.1\lib\x64;c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\lib\amd64;C:\Program Files (x86)\Microsoft Visual Studio 10.0\;C:\Program Files (x86)\Microsoft Visual Studio 10.0\lib\amd64;")
     )
 
+#---------------------------------#
+#       build configuration       #
+#---------------------------------#
 build_script:
   - if [%PLATFORM%]==[mingw32] SET PATH=%PATH_MINGW32%;%PATH_ORIGINAL%
   - if [%PLATFORM%]==[mingw64] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
   - if [%PLATFORM%]==[clang] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
   - ECHO *** &&
-      ECHO Building %COMPILER% %PLATFORM% %CONFIGURATION% &&
-      ECHO ***
+    ECHO Building %COMPILER% %PLATFORM% %CONFIGURATION% &&
+    ECHO ***
   - if [%PLATFORM%]==[clang] (clang -v)
   - if [%COMPILER%]==[gcc] (gcc -v)
   - if [%COMPILER%]==[gcc] (
@@ -48,20 +58,28 @@ build_script:
       make -C tests/bench
     )
 
-  - if "%COMPILER%"=="visual" (
+  - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
-      if "%PLATFORM%"=="visual_x86" (cmake . -DCMAKE_BUILD_TYPE=Release) &&
-      if "%PLATFORM%"=="visual_x64" (cmake . -DCMAKE_BUILD_TYPE=Release -A x64) &&
-      if "%PLATFORM%"=="visual_arm" (cmake . -DCMAKE_BUILD_TYPE=Release -A ARM) &&
+      if [%PLATFORM%]==[visual_x86] (cmake . -DCMAKE_BUILD_TYPE=Release) &&
+      if [%PLATFORM%]==[visual_x64] (cmake . -DCMAKE_BUILD_TYPE=Release -A x64) &&
+      if [%PLATFORM%]==[visual_arm] (cmake . -DCMAKE_BUILD_TYPE=Release -A ARM) &&
       cmake --build . --config Release &&
       COPY xxhsum.exe ..
-  )
+    )
 
+#---------------------------------#
+#       tests configuration       #
+#---------------------------------#
 test_script:
   - ECHO *** &&
-      ECHO Testing %COMPILER% %PLATFORM% %CONFIGURATION% &&
-      ECHO ***
+    ECHO Testing %COMPILER% %PLATFORM% %CONFIGURATION% &&
+    ECHO ***
   - xxhsum -h &&
     xxhsum xxhsum.exe &&
     xxhsum -bi1 &&
     echo ------- xxhsum tested -------
+
+#---------------------------------#
+#      artifacts configuration    #
+#---------------------------------#
+# none yet

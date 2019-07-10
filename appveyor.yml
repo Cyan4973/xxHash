@@ -42,7 +42,7 @@ build_script:
       echo ----- &&
       if not [%PLATFORM%]==[clang] (
         make -B clean test MOREFLAGS=-Werror
-      ) ELSE (   # clang
+      ) ELSE (
         make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion"
       ) &&
       make -C tests/bench

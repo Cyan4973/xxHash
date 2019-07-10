@@ -53,7 +53,7 @@ build_script:
       if not [%PLATFORM%]==[clang] (
         make -B clean test MOREFLAGS=-Werror
       ) ELSE (
-        make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed=transform-warning"
+        make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed"
       ) &&
       make -C tests/bench
     )

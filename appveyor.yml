@@ -74,6 +74,9 @@ test_script:
   - ECHO *** &&
     ECHO Testing %COMPILER% %PLATFORM% %CONFIGURATION% &&
     ECHO ***
+  - DIR
+  - ls
+  - ls cmake_unofficial
   - xxhsum -h &&
     xxhsum xxhsum.exe &&
     xxhsum -bi1 &&

@@ -11,11 +11,11 @@ clone_depth: 2
 environment:
   matrix:
   - COMPILER: "visual"
-    PLATFORM: "visual_x64"
+    ARCH: "x64"
   - COMPILER: "visual"
-    PLATFORM: "visual_x86"
+    ARCH: "x86"
   - COMPILER: "visual"
-    PLATFORM: "visual_arm"
+    ARCH: "ARM"
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
@@ -60,9 +60,7 @@ build_script:
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
-      if [%PLATFORM%]==[visual_x86] (cmake . -DCMAKE_BUILD_TYPE=Release) &&
-      if [%PLATFORM%]==[visual_x64] (cmake . -DCMAKE_BUILD_TYPE=Release -A x64) &&
-      if [%PLATFORM%]==[visual_arm] (cmake . -DCMAKE_BUILD_TYPE=Release -A ARM) &&
+      cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
       cmake --build . --config Release &&
       COPY xxhsum.exe ..
     )

@@ -61,7 +61,7 @@ build_script:
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
+      cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=/MT -A %ARCH% &&
       cmake --build . --config Release &&
       COPY Release\xxhsum.exe . &&
       COPY Release\xxhsum.exe ..

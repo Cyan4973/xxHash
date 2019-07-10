@@ -11,11 +11,13 @@ clone_depth: 2
 environment:
   matrix:
   - COMPILER: "visual"
+    ARCH: "Win32"
+  - COMPILER: "visual"
     ARCH: "x64"
   - COMPILER: "visual"
-    ARCH: "x86"
-  - COMPILER: "visual"
     ARCH: "ARM"
+  - COMPILER: "visual"
+    ARCH: "ARM64"
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
@@ -62,7 +64,10 @@ build_script:
       cd cmake_unofficial &&
       cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
       cmake --build . --config Release &&
-      COPY Release\xxhsum.exe .
+      DIR &&
+      ls &&
+      ls Release &&
+      COPY Release\xxhsum.exe . &&
       COPY Release\xxhsum.exe ..
     )
 

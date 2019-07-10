@@ -11,6 +11,8 @@ environment:
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
     PLATFORM: "mingw32"
+  - COMPILER: "gcc"
+    PLATFORM: "clang"
 
 install:
   - ECHO Installing %COMPILER% %PLATFORM% %CONFIGURATION%
@@ -40,34 +42,26 @@ build_script:
       echo ----- &&
       if not [%PLATFORM%]==[clang] (
         make -B clean test MOREFLAGS=-Werror
-      ) ELSE (
+      ) ELSE (   # clang
         make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion"
       ) &&
       make -C tests/bench
     )
-  - if "%PLATFORM%"=="visual_x64" (
+
+  - if "%COMPILER%"=="visual" (
       cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release -A x64 &&
-      cmake --build . --config Release
-    )
-  - if "%PLATFORM%"=="visual_x86" (
-      cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release &&
-      cmake --build . --config Release
-    )
-  - if "%PLATFORM%"=="visual_arm" (
-      cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release -A ARM &&
-      cmake --build . --config Release
-    )
+      if "%PLATFORM%"=="visual_x86" (cmake . -DCMAKE_BUILD_TYPE=Release) &&
+      if "%PLATFORM%"=="visual_x64" (cmake . -DCMAKE_BUILD_TYPE=Release -A x64) &&
+      if "%PLATFORM%"=="visual_arm" (cmake . -DCMAKE_BUILD_TYPE=Release -A ARM) &&
+      cmake --build . --config Release &&
+      COPY xxhsum.exe ..
+  )
 
 test_script:
   - ECHO *** &&
       ECHO Testing %COMPILER% %PLATFORM% %CONFIGURATION% &&
       ECHO ***
-  - if not [%COMPILER%]==[visual] (
-      xxhsum -h &&
-      xxhsum xxhsum.exe &&
-      xxhsum -bi1 &&
-      echo ------- xxhsum tested -------
-    )
+  - xxhsum -h &&
+    xxhsum xxhsum.exe &&
+    xxhsum -bi1 &&
+    echo ------- xxhsum tested -------

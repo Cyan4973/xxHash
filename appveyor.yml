@@ -12,19 +12,23 @@ environment:
   matrix:
   - COMPILER: "visual"
     ARCH: "x64"
-  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    COMPILER: "visual"
+    TEST_XXHSUM: "true"
+  - COMPILER: "visual"
     ARCH: "x64"
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+    TEST_XXHSUM: "true"
   - COMPILER: "visual"
     ARCH: "Win32"
-  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
-    COMPILER: "visual"
+    TEST_XXHSUM: "true"
+  - COMPILER: "visual"
     ARCH: "Win32"
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
+    TEST_XXHSUM: "true"
   - COMPILER: "visual"
     ARCH: "ARM"
-  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    COMPILER: "visual"
+  - COMPILER: "visual"
     ARCH: "ARM64"
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
     # note : ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
@@ -54,8 +58,14 @@ build_script:
   - ECHO ***
   - ECHO Building %COMPILER% %PLATFORM% %ARCH%
   - ECHO ***
-  - if [%PLATFORM%]==[clang] (clang -v)
-  - if [%COMPILER%]==[gcc] (gcc -v)
+
+  - if [%COMPILER%]==[gcc] (
+      if [%PLATFORM%]==[clang] (
+        clang -v
+      ) ELSE (
+        gcc -v
+      )
+    )
   - if [%COMPILER%]==[gcc] (
       echo ----- &&
       make -v &&
@@ -67,7 +77,7 @@ build_script:
       ) &&
       make -C tests/bench
     )
-    # note : strict c90 tests with clang fail, due to presence on inline keyword in some included file
+    # note : strict c90 tests with clang fail, due to (erroneous) presence on `inline` keyword in some included system file
     # -Dinline= is a way to disable this keyword
 
   - if [%COMPILER%]==[visual] (
@@ -80,16 +90,17 @@ build_script:
 #       tests configuration       #
 #---------------------------------#
 test_script:
-  - ECHO ***
-  - ECHO Testing %COMPILER% %PLATFORM% %ARCH%
-  - ECHO ***
-  - if [%COMPILER%]==[visual] (
-      cd Release &&
-      if not [%ARCH%]==[ARM] ( xxhsum.exe -bi1 )
-    )
   # note : can only run x86 and x64 binaries on Appveyor
-  # note : if %COMPILER%==gcc, xxhsum already tested
-  - ECHO ------- xxhsum tested -------
+  # note : if %COMPILER%==gcc, xxhsum was already tested within `make test`
+  - if [%TEST_XXHSUM%]==[true] (
+      ECHO ***  &&
+      ECHO Testing %COMPILER% %PLATFORM% %ARCH%  &&
+      ECHO ***  &&
+      cd Release &&
+      xxhsum.exe -bi1 &&
+      ECHO ------- xxhsum tested -------
+    )
+
 
 #---------------------------------#
 #      artifacts configuration    #

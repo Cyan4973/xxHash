@@ -42,9 +42,9 @@ build_script:
   - if [%PLATFORM%]==[mingw32] SET PATH=%PATH_MINGW32%;%PATH_ORIGINAL%
   - if [%PLATFORM%]==[mingw64] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
   - if [%PLATFORM%]==[clang]   SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
-  - ECHO *** &&
-    ECHO Building %COMPILER% %PLATFORM% %ARCH% &&
-    ECHO ***
+  - ECHO ***
+  - ECHO Building %COMPILER% %PLATFORM% %ARCH%
+  - ECHO ***
   - if [%PLATFORM%]==[clang] (clang -v)
   - if [%COMPILER%]==[gcc] (gcc -v)
   - if [%COMPILER%]==[gcc] (
@@ -58,6 +58,8 @@ build_script:
       ) &&
       make -C tests/bench
     )
+    # note : strict c90 tests with clang fail, due to presence on inline keyword in some included file
+    # -Dinline= is a way to disable this keyword
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
@@ -72,12 +74,12 @@ test_script:
   - ECHO ***
   - ECHO Testing %COMPILER% %PLATFORM% %ARCH%
   - ECHO ***
-  - ls
   - if [%COMPILER%]==[visual] (
       cd Release &&
-      xxhsum.exe -bi1
+      if not [%ARCH%]==[ARM] ( xxhsum.exe -bi1 )
     )
-  # note : when %COMPILER%==gcc, xxhsum already tested
+  # note : can only run x86 and x64 binaries on Appveyor
+  # note : if %COMPILER%==gcc, xxhsum already tested
   - ECHO ------- xxhsum tested -------
 
 #---------------------------------#

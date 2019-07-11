@@ -22,6 +22,9 @@ environment:
     ARCH: "Win32"
   - COMPILER: "visual"
     ARCH: "ARM"
+  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+    COMPILER: "visual"
+    ARCH: "ARM64"
     # note : ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
   - COMPILER: "gcc"
     PLATFORM: "mingw64"

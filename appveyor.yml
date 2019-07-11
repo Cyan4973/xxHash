@@ -61,10 +61,8 @@ build_script:
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=/MT -A %ARCH% &&
-      cmake --build . --config Release &&
-      COPY Release\xxhsum.exe . &&
-      COPY Release\xxhsum.exe ..
+      cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
+      cmake --build . --config Release
     )
 
 #---------------------------------#
@@ -76,9 +74,10 @@ test_script:
   - ECHO ***
   - ls
   - if [%COMPILER%]==[visual] (
+      cd Release &&
       xxhsum.exe -bi1
     )
-  # note : already tested, with make test, when %COMPILER%==gcc
+  # note : when %COMPILER%==gcc, xxhsum already tested
   - ECHO ------- xxhsum tested -------
 
 #---------------------------------#

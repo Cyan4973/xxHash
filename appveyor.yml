@@ -11,9 +11,15 @@ clone_depth: 2
 environment:
   matrix:
   - COMPILER: "visual"
-    ARCH: "Win32"
-  - COMPILER: "visual"
     ARCH: "x64"
+  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+    COMPILER: "visual"
+    ARCH: "x64"
+  - COMPILER: "visual"
+    ARCH: "Win32"
+  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
+    COMPILER: "visual"
+    ARCH: "Win32"
   - COMPILER: "visual"
     ARCH: "ARM"
     # note : ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor

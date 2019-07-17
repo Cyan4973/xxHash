@@ -743,8 +743,8 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer,  80, prime64, 0xC9D55256965B7093ULL);  /* 65 - 96 */
     BMK_testXXH3(sanityBuffer, 112, 0,       0xE43E5717A61D3759ULL);  /* 97 -128 */
     BMK_testXXH3(sanityBuffer, 112, prime64, 0x5A5F89A3FECE44A5ULL);  /* 97 -128 */
-    BMK_testXXH3(sanityBuffer, 195, 0,       0x0F4A0BBE808382AEULL);  /* 129-240 */
-    BMK_testXXH3(sanityBuffer, 195, prime64, 0x9DF94C96C46AF6CCULL);  /* 129-240 */
+    BMK_testXXH3(sanityBuffer, 195, 0,       0x6F747739CBAC22A5ULL);  /* 129-240 */
+    BMK_testXXH3(sanityBuffer, 195, prime64, 0x33368E23C7F95810ULL);  /* 129-240 */
 
     BMK_testXXH3(sanityBuffer, 403, 0,       0x4834389B15D981E8ULL);  /* one block, last stripe is overlapping */
     BMK_testXXH3(sanityBuffer, 403, prime64, 0x85CE5DFFC7B07C87ULL);  /* one block, last stripe is overlapping */
@@ -759,20 +759,20 @@ static void BMK_sanityCheck(void)
 
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
-        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize,       0);                      /* zero-length hash is always 0 */
-        BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize,       0x7F69735D618DB3F0ULL);  /*  1 -  3 */
-        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize,       0xBFCC7CB1B3554DCEULL);  /*  6 -  8 */
-        BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize,       0x8C50DC90AC9206FCULL);  /*  9 - 16 */
-        BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize,       0x1CD2C2EE9B9A0928ULL);  /* 17 - 32 */
-        BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize,       0xA785256D9D65D514ULL);  /* 33 - 64 */
-        BMK_testXXH3_withSecret(sanityBuffer,  80, secret, secretSize,       0x6F3053360D21BBB7ULL);  /* 65 - 96 */
-        BMK_testXXH3_withSecret(sanityBuffer, 112, secret, secretSize,       0x560E82D25684154CULL);  /* 97 -128 */
-        BMK_testXXH3_withSecret(sanityBuffer, 195, secret, secretSize,       0x08AD6AB5ACA1B218ULL);  /* 129-240 */
+        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0);                      /* zero-length hash is always 0 */
+        BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0x7F69735D618DB3F0ULL);  /*  1 -  3 */
+        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0xBFCC7CB1B3554DCEULL);  /*  6 -  8 */
+        BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x8C50DC90AC9206FCULL);  /*  9 - 16 */
+        BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize, 0x1CD2C2EE9B9A0928ULL);  /* 17 - 32 */
+        BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize, 0xA785256D9D65D514ULL);  /* 33 - 64 */
+        BMK_testXXH3_withSecret(sanityBuffer,  80, secret, secretSize, 0x6F3053360D21BBB7ULL);  /* 65 - 96 */
+        BMK_testXXH3_withSecret(sanityBuffer, 112, secret, secretSize, 0x560E82D25684154CULL);  /* 97 -128 */
+        BMK_testXXH3_withSecret(sanityBuffer, 195, secret, secretSize, 0xBA5BDDBC5A767B11ULL);  /* 129-240 */
 
-        BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize,       0xFC3911BBA656DB58ULL);  /* one block, last stripe is overlapping */
-        BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize,       0x306137DD875741F1ULL);  /* one block, finishing at stripe boundary */
-        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize,       0x2836B83880AD3C0CULL);  /* > one block, at least one scrambling */
-        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize,       0x3446E248A00CB44AULL);  /* > one block, at least one scrambling, last stripe unaligned */
+        BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize, 0xFC3911BBA656DB58ULL);  /* one block, last stripe is overlapping */
+        BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x306137DD875741F1ULL);  /* one block, finishing at stripe boundary */
+        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0x2836B83880AD3C0CULL);  /* > one block, at least one scrambling */
+        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize, 0x3446E248A00CB44AULL);  /* > one block, at least one scrambling, last stripe unaligned */
     }
 
 

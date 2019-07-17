@@ -868,7 +868,7 @@ XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len, const void* XXH
     assert(128 < len && len <= 240);
 
     #define XXH3_MIDSIZE_STARTOFFSET 3
-    #define XXH3_MIDSIZE_LASTOFFSET  9
+    #define XXH3_MIDSIZE_LASTOFFSET  17
 
     {   U64 acc = len * PRIME64_1;
         int const nbRounds = (int)len / 16;

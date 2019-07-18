@@ -537,7 +537,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
     assert(((size_t)acc) & 31 == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
         const         __m256i* const xkey = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this argument type */
-        const __m256i k1 = _mm256_set1_epi32((int)PRIME32_1);
+        const __m256i prime32 = _mm256_set1_epi32((int)PRIME32_1);
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
@@ -546,12 +546,12 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
             data = _mm256_xor_si256(data, shifted);
 
             {   __m256i const k   = _mm256_loadu_si256 (xkey+i);
-                __m256i const dk  = _mm256_xor_si256   (data, k);          /* U32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
+                __m256i const dk  = _mm256_xor_si256   (data, k);
 
-                __m256i const dk1 = _mm256_mul_epu32 (dk, k1);
+                __m256i const dk1 = _mm256_mul_epu32 (dk, prime32);
 
                 __m256i const d2  = _mm256_shuffle_epi32 (dk, 0x31);
-                __m256i const dk2 = _mm256_mul_epu32 (d2, k1);
+                __m256i const dk2 = _mm256_mul_epu32 (d2, prime32);
                 __m256i const dk2h= _mm256_slli_epi64 (dk2, 32);
 
                 xacc[i] = _mm256_add_epi64(dk1, dk2h);
@@ -562,7 +562,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 
     {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
         const         __m128i* const xkey = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic */
-        const __m128i k1 = _mm_set1_epi32((int)PRIME32_1);
+        const __m128i prime32 = _mm_set1_epi32((int)PRIME32_1);
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
@@ -573,10 +573,10 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
             {   __m128i const k   = _mm_loadu_si128 (xkey+i);
                 __m128i const dk  = _mm_xor_si128   (data,k);
 
-                __m128i const dk1 = _mm_mul_epu32 (dk,k1);
+                __m128i const dk1 = _mm_mul_epu32 (dk, prime32);
 
                 __m128i const d2  = _mm_shuffle_epi32 (dk, 0x31);
-                __m128i const dk2 = _mm_mul_epu32 (d2,k1);
+                __m128i const dk2 = _mm_mul_epu32 (d2, prime32);
                 __m128i const dk2h= _mm_slli_epi64(dk2, 32);
 
                 xacc[i] = _mm_add_epi64(dk1, dk2h);
@@ -771,7 +771,8 @@ XXH3_hashLong_64b_defaultSecret(const void* XXH_RESTRICT data, size_t len)
 }
 
 XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT data, size_t len, const void* XXH_RESTRICT secret, size_t secretSize)
+XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT data, size_t len,
+                             const void* XXH_RESTRICT secret, size_t secretSize)
 {
     return XXH3_hashLong_internal(data, len, secret, secretSize);
 }
@@ -818,19 +819,22 @@ XXH3_hashLong_64b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 }
 
 
-XXH_FORCE_INLINE U64 XXH3_mix16B(const void* XXH_RESTRICT data, const void* XXH_RESTRICT key, U64 seed64)
+XXH_FORCE_INLINE U64 XXH3_mix16B(const void* XXH_RESTRICT data,
+                                 const void* XXH_RESTRICT key, U64 seed64)
 {
     const U64* const key64 = (const U64*)key;
     U64 const ll1 = XXH_readLE64(data);
     U64 const ll2 = XXH_readLE64((const BYTE*)data+8);
     return XXH3_mul128_fold64(
                ll1 ^ (XXH_readLE64(key64)   + seed64),
-               ll2 ^ (XXH_readLE64(key64+1) - seed64) ) ;
+               ll2 ^ (XXH_readLE64(key64+1) - seed64) );
 }
 
 
 XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_17to128_64b(const void* XXH_RESTRICT data, size_t len, const void* XXH_RESTRICT secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_len_17to128_64b(const void* XXH_RESTRICT data, size_t len,
+                     const void* XXH_RESTRICT secret, size_t secretSize,
+                     XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;
@@ -859,7 +863,9 @@ XXH3_len_17to128_64b(const void* XXH_RESTRICT data, size_t len, const void* XXH_
 }
 
 XXH_NO_INLINE XXH64_hash_t
-XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len, const void* XXH_RESTRICT secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len,
+                      const void* XXH_RESTRICT secret, size_t secretSize,
+                      XXH64_hash_t seed)
 {
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;

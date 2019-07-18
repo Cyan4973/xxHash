@@ -787,7 +787,7 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
             PROCESS8_64;
             len -= 8;
         }
-        if (len > 4) {
+        if (len >= 4) {
             PROCESS4_64;
             len -= 4;
         }

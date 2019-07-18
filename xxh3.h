@@ -1250,21 +1250,21 @@ XXH3_hashLong_128b_internal(const void* XXH_RESTRICT data, size_t len,
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
     assert(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
     {   U64 const low64 = XXH3_mergeAccs(acc, (const char*)secret + XXH_SECRET_MERGEACCS_START, (U64)len * PRIME64_1);
-        U64 const high64 = XXH3_mergeAccs(acc, (const char*)secret + secretSize - 64 - XXH_SECRET_MERGEACCS_START, ~((U64)len * PRIME64_2));
+        U64 const high64 = XXH3_mergeAccs(acc, (const char*)secret + secretSize - sizeof(acc) - XXH_SECRET_MERGEACCS_START, ~((U64)len * PRIME64_2));
         XXH128_hash_t const h128 = { low64, high64 };
         return h128;
     }
 }
 
 XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_128b_defaultSecret(const void* XXH_RESTRICT data, size_t len)
+XXH3_hashLong_128b_defaultSecret(const void* data, size_t len)
 {
     return XXH3_hashLong_128b_internal(data, len, kSecret, sizeof(kSecret));
 }
 
 XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
-XXH3_hashLong_128b_withSecret(const void* XXH_RESTRICT data, size_t len,
-                              const void* XXH_RESTRICT secret, size_t secretSize)
+XXH3_hashLong_128b_withSecret(const void* data, size_t len,
+                              const void* secret, size_t secretSize)
 {
     return XXH3_hashLong_128b_internal(data, len, secret, secretSize);
 }

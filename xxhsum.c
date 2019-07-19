@@ -726,7 +726,6 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(sanityBuffer,222, 0,     0xB641AE8CB691C174ULL);
     BMK_testXXH64(sanityBuffer,222, prime, 0x20CB8AB7AE10C14AULL);
 
-
     BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is always 0 */
     BMK_testXXH3(NULL,           0, prime64, 0);
     BMK_testXXH3(sanityBuffer,   1, 0,       0x7198D737CFE7F386ULL);  /*  1 -  3 */

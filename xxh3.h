@@ -175,6 +175,52 @@ XXH_ALIGN(64) static const BYTE kSecret[XXH_SECRET_DEFAULT_SIZE] = {
 };
 
 
+static XXH128_hash_t
+XXH3_mul128(U64 ll1, U64 ll2)
+{
+#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+
+    __uint128_t lll = (__uint128_t)ll1 * ll2;
+    XXH128_hash_t const r128 = { (U64)(lll), (U64)(lll >> 64) };
+    return r128;
+
+#elif defined(_M_X64) || defined(_M_IA64)
+
+#ifndef _MSC_VER
+#   pragma intrinsic(_umul128)
+#endif
+    U64 llhigh;
+    U64 const lllow = _umul128(ll1, ll2, &llhigh);
+    XXH128_hash_t const r128 = { lllow, llhigh };
+    return r128;
+
+#else /* Portable scalar version */
+
+    /* emulate 64x64->128b multiplication, using four 32x32->64 */
+    U32 const h1 = (U32)(ll1 >> 32);
+    U32 const h2 = (U32)(ll2 >> 32);
+    U32 const l1 = (U32)ll1;
+    U32 const l2 = (U32)ll2;
+
+    U64 const llh  = XXH_mult32to64(h1, h2);
+    U64 const llm1 = XXH_mult32to64(l1, h2);
+    U64 const llm2 = XXH_mult32to64(h1, l2);
+    U64 const lll  = XXH_mult32to64(l1, l2);
+
+    U64 const t = lll + (llm1 << 32);
+    U64 const carry1 = t < lll;
+
+    U64 const lllow = t + (llm2 << 32);
+    U64 const carry2 = lllow < t;
+    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
+
+    XXH128_hash_t const r128 = { lllow, llhigh };
+    return r128;
+
+#endif
+}
+
+
 #if defined(__GNUC__) && defined(__i386__)
 /* GCC is stupid and tries to vectorize this.
  * This tells GCC that it is wrong. */
@@ -383,8 +429,13 @@ XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 #define XXH_SECRET_CONSUME_RATE 8   /* nb of secret bytes consumed at each accumulation */
 #define ACC_NB (STRIPE_LEN / sizeof(U64))
 
+typedef enum { XXH3_acc_64bits, XXH3_acc_128bits } XXH3_accWidth_e;
+
 XXH_FORCE_INLINE void
-XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const void* XXH_RESTRICT key)
+XXH3_accumulate_512(      void* XXH_RESTRICT acc,
+                    const void* XXH_RESTRICT data,
+                    const void* XXH_RESTRICT key,
+                    XXH3_accWidth_e accWidth)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
@@ -399,8 +450,14 @@ XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const
             __m256i const k   = _mm256_loadu_si256 (xkey+i);
             __m256i const dk  = _mm256_xor_si256 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
             __m256i const mul = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 mul[4] = {dk0*dk1, dk2*dk3, ...} */
-            __m256i const add = _mm256_add_epi64(d, xacc[i]);
-            xacc[i]  = _mm256_add_epi64(mul, add);
+            if (accWidth == XXH3_acc_128bits) {
+                __m256i const dswap = _mm256_shuffle_epi32(d, _MM_SHUFFLE(0,1,2,3));
+                __m256i const add = _mm256_add_epi64(xacc[i], dswap);
+                xacc[i]  = _mm256_add_epi64(mul, add);
+            } else {  /* XXH3_acc_64bits */
+                __m256i const add = _mm256_add_epi64(xacc[i], d);
+                xacc[i]  = _mm256_add_epi64(mul, add);
+            }
     }   }
 
 #elif (XXH_VECTOR == XXH_SSE2)
@@ -416,8 +473,14 @@ XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const
             __m128i const k   = _mm_loadu_si128 (xkey+i);
             __m128i const dk  = _mm_xor_si128 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
             __m128i const mul = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 mul[2] = {dk0*dk1,dk2*dk3} */
-            __m128i const add = _mm_add_epi64(d, xacc[i]);
-            xacc[i]  = _mm_add_epi64(mul, add);
+            if (accWidth == XXH3_acc_128bits) {
+                __m128i const dswap = _mm_shuffle_epi32(d, _MM_SHUFFLE(0,1,2,3));
+                __m128i const add = _mm_add_epi64(xacc[i], dswap);
+                xacc[i]  = _mm_add_epi64(mul, add);
+            } else {  /* XXH3_acc_64bits */
+                __m128i const add = _mm_add_epi64(xacc[i], d);
+                xacc[i]  = _mm_add_epi64(mul, add);
+            }
     }   }
 
 #elif (XXH_VECTOR == XXH_NEON)
@@ -461,6 +524,8 @@ XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const
             __asm__("vzip.32 %e0, %f0" : "+w" (data_key));
             /* xacc[i] += (uint64x2_t) data_key[0, 1] * (uint64x2_t) data_key[2, 3]; */
             xacc[i] = vmlal_u32(xacc[i], vget_low_u32(data_key), vget_high_u32(data_key));
+
+            if (accWidth == XXH3_acc_128bits) abort();  // <================= MUST BE UPDATED
 #else
             /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
 
@@ -478,6 +543,8 @@ XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const
             xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u32(data_vec));
             /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
             xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
+
+            if (accWidth == XXH3_acc_128bits) abort();   // <================= MUST BE UPDATED
 #endif
         }
     }
@@ -509,6 +576,8 @@ XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const
 
         xacc[i] += product;
         xacc[i] += data_vec;
+
+        if (accWidth == XXH3_acc_128bits) abort();  // <================= MUST BE UPDATED
     }
 
 #else   /* scalar variant of Accumulator - universal */
@@ -518,14 +587,23 @@ XXH3_accumulate_512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT data, const
     const char* const xkey  = (const char*) key;   /* no alignment restriction */
     size_t i;
     assert(((size_t)acc & 31) == 0);
-    for (i=0; i < ACC_NB; i++) {
-        U64 const data_val = XXH_readLE64(xdata + 8*i);
-        U64 const key_val = XXH_readLE64(xkey + 8*i);
-        U64 const data_key  = key_val ^ data_val;
-        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
-        xacc[i] += data_val;
+    for (i=0; i < ACC_NB; i+=2) {
+        U64 const in1 = XXH_readLE64(xdata + 8*i);
+        U64 const in2 = XXH_readLE64(xdata + 8*(i+1));
+        U64 const key1  = XXH_readLE64(xkey + 8*i);
+        U64 const key2  = XXH_readLE64(xkey + 8*(i+1));
+        U64 const data_key1 = key1 ^ in1;
+        U64 const data_key2 = key2 ^ in2;
+        xacc[i]   += XXH_mult32to64(data_key1 & 0xFFFFFFFF, data_key1 >> 32);
+        xacc[i+1] += XXH_mult32to64(data_key2 & 0xFFFFFFFF, data_key2 >> 32);
+        if (accWidth == XXH3_acc_128bits) {
+            xacc[i]   += in2;
+            xacc[i+1] += in1;
+        } else {  /* XXH3_acc_64bits */
+            xacc[i]   += in1;
+            xacc[i+1] += in2;
+        }
     }
-
 #endif
 }
 
@@ -667,8 +745,11 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 
 /* assumption : nbStripes will not overflow secret size */
 XXH_FORCE_INLINE void
-XXH3_accumulate(U64* XXH_RESTRICT acc, const void* XXH_RESTRICT data,
-                const void* XXH_RESTRICT secret, size_t nbStripes)
+XXH3_accumulate(       U64* XXH_RESTRICT acc,
+                const void* XXH_RESTRICT data,
+                const void* XXH_RESTRICT secret,
+                      size_t nbStripes,
+                      XXH3_accWidth_e accWidth)
 {
     size_t n;
     /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster.
@@ -681,7 +762,8 @@ XXH3_accumulate(U64* XXH_RESTRICT acc, const void* XXH_RESTRICT data,
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc,
                (const char*)data   + n*STRIPE_LEN,
-               (const char*)secret + n*XXH_SECRET_CONSUME_RATE);
+               (const char*)secret + n*XXH_SECRET_CONSUME_RATE,
+                            accWidth);
     }
 }
 
@@ -697,7 +779,8 @@ XXH_FORCE_INLINE void
 #endif
 XXH3_hashLong_internal_loop( U64* XXH_RESTRICT acc,
                       const void* XXH_RESTRICT data, size_t len,
-                      const void* XXH_RESTRICT secret, size_t secretSize)
+                      const void* XXH_RESTRICT secret, size_t secretSize,
+                            XXH3_accWidth_e accWidth)
 {
     size_t const nb_rounds = (secretSize - STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
     size_t const block_len = STRIPE_LEN * nb_rounds;
@@ -708,7 +791,7 @@ XXH3_hashLong_internal_loop( U64* XXH_RESTRICT acc,
     assert(secretSize >= XXH3_SECRET_SIZE_MIN);
 
     for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate(acc, (const char*)data + n*block_len, secret, nb_rounds);
+        XXH3_accumulate(acc, (const char*)data + n*block_len, secret, nb_rounds, accWidth);
         XXH3_scrambleAcc(acc, (const char*)secret + secretSize - STRIPE_LEN);
     }
 
@@ -716,13 +799,13 @@ XXH3_hashLong_internal_loop( U64* XXH_RESTRICT acc,
     assert(len > STRIPE_LEN);
     {   size_t const nbStripes = (len - (block_len * nb_blocks)) / STRIPE_LEN;
         assert(nbStripes <= (secretSize / XXH_SECRET_CONSUME_RATE));
-        XXH3_accumulate(acc, (const char*)data + nb_blocks*block_len, secret, nbStripes);
+        XXH3_accumulate(acc, (const char*)data + nb_blocks*block_len, secret, nbStripes, accWidth);
 
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const void* const p = (const char*)data + len - STRIPE_LEN;
 #define XXH_SECRET_LASTACC_START 7  /* do not align on 8, so that secret is different from scrambler */
-            XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN - XXH_SECRET_LASTACC_START);
+            XXH3_accumulate_512(acc, p, (const char*)secret + secretSize - STRIPE_LEN - XXH_SECRET_LASTACC_START, accWidth);
     }   }
 }
 
@@ -752,9 +835,10 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_hashLong_internal(const void* XXH_RESTRICT data, size_t len,
                        const void* XXH_RESTRICT secret, size_t secretSize)
 {
-    XXH_ALIGN(XXH_ACC_ALIGN) U64 acc[ACC_NB] = { PRIME32_3, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME32_2, PRIME64_5, PRIME32_1 };
+    XXH_ALIGN(XXH_ACC_ALIGN) U64 acc[ACC_NB] = { PRIME32_3, PRIME64_1, PRIME64_2, PRIME64_3,
+                                                 PRIME64_4, PRIME32_2, PRIME64_5, PRIME32_1 };
 
-    XXH3_hashLong_internal_loop(acc, data, len, secret, secretSize);
+    XXH3_hashLong_internal_loop(acc, data, len, secret, secretSize, XXH3_acc_64bits);
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
@@ -1009,12 +1093,12 @@ XXH3_64bits_consumeStripes( U64* acc,
     if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
         /* need a scrambling operation */
         size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
-        XXH3_accumulate(acc, data, (const char*)secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes);
+        XXH3_accumulate(acc, data, (const char*)secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, XXH3_acc_64bits);
         XXH3_scrambleAcc(acc, (const char*)secret + secretLimit);
-        XXH3_accumulate(acc, (const char*)data + nbStripes * STRIPE_LEN, secret, totalStripes - nbStripes);
+        XXH3_accumulate(acc, (const char*)data + nbStripes * STRIPE_LEN, secret, totalStripes - nbStripes, XXH3_acc_64bits);
         *nbStripesSoFarPtr = (XXH32_hash_t)(totalStripes - nbStripes);
     } else {
-        XXH3_accumulate(acc, data, (const char*)secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes);
+        XXH3_accumulate(acc, data, (const char*)secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, XXH3_acc_64bits);
         *nbStripesSoFarPtr += (XXH32_hash_t)totalStripes;
     }
 }
@@ -1090,7 +1174,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
                                        state->buffer, totalNbStripes,
                                        state->secret, state->secretLimit);
             if (state->bufferedSize % STRIPE_LEN) {  /* one last partial stripe */
-                XXH3_accumulate_512(acc, state->buffer + state->bufferedSize - STRIPE_LEN, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+                XXH3_accumulate_512(acc,
+                                    state->buffer + state->bufferedSize - STRIPE_LEN,
+                       (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START,
+                                    XXH3_acc_64bits);
             }
         } else {  /* bufferedSize < STRIPE_LEN */
             if (state->bufferedSize) { /* one last stripe */
@@ -1098,7 +1185,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
                 size_t const catchupSize = STRIPE_LEN - state->bufferedSize;
                 memcpy(lastStripe, (const char*)state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
                 memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
-                XXH3_accumulate_512(acc, lastStripe, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+                XXH3_accumulate_512(acc,
+                                    lastStripe,
+                       (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START,
+                                    XXH3_acc_64bits);
         }   }
         return XXH3_mergeAccs(acc, (const char*)state->secret + XXH_SECRET_MERGEACCS_START, (U64)state->totalLen * PRIME64_1);
     }
@@ -1156,51 +1246,6 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
     }   }
 }
 
-static XXH128_hash_t
-XXH3_mul128(U64 ll1, U64 ll2)
-{
-#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
-
-    __uint128_t lll = (__uint128_t)ll1 * ll2;
-    XXH128_hash_t const r128 = { (U64)(lll), (U64)(lll >> 64) };
-    return r128;
-
-#elif defined(_M_X64) || defined(_M_IA64)
-
-#ifndef _MSC_VER
-#   pragma intrinsic(_umul128)
-#endif
-    U64 llhigh;
-    U64 const lllow = _umul128(ll1, ll2, &llhigh);
-    XXH128_hash_t const r128 = { lllow, llhigh };
-    return r128;
-
-#else /* Portable scalar version */
-
-    /* emulate 64x64->128b multiplication, using four 32x32->64 */
-    U32 const h1 = (U32)(ll1 >> 32);
-    U32 const h2 = (U32)(ll2 >> 32);
-    U32 const l1 = (U32)ll1;
-    U32 const l2 = (U32)ll2;
-
-    U64 const llh  = XXH_mult32to64(h1, h2);
-    U64 const llm1 = XXH_mult32to64(l1, h2);
-    U64 const llm2 = XXH_mult32to64(h1, l2);
-    U64 const lll  = XXH_mult32to64(l1, l2);
-
-    U64 const t = lll + (llm1 << 32);
-    U64 const carry1 = t < lll;
-
-    U64 const lllow = t + (llm2 << 32);
-    U64 const carry2 = lllow < t;
-    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
-
-    XXH128_hash_t const r128 = { lllow, llhigh };
-    return r128;
-
-#endif
-}
-
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
@@ -1234,17 +1279,17 @@ XXH3_len_0to16_128b(const void* data, size_t len, const void* secret, XXH64_hash
         if (len) return XXH3_len_1to3_128b(data, len, secret, seed);
         {   XXH128_hash_t const h128 = { 0, 0 };
             return h128;
-        }
-    }
+    }   }
 }
 
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_hashLong_128b_internal(const void* XXH_RESTRICT data, size_t len,
                             const void* XXH_RESTRICT secret, size_t secretSize)
 {
-    XXH_ALIGN(XXH_ACC_ALIGN) U64 acc[ACC_NB] = { PRIME32_3, PRIME64_1, PRIME64_2, PRIME64_3, PRIME64_4, PRIME32_2, PRIME64_5, PRIME32_1 };
+    XXH_ALIGN(XXH_ACC_ALIGN) U64 acc[ACC_NB] = { PRIME32_3, PRIME64_1, PRIME64_2, PRIME64_3,
+                                                 PRIME64_4, PRIME32_2, PRIME64_5, PRIME32_1 };
 
-    XXH3_hashLong_internal_loop(acc, data, len, secret, secretSize);
+    XXH3_hashLong_internal_loop(acc, data, len, secret, secretSize, XXH3_acc_128bits);
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
@@ -1400,7 +1445,10 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
                                        state->buffer, totalNbStripes,
                                        state->secret, state->secretLimit);
             if (state->bufferedSize % STRIPE_LEN) {  /* one last partial stripe */
-                XXH3_accumulate_512(acc, state->buffer + state->bufferedSize - STRIPE_LEN, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+                XXH3_accumulate_512(acc,
+                                    state->buffer + state->bufferedSize - STRIPE_LEN,
+                       (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START,
+                                    XXH3_acc_64bits);
             }
         } else {  /* bufferedSize < STRIPE_LEN */
             if (state->bufferedSize) { /* one last stripe */
@@ -1408,7 +1456,10 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
                 size_t const catchupSize = STRIPE_LEN - state->bufferedSize;
                 memcpy(lastStripe, (const char*)state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
                 memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
-                XXH3_accumulate_512(acc, lastStripe, (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+                XXH3_accumulate_512(acc,
+                                    lastStripe,
+                       (const char*)state->secret + state->secretLimit - XXH_SECRET_LASTACC_START,
+                                    XXH3_acc_64bits);
         }   }
         {   U64 const low64 = XXH3_mergeAccs(acc, (const char*)state->secret, (U64)state->totalLen * PRIME64_1);
             U64 const high64 = XXH3_mergeAccs(acc, (const char*)state->secret+16, ((U64)state->totalLen+1) * PRIME64_2);

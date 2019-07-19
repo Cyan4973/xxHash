@@ -947,6 +947,8 @@ XXH3_len_17to128_64b(const void* XXH_RESTRICT data, size_t len,
     }
 }
 
+#define XXH3_MIDSIZE_MAX 240
+
 XXH_NO_INLINE XXH64_hash_t
 XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len,
                       const void* XXH_RESTRICT secret, size_t secretSize,
@@ -956,7 +958,7 @@ XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len,
     const char* const key = (const char*)secret;
 
     assert(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    assert(128 < len && len <= 240);
+    assert(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     #define XXH3_MIDSIZE_STARTOFFSET 3
     #define XXH3_MIDSIZE_LASTOFFSET  17
@@ -978,15 +980,13 @@ XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len,
     }
 }
 
-#define XXH3_MIDSIZE_MAX 240
-
 /* ===   Public entry point   === */
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kSecret, 0);
     if (len <= 128) return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), 0);
-    if (len <= 240) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), 0);
     return XXH3_hashLong_64b_defaultSecret(data, len);
 }
 
@@ -1000,7 +1000,7 @@ XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t 
      * Adding a check and a branch here would cost performance at every hash */
      if (len <= 16) return XXH3_len_0to16_64b(data, len, secret, 0);
      if (len <= 128) return XXH3_len_17to128_64b(data, len, secret, secretSize, 0);
-     if (len <= 240) return XXH3_len_129to240_64b(data, len, secret, secretSize, 0);
+     if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, secret, secretSize, 0);
      return XXH3_hashLong_64b_withSecret(data, len, secret, secretSize);
 }
 
@@ -1009,7 +1009,7 @@ XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     if (len <= 16) return XXH3_len_0to16_64b(data, len, kSecret, seed);
     if (len <= 128) return XXH3_len_17to128_64b(data, len, kSecret, sizeof(kSecret), seed);
-    if (len <= 240) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), seed);
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b(data, len, kSecret, sizeof(kSecret), seed);
     return XXH3_hashLong_64b_withSeed(data, len, seed);
 }
 
@@ -1323,6 +1323,46 @@ XXH3_hashLong_128b_withSeed(const void* data, size_t len, XXH64_hash_t seed)
     return XXH3_hashLong_128b_internal(data, len, secret, sizeof(secret));
 }
 
+XXH_NO_INLINE XXH128_hash_t
+XXH3_len_129to240_128b(const void* XXH_RESTRICT data, size_t len,
+                      const void* XXH_RESTRICT secret, size_t secretSize,
+                      XXH64_hash_t seed)
+{
+    const BYTE* const p = (const BYTE*)data;
+    const char* const key = (const char*)secret;
+
+    assert(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    assert(128 < len && len <= XXH3_MIDSIZE_MAX);
+
+    #define XXH3_MIDSIZE_STARTOFFSET 3
+    #define XXH3_MIDSIZE_LASTOFFSET  17
+
+    {   U64 acc1 = len * PRIME64_1;
+        U64 acc2 = 0;
+        int const nbRounds = (int)len / 32;
+        int i;
+        for (i=0; i<4; i++) {
+            acc1 += XXH3_mix16B(p+(16*i),    key+(16*i),    seed);
+            acc2 += XXH3_mix16B(p+(16*i+16), key+(16*i+16), seed);
+        }
+        acc1 = XXH3_avalanche(acc1);
+        acc2 = XXH3_avalanche(acc2);
+        assert(nbRounds >= 8);
+        for (i=4 ; i < nbRounds; i++) {
+            acc1 += XXH3_mix16B(p+(16*i)   , key+(16*(i-8))    + XXH3_MIDSIZE_STARTOFFSET, seed);
+            acc2 += XXH3_mix16B(p+(16*i)+16, key+(16*(i-8))+16 + XXH3_MIDSIZE_STARTOFFSET, seed);
+        }
+        /* last bytes */
+        acc1 += XXH3_mix16B(p + len - 16, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET     , seed);
+        acc2 += XXH3_mix16B(p + len - 32, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16, seed);
+
+        {   U64 const low64 = acc1 + acc2;
+            U64 const high64 = (acc1 * PRIME64_1) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);
+            XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
+            return h128;
+        }
+    }
+}
 
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_17to128_128b(const void* XXH_RESTRICT data, size_t len,
@@ -1364,6 +1404,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len)
 {
     if (len <= 16) return XXH3_len_0to16_128b(data, len, kSecret, 0);
     if (len <= 128) return XXH3_len_17to128_128b(data, len, kSecret, sizeof(kSecret), 0);
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_128b(data, len, kSecret, sizeof(kSecret), 0);
     return XXH3_hashLong_128b_defaultSecret(data, len);
 }
 
@@ -1377,6 +1418,7 @@ XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t
      * Adding a check and a branch here would cost performance at every hash */
      if (len <= 16) return XXH3_len_0to16_128b(data, len, secret, 0);
      if (len <= 128) return XXH3_len_17to128_128b(data, len, secret, secretSize, 0);
+     if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_128b(data, len, secret, secretSize, 0);
      return XXH3_hashLong_128b_withSecret(data, len, secret, secretSize);
 }
 
@@ -1385,6 +1427,7 @@ XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed)
 {
     if (len <= 16) return XXH3_len_0to16_128b(data, len, kSecret, seed);
     if (len <= 128) return XXH3_len_17to128_128b(data, len, kSecret, sizeof(kSecret), seed);
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_128b(data, len, kSecret, sizeof(kSecret), seed);
     return XXH3_hashLong_128b_withSeed(data, len, seed);
 }
 
@@ -1470,8 +1513,8 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
     /* len <= XXH3_MIDSIZE_MAX : short code */
     if (state->seed)
         return XXH3_128bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
-    /* TODO: there's no 'with secret' for 128b */
-    return XXH3_128bits(state->buffer, (size_t)(state->totalLen));
+    /* valid for "default" and "withSecret" */
+    return XXH3_128bits_withSecret(state->buffer, (size_t)(state->totalLen), state->secret, state->secretLimit + STRIPE_LEN);
 }
 
 

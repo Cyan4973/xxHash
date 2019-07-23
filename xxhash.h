@@ -447,9 +447,10 @@ struct XXH3_state_s {
  * As a consequence, streaming is slower than one-shot hashing.
  * For better performance, prefer using one-shot functions whenever possible. */
 
-XXH_PUBLIC_API XXH3_state_t* XXH3_64bits_createState(void);
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_freeState(XXH3_state_t* statePtr);
-XXH_PUBLIC_API void XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
+XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
+XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
+XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
+
 
 /* XXH3_64bits_reset() :
  * initialize with default parameters.
@@ -482,6 +483,11 @@ XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
 #  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
 #  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
 #  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
+
+#  define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
+#  define XXH128_cmp     XXH_NAME2(XXH_NAMESPACE, XXH128_cmp)
+#  define XXH128_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH128_canonicalFromHash)
+#  define XXH128_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH128_hashFromCanonical)
 #endif
 
 typedef struct {
@@ -507,7 +513,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 /* return : 1 is equal, 0 if different */
 XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
 
-/* This prototype is compatible with stdlib's qsort().
+/* This comparator is compatible with stdlib's qsort().
  * return : >0 if *h128_1  > *h128_2
  *          <0 if *h128_1  < *h128_2
  *          =0 if *h128_1 == *h128_2  */

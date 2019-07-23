@@ -319,7 +319,7 @@ struct XXH64_state_s {
  * for both small and large inputs.
  * See full speed analysis at : http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
  * In general, expect XXH3 to run about ~2x faster on large inputs,
- * and >3x faster on small ones, though exact difference depend on platform.
+ * and >3x faster on small ones, though exact differences depend on platform.
  *
  * The algorithm is portable, will generate the same hash on all platforms.
  * It benefits greatly from vectorization units, but does not require it.
@@ -333,8 +333,8 @@ struct XXH64_state_s {
  * Produced results can still change between versions.
  * It's possible to use it for ephemeral data, but avoid storing long-term values for later re-use.
  *
- * The API currently supports one-shot hashing only.
- * The full version will include streaming capability, and canonical representation.
+ * The API currently supports one-shot hashing and streaming mode, as well as custom secrets.
+ * The full version will include canonical representation.
  *
  * There are still a number of opened questions that community can influence during the experimental period.
  * I'm trying to list a few of them below, though don't consider this list as complete.
@@ -354,11 +354,6 @@ struct XXH64_state_s {
  *                          One possibility : represent it as the concatenation of two 64-bits canonical representation (aka 2x big-endian)
  *                          Another one : represent it in the same order as natural order in the struct for little-endian platforms.
  *                                        Less consistent with existing convention for XXH32/XXH64, but may be more natural for little-endian platforms.
- *
- * - Associated functions for 128-bit hash : simple things, such as checking if 2 hashes are equal, become more difficult with struct.
- *                          Granted, it's not terribly difficult to create a comparator, but it's still a workload.
- *                          Would it be beneficial to declare and define a comparator function for XXH128_hash_t ?
- *                          Are there other operations on XXH128_hash_t which would be desirable ?
  *
  * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bit variant.
  *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
@@ -387,17 +382,6 @@ struct XXH64_state_s {
 #  define XXH3_64bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
 #  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
 #  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
-
-#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
-#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
-#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
-#  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
-
-#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
-#  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
-#  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
-#  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
-#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
 #endif
 
 /* XXH3_64bits() :
@@ -461,7 +445,7 @@ struct XXH3_state_s {
 /* Streaming requires state maintenance.
  * This operation costs memory and cpu.
  * As a consequence, streaming is slower than one-shot hashing.
- * For better performance, prefer using one-short functions anytime possible. */
+ * For better performance, prefer using one-shot functions whenever possible. */
 
 XXH_PUBLIC_API XXH3_state_t* XXH3_64bits_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_freeState(XXH3_state_t* statePtr);
@@ -469,11 +453,11 @@ XXH_PUBLIC_API void XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_st
 
 /* XXH3_64bits_reset() :
  * initialize with default parameters.
- * result will be equivalent to `XXH3_64bits()` */
+ * result will be equivalent to `XXH3_64bits()`. */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
 /* XXH3_64bits_reset_withSeed() :
  * generate a custom secret from `seed`, and store it into state.
- * digest will be equivalent to `XXH3_64bits_withSeed()` */
+ * digest will be equivalent to `XXH3_64bits_withSeed()`. */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
 /* XXH3_64bits_reset_withSecret() :
  * `secret` is referenced, and must outlive the hash streaming session.
@@ -486,6 +470,19 @@ XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
 
 
 /* 128-bit */
+
+#ifdef XXH_NAMESPACE
+#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
+#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
+#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
+
+#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
+#  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
+#  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
+#  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
+#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
+#endif
 
 typedef struct {
     XXH64_hash_t low64;
@@ -505,31 +502,16 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 
 
-/* The following functions are implemented directly in header,
- * in order for them to be inlined */
-
-#include <string.h>   /* memcmp */
+/* Note : for better performance, following functions should better be inlined */
 
 /* return : 1 is equal, 0 if different */
-static int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2)
-{
-    /* note : XXH128_hash_t is compact, it has no padding byte */
-    return !(memcmp(h1, h2, sizeof(h1)));
-}
+XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
 
 /* This prototype is compatible with stdlib's qsort().
  * return : >0 if *h128_1  > *h128_2
  *          <0 if *h128_1  < *h128_2
  *          =0 if *h128_1 == *h128_2  */
-static int XXH128_cmp(const void* h128_1, const void* h128_2)
-{
-    XXH128_hash_t const h1 = *(const XXH128_hash_t*)h128_1;
-    XXH128_hash_t const h2 = *(const XXH128_hash_t*)h128_2;
-    int const hcmp = (h1.high64 > h2.high64) - (h2.high64 > h1.high64);
-    /* note : bets that, in most cases, hash values are different */
-    if (hcmp) return hcmp;
-    return (h1.low64 > h2.low64) - (h2.low64 > h1.low64);
-}
+XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
 
 
 #endif  /* XXH_NO_LONG_LONG */

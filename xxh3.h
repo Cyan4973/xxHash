@@ -451,7 +451,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             __m256i const dk  = _mm256_xor_si256 (d,k);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
             __m256i const mul = _mm256_mul_epu32 (dk, _mm256_shuffle_epi32 (dk, 0x31));  /* uint64 mul[4] = {dk0*dk1, dk2*dk3, ...} */
             if (accWidth == XXH3_acc_128bits) {
-                __m256i const dswap = _mm256_shuffle_epi32(d, _MM_SHUFFLE(0,1,2,3));
+                __m256i const dswap = _mm256_shuffle_epi32(d, _MM_SHUFFLE(1,0,3,2));
                 __m256i const add = _mm256_add_epi64(xacc[i], dswap);
                 xacc[i]  = _mm256_add_epi64(mul, add);
             } else {  /* XXH3_acc_64bits */
@@ -474,7 +474,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             __m128i const dk  = _mm_xor_si128 (d,k);                                 /* uint32 dk[4]  = {d0+k0, d1+k1, d2+k2, d3+k3} */
             __m128i const mul = _mm_mul_epu32 (dk, _mm_shuffle_epi32 (dk, 0x31));    /* uint64 mul[2] = {dk0*dk1,dk2*dk3} */
             if (accWidth == XXH3_acc_128bits) {
-                __m128i const dswap = _mm_shuffle_epi32(d, _MM_SHUFFLE(0,1,2,3));
+                __m128i const dswap = _mm_shuffle_epi32(d, _MM_SHUFFLE(1,0,3,2));
                 __m128i const add = _mm_add_epi64(xacc[i], dswap);
                 xacc[i]  = _mm_add_epi64(mul, add);
             } else {  /* XXH3_acc_64bits */

@@ -339,7 +339,7 @@ struct XXH64_state_s {
  * There are still a number of opened questions that community can influence during the experimental period.
  * I'm trying to list a few of them below, though don't consider this list as complete.
  *
- * - 128-bits output type : currently defined as a structure of 2 64-bits fields.
+ * - 128-bits output type : currently defined as a structure of two 64-bits fields.
  *                          That's because 128-bit values do not exist in C standard.
  *                          Note that it means that, at byte level, result is not identical depending on endianess.
  *                          However, at field level, they are identical on all platforms.
@@ -349,23 +349,23 @@ struct XXH64_state_s {
  *                          Are the names of the inner 64-bit fields important ? Should they be changed ?
  *
  * - Canonical representation : for the 64-bit variant, canonical representation is the same as XXH64() (aka big-endian).
- *                          What should it be for the 128-bit variant ?
- *                          Since it's no longer a scalar value, big-endian representation is no longer an obvious choice.
- *                          One possibility : represent it as the concatenation of two 64-bits canonical representation (aka 2x big-endian)
- *                          Another one : represent it in the same order as natural order in the struct for little-endian platforms.
- *                                        Less consistent with existing convention for XXH32/XXH64, but may be more natural for little-endian platforms.
+ *                          For consistency with existing variants, the same rule has been selected for the 128-bit hash,
+ *                          and canonical representation also uses big-endian convention.
+ *                          It's less convenient for little-endian cpus (requires swapping registers),
+ *                          but canonical representation is expected to be useful for serialization and display only,
+ *                          hence is not a speed critical operation.
  *
  * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bit variant.
  *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
- *                          Although it's also more difficult to use, since it requires to declare and pass a structure instead of a value.
- *                          It would either replace current choice, or add a new one.
+ *                          But 128-bit seed is more difficult to use, since it requires to pass a structure instead of a scalar value.
+ *                          Such a variant could either replace current choice, or add a new one.
  *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
  *                          If both 64-bit and 128-bit seeds are possible, which variant should be called XXH128 ?
  *
  * - Result for len==0 : Currently, the result of hashing a zero-length input is `0`.
  *                          It seems okay as a return value when using all "default" secret and seed (it used to be a request for XXH32/XXH64).
  *                          But is it still fine to return `0` when secret or seed are non-default ?
- *                          Are there use case which would depend on a different hash result when the secret is different ?
+ *                          Are there use cases which would depend on a different hash result for zero-length input when the secret is different ?
  */
 
 #ifdef XXH_NAMESPACE
@@ -512,6 +512,12 @@ XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
  *          <0 if *h128_1  < *h128_2
  *          =0 if *h128_1 == *h128_2  */
 XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
+
+
+/*======   Canonical representation   ======*/
+typedef struct { unsigned char digest[16]; } XXH128_canonical_t;
+XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
+XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
 
 
 #endif  /* XXH_NO_LONG_LONG */

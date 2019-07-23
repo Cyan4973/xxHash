@@ -1543,6 +1543,29 @@ XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2)
 }
 
 
+/*======   Canonical representation   ======*/
+XXH_PUBLIC_API void
+XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash)
+{
+    XXH_STATIC_ASSERT(sizeof(XXH128_canonical_t) == sizeof(XXH128_hash_t));
+    if (XXH_CPU_LITTLE_ENDIAN) {
+        hash.high64 = XXH_swap64(hash.high64);
+        hash.low64  = XXH_swap64(hash.low64);
+    }
+    memcpy(dst, &hash.high64, sizeof(hash.high64));
+    memcpy((char*)dst + sizeof(hash.high64), &hash.low64, sizeof(hash.low64));
+}
+
+XXH_PUBLIC_API XXH128_hash_t
+XXH128_hashFromCanonical(const XXH128_canonical_t* src)
+{
+    XXH128_hash_t h;
+    h.high64 = XXH_readBE64(src);
+    h.low64  = XXH_readBE64(src->digest + 8);
+    return h;
+}
+
+
 
 
 #ifdef UNDEF_NDEBUG

@@ -505,6 +505,33 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 
 
+/* The following functions are implemented directly in header,
+ * in order for them to be inlined */
+
+#include <string.h>   /* memcmp */
+
+/* return : 1 is equal, 0 if different */
+static int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2)
+{
+    /* note : XXH128_hash_t is compact, it has no padding byte */
+    return !(memcmp(h1, h2, sizeof(h1)));
+}
+
+/* This prototype is compatible with stdlib's qsort().
+ * return : >0 if *h128_1  > *h128_2
+ *          <0 if *h128_1  < *h128_2
+ *          =0 if *h128_1 == *h128_2  */
+static int XXH128_cmp(const void* h128_1, const void* h128_2)
+{
+    XXH128_hash_t const h1 = *(const XXH128_hash_t*)h128_1;
+    XXH128_hash_t const h2 = *(const XXH128_hash_t*)h128_2;
+    int const hcmp = (h1.high64 > h2.high64) - (h2.high64 > h1.high64);
+    /* note : bets that, in most cases, hash values are different */
+    if (hcmp) return hcmp;
+    return (h1.low64 > h2.low64) - (h2.low64 > h1.low64);
+}
+
+
 #endif  /* XXH_NO_LONG_LONG */
 
 

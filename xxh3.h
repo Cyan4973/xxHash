@@ -47,12 +47,6 @@
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 
-#ifndef NDEBUG
-#  define NDEBUG   /* disable assert (release mode) */
-#  define UNDEF_NDEBUG
-#endif
-#include <assert.h>
-
 
 /* ===   Compiler specifics   === */
 
@@ -369,7 +363,7 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
     assert(data != NULL);
-    assert(len > 1 && len <= 3);
+    assert(1 <= len && len <= 3);
     assert(keyPtr != NULL);
     {   BYTE const c1 = ((const BYTE*)data)[0];
         BYTE const c2 = ((const BYTE*)data)[len >> 1];
@@ -386,7 +380,7 @@ XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
 {
     assert(data != NULL);
     assert(keyPtr != NULL);
-    assert(len >= 4 && len <= 8);
+    assert(4 <= len && len <= 8);
     {   U32 const in1 = XXH_readLE32(data);
         U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
         U64 const in64 = in1 + ((U64)in2 << 32);
@@ -401,7 +395,7 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 {
     assert(data != NULL);
     assert(keyPtr != NULL);
-    assert(len >= 9 && len <= 16);
+    assert(9 <= len && len <= 16);
     {   const U64* const key64 = (const U64*) keyPtr;
         U64 const ll1 = XXH_readLE64(data) ^ (XXH_readLE64(key64) + seed);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
@@ -413,7 +407,6 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
     assert(len <= 16);
     {   if (len > 8) return XXH3_len_9to16_64b(data, len, keyPtr, seed);
         if (len >= 4) return XXH3_len_4to8_64b(data, len, keyPtr, seed);
@@ -439,7 +432,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
-    assert(((size_t)acc) & 31 == 0);
+    assert((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
         const         __m256i* const xdata = (const __m256i *) data;  /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
         const         __m256i* const xkey  = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
@@ -462,7 +455,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    assert(((size_t)acc) & 15 == 0);
+    assert((((size_t)acc) & 15) == 0);
     {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;   /* presumed */
         const         __m128i* const xdata = (const __m128i *) data;  /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
         const         __m128i* const xkey  = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
@@ -624,7 +617,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
-    assert(((size_t)acc) & 31 == 0);
+    assert((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
         const         __m256i* const xkey = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this argument type */
         const __m256i prime32 = _mm256_set1_epi32((int)PRIME32_1);
@@ -675,7 +668,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 
 #elif (XXH_VECTOR == XXH_NEON)
 
-    assert(((size_t)acc) & 15 == 0);
+    assert((((size_t)acc) & 15) == 0);
 
     {   uint64x2_t* const xacc =     (uint64x2_t*) acc;
         uint32_t const* const xkey = (uint32_t const*) key;
@@ -1236,7 +1229,7 @@ XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
     assert(data != NULL);
-    assert(len > 0 && len <= 3);
+    assert(1 <= len && len <= 3);
     assert(keyPtr != NULL);
     {   const U32* const key32 = (const U32*) keyPtr;
         BYTE const c1 = ((const BYTE*)data)[0];
@@ -1259,7 +1252,7 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 {
     assert(data != NULL);
     assert(keyPtr != NULL);
-    assert(len >= 4 && len <= 8);
+    assert(4 <= len && len <= 8);
     {   U32 const in1 = XXH_readLE32(data);
         U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
         U64 const in64l = in1 + ((U64)in2 << 32);
@@ -1280,7 +1273,7 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
 {
     assert(data != NULL);
     assert(keyPtr != NULL);
-    assert(len >= 9 && len <= 16);
+    assert(9 <= len && len <= 16);
     {   const U64* const key64 = (const U64*) keyPtr;
         U64 const ll1 = XXH_readLE64(data) ^ (XXH_readLE64(key64) + seed);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
@@ -1301,7 +1294,6 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_0to16_128b(const void* data, size_t len, const void* secret, XXH64_hash_t seed)
 {
-    assert(data != NULL);
     assert(len <= 16);
     {   if (len > 8) return XXH3_len_9to16_128b(data, len, secret, seed);
         if (len >= 4) return XXH3_len_4to8_128b(data, len, secret, seed);
@@ -1578,10 +1570,5 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
 }
 
 
-
-
-#ifdef UNDEF_NDEBUG
-#  undef NDEBUG
-#endif
 
 #endif  /* XXH3_H */

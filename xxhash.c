@@ -141,6 +141,26 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #endif
 
 
+
+/* *************************************
+*  Debug
+***************************************/
+/* DEBUGLEVEL is expected to be defined externally,
+ * typically through compiler command line.
+ * Value must be a number. */
+#ifndef DEBUGLEVEL
+#  define DEBUGLEVEL 0
+#endif
+
+#if (DEBUGLEVEL>=1)
+#  include <assert.h>
+#else
+#  ifndef assert   /* assert may be already defined, due to prior #include <assert.h> */
+#    define assert(condition) ((void)0)   /* disable assert (default) */
+#  endif
+#endif
+
+
 /* *************************************
 *  Basic Types
 ***************************************/
@@ -343,7 +363,6 @@ static U32 XXH32_avalanche(U32 h32)
 
 static U32
 XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
-
 {
     const BYTE* p = (const BYTE*)ptr;
 

@@ -539,8 +539,15 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             uint32x2_t const data_key_lo = vmovn_u64  (vreinterpretq_u64_u32(data_key));
             /* data_key_hi = (uint32x2_t) (data_key >> 32); */
             uint32x2_t const data_key_hi = vshrn_n_u64 (vreinterpretq_u64_u32(data_key), 32);
-            /* xacc[i] += data_vec; */
-            xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u32(data_vec));
+            if (accWidth == XXH3_acc_64bits) {
+                /* xacc[i] += data_vec; */
+                xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u32(data_vec));
+            } else {  /* XXH3_acc_128bits */
+                /* xacc[i] += swap(data_vec); */
+                uint64x2_t const data64 = vreinterpretq_u64_u32(data_vec);
+                uint64x2_t const swapped= vextq_u64(data64, data64, 1);
+                xacc[i] = vaddq_u64 (xacc[i], swapped);
+            }
             /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
             xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
 

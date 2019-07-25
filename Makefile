@@ -263,6 +263,7 @@ preview-man: man
 	man ./xxhsum.1
 
 .PHONY: test
+test: DEBUGFLAGS += -DDEBUGLEVEL=1
 test: all namespaceTest check test-xxhsum-c c90test
 
 .PHONY: test-all

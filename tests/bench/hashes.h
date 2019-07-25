@@ -96,6 +96,12 @@ size_t xxh3_wrapper(const void* src, size_t srcSize, void* dst, size_t dstCapaci
 }
 
 
+size_t XXH128_wrapper(const void* src, size_t srcSize, void* dst, size_t dstCapacity, void* customPayload)
+{
+    (void)dst; (void)dstCapacity; (void)customPayload;
+    return (size_t) XXH3_128bits(src, srcSize).low64;
+}
+
 
 
 /* ==================================================
@@ -105,16 +111,17 @@ size_t xxh3_wrapper(const void* src, size_t srcSize, void* dst, size_t dstCapaci
 #include "bhDisplay.h"   /* Bench_Entry */
 
 #ifndef HARDWARE_SUPPORT
-#  define NB_HASHES 3
+#  define NB_HASHES 4
 #else
-#  define NB_HASHES 3
+#  define NB_HASHES 4
 #endif
 
 Bench_Entry const hashCandidates[NB_HASHES] = {
-    {  "xxh3", xxh3_wrapper },
-    { "XXH32", XXH32_wrapper },
-    { "XXH64", XXH64_wrapper },
+    { "xxh3"  , xxh3_wrapper },
+    { "XXH32" , XXH32_wrapper },
+    { "XXH64" , XXH64_wrapper },
+    { "XXH128", XXH128_wrapper },
 #ifdef HARDWARE_SUPPORT
-
+    /* list here codecs which require specific hardware support, such SSE4.1, PCLMUL, AVX2, etc. */
 #endif
 };

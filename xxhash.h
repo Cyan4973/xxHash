@@ -319,7 +319,7 @@ struct XXH64_state_s {
  * for both small and large inputs.
  * See full speed analysis at : http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
  * In general, expect XXH3 to run about ~2x faster on large inputs,
- * and >3x faster on small ones, though exact difference depend on platform.
+ * and >3x faster on small ones, though exact differences depend on platform.
  *
  * The algorithm is portable, will generate the same hash on all platforms.
  * It benefits greatly from vectorization units, but does not require it.
@@ -333,13 +333,13 @@ struct XXH64_state_s {
  * Produced results can still change between versions.
  * It's possible to use it for ephemeral data, but avoid storing long-term values for later re-use.
  *
- * The API currently supports one-shot hashing only.
- * The full version will include streaming capability, and canonical representation.
+ * The API currently supports one-shot hashing and streaming mode, as well as custom secrets.
+ * The full version will include canonical representation.
  *
  * There are still a number of opened questions that community can influence during the experimental period.
  * I'm trying to list a few of them below, though don't consider this list as complete.
  *
- * - 128-bits output type : currently defined as a structure of 2 64-bits fields.
+ * - 128-bits output type : currently defined as a structure of two 64-bits fields.
  *                          That's because 128-bit values do not exist in C standard.
  *                          Note that it means that, at byte level, result is not identical depending on endianess.
  *                          However, at field level, they are identical on all platforms.
@@ -349,28 +349,23 @@ struct XXH64_state_s {
  *                          Are the names of the inner 64-bit fields important ? Should they be changed ?
  *
  * - Canonical representation : for the 64-bit variant, canonical representation is the same as XXH64() (aka big-endian).
- *                          What should it be for the 128-bit variant ?
- *                          Since it's no longer a scalar value, big-endian representation is no longer an obvious choice.
- *                          One possibility : represent it as the concatenation of two 64-bits canonical representation (aka 2x big-endian)
- *                          Another one : represent it in the same order as natural order in the struct for little-endian platforms.
- *                                        Less consistent with existing convention for XXH32/XXH64, but may be more natural for little-endian platforms.
- *
- * - Associated functions for 128-bit hash : simple things, such as checking if 2 hashes are equal, become more difficult with struct.
- *                          Granted, it's not terribly difficult to create a comparator, but it's still a workload.
- *                          Would it be beneficial to declare and define a comparator function for XXH128_hash_t ?
- *                          Are there other operations on XXH128_hash_t which would be desirable ?
+ *                          For consistency with existing variants, the same rule has been selected for the 128-bit hash,
+ *                          and canonical representation also uses big-endian convention.
+ *                          It's less convenient for little-endian cpus (requires swapping registers),
+ *                          but canonical representation is expected to be useful for serialization and display only,
+ *                          hence is not a speed critical operation.
  *
  * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bit variant.
  *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
- *                          Although it's also more difficult to use, since it requires to declare and pass a structure instead of a value.
- *                          It would either replace current choice, or add a new one.
+ *                          But 128-bit seed is more difficult to use, since it requires to pass a structure instead of a scalar value.
+ *                          Such a variant could either replace current choice, or add a new one.
  *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
  *                          If both 64-bit and 128-bit seeds are possible, which variant should be called XXH128 ?
  *
  * - Result for len==0 : Currently, the result of hashing a zero-length input is `0`.
  *                          It seems okay as a return value when using all "default" secret and seed (it used to be a request for XXH32/XXH64).
  *                          But is it still fine to return `0` when secret or seed are non-default ?
- *                          Are there use case which would depend on a different hash result when the secret is different ?
+ *                          Are there use cases which would depend on a different hash result for zero-length input when the secret is different ?
  */
 
 #ifdef XXH_NAMESPACE
@@ -378,21 +373,15 @@ struct XXH64_state_s {
 #  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
 
-#  define XXH3_64bits_createState XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_createState)
-#  define XXH3_64bits_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_freeState)
-#  define XXH3_64bits_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_copyState)
+#  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
+#  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
+#  define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
+
 #  define XXH3_64bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset)
 #  define XXH3_64bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
 #  define XXH3_64bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
 #  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
 #  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
-
-#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
-#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
-#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
-
-#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
-#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
 #endif
 
 /* XXH3_64bits() :
@@ -456,19 +445,20 @@ struct XXH3_state_s {
 /* Streaming requires state maintenance.
  * This operation costs memory and cpu.
  * As a consequence, streaming is slower than one-shot hashing.
- * For better performance, prefer using one-short functions anytime possible. */
+ * For better performance, prefer using one-shot functions whenever possible. */
 
-XXH_PUBLIC_API XXH3_state_t* XXH3_64bits_createState(void);
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_freeState(XXH3_state_t* statePtr);
-XXH_PUBLIC_API void XXH3_64bits_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
+XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
+XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
+XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
+
 
 /* XXH3_64bits_reset() :
  * initialize with default parameters.
- * result will be equivalent to `XXH3_64bits()` */
+ * result will be equivalent to `XXH3_64bits()`. */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
 /* XXH3_64bits_reset_withSeed() :
  * generate a custom secret from `seed`, and store it into state.
- * digest will be equivalent to `XXH3_64bits_withSeed()` */
+ * digest will be equivalent to `XXH3_64bits_withSeed()`. */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
 /* XXH3_64bits_reset_withSecret() :
  * `secret` is referenced, and must outlive the hash streaming session.
@@ -482,17 +472,58 @@ XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
 
 /* 128-bit */
 
+#ifdef XXH_NAMESPACE
+#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
+#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
+#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
+
+#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
+#  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
+#  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
+#  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
+#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
+
+#  define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
+#  define XXH128_cmp     XXH_NAME2(XXH_NAMESPACE, XXH128_cmp)
+#  define XXH128_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH128_canonicalFromHash)
+#  define XXH128_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH128_hashFromCanonical)
+#endif
+
 typedef struct {
     XXH64_hash_t low64;
     XXH64_hash_t high64;
 } XXH128_hash_t;
 
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);  /* == XXH128() */
-XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
 XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
+
+
+/* Note : for better performance, following functions should better be inlined */
+
+/* return : 1 is equal, 0 if different */
+XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
+
+/* This comparator is compatible with stdlib's qsort().
+ * return : >0 if *h128_1  > *h128_2
+ *          <0 if *h128_1  < *h128_2
+ *          =0 if *h128_1 == *h128_2  */
+XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
+
+
+/*======   Canonical representation   ======*/
+typedef struct { unsigned char digest[16]; } XXH128_canonical_t;
+XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
+XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
 
 
 #endif  /* XXH_NO_LONG_LONG */

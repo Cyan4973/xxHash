@@ -513,9 +513,18 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             uint32x4_t const key_vec     = vld1q_u32(xkey  + (i * 4));
             /* data_key = data_vec ^ key_vec; */
             uint32x4_t       data_key;
-            /* Add first to prevent register swaps */
-            /* xacc[i] += data_vec; */
-            xacc[i] = vaddq_u64(xacc[i], vreinterpretq_u64_u32(data_vec));
+
+            if (accWidth == XXH3_acc_64bits) {
+                /* Add first to prevent register swaps */
+                /* xacc[i] += data_vec; */
+                xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u32(data_vec));
+            } else {  /* XXH3_acc_128bits */
+                /* xacc[i] += swap(data_vec); */
+                /* can probably be optimized better */
+                uint64x2_t const data64 = vreinterpretq_u64_u32(data_vec);
+                uint64x2_t const swapped= vextq_u64(data64, data64, 1);
+                xacc[i] = vaddq_u64 (xacc[i], swapped);
+            }
 
             data_key = veorq_u32(data_vec, key_vec);
 
@@ -525,7 +534,6 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             /* xacc[i] += (uint64x2_t) data_key[0, 1] * (uint64x2_t) data_key[2, 3]; */
             xacc[i] = vmlal_u32(xacc[i], vget_low_u32(data_key), vget_high_u32(data_key));
 
-            if (accWidth == XXH3_acc_128bits) abort();  // <================= MUST BE UPDATED
 #else
             /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
 
@@ -551,7 +559,6 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
             xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
 
-            if (accWidth == XXH3_acc_128bits) abort();   // <================= MUST BE UPDATED
 #endif
         }
     }

@@ -587,11 +587,11 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
 #else   /* scalar variant of Accumulator - universal */
 
-    XXH_ALIGN(32) U64* const xacc = (U64*) acc;    /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
+    XXH_ALIGN(XXH_ACC_ALIGN) U64* const xacc = (U64*) acc;    /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
     const char* const xdata = (const char*) data;  /* no alignment restriction */
     const char* const xkey  = (const char*) key;   /* no alignment restriction */
     size_t i;
-    assert(((size_t)acc & 31) == 0);
+    assert(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
     for (i=0; i < ACC_NB; i+=2) {
         U64 const in1 = XXH_readLE64(xdata + 8*i);
         U64 const in2 = XXH_readLE64(xdata + 8*(i+1));
@@ -731,10 +731,10 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 
 #else   /* scalar variant of Scrambler - universal */
 
-    XXH_ALIGN(32) U64* const xacc = (U64*) acc;   /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
+    XXH_ALIGN(XXH_ACC_ALIGN) U64* const xacc = (U64*) acc;   /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
     const char* const xkey = (const char*) key;   /* no alignment restriction */
     int i;
-    assert((((size_t)acc) & 31) == 0);
+    assert((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
 
     for (i=0; i < (int)ACC_NB; i++) {
         U64 const key64 = XXH_readLE64(xkey + 8*i);

@@ -549,7 +549,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
         }
     }
 
-#elif XXH_VECTOR == XXH_VSX
+#elif (XXH_VECTOR == XXH_VSX) && 0   /* <=========================== MUST BE UPDATED */
+    /* note : vsx code path currently not tested in CI (limitation of cross-compiler and/or emulator) */
           U64x2* const xacc =        (U64x2*) acc;    /* presumed aligned */
     U64x2 const* const xdata = (U64x2 const*) data;   /* no alignment restriction */
     U64x2 const* const xkey  = (U64x2 const*) key;    /* no alignment restriction */
@@ -562,8 +563,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 #ifdef __BIG_ENDIAN__
         /* byteswap */
         U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
-        /* swap 32-bit words */
-        U64x2 const key_vec = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+        U64x2 const key_vec = vec_revb(vec_vsx_ld(0, xkey + i));
 #else
         U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
         U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
@@ -575,9 +575,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
         U64x2 product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
 
         xacc[i] += product;
-        xacc[i] += data_vec;
-
-        if (accWidth == XXH3_acc_128bits) abort();  // <================= MUST BE UPDATED
+        xacc[i] += data_vec;   /* <======================= Incorrect for 128-bit variant (must swap) */
     }
 
 #else   /* scalar variant of Accumulator - universal */

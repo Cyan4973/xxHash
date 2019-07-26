@@ -163,9 +163,9 @@ The new algorithm is much faster than its predecessors,
 for both long and small inputs,
 as can be observed in following graphs :
 
-![XXH3, bargraph](https://github.com/Cyan4973/xxHash/releases/download/graphs/H_bandwidth_bargraph.png)
+![XXH3, bargraph](https://user-images.githubusercontent.com/750081/61976096-b3a35f00-af9f-11e9-8229-e0afc506c6ec.png)
 
-![XXH3, latency, random size](https://github.com/Cyan4973/xxHash/releases/download/graphs/H_latency_randomS.png)
+![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
 
 The algorithm is currently labelled experimental, its return values can still change in a future version.
 It can be used for ephemeral data, and for tests, but avoid storing long-term hash values yet.

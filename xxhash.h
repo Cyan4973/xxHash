@@ -83,14 +83,16 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
  *  API modifier
  ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
- *  This is useful to include xxhash functions in `static` mode
+ *  This build macro includes xxhash functions in `static` mode
  *  in order to inline them, and remove their symbol from the public list.
- *  Inlining can offer dramatic performance improvement on small keys.
+ *  Inlining offers great performance improvement on small keys,
+ *  and dramatic ones when length is expressed as a compile-time constant.
+ *  See https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html .
  *  Methodology :
  *     #define XXH_INLINE_ALL
  *     #include "xxhash.h"
  * `xxhash.c` is automatically included.
- *  It's not useful to compile and link it as a separate module.
+ *  It's not useful to compile and link it as a separate object.
  */
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  ifndef XXH_STATIC_LINKING_ONLY
@@ -348,13 +350,6 @@ struct XXH64_state_s {
  *                          Would there be a better representation for a 128-bit hash result ?
  *                          Are the names of the inner 64-bit fields important ? Should they be changed ?
  *
- * - Canonical representation : for the 64-bit variant, canonical representation is the same as XXH64() (aka big-endian).
- *                          For consistency with existing variants, the same rule has been selected for the 128-bit hash,
- *                          and canonical representation also uses big-endian convention.
- *                          It's less convenient for little-endian cpus (requires swapping registers),
- *                          but canonical representation is expected to be useful for serialization and display only,
- *                          hence is not a speed critical operation.
- *
  * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bit variant.
  *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
  *                          But 128-bit seed is more difficult to use, since it requires to pass a structure instead of a scalar value.
@@ -508,7 +503,8 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 
 
-/* Note : for better performance, following functions should better be inlined */
+/* Note : for better performance, following functions should be inlined,
+ * using XXH_INLINE_ALL */
 
 /* return : 1 is equal, 0 if different */
 XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);

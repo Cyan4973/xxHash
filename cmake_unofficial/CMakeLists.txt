@@ -65,9 +65,11 @@ set_target_properties(xxhash PROPERTIES
   SOVERSION "${XXHASH_VERSION_STRING}"
   VERSION "${XXHASH_VERSION_STRING}")
 
-# xxhsum
-add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
-target_link_libraries(xxhsum xxhash)
+if (BUILD_XXHSUM)
+    # xxhsum
+    add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
+    target_link_libraries(xxhsum xxhash)
+endif(BUILD_XXHSUM)
 
 # Extra warning flags
 include (CheckCCompilerFlag)
@@ -92,8 +94,10 @@ endforeach (flag)
 if(NOT XXHASH_BUNDLED_MODE)
   include(GNUInstallDirs)
 
-  install(TARGETS xxhsum
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+  if (BUILD_XXHSUM)
+    install(TARGETS xxhsum
+      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+  endif(BUILD_XXHSUM)
   install(TARGETS xxhash
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")

@@ -20,3 +20,8 @@ xxhsum_inlinedXXH.exe
 # Mac OS-X artefacts
 *.dSYM
 .DS_Store
+
+# Wasm / emcc / emscripten artefacts
+*.html
+*.wasm
+*.js

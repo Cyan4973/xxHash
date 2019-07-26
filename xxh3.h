@@ -172,7 +172,8 @@ XXH_ALIGN(64) static const BYTE kSecret[XXH_SECRET_DEFAULT_SIZE] = {
 static XXH128_hash_t
 XXH3_mul128(U64 ll1, U64 ll2)
 {
-#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+/* __uint128_t seems a bad choice with emscripten current, see https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677 */
+#if !defined(__wasm__) && defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
     __uint128_t lll = (__uint128_t)ll1 * ll2;
     XXH128_hash_t const r128 = { (U64)(lll), (U64)(lll >> 64) };
@@ -223,7 +224,8 @@ __attribute__((__target__("no-sse")))
 static U64
 XXH3_mul128_fold64(U64 ll1, U64 ll2)
 {
-#if defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+/* __uint128_t seems a bad choice with emscripten current, see https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677 */
+#if !defined(__wasm__) && defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
     __uint128_t lll = (__uint128_t)ll1 * ll2;
     return (U64)lll ^ (U64)(lll >> 64);

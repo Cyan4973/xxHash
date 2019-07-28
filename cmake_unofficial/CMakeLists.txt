@@ -66,9 +66,9 @@ set_target_properties(xxhash PROPERTIES
   VERSION "${XXHASH_VERSION_STRING}")
 
 if (BUILD_XXHSUM)
-    # xxhsum
-    add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
-    target_link_libraries(xxhsum xxhash)
+  # xxhsum
+  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
+  target_link_libraries(xxhsum xxhash)
 endif(BUILD_XXHSUM)
 
 # Extra warning flags

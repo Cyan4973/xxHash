@@ -5,6 +5,8 @@
 #
 # For details, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 
+cmake_minimum_required (VERSION 2.8.12 FATAL_ERROR)
+
 set(XXHASH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 file(STRINGS "${XXHASH_DIR}/xxhash.h" XXHASH_VERSION_MAJOR REGEX "^#define XXH_VERSION_MAJOR +([0-9]+) *$")
@@ -18,14 +20,19 @@ set(XXHASH_LIB_VERSION ${XXHASH_VERSION_STRING})
 set(XXHASH_LIB_SOVERSION "${XXHASH_VERSION_MAJOR}")
 mark_as_advanced(XXHASH_VERSION_MAJOR XXHASH_VERSION_MINOR XXHASH_VERSION_RELEASE XXHASH_VERSION_STRING XXHASH_LIB_VERSION XXHASH_LIB_SOVERSION)
 
-cmake_minimum_required (VERSION 3.13 FATAL_ERROR)
-
-cmake_policy (SET CMP0048 NEW)
-cmake_policy (SET CMP0077 NEW)
-project(xxHash
-  VERSION ${XXHASH_VERSION_STRING}
-  DESCRIPTION "Extremely fast hash algorithm"
-  LANGUAGES C)
+if("${CMAKE_VERSION}" VERSION_LESS "3.13")
+    #message(WARNING "CMake ${CMAKE_VERSION} has no CMP0077 policy: options will erase uncached/untyped normal vars!")
+else()
+    cmake_policy (SET CMP0077 NEW)
+endif()
+if("${CMAKE_VERSION}" VERSION_LESS "3.0")
+    project(xxHash C)
+else()
+    cmake_policy (SET CMP0048 NEW)
+    project(xxHash
+        VERSION ${XXHASH_VERSION_STRING}
+        LANGUAGES C)
+endif()
 
 option(BUILD_XXHSUM "Build the xxhsum binary" ON)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
@@ -53,7 +60,7 @@ include(CMakeDependentOption)
 CMAKE_DEPENDENT_OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON "NOT XXHASH_BUNDLED_MODE" OFF)
 
 # libxxhash
-add_library(xxhash)
+add_library(xxhash "${XXHASH_DIR}/xxhash.c")
 add_library(${PROJECT_NAME}::xxhash ALIAS xxhash)
 
 target_include_directories(xxhash
@@ -69,7 +76,7 @@ set_target_properties(xxhash PROPERTIES
 
 if(BUILD_XXHSUM)
   # xxhsum
-  add_executable(xxhsum)
+  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 
   target_link_libraries(xxhsum PRIVATE xxhash)
@@ -130,9 +137,19 @@ if(NOT XXHASH_BUNDLED_MODE)
     ${PROJECT_SOURCE_DIR}/xxHashConfig.cmake.in
     ${xxHash_PROJECT_CONFIG}
     INSTALL_DESTINATION ${xxHash_CONFIG_INSTALL_DIR})
-  export(EXPORT xxHashTargets
-    FILE ${xxHash_TARGETS_CONFIG}
-    NAMESPACE ${PROJECT_NAME}::)
+  if("${CMAKE_VERSION}" VERSION_LESS "3.0")
+      set(XXHASH_EXPORT_SET xxhash)
+      if(BUILD_XXHSUM)
+        set(XXHASH_EXPORT_SET ${XXHASH_EXPORT_SET} xxhsum)
+      endif()
+      export(TARGETS ${XXHASH_EXPORT_SET}
+      FILE ${xxHash_TARGETS_CONFIG}
+      NAMESPACE ${PROJECT_NAME}::)
+  else()
+    export(EXPORT xxHashTargets
+      FILE ${xxHash_TARGETS_CONFIG}
+      NAMESPACE ${PROJECT_NAME}::)
+  endif()
 
   install(FILES ${xxHash_PROJECT_CONFIG} ${xxHash_VERSION_CONFIG}
     DESTINATION ${xxHash_CONFIG_INSTALL_DIR})

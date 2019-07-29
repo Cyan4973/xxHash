@@ -5,6 +5,8 @@
 #
 # For details, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 
+cmake_minimum_required (VERSION 2.8.12 FATAL_ERROR)
+
 set(XXHASH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 file(STRINGS "${XXHASH_DIR}/xxhash.h" XXHASH_VERSION_MAJOR REGEX "^#define XXH_VERSION_MAJOR +([0-9]+) *$")
@@ -18,29 +20,32 @@ set(XXHASH_LIB_VERSION ${XXHASH_VERSION_STRING})
 set(XXHASH_LIB_SOVERSION "${XXHASH_VERSION_MAJOR}")
 mark_as_advanced(XXHASH_VERSION_MAJOR XXHASH_VERSION_MINOR XXHASH_VERSION_RELEASE XXHASH_VERSION_STRING XXHASH_LIB_VERSION XXHASH_LIB_SOVERSION)
 
+if("${CMAKE_VERSION}" VERSION_LESS "3.13")
+    #message(WARNING "CMake ${CMAKE_VERSION} has no CMP0077 policy: options will erase uncached/untyped normal vars!")
+else()
+    cmake_policy (SET CMP0077 NEW)
+endif()
+if("${CMAKE_VERSION}" VERSION_LESS "3.0")
+    project(xxHash C)
+else()
+    cmake_policy (SET CMP0048 NEW)
+    project(xxHash
+        VERSION ${XXHASH_VERSION_STRING}
+        LANGUAGES C)
+endif()
+
 option(BUILD_XXHSUM "Build the xxhsum binary" ON)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_ENABLE_INLINE_API "add xxhash.c to includes for -DXXH_INLINE_ALL" ON)
-
-if("${CMAKE_VERSION}" VERSION_LESS "3.0")
-  project(XXHASH C)
-else()
-  cmake_policy (SET CMP0048 NEW)
-  project(XXHASH
-    VERSION ${XXHASH_VERSION_STRING}
-    LANGUAGES C)
-endif()
-
-cmake_minimum_required (VERSION 2.8.12)
 
 # If XXHASH is being bundled in another project, we don't want to
 # install anything.  However, we want to let people override this, so
 # we'll use the XXHASH_BUNDLED_MODE variable to let them do that; just
 # set it to OFF in your project before you add_subdirectory(xxhash/contrib/cmake_unofficial).
-if(CMAKE_CURRENT_SOURCE_DIR STREQUAL "${CMAKE_SOURCE_DIR}")
+if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
   # Bundled mode hasn't been set one way or the other, set the default
   # depending on whether or not we are the top-level project.
-  if("${XXHASH_PARENT_DIRECTORY}" STREQUAL "")
+  if("${PARENT_DIRECTORY}" STREQUAL "")
     set(XXHASH_BUNDLED_MODE OFF)
   else()
     set(XXHASH_BUNDLED_MODE ON)
@@ -54,10 +59,14 @@ mark_as_advanced(XXHASH_BUNDLED_MODE)
 include(CMakeDependentOption)
 CMAKE_DEPENDENT_OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON "NOT XXHASH_BUNDLED_MODE" OFF)
 
-include_directories("${XXHASH_DIR}")
-
 # libxxhash
 add_library(xxhash "${XXHASH_DIR}/xxhash.c")
+add_library(${PROJECT_NAME}::xxhash ALIAS xxhash)
+
+target_include_directories(xxhash
+  PUBLIC
+    $<BUILD_INTERFACE:${XXHASH_DIR}>
+    $<INSTALL_INTERFACE:include/>)
 if (BUILD_SHARED_LIBS)
   target_compile_definitions(xxhash PUBLIC XXH_EXPORT)
 endif ()
@@ -65,10 +74,13 @@ set_target_properties(xxhash PROPERTIES
   SOVERSION "${XXHASH_VERSION_STRING}"
   VERSION "${XXHASH_VERSION_STRING}")
 
-if (BUILD_XXHSUM)
-    # xxhsum
-    add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
-    target_link_libraries(xxhsum xxhash)
+if(BUILD_XXHSUM)
+  # xxhsum
+  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
+  add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
+
+  target_link_libraries(xxhsum PRIVATE xxhash)
+  target_include_directories(xxhsum PRIVATE "${XXHASH_DIR}")
 endif(BUILD_XXHSUM)
 
 # Extra warning flags
@@ -94,11 +106,8 @@ endforeach (flag)
 if(NOT XXHASH_BUNDLED_MODE)
   include(GNUInstallDirs)
 
-  if (BUILD_XXHSUM)
-    install(TARGETS xxhsum
-      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-  endif(BUILD_XXHSUM)
   install(TARGETS xxhash
+    EXPORT xxHashTargets
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
   install(FILES "${XXHASH_DIR}/xxhash.h"
@@ -107,6 +116,45 @@ if(NOT XXHASH_BUNDLED_MODE)
     install(FILES "${XXHASH_DIR}/xxhash.c"
       DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
   endif()
-  install(FILES "${XXHASH_DIR}/xxhsum.1"
-    DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
+  if(BUILD_XXHSUM)
+    install(TARGETS xxhsum
+      EXPORT xxHashTargets
+      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    install(FILES "${XXHASH_DIR}/xxhsum.1"
+      DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
+  endif(BUILD_XXHSUM)
+
+  include(CMakePackageConfigHelpers)
+
+  set(xxHash_VERSION_CONFIG "${PROJECT_BINARY_DIR}/xxHashConfigVersion.cmake")
+  set(xxHash_PROJECT_CONFIG "${PROJECT_BINARY_DIR}/xxHashConfig.cmake")
+  set(xxHash_TARGETS_CONFIG "${PROJECT_BINARY_DIR}/xxHashTargets.cmake")
+  set(xxHash_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/xxHash/")
+  write_basic_package_version_file(${xxHash_VERSION_CONFIG}
+    VERSION ${XXHASH_VERSION_STRING}
+    COMPATIBILITY AnyNewerVersion)
+  configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/xxHashConfig.cmake.in
+    ${xxHash_PROJECT_CONFIG}
+    INSTALL_DESTINATION ${xxHash_CONFIG_INSTALL_DIR})
+  if("${CMAKE_VERSION}" VERSION_LESS "3.0")
+      set(XXHASH_EXPORT_SET xxhash)
+      if(BUILD_XXHSUM)
+        set(XXHASH_EXPORT_SET ${XXHASH_EXPORT_SET} xxhsum)
+      endif()
+      export(TARGETS ${XXHASH_EXPORT_SET}
+      FILE ${xxHash_TARGETS_CONFIG}
+      NAMESPACE ${PROJECT_NAME}::)
+  else()
+    export(EXPORT xxHashTargets
+      FILE ${xxHash_TARGETS_CONFIG}
+      NAMESPACE ${PROJECT_NAME}::)
+  endif()
+
+  install(FILES ${xxHash_PROJECT_CONFIG} ${xxHash_VERSION_CONFIG}
+    DESTINATION ${xxHash_CONFIG_INSTALL_DIR})
+  install(EXPORT xxHashTargets
+    DESTINATION ${xxHash_CONFIG_INSTALL_DIR}
+    NAMESPACE ${PROJECT_NAME}::)
 endif(NOT XXHASH_BUNDLED_MODE)
+

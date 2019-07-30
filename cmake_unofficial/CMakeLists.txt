@@ -41,16 +41,15 @@ set(XXHASH_BUILD_XXHSUM ON CACHE BOOL "Build the xxhsum binary")
 # If XXHASH is being bundled in another project, we don't want to
 # install anything.  However, we want to let people override this, so
 # we'll use the XXHASH_BUNDLED_MODE variable to let them do that; just
-# set it to OFF in your project before you add_subdirectory(xxhash/contrib/cmake_unofficial).
-if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
-  # Bundled mode hasn't been set one way or the other, set the default
-  # depending on whether or not we are the top-level project.
-  if("${PARENT_DIRECTORY}" STREQUAL "")
+# set it to OFF in your project before you add_subdirectory(xxhash/cmake_unofficial).
+if(NOT DEFINED XXHASH_BUNDLED_MODE)
+  if("${PROJECT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
     set(XXHASH_BUNDLED_MODE OFF)
   else()
     set(XXHASH_BUNDLED_MODE ON)
   endif()
 endif()
+set(XXHASH_BUNDLED_MODE ${XXHASH_BUNDLED_MODE} CACHE BOOL "" FORCE)
 mark_as_advanced(XXHASH_BUNDLED_MODE)
 
 # Allow people to choose whether to build shared or static libraries

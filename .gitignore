@@ -25,3 +25,9 @@ xxhsum_inlinedXXH.exe
 *.html
 *.wasm
 *.js
+
+# CMake build directories
+build*/
+
+# project managers artifacts
+.projectile

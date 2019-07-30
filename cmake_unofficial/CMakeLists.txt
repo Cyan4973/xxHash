@@ -34,23 +34,22 @@ else()
         LANGUAGES C)
 endif()
 
-option(BUILD_XXHSUM "Build the xxhsum binary" ON)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
-option(BUILD_ENABLE_INLINE_API "add xxhash.c to includes for -DXXH_INLINE_ALL" ON)
+set(XXHASH_BUILD_ENABLE_INLINE_API ON CACHE BOOL "add xxhash.c to includes for -DXXH_INLINE_ALL")
+set(XXHASH_BUILD_XXHSUM ON CACHE BOOL "Build the xxhsum binary")
 
 # If XXHASH is being bundled in another project, we don't want to
 # install anything.  However, we want to let people override this, so
 # we'll use the XXHASH_BUNDLED_MODE variable to let them do that; just
-# set it to OFF in your project before you add_subdirectory(xxhash/contrib/cmake_unofficial).
-if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
-  # Bundled mode hasn't been set one way or the other, set the default
-  # depending on whether or not we are the top-level project.
-  if("${PARENT_DIRECTORY}" STREQUAL "")
+# set it to OFF in your project before you add_subdirectory(xxhash/cmake_unofficial).
+if(NOT DEFINED XXHASH_BUNDLED_MODE)
+  if("${PROJECT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
     set(XXHASH_BUNDLED_MODE OFF)
   else()
     set(XXHASH_BUNDLED_MODE ON)
   endif()
 endif()
+set(XXHASH_BUNDLED_MODE ${XXHASH_BUNDLED_MODE} CACHE BOOL "" FORCE)
 mark_as_advanced(XXHASH_BUNDLED_MODE)
 
 # Allow people to choose whether to build shared or static libraries
@@ -74,14 +73,14 @@ set_target_properties(xxhash PROPERTIES
   SOVERSION "${XXHASH_VERSION_STRING}"
   VERSION "${XXHASH_VERSION_STRING}")
 
-if(BUILD_XXHSUM)
+if(XXHASH_BUILD_XXHSUM)
   # xxhsum
   add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 
   target_link_libraries(xxhsum PRIVATE xxhash)
   target_include_directories(xxhsum PRIVATE "${XXHASH_DIR}")
-endif(BUILD_XXHSUM)
+endif(XXHASH_BUILD_XXHSUM)
 
 # Extra warning flags
 include (CheckCCompilerFlag)
@@ -112,17 +111,17 @@ if(NOT XXHASH_BUNDLED_MODE)
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
   install(FILES "${XXHASH_DIR}/xxhash.h"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-  if(BUILD_ENABLE_INLINE_API)
+  if(XXHASH_BUILD_ENABLE_INLINE_API)
     install(FILES "${XXHASH_DIR}/xxhash.c"
       DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
   endif()
-  if(BUILD_XXHSUM)
+  if(XXHASH_BUILD_XXHSUM)
     install(TARGETS xxhsum
       EXPORT xxHashTargets
       RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
     install(FILES "${XXHASH_DIR}/xxhsum.1"
       DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
-  endif(BUILD_XXHSUM)
+  endif(XXHASH_BUILD_XXHSUM)
 
   include(CMakePackageConfigHelpers)
 
@@ -139,7 +138,7 @@ if(NOT XXHASH_BUNDLED_MODE)
     INSTALL_DESTINATION ${xxHash_CONFIG_INSTALL_DIR})
   if("${CMAKE_VERSION}" VERSION_LESS "3.0")
       set(XXHASH_EXPORT_SET xxhash)
-      if(BUILD_XXHSUM)
+      if(XXHASH_BUILD_XXHSUM)
         set(XXHASH_EXPORT_SET ${XXHASH_EXPORT_SET} xxhsum)
       endif()
       export(TARGETS ${XXHASH_EXPORT_SET}

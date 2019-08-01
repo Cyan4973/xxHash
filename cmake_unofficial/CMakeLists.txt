@@ -34,6 +34,15 @@ else()
         LANGUAGES C)
 endif()
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Project build type" FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE
+    PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
+endif()
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "xxHash build type: ${CMAKE_BUILD_TYPE}")
+endif()
+
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 set(XXHASH_BUILD_ENABLE_INLINE_API ON CACHE BOOL "add xxhash.c to includes for -DXXH_INLINE_ALL")
 set(XXHASH_BUILD_XXHSUM ON CACHE BOOL "Build the xxhsum binary")

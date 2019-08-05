@@ -111,8 +111,7 @@ static void  XXH_free  (void* p)  { free(p); }
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
-#include <assert.h>   /* assert */
-#include <limits.h>   /* ULLONG_MAX for later */
+#include <limits.h>   /* ULLONG_MAX */
 
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
@@ -153,12 +152,14 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #endif
 
 #if (DEBUGLEVEL>=1)
-#  include <assert.h>
+#  include <assert.h>   /* note : can still be disabled with NDEBUG */
+#  define XXH_ASSERT(c)   assert(c)
 #else
-#  ifndef assert   /* assert may be already defined, due to prior #include <assert.h> */
-#    define assert(condition) ((void)0)   /* disable assert (default) */
-#  endif
+#  define XXH_ASSERT(c)   ((void)0)
 #endif
+
+/* note : use after variable declarations */
+#define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }
 
 
 /* *************************************
@@ -281,9 +282,8 @@ XXH_readLE32_align(const void* ptr, XXH_alignment align)
 
 
 /* *************************************
-*  Macros
+*  Misc
 ***************************************/
-#define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }  /* use after variable declarations */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
@@ -427,7 +427,7 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
                          /* fallthrough */
            case 0:       return XXH32_avalanche(h32);
         }
-        assert(0);
+        XXH_ASSERT(0);
         return h32;   /* reaching this point is deemed impossible */
     }
 }
@@ -899,7 +899,7 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
         }
     }
     /* impossible to reach */
-    assert(0);
+    XXH_ASSERT(0);
     return 0;  /* unreachable, but some compilers complain without it */
 }
 

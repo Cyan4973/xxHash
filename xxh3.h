@@ -364,9 +364,9 @@ static XXH64_hash_t XXH3_avalanche(U64 h64)
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
-    assert(1 <= len && len <= 3);
-    assert(keyPtr != NULL);
+    XXH_ASSERT(data != NULL);
+    XXH_ASSERT(1 <= len && len <= 3);
+    XXH_ASSERT(keyPtr != NULL);
     {   BYTE const c1 = ((const BYTE*)data)[0];
         BYTE const c2 = ((const BYTE*)data)[len >> 1];
         BYTE const c3 = ((const BYTE*)data)[len - 1];
@@ -380,9 +380,9 @@ XXH3_len_1to3_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
-    assert(keyPtr != NULL);
-    assert(4 <= len && len <= 8);
+    XXH_ASSERT(data != NULL);
+    XXH_ASSERT(keyPtr != NULL);
+    XXH_ASSERT(4 <= len && len <= 8);
     {   U32 const in1 = XXH_readLE32(data);
         U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
         U64 const in64 = in1 + ((U64)in2 << 32);
@@ -395,9 +395,9 @@ XXH3_len_4to8_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
-    assert(keyPtr != NULL);
-    assert(9 <= len && len <= 16);
+    XXH_ASSERT(data != NULL);
+    XXH_ASSERT(keyPtr != NULL);
+    XXH_ASSERT(9 <= len && len <= 16);
     {   const U64* const key64 = (const U64*) keyPtr;
         U64 const ll1 = XXH_readLE64(data) ^ (XXH_readLE64(key64) + seed);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
@@ -409,7 +409,7 @@ XXH3_len_9to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_0to16_64b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(len <= 16);
+    XXH_ASSERT(len <= 16);
     {   if (len > 8) return XXH3_len_9to16_64b(data, len, keyPtr, seed);
         if (len >= 4) return XXH3_len_4to8_64b(data, len, keyPtr, seed);
         if (len) return XXH3_len_1to3_64b(data, len, keyPtr, seed);
@@ -434,7 +434,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
-    assert((((size_t)acc) & 31) == 0);
+    XXH_ASSERT((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
         const         __m256i* const xdata = (const __m256i *) data;  /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
         const         __m256i* const xkey  = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
@@ -457,7 +457,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    assert((((size_t)acc) & 15) == 0);
+    XXH_ASSERT((((size_t)acc) & 15) == 0);
     {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;   /* presumed */
         const         __m128i* const xdata = (const __m128i *) data;  /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
         const         __m128i* const xkey  = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
@@ -480,7 +480,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
 #elif (XXH_VECTOR == XXH_NEON)
 
-    assert((((size_t)acc) & 15) == 0);
+    XXH_ASSERT((((size_t)acc) & 15) == 0);
     {
         XXH_ALIGN(16) uint64x2_t* const xacc = (uint64x2_t *) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
@@ -593,7 +593,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
     const char* const xdata = (const char*) data;  /* no alignment restriction */
     const char* const xkey  = (const char*) key;   /* no alignment restriction */
     size_t i;
-    assert(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
+    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
     for (i=0; i < ACC_NB; i+=2) {
         U64 const in1 = XXH_readLE64(xdata + 8*i);
         U64 const in2 = XXH_readLE64(xdata + 8*(i+1));
@@ -619,7 +619,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 {
 #if (XXH_VECTOR == XXH_AVX2)
 
-    assert((((size_t)acc) & 31) == 0);
+    XXH_ASSERT((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
         const         __m256i* const xkey = (const __m256i *) key;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this argument type */
         const __m256i prime32 = _mm256_set1_epi32((int)PRIME32_1);
@@ -670,7 +670,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 
 #elif (XXH_VECTOR == XXH_NEON)
 
-    assert((((size_t)acc) & 15) == 0);
+    XXH_ASSERT((((size_t)acc) & 15) == 0);
 
     {   uint64x2_t* const xacc =     (uint64x2_t*) acc;
         uint32_t const* const xkey = (uint32_t const*) key;
@@ -736,7 +736,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
     XXH_ALIGN(XXH_ACC_ALIGN) U64* const xacc = (U64*) acc;   /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
     const char* const xkey = (const char*) key;   /* no alignment restriction */
     int i;
-    assert((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
+    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
 
     for (i=0; i < (int)ACC_NB; i++) {
         U64 const key64 = XXH_readLE64(xkey + 8*i);
@@ -795,7 +795,7 @@ XXH3_hashLong_internal_loop( U64* XXH_RESTRICT acc,
 
     size_t n;
 
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
 
     for (n = 0; n < nb_blocks; n++) {
         XXH3_accumulate(acc, (const char*)data + n*block_len, secret, nb_rounds, accWidth);
@@ -803,9 +803,9 @@ XXH3_hashLong_internal_loop( U64* XXH_RESTRICT acc,
     }
 
     /* last partial block */
-    assert(len > STRIPE_LEN);
+    XXH_ASSERT(len > STRIPE_LEN);
     {   size_t const nbStripes = (len - (block_len * nb_blocks)) / STRIPE_LEN;
-        assert(nbStripes <= (secretSize / XXH_SECRET_CONSUME_RATE));
+        XXH_ASSERT(nbStripes <= (secretSize / XXH_SECRET_CONSUME_RATE));
         XXH3_accumulate(acc, (const char*)data + nb_blocks*block_len, secret, nbStripes, accWidth);
 
         /* last stripe */
@@ -852,7 +852,7 @@ XXH3_hashLong_internal(const void* XXH_RESTRICT data, size_t len,
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
 #define XXH_SECRET_MERGEACCS_START 11  /* do not align on 8, so that secret is different from accumulator */
-    assert(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
+    XXH_ASSERT(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
     return XXH3_mergeAccs(acc, (const char*)secret + XXH_SECRET_MERGEACCS_START, (U64)len * PRIME64_1);
 }
 
@@ -933,8 +933,8 @@ XXH3_len_17to128_64b(const void* XXH_RESTRICT data, size_t len,
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;
 
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    assert(16 < len && len <= 128);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(16 < len && len <= 128);
 
     {   U64 acc = len * PRIME64_1;
         if (len > 32) {
@@ -966,8 +966,8 @@ XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len,
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;
 
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    assert(128 < len && len <= XXH3_MIDSIZE_MAX);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     #define XXH3_MIDSIZE_STARTOFFSET 3
     #define XXH3_MIDSIZE_LASTOFFSET  17
@@ -979,7 +979,7 @@ XXH3_len_129to240_64b(const void* XXH_RESTRICT data, size_t len,
             acc += XXH3_mix16B(p+(16*i), key+(16*i), seed);
         }
         acc = XXH3_avalanche(acc);
-        assert(nbRounds >= 8);
+        XXH_ASSERT(nbRounds >= 8);
         for (i=8 ; i < nbRounds; i++) {
             acc += XXH3_mix16B(p+(16*i), key+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
         }
@@ -1002,7 +1002,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len)
 XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize)
 {
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     /* if an action must be taken should `secret` conditions not be respected,
      * it should be done here.
      * For now, it's a contract pre-condition.
@@ -1046,7 +1046,7 @@ XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
                            XXH64_hash_t seed,
                            const void* secret, size_t secretSize)
 {
-    assert(statePtr != NULL);
+    XXH_ASSERT(statePtr != NULL);
     memset(statePtr, 0, sizeof(*statePtr));
     statePtr->acc[0] = PRIME32_3;
     statePtr->acc[1] = PRIME64_1;
@@ -1057,9 +1057,9 @@ XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
     statePtr->acc[6] = PRIME64_5;
     statePtr->acc[7] = PRIME32_1;
     statePtr->seed = seed;
-    assert(secret != NULL);
+    XXH_ASSERT(secret != NULL);
     statePtr->secret = secret;
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     statePtr->secretLimit = (XXH32_hash_t)(secretSize - STRIPE_LEN);
     statePtr->nbStripesPerBlock = statePtr->secretLimit / XXH_SECRET_CONSUME_RATE;
 }
@@ -1099,7 +1099,7 @@ XXH3_consumeStripes( U64* acc,
                             const void* secret, size_t secretLimit,
                             XXH3_accWidth_e accWidth)
 {
-    assert(*nbStripesSoFarPtr < nbStripesPerBlock);
+    XXH_ASSERT(*nbStripesSoFarPtr < nbStripesPerBlock);
     if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
         /* need a scrambling operation */
         size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
@@ -1230,9 +1230,9 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
-    assert(1 <= len && len <= 3);
-    assert(keyPtr != NULL);
+    XXH_ASSERT(data != NULL);
+    XXH_ASSERT(1 <= len && len <= 3);
+    XXH_ASSERT(keyPtr != NULL);
     {   const U32* const key32 = (const U32*) keyPtr;
         BYTE const c1 = ((const BYTE*)data)[0];
         BYTE const c2 = ((const BYTE*)data)[len >> 1];
@@ -1252,9 +1252,9 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
-    assert(keyPtr != NULL);
-    assert(4 <= len && len <= 8);
+    XXH_ASSERT(data != NULL);
+    XXH_ASSERT(keyPtr != NULL);
+    XXH_ASSERT(4 <= len && len <= 8);
     {   U32 const in1 = XXH_readLE32(data);
         U32 const in2 = XXH_readLE32((const BYTE*)data + len - 4);
         U64 const in64l = in1 + ((U64)in2 << 32);
@@ -1273,9 +1273,9 @@ XXH3_len_4to8_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_t seed)
 {
-    assert(data != NULL);
-    assert(keyPtr != NULL);
-    assert(9 <= len && len <= 16);
+    XXH_ASSERT(data != NULL);
+    XXH_ASSERT(keyPtr != NULL);
+    XXH_ASSERT(9 <= len && len <= 16);
     {   const U64* const key64 = (const U64*) keyPtr;
         U64 const ll1 = XXH_readLE64(data) ^ (XXH_readLE64(key64) + seed);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
@@ -1296,7 +1296,7 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_0to16_128b(const void* data, size_t len, const void* secret, XXH64_hash_t seed)
 {
-    assert(len <= 16);
+    XXH_ASSERT(len <= 16);
     {   if (len > 8) return XXH3_len_9to16_128b(data, len, secret, seed);
         if (len >= 4) return XXH3_len_4to8_128b(data, len, secret, seed);
         if (len) return XXH3_len_1to3_128b(data, len, secret, seed);
@@ -1315,7 +1315,7 @@ XXH3_hashLong_128b_internal(const void* XXH_RESTRICT data, size_t len,
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
-    assert(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
+    XXH_ASSERT(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
     {   U64 const low64 = XXH3_mergeAccs(acc, (const char*)secret + XXH_SECRET_MERGEACCS_START, (U64)len * PRIME64_1);
         U64 const high64 = XXH3_mergeAccs(acc, (const char*)secret + secretSize - sizeof(acc) - XXH_SECRET_MERGEACCS_START, ~((U64)len * PRIME64_2));
         XXH128_hash_t const h128 = { low64, high64 };
@@ -1353,8 +1353,8 @@ XXH3_len_129to240_128b(const void* XXH_RESTRICT data, size_t len,
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;
 
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    assert(128 < len && len <= XXH3_MIDSIZE_MAX);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     {   U64 acc1 = len * PRIME64_1;
         U64 acc2 = 0;
@@ -1366,7 +1366,7 @@ XXH3_len_129to240_128b(const void* XXH_RESTRICT data, size_t len,
         }
         acc1 = XXH3_avalanche(acc1);
         acc2 = XXH3_avalanche(acc2);
-        assert(nbRounds >= 4);
+        XXH_ASSERT(nbRounds >= 4);
         for (i=4 ; i < nbRounds; i++) {
             acc1 += XXH3_mix16B(p+(32*i)   , key+(32*(i-4))    + XXH3_MIDSIZE_STARTOFFSET,  seed);
             acc2 += XXH3_mix16B(p+(32*i)+16, key+(32*(i-4))+16 + XXH3_MIDSIZE_STARTOFFSET, -seed);
@@ -1391,8 +1391,8 @@ XXH3_len_17to128_128b(const void* XXH_RESTRICT data, size_t len,
     const BYTE* const p = (const BYTE*)data;
     const char* const key = (const char*)secret;
 
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    assert(16 < len && len <= 128);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(16 < len && len <= 128);
 
     {   U64 acc1 = len * PRIME64_1;
         U64 acc2 = 0;
@@ -1430,7 +1430,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len)
 XXH_PUBLIC_API XXH128_hash_t
 XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize)
 {
-    assert(secretSize >= XXH3_SECRET_SIZE_MIN);
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     /* if an action must be taken should `secret` conditions not be respected,
      * it should be done here.
      * For now, it's a contract pre-condition.
@@ -1510,7 +1510,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
     if (state->totalLen > XXH3_MIDSIZE_MAX) {
         XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[ACC_NB];
         XXH3_digest_long(acc, state, XXH3_acc_128bits);
-        assert(state->secretLimit + STRIPE_LEN >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
+        XXH_ASSERT(state->secretLimit + STRIPE_LEN >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
         {   U64 const low64 = XXH3_mergeAccs(acc, (const char*)state->secret + XXH_SECRET_MERGEACCS_START, (U64)state->totalLen * PRIME64_1);
             U64 const high64 = XXH3_mergeAccs(acc, (const char*)state->secret + state->secretLimit + STRIPE_LEN - sizeof(acc) - XXH_SECRET_MERGEACCS_START, ~((U64)state->totalLen * PRIME64_2));
             XXH128_hash_t const h128 = { low64, high64 };

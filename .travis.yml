@@ -22,6 +22,8 @@ matrix:
         - CPPFLAGS=-DXXH_VECTOR=1 make check   # SSE2 code path
         - make clean
         - CPPFLAGS="-mavx2 -DXXH_VECTOR=2" make check   # AVX2 code path
+        - make clean
+        - CPPFLAGS=-DXXH_REROLL=1 make check   # reroll code path (#240)
         - make -C tests/bench
 
     - name: ARM + aarch64 compilation and consistency checks

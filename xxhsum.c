@@ -739,6 +739,7 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
     BMK_testXXH64(sanityBuffer,  1, 0,     0xE934A84ADB052768ULL);
     BMK_testXXH64(sanityBuffer,  1, prime, 0x5014607643A9B4C3ULL);
+    BMK_testXXH64(sanityBuffer,  4, 0,     0x9136A0DCA57457EEULL);
     BMK_testXXH64(sanityBuffer, 14, 0,     0x8282DCC4994E35C8ULL);
     BMK_testXXH64(sanityBuffer, 14, prime, 0xC3BD6BF63DEB6DF0ULL);
     BMK_testXXH64(sanityBuffer,222, 0,     0xB641AE8CB691C174ULL);

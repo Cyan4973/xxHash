@@ -72,7 +72,7 @@ they modify libxxhash behavior. They are all disabled by default.
                      with performance improvements observed in the +200% range .
                      See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
                      Note: there is no need for an `xxhash.o` object file in this case.
-- `XXH_REROLL` : reduce size of generated code
+- `XXH_REROLL` : reduce size of generated code. Impact on performance vary, depending on platform and algorithm.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a `NULL` pointer,
                                     xxhash result is the same as a zero-length input
                                     (instead of a dereference segfault).

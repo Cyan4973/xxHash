@@ -224,7 +224,11 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH "arm"
 #  endif
 #elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
-#  define ARCH "ppc64"
+#  if defined(__GNUC__) && defined(__VSX__)
+#    define ARCH "ppc64 + VSX"
+#  else
+#    define ARCH "ppc64"
+#  endif
 #elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 #  define ARCH "ppc"
 #elif defined(__AVR)
@@ -340,6 +344,8 @@ static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return 
 
 static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64bits(buffer, bufferSize); }
 
+static U32 localXXH128(const void* buffer, size_t bufferSize, U32 seed) { return (U32)(XXH128(buffer, bufferSize, seed).low64); }
+
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
@@ -422,7 +428,15 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
     if ((specificTest==0) | (specificTest==6))
         BMK_benchHash(localXXH3_64b, "XXH3_64b unaligned", ((const char*)buffer)+3, bufferSize);
 
-    if (specificTest > 6) {
+    /* Bench XXH3 */
+    if ((specificTest==0) | (specificTest==7))
+        BMK_benchHash(localXXH128, "XXH128", buffer, bufferSize);
+
+    /* Bench XXH3 on Unaligned input */
+    if ((specificTest==0) | (specificTest==8))
+        BMK_benchHash(localXXH128, "XXH128 unaligned", ((const char*)buffer)+3, bufferSize);
+
+    if (specificTest > 8) {
         DISPLAY("Benchmark mode invalid.\n");
         return 1;
     }
@@ -562,25 +576,38 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 }
 
 
-static void BMK_testSequence64(const void* sentence, size_t len, U64 seed, U64 Nresult)
+static void BMK_testXXH32(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
-    XXH64_state_t state;
-    U64 Dresult;
+    XXH32_state_t state;
     size_t pos;
 
-    Dresult = XXH64(sentence, len, seed);
-    BMK_checkResult64(Dresult, Nresult);
+    BMK_checkResult32(XXH32(sequence, len, seed), Nresult);
+
+    (void)XXH32_reset(&state, seed);
+    (void)XXH32_update(&state, sequence, len);
+    BMK_checkResult32(XXH32_digest(&state), Nresult);
+
+    (void)XXH32_reset(&state, seed);
+    for (pos=0; pos<len; pos++)
+        (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
+    BMK_checkResult32(XXH32_digest(&state), Nresult);
+}
+
+static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
+{
+    XXH64_state_t state;
+    size_t pos;
+
+    BMK_checkResult64(XXH64(data, len, seed), Nresult);
 
     (void)XXH64_reset(&state, seed);
-    (void)XXH64_update(&state, sentence, len);
-    Dresult = XXH64_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+    (void)XXH64_update(&state, data, len);
+    BMK_checkResult64(XXH64_digest(&state), Nresult);
 
     (void)XXH64_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH64_update(&state, ((const char*)sentence)+pos, 1);
-    Dresult = XXH64_digest(&state);
-    BMK_checkResult64(Dresult, Nresult);
+        (void)XXH64_update(&state, ((const char*)data)+pos, 1);
+    BMK_checkResult64(XXH64_digest(&state), Nresult);
 }
 
 static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
@@ -594,189 +621,268 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
         U64 const Dresult = XXH3_64bits(data, len);
         BMK_checkResult64(Dresult, Nresult);
     }
+
+    /* streaming API test */
+    {   XXH3_state_t state;
+
+        /* single ingestion */
+        (void)XXH3_64bits_reset_withSeed(&state, seed);
+        (void)XXH3_64bits_update(&state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+
+        if (len > 3) {
+            /* 2 ingestions */
+            (void)XXH3_64bits_reset_withSeed(&state, seed);
+            (void)XXH3_64bits_update(&state, data, 3);
+            (void)XXH3_64bits_update(&state, (const char*)data+3, len-3);
+            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+        }
+
+        /* byte by byte ingestion */
+        {   size_t pos;
+            (void)XXH3_64bits_reset_withSeed(&state, seed);
+            for (pos=0; pos<len; pos++)
+                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+    }   }
 }
 
-static void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
+static void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
+{
+    {   U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
+        BMK_checkResult64(Dresult, Nresult);
+    }
+
+    /* streaming API test */
+    {   XXH3_state_t state;
+        (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
+        (void)XXH3_64bits_update(&state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+
+        /* byte by byte ingestion */
+        {   size_t pos;
+            (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
+            for (pos=0; pos<len; pos++)
+                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+    }   }
+}
+
+void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
 {
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSeed(data, len, seed);
         BMK_checkResult128(Dresult, Nresult);
+    }
 
-        /* check that XXH128() is identical to XXH3_128bits_withSeed() */
-        {   XXH128_hash_t const Dresult2 = XXH128(data, len, seed);
-            BMK_checkResult128(Dresult2, Nresult);
-        }
-
-        /* check that first field is equal to _64bits variant */
-        {   U64 const result64 = XXH3_64bits_withSeed(data, len, seed);
-            BMK_checkResult64(result64, Nresult.low64);
-    }   }
+    /* check that XXH128() is identical to XXH3_128bits_withSeed() */
+    {   XXH128_hash_t const Dresult2 = XXH128(data, len, seed);
+        BMK_checkResult128(Dresult2, Nresult);
+    }
 
     /* check that the no-seed variant produces same result as seed==0 */
     if (seed == 0) {
         XXH128_hash_t const Dresult = XXH3_128bits(data, len);
         BMK_checkResult128(Dresult, Nresult);
     }
+
+    /* streaming API test */
+    {   XXH3_state_t state;
+
+        /* single ingestion */
+        (void)XXH3_128bits_reset_withSeed(&state, seed);
+        (void)XXH3_128bits_update(&state, data, len);
+        BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+
+        if (len > 3) {
+            /* 2 ingestions */
+            (void)XXH3_128bits_reset_withSeed(&state, seed);
+            (void)XXH3_128bits_update(&state, data, 3);
+            (void)XXH3_128bits_update(&state, (const char*)data+3, len-3);
+            BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+        }
+
+        /* byte by byte ingestion */
+        {   size_t pos;
+            (void)XXH3_128bits_reset_withSeed(&state, seed);
+            for (pos=0; pos<len; pos++)
+                (void)XXH3_128bits_update(&state, ((const char*)data)+pos, 1);
+            BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+    }   }
+
 }
-
-static void BMK_testSequence(const void* sequence, size_t len, U32 seed, U32 Nresult)
-{
-    XXH32_state_t state;
-    U32 Dresult;
-    size_t pos;
-
-    Dresult = XXH32(sequence, len, seed);
-    BMK_checkResult32(Dresult, Nresult);
-
-    (void)XXH32_reset(&state, seed);
-    (void)XXH32_update(&state, sequence, len);
-    Dresult = XXH32_digest(&state);
-    BMK_checkResult32(Dresult, Nresult);
-
-    (void)XXH32_reset(&state, seed);
-    for (pos=0; pos<len; pos++)
-        (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
-    Dresult = XXH32_digest(&state);
-    BMK_checkResult32(Dresult, Nresult);
-}
-
 
 #define SANITY_BUFFER_SIZE 2243
 static void BMK_sanityCheck(void)
 {
-    static const U32 prime = 2654435761U;
+    const U32 prime = 2654435761U;
+    const U64 prime64 = 11400714785074694797ULL;
     BYTE sanityBuffer[SANITY_BUFFER_SIZE];
-    U32 byteGen = prime;
+    U64 byteGen = prime;
 
     int i;
     for (i=0; i<SANITY_BUFFER_SIZE; i++) {
-        sanityBuffer[i] = (BYTE)(byteGen>>24);
-        byteGen *= byteGen;
+        sanityBuffer[i] = (BYTE)(byteGen>>56);
+        byteGen *= prime64;
     }
 
-    BMK_testSequence(NULL,          0, 0,     0x02CC5D05);
-    BMK_testSequence(NULL,          0, prime, 0x36B78AE7);
-    BMK_testSequence(sanityBuffer,  1, 0,     0xB85CBEE5);
-    BMK_testSequence(sanityBuffer,  1, prime, 0xD5845D64);
-    BMK_testSequence(sanityBuffer, 14, 0,     0xE5AA0AB4);
-    BMK_testSequence(sanityBuffer, 14, prime, 0x4481951D);
-    BMK_testSequence(sanityBuffer,222, 0,     0xC8070816);
-    BMK_testSequence(sanityBuffer,222, prime, 0xF3CFC852);
 
-    BMK_testSequence64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
-    BMK_testSequence64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
-    BMK_testSequence64(sanityBuffer,  1, 0,     0x4FCE394CC88952D8ULL);
-    BMK_testSequence64(sanityBuffer,  1, prime, 0x739840CB819FA723ULL);
-    BMK_testSequence64(sanityBuffer, 14, 0,     0xCFFA8DB881BC3A3DULL);
-    BMK_testSequence64(sanityBuffer, 14, prime, 0x5B9611585EFCC9CBULL);
-    BMK_testSequence64(sanityBuffer,222, 0,     0x9DD507880DEBB03DULL);
-    BMK_testSequence64(sanityBuffer,222, prime, 0xDC515172B8EE0600ULL);
+    BMK_testXXH32(NULL,          0, 0,     0x02CC5D05);
+    BMK_testXXH32(NULL,          0, prime, 0x36B78AE7);
+    BMK_testXXH32(sanityBuffer,  1, 0,     0xCF65B03E);
+    BMK_testXXH32(sanityBuffer,  1, prime, 0xB4545AA4);
+    BMK_testXXH32(sanityBuffer, 14, 0,     0x1208E7E2);
+    BMK_testXXH32(sanityBuffer, 14, prime, 0x6AF1D1FE);
+    BMK_testXXH32(sanityBuffer,222, 0,     0x5BD11DBD);
+    BMK_testXXH32(sanityBuffer,222, prime, 0x58803C5F);
 
-    BMK_testXXH3(NULL,           0, 0,     0);                      /* zero-length hash is the seed == 0 by default */
-    BMK_testXXH3(NULL,           0, prime, prime);
-    BMK_testXXH3(sanityBuffer,   1, 0,     0xE2C6D3B40D6F9203ULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   1, prime, 0xCEE5DF124E6135DCULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   6, 0,     0x585D6F8D1AAD96A2ULL);  /*  4 -  8 */
-    BMK_testXXH3(sanityBuffer,   6, prime, 0x133EC8CA1739250FULL);  /*  4 -  8 */
-    BMK_testXXH3(sanityBuffer,  12, 0,     0x0E85E122FE5356ACULL);  /*  9 - 16 */
-    BMK_testXXH3(sanityBuffer,  12, prime, 0xE0DB5E70DA67EB16ULL);  /*  9 - 16 */
-    BMK_testXXH3(sanityBuffer,  24, 0,     0x6C213B15B89230C9ULL);  /* 17 - 32 */
-    BMK_testXXH3(sanityBuffer,  24, prime, 0x71892DB847A8F53CULL);  /* 17 - 32 */
-    BMK_testXXH3(sanityBuffer,  48, 0,     0xECED834E8E99DA1EULL);  /* 33 - 64 */
-    BMK_testXXH3(sanityBuffer,  48, prime, 0xA901250B336F9133ULL);  /* 33 - 64 */
-    BMK_testXXH3(sanityBuffer,  80, 0,     0xC67B3A9C6D69E022ULL);  /* 65 - 96 */
-    BMK_testXXH3(sanityBuffer,  80, prime, 0x5054F266D6A65EE4ULL);  /* 65 - 96 */
-    BMK_testXXH3(sanityBuffer, 112, 0,     0x84B99B2137A264A5ULL);  /* 97 -128 */
-    BMK_testXXH3(sanityBuffer, 112, prime, 0xD6BF88A668E69F2AULL);  /* 97 -128 */
-    BMK_testXXH3(sanityBuffer, 192, 0,     0x6D96AC3F415CFCFEULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer, 192, prime, 0xE4BD30AA1673B966ULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer, 222, 0,     0xB62929C362EF3BF5ULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 222, prime, 0x2782C3C49E3FD25EULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2048, 0,     0x802EB54C97564FD7ULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2048, prime, 0xC9F188CFAFDA22CDULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2240, 0,     0x16B0035F6ABC1F46ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2240, prime, 0x389E68C2348B9161ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2243, 0,     0xE7C1890BDBD2B245ULL);  /* 3 blocks, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2243, prime, 0x3A68386AED0C50A7ULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
+    BMK_testXXH64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
+    BMK_testXXH64(sanityBuffer,  1, 0,     0xE934A84ADB052768ULL);
+    BMK_testXXH64(sanityBuffer,  1, prime, 0x5014607643A9B4C3ULL);
+    BMK_testXXH64(sanityBuffer, 14, 0,     0x8282DCC4994E35C8ULL);
+    BMK_testXXH64(sanityBuffer, 14, prime, 0xC3BD6BF63DEB6DF0ULL);
+    BMK_testXXH64(sanityBuffer,222, 0,     0xB641AE8CB691C174ULL);
+    BMK_testXXH64(sanityBuffer,222, prime, 0x20CB8AB7AE10C14AULL);
+
+    BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is always 0 */
+    BMK_testXXH3(NULL,           0, prime64, 0);
+    BMK_testXXH3(sanityBuffer,   1, 0,       0x7198D737CFE7F386ULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   1, prime64, 0xB70252DB7161C2BDULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   6, 0,       0x22CBF5F3E1F6257CULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,   6, prime64, 0x6398631C12AB94CEULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,  12, 0,       0xD5361CCEEBB5A0CCULL);  /*  9 - 16 */
+    BMK_testXXH3(sanityBuffer,  12, prime64, 0xC4C125E75A808C3DULL);  /*  9 - 16 */
+    BMK_testXXH3(sanityBuffer,  24, 0,       0x46796F3F78B20F6BULL);  /* 17 - 32 */
+    BMK_testXXH3(sanityBuffer,  24, prime64, 0x60171A7CD0A44C10ULL);  /* 17 - 32 */
+    BMK_testXXH3(sanityBuffer,  48, 0,       0xD8D4D3590D136E11ULL);  /* 33 - 64 */
+    BMK_testXXH3(sanityBuffer,  48, prime64, 0x05441F2AEC2A1296ULL);  /* 33 - 64 */
+    BMK_testXXH3(sanityBuffer,  80, 0,       0xA1DC8ADB3145B86AULL);  /* 65 - 96 */
+    BMK_testXXH3(sanityBuffer,  80, prime64, 0xC9D55256965B7093ULL);  /* 65 - 96 */
+    BMK_testXXH3(sanityBuffer, 112, 0,       0xE43E5717A61D3759ULL);  /* 97 -128 */
+    BMK_testXXH3(sanityBuffer, 112, prime64, 0x5A5F89A3FECE44A5ULL);  /* 97 -128 */
+    BMK_testXXH3(sanityBuffer, 195, 0,       0x6F747739CBAC22A5ULL);  /* 129-240 */
+    BMK_testXXH3(sanityBuffer, 195, prime64, 0x33368E23C7F95810ULL);  /* 129-240 */
+
+    BMK_testXXH3(sanityBuffer, 403, 0,       0x4834389B15D981E8ULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer, 403, prime64, 0x85CE5DFFC7B07C87ULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer, 512, 0,       0x6A1B982631F059A8ULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer, 512, prime64, 0x10086868CF0ADC99ULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2048, 0,       0xEFEFD4449323CDD4ULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2048, prime64, 0x01C85E405ECA3F6EULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2240, 0,       0x998C0437486672C7ULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2240, prime64, 0x4ED38056B87ABC7FULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2243, 0,       0xA559D20581D742D3ULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2243, prime64, 0x96E051AB57F21FC8ULL);  /* 3 blocks, last stripe is overlapping */
+
+    {   const void* const secret = sanityBuffer + 7;
+        const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
+        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0);                      /* zero-length hash is always 0 */
+        BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0x7F69735D618DB3F0ULL);  /*  1 -  3 */
+        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0xBFCC7CB1B3554DCEULL);  /*  6 -  8 */
+        BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x8C50DC90AC9206FCULL);  /*  9 - 16 */
+        BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize, 0x1CD2C2EE9B9A0928ULL);  /* 17 - 32 */
+        BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize, 0xA785256D9D65D514ULL);  /* 33 - 64 */
+        BMK_testXXH3_withSecret(sanityBuffer,  80, secret, secretSize, 0x6F3053360D21BBB7ULL);  /* 65 - 96 */
+        BMK_testXXH3_withSecret(sanityBuffer, 112, secret, secretSize, 0x560E82D25684154CULL);  /* 97 -128 */
+        BMK_testXXH3_withSecret(sanityBuffer, 195, secret, secretSize, 0xBA5BDDBC5A767B11ULL);  /* 129-240 */
+
+        BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize, 0xFC3911BBA656DB58ULL);  /* one block, last stripe is overlapping */
+        BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x306137DD875741F1ULL);  /* one block, finishing at stripe boundary */
+        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0x2836B83880AD3C0CULL);  /* > one block, at least one scrambling */
+        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize, 0x3446E248A00CB44AULL);  /* > one block, at least one scrambling, last stripe unaligned */
+    }
+
 
     {   XXH128_hash_t const expected = { 0, 0 };
         BMK_testXXH128(NULL,           0, 0,     expected);         /* zero-length hash is { seed, -seed } by default */
     }
-    {   XXH128_hash_t const expected = { prime, -(U64)prime };
+    {   XXH128_hash_t const expected = { 0, 0 };
         BMK_testXXH128(NULL,           0, prime, expected);
     }
-    {   XXH128_hash_t const expected = { 0xE2C6D3B40D6F9203ULL, 0x82895983D246CA74ULL };
+    {   XXH128_hash_t const expected = { 0x7198D737CFE7F386ULL, 0x3EE70EA338F3F1E8ULL };
         BMK_testXXH128(sanityBuffer,   1, 0,     expected);         /* 1-3 */
     }
-    {   XXH128_hash_t const expected = { 0xCEE5DF124E6135DCULL, 0xFA2DA0269396F32DULL };
+    {   XXH128_hash_t const expected = { 0x8E05996EC27C0F46ULL, 0x90DFC659A8BDCC0CULL };
         BMK_testXXH128(sanityBuffer,   1, prime, expected);         /* 1-3 */
     }
-    {   XXH128_hash_t const expected = { 0x585D6F8D1AAD96A2ULL, 0x2791F3B193F0AB86ULL };
+    {   XXH128_hash_t const expected = { 0x22CBF5F3E1F6257CULL, 0xD4E6C2B94FFC3BFAULL };
         BMK_testXXH128(sanityBuffer,   6, 0,     expected);         /* 4-8 */
     }
-    {   XXH128_hash_t const expected = { 0x133EC8CA1739250FULL, 0xDF3F422D70BDE07FULL };
+    {   XXH128_hash_t const expected = { 0x97B28D3079F8541FULL, 0xEFC0B954298E6555ULL };
         BMK_testXXH128(sanityBuffer,   6, prime, expected);         /* 4-8 */
     }
-    {   XXH128_hash_t const expected = { 0x0E85E122FE5356ACULL, 0xD933CC7EDF4D95DAULL };
+    {   XXH128_hash_t const expected = { 0x0E0CD01F05AC2F0DULL, 0x2B55C95951070D4BULL };
         BMK_testXXH128(sanityBuffer,  12, 0,     expected);         /* 9-16 */
     }
-    {   XXH128_hash_t const expected = { 0xE0DB5E70DA67EB16ULL, 0x114C8C76E74C669FULL };
+    {   XXH128_hash_t const expected = { 0xA9DE561CA04CDF37ULL, 0x609E31FDC00A43C9ULL };
         BMK_testXXH128(sanityBuffer,  12, prime, expected);         /* 9-16 */
     }
-    {   XXH128_hash_t const expected = { 0x6C213B15B89230C9ULL, 0x3F3AACF5F277AC02ULL };
+    {   XXH128_hash_t const expected = { 0x46796F3F78B20F6BULL, 0x58FF55C3926C13FAULL };
         BMK_testXXH128(sanityBuffer,  24, 0,     expected);         /* 17-32 */
     }
-    {   XXH128_hash_t const expected = { 0x71892DB847A8F53CULL, 0xD11561AC7D0F5ECDULL };
+    {   XXH128_hash_t const expected = { 0x30D5C4E9EB415C55ULL, 0x8868344B3A4645D0ULL };
         BMK_testXXH128(sanityBuffer,  24, prime, expected);         /* 17-32 */
     }
-    {   XXH128_hash_t const expected = { 0xECED834E8E99DA1EULL, 0x0F85E76A60898313ULL };
+    {   XXH128_hash_t const expected = { 0xD8D4D3590D136E11ULL, 0x5527A42843020A62ULL };
         BMK_testXXH128(sanityBuffer,  48, 0,     expected);         /* 33-64 */
     }
-    {   XXH128_hash_t const expected = { 0xA901250B336F9133ULL, 0xA35D3FB395E1DDE0ULL };
+    {   XXH128_hash_t const expected = { 0x1D8834E1A5407A1CULL, 0x44375B9FB060F541ULL };
         BMK_testXXH128(sanityBuffer,  48, prime, expected);         /* 33-64 */
     }
-    {   XXH128_hash_t const expected = { 0x338B2F6E103D5B4EULL, 0x5DD1777C8FA671ABULL };
+    {   XXH128_hash_t const expected = { 0x4B9B448ED8DFD3DDULL, 0xE805A6D1A43D70E5ULL };
         BMK_testXXH128(sanityBuffer,  81, 0,     expected);         /* 65-96 */
     }
-    {   XXH128_hash_t const expected = { 0x0718382B6D4264C3ULL, 0x1D542DAFEFA1790EULL };
+    {   XXH128_hash_t const expected = { 0xD2D6B075945617BAULL, 0xE58BE5736F6E7550ULL };
         BMK_testXXH128(sanityBuffer,  81, prime, expected);         /* 65-96 */
     }
-    {   XXH128_hash_t const expected = { 0x7DE871A4FE41C90EULL, 0x786CB41C46C6B7B6ULL };
+    {   XXH128_hash_t const expected = { 0xC5A9F97B29EFA44EULL, 0x254DB7BE881E125CULL };
         BMK_testXXH128(sanityBuffer, 103, 0,     expected);         /* 97-128 */
     }
-    {   XXH128_hash_t const expected = { 0xAD8B0B428C940A2CULL, 0xF8BA6D8B8CB05EB7ULL };
+    {   XXH128_hash_t const expected = { 0xFA2086367CDB177FULL, 0x0AEDEA68C988B0C0ULL };
         BMK_testXXH128(sanityBuffer, 103, prime, expected);         /* 97-128 */
     }
-    {   XXH128_hash_t const expected = { 0x6D96AC3F415CFCFEULL, 0x947EDFA54DD68990ULL };
-        BMK_testXXH128(sanityBuffer, 192, 0,     expected);         /* one block, ends at stripe boundary */
+    {   XXH128_hash_t const expected = { 0xC3142FDDD9102A3FULL, 0x06F1747E77185F97ULL };
+        BMK_testXXH128(sanityBuffer, 192, 0,     expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0xE4BD30AA1673B966ULL, 0x8132EF45FF3D51F2ULL };
-        BMK_testXXH128(sanityBuffer, 192, prime, expected);         /* one block, ends at stripe boundary */
+    {   XXH128_hash_t const expected = { 0xA89F07B35987540FULL, 0xCF1B35FB2C557F54ULL };
+        BMK_testXXH128(sanityBuffer, 192, prime, expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0xB62929C362EF3BF5ULL, 0x1946A7A9E6DD3032ULL };
-        BMK_testXXH128(sanityBuffer, 222, 0,     expected);         /* one block, last stripe is overlapping */
+    {   XXH128_hash_t const expected = { 0xA61AC4EB3295F86BULL, 0x33FA7B7598C28A07ULL };
+        BMK_testXXH128(sanityBuffer, 222, 0,     expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0x2782C3C49E3FD25EULL, 0x98CE16C40C2D59F6ULL };
-        BMK_testXXH128(sanityBuffer, 222, prime, expected);         /* one block, last stripe is overlapping */
+    {   XXH128_hash_t const expected = { 0x54135EB88AD8B75EULL, 0xBC45CE6AE50BCF53ULL };
+        BMK_testXXH128(sanityBuffer, 222, prime, expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0x802EB54C97564FD7ULL, 0x384AADF242348D00ULL };
+    {   XXH128_hash_t const expected = { 0xB0C48E6D18E9D084ULL, 0xB16FC17E992FF45DULL };
+        BMK_testXXH128(sanityBuffer, 403, 0,     expected);         /* one block, last stripe is overlapping */
+    }
+    {   XXH128_hash_t const expected = { 0x0A1D320C9520871DULL, 0xCE11CB376EC93252ULL };
+        BMK_testXXH128(sanityBuffer, 403, prime64, expected);       /* one block, last stripe is overlapping */
+    }
+    {   XXH128_hash_t const expected = { 0xA03428558AC97327ULL, 0x4ECF51281BA406F7ULL };
+        BMK_testXXH128(sanityBuffer, 512, 0,     expected);         /* one block, finishing at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0xAF67A482D6C893F2ULL, 0x1382D92F25B84D90ULL };
+        BMK_testXXH128(sanityBuffer, 512, prime64, expected);       /* one block, finishing at stripe boundary */
+    }
+    {   XXH128_hash_t const expected = { 0x21901B416B3B9863ULL, 0x212AF8E6326F01E0ULL };
         BMK_testXXH128(sanityBuffer,2048, 0,     expected);         /* two blocks, finishing at block boundary */
     }
-    {   XXH128_hash_t const expected = { 0xC9F188CFAFDA22CDULL, 0x7936B69445BE9EEDULL };
+    {   XXH128_hash_t const expected = { 0xBDBB2282577DADECULL, 0xF78CDDC2C9A9A692ULL };
         BMK_testXXH128(sanityBuffer,2048, prime, expected);         /* two blocks, finishing at block boundary */
     }
-    {   XXH128_hash_t const expected = { 0x16B0035F6ABC1F46ULL, 0x1F6602850A1AA7EEULL };
+    {   XXH128_hash_t const expected = { 0x00AD52FA9385B6FEULL, 0xC705BAD3356CE302ULL };
         BMK_testXXH128(sanityBuffer,2240, 0,     expected);         /* two blocks, ends at stripe boundary */
     }
-    {   XXH128_hash_t const expected = { 0x389E68C2348B9161ULL, 0xA7D1E8C96586A052ULL };
+    {   XXH128_hash_t const expected = { 0x10FD0072EC68BFAAULL, 0xE1312F3458817F15ULL };
         BMK_testXXH128(sanityBuffer,2240, prime, expected);         /* two blocks, ends at stripe boundary */
     }
-    {   XXH128_hash_t const expected = { 0x8B1DE79158C397D3ULL, 0x9B6B2EEFAC2DE0ADULL };
+    {   XXH128_hash_t const expected = { 0x970C91411533862CULL, 0x4BBD06FF7BFF0AB1ULL };
         BMK_testXXH128(sanityBuffer,2237, 0,     expected);         /* two blocks, ends at stripe boundary */
     }
-    {   XXH128_hash_t const expected = { 0x9DDF09ABA2B93DD6ULL, 0xB9CEDBE2582CA371ULL };
+    {   XXH128_hash_t const expected = { 0xD80282846D814431ULL, 0x14EBB157B84D9785ULL };
         BMK_testXXH128(sanityBuffer,2237, prime, expected);         /* two blocks, ends at stripe boundary */
     }
-
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");

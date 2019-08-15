@@ -3,6 +3,7 @@
 
 # objects
 *.o
+*.s
 
 # libraries
 libxxhash.*

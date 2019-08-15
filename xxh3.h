@@ -558,8 +558,9 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
         }
     }
 
-#elif (XXH_VECTOR == XXH_VSX) && 0   /* <=========================== MUST BE UPDATED */
-    /* note : vsx code path currently not tested in CI (limitation of cross-compiler and/or emulator) */
+#elif (XXH_VECTOR == XXH_VSX) && 0   /* <=========================== DISABLED : MUST BE VALIDATED */
+    /* note : vsx code path currently not tested in CI (limitation of cross-compiler and/or emulator)
+     *        for vsx code path to be shipped and supported, it is critical to create a CI test for it */
           U64x2* const xacc =        (U64x2*) acc;    /* presumed aligned */
     U64x2 const* const xdata = (U64x2 const*) data;   /* no alignment restriction */
     U64x2 const* const xkey  = (U64x2 const*) key;    /* no alignment restriction */
@@ -571,20 +572,26 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
         /* key_vec = xkey[i]; */
 #ifdef __BIG_ENDIAN__
         /* byteswap */
-        U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));
-        U64x2 const key_vec = vec_revb(vec_vsx_ld(0, xkey + i));
+        U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));  /* note : vec_revb is power9+ */
+        U64x2 const key_vec = vec_revb(vec_vsx_ld(0, xkey + i));    /* note : vec_revb is power9+ */
 #else
         U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
         U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
 #endif
-        U64x2 data_key = data_vec ^ key_vec;
+        U64x2 const data_key = data_vec ^ key_vec;
         /* shuffled = (data_key << 32) | (data_key >> 32); */
-        U32x4 shuffled = (U32x4)vec_rl(data_key, v32);
+        U32x4 const shuffled = (U32x4)vec_rl(data_key, v32);
         /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
-        U64x2 product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
+        U64x2 const product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
 
         xacc[i] += product;
-        xacc[i] += data_vec;   /* <======================= Incorrect for 128-bit variant (must swap) */
+
+        if (accWidth == XXH3_acc_64bits) {
+            xacc[i] += data_vec;
+        } else {  /* XXH3_acc_128bits */
+            U64x2 const data_swapped = vec_permi(data_vec, data_vec, 2);   /* <===== untested !!! */
+            xacc[i] += data_swapped;
+        }
     }
 
 #else   /* scalar variant of Accumulator - universal */

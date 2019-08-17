@@ -297,12 +297,15 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 /* *******************************************************************
 *  32-bit hash functions
 *********************************************************************/
+#ifdef __cplusplus
+#  define const constexpr
+#endif
 static const U32 PRIME32_1 = 0x9E3779B1U;   /* 0b10011110001101110111100110110001 */
 static const U32 PRIME32_2 = 0x85EBCA77U;   /* 0b10000101111010111100101001110111 */
 static const U32 PRIME32_3 = 0xC2B2AE3DU;   /* 0b11000010101100101010111000111101 */
 static const U32 PRIME32_4 = 0x27D4EB2FU;   /* 0b00100111110101001110101100101111 */
 static const U32 PRIME32_5 = 0x165667B1U;   /* 0b00010110010101100110011110110001 */
-
+#undef const
 static U32 XXH32_round(U32 acc, U32 input)
 {
     acc += input * PRIME32_2;

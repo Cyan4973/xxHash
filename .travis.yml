@@ -54,22 +54,17 @@ matrix:
     - name: PowerPC + PPC64 compilation and consistency checks (Trusty)
       dist: trusty
       install:
-        - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu
+        - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu gcc-powerpc64le-linux-gnu
       script:
         - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
         - make clean
         - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean
-        # Note : the following test will fail
-        # because it will trigger the VSX code path
-        # while missing the `vec_revb()` instruction, hence compilation will fail.
-        # to be fixed one day.
-        # - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CFLAGS="-O3 -m64 -maltivec -mvsx" LDFLAGS="-static -m64" make check   # Auto code path
+        # VSX code
+        - CC=powerpc-linux-gnu-gcc RUN_ENV="qemu-ppc64-static -cpu power8" CFLAGS="-O3 -m64 -maltivec -mvsx -mcpu=power8 -mpower8-vector" LDFLAGS="-static -m64" make check   # Auto code path
         - make clean
-        # Note : the following test does not work on Ubuntu Trusty.
-        # It requires support for `power9` instruction due to `vec_revb()`
-        # which is missing from the powerpc-gcc compiler version shipped with Ubuntu Trusty (max `power8`)
-        # - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64 -maltivec -mvsx -mcpu=power8" LDFLAGS="-static -m64" make check   # VSX code path
+        - CC=powerpc64le-linux-gnu-gcc RUN_ENV="qemu-ppc64le-static -cpu power8" CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check   # VSX code path
+        - make clean
 
     - name: cmake
       script:

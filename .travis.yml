@@ -54,7 +54,7 @@ matrix:
     - name: PowerPC + PPC64 compilation and consistency checks (Xenial)
       dist: xenial
       install:
-        - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu gcc-powerpc64le-linux-gnu
+        - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu gcc-powerpc64le-linux-gnu gcc-multilib g++-multilib qemu-system-ppc64le
       script:
         - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
         - make clean

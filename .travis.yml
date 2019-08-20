@@ -54,16 +54,16 @@ matrix:
     - name: PowerPC + PPC64 compilation and consistency checks (Xenial)
       dist: xenial
       install:
-        - sudo apt-get install -q qemu-system-ppc qemu-user-static gcc-5-powerpc-linux-gnu gcc-5-powerpc64le-linux-gnu gcc-5-multilib
+        - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-5-powerpc-linux-gnu gcc-5-powerpc64le-linux-gnu gcc-5-multilib
       script:
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
+        - CC=powerpc-linux-gnu-gcc-5 RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
         - make clean
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
+        - CC=powerpc-linux-gnu-gcc-5 RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean
         # VSX code
-        - CC=powerpc-linux-gnu-gcc RUN_ENV="qemu-ppc64-static -cpu power8" CFLAGS="-O3 -m64 -maltivec -mvsx -mcpu=power8 -mpower8-vector" LDFLAGS="-static -m64" make check   # Auto code path
+        - CC=powerpc-linux-gnu-gcc-5 RUN_ENV="qemu-ppc64-static -cpu power8" CFLAGS="-O3 -m64 -maltivec -mvsx -mcpu=power8 -mpower8-vector" LDFLAGS="-static -m64" make check   # Auto code path
         - make clean
-        - CC=powerpc64le-linux-gnu-gcc RUN_ENV="qemu-ppc64le-static -cpu power8" CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check   # VSX code path
+        - CC=powerpc64le-linux-gnu-gcc-5 RUN_ENV="qemu-ppc64le-static -cpu power8" CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check   # VSX code path
         - make clean
 
     - name: cmake

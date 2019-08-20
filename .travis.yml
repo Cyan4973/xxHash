@@ -57,13 +57,14 @@ matrix:
         - sudo apt-get install -qq
             qemu-system-ppc
             qemu-user-static
+            gcc-powerpc-linux-gnu
             gcc-powerpc64-linux-gnu
             libc6-dev-powerpc-cross
-            libc6-dev-powerpc64-cross
+            libc6-dev-ppc64-cross
             gcc-powerpc64le-linux-gnu
-            libc6-dev-powerpc64le-dev
+            libc6-dev-ppc64el-cross
       script:
-        - CC=powerpc64-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static LDFLAGS=-static make check   # Scalar code path
         - make clean
         - CC=powerpc64-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean

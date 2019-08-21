@@ -40,36 +40,38 @@ matrix:
         # arm (32-bit)
         - CC=arm-linux-gnueabi-gcc CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static RUN_ENV=qemu-arm-static make check   # Scalar code path
         - make clean
-        # Note : the following test (ARM 32-bit + NEON) is disabled for the time being.
-        # I haven't yet found a way to make it link on Travis CI using gcc cross-compilation.
-        # NEON code path is fortunately validated through `aarch64` below.
-        # - CC=arm-linux-gnueabi-gcc CPPFLAGS=-DXXH_VECTOR=3 CFLAGS="-O3 -march=armv7-a -mfloat-abi=hard -mfpu=neon" LDFLAGS=-static RUN_ENV=qemu-arm-static make check   # NEON code path
+        # NEON (32-bit)
+        - CC=arm-linux-gnueabi-gcc CPPFLAGS=-DXXH_VECTOR=3 CFLAGS="-O3 -march=armv7-a -fPIC -mfloat-abi=softfp -mfpu=neon-vfpv4" LDFLAGS=-static RUN_ENV=qemu-arm-static make check   # NEON code path
         - make clean
         # aarch64
         - CC=aarch64-linux-gnu-gcc CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static RUN_ENV=qemu-aarch64-static make check   # Scalar code path
         - make clean
         - CC=aarch64-linux-gnu-gcc CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static RUN_ENV=qemu-aarch64-static make check   # NEON code path
         - make clean
-
-    - name: PowerPC + PPC64 compilation and consistency checks (Trusty)
-      dist: trusty
+    # We need Bionic here because the QEMU versions shipped in the older repos
+    # do not support POWER8 emulation, and compiling QEMU from source is a pain.
+    - name: PowerPC + PPC64 compilation and consistency checks (Bionic)
+      dist: bionic
       install:
-        - sudo apt-get install -qq qemu-system-ppc qemu-user-static gcc-powerpc-linux-gnu
+        - sudo apt-get install -qq
+            qemu-system-ppc
+            qemu-user-static
+            gcc-powerpc-linux-gnu
+            gcc-powerpc64-linux-gnu
+            libc6-dev-powerpc-cross
+            libc6-dev-ppc64-cross
+            gcc-powerpc64le-linux-gnu
+            libc6-dev-ppc64el-cross
       script:
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static CPPFLAGS=-m32 LDFLAGS=-static make check   # Scalar code path
+        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static LDFLAGS=-static make check   # Scalar code path
         - make clean
-        - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3 -m64" LDFLAGS="-static -m64" make check   # Scalar code path
+        - CC=powerpc64-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=0 CFLAGS="-O3" LDFLAGS="-static -m64" make check   # Scalar code path
         - make clean
-        # Note : the following test will fail
-        # because it will trigger the VSX code path
-        # while missing the `vec_revb()` instruction, hence compilation will fail.
-        # to be fixed one day.
-        # - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CFLAGS="-O3 -m64 -maltivec -mvsx" LDFLAGS="-static -m64" make check   # Auto code path
+        # VSX code
+        - CC=powerpc64-linux-gnu-gcc RUN_ENV="qemu-ppc64-static -cpu power8" CFLAGS="-O3 -maltivec -mvsx -mcpu=power8 -mpower8-vector" LDFLAGS="-static -m64" make check   # Auto code path
         - make clean
-        # Note : the following test does not work on Ubuntu Trusty.
-        # It requires support for `power9` instruction due to `vec_revb()`
-        # which is missing from the powerpc-gcc compiler version shipped with Ubuntu Trusty (max `power8`)
-        # - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -m64 -maltivec -mvsx -mcpu=power8" LDFLAGS="-static -m64" make check   # VSX code path
+        - CC=powerpc64le-linux-gnu-gcc RUN_ENV="qemu-ppc64le-static -cpu power8" CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check   # VSX code path
+        - make clean
 
     - name: cmake
       script:

@@ -91,7 +91,7 @@
   && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
   && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
-#  elif defined(__PPC64__) && defined(__VSX__) && defined(__GNUC__)
+#  elif defined(__PPC64__) && defined(__POWER8_VECTOR__) && defined(__GNUC__)
 #    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
@@ -122,23 +122,84 @@
 #    define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
 #endif
 
-/* VSX stuff */
+/* VSX stuff. It's a lot because VSX support is mediocre across compilers and
+ * there is a lot of mischief with endianness. */
 #if XXH_VECTOR == XXH_VSX
 #  include <altivec.h>
 #  undef vector
 typedef __vector unsigned long long U64x2;
+typedef __vector unsigned char U8x16;
 typedef __vector unsigned U32x4;
+
+#ifndef XXH_VSX_BE
+#  ifdef __BIG_ENDIAN__
+#    define XXH_VSX_BE 1
+#  elif defined(__VEC_ELEMENT_REG_ORDER__) && __VEC_ELEMENT_REG_ORDER__ == __ORDER_BIG_ENDIAN__
+#    warning "-maltivec=be is not recommended. Please use native endianness."
+#    define XXH_VSX_BE 1
+#  else
+#    define XXH_VSX_BE 0
+#  endif
+#endif
+
+/* We need some helpers for big endian mode. */
+#if XXH_VSX_BE
+/* A wrapper for POWER9's vec_revb. */
+#  ifdef __POWER9_VECTOR__
+#    define XXH_vec_revb vec_revb
+#  else
+XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
+{
+    U8x16 const vByteSwap = { 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
+                              0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08 };
+    return vec_perm(val, val, vByteSwap);
+}
+#  endif
+
+/* Power8 Crypto gives us vpermxor which is very handy for
+ * PPC64EB.
+ *
+ * U8x16 vpermxor(U8x16 a, U8x16 b, U8x16 mask)
+ * {
+ *     U8x16 ret;
+ *     for (int i = 0; i < 16; i++) {
+ *         ret[i] = a[mask[i] & 0xF] ^ b[mask[i] >> 4];
+ *     }
+ *     return ret;
+ * }
+ *
+ * Because both of the main loops load the key, swap, and xor it with data,
+ * we can combine the key swap into this instruction.
+ */
+#  ifdef vec_permxor
+#    define XXH_vec_permxor vec_permxor
+#  else
+#    define XXH_vec_permxor __builtin_crypto_vpermxor
+#  endif
+#endif
+/*
+ * Because we reinterpret the multiply, there are endian memes: vec_mulo actually becomes
+ * vec_mule.
+ *
+ * Additionally, the intrinsic wasn't added until GCC 8, despite existing for a while.
+ * Clang has an easy way to control this, we can just use the builtin which doesn't swap.
+ * GCC needs inline assembly. */
+#if __has_builtin(__builtin_altivec_vmuleuw)
+#  define XXH_vec_mulo __builtin_altivec_vmulouw
+#  define XXH_vec_mule __builtin_altivec_vmuleuw
+#else
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
-XXH_FORCE_INLINE U64x2 XXH_vsxMultOdd(U32x4 a, U32x4 b) {
+XXH_FORCE_INLINE U64x2 XXH_vec_mulo(U32x4 a, U32x4 b) {
     U64x2 result;
     __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
-XXH_FORCE_INLINE U64x2 XXH_vsxMultEven(U32x4 a, U32x4 b) {
+XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b) {
     U64x2 result;
     __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
+#endif
 #endif
 
 
@@ -558,38 +619,41 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
         }
     }
 
-#elif (XXH_VECTOR == XXH_VSX) && 0   /* <=========================== DISABLED : MUST BE VALIDATED */
-    /* note : vsx code path currently not tested in CI (limitation of cross-compiler and/or emulator)
-     *        for vsx code path to be shipped and supported, it is critical to create a CI test for it */
+#elif (XXH_VECTOR == XXH_VSX)
           U64x2* const xacc =        (U64x2*) acc;    /* presumed aligned */
     U64x2 const* const xdata = (U64x2 const*) data;   /* no alignment restriction */
     U64x2 const* const xkey  = (U64x2 const*) key;    /* no alignment restriction */
     U64x2 const v32 = { 32,  32 };
-
+#if XXH_VSX_BE
+    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
+                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
+#endif
     size_t i;
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         /* data_vec = xdata[i]; */
         /* key_vec = xkey[i]; */
-#ifdef __BIG_ENDIAN__
+#if XXH_VSX_BE
         /* byteswap */
-        U64x2 const data_vec = vec_revb(vec_vsx_ld(0, xdata + i));  /* note : vec_revb is power9+ */
-        U64x2 const key_vec = vec_revb(vec_vsx_ld(0, xkey + i));    /* note : vec_revb is power9+ */
+        U64x2 const data_vec = XXH_vec_revb(vec_vsx_ld(0, xdata + i));
+        U64x2 const key_raw = vec_vsx_ld(0, xkey + i);
+        /* See comment above. data_key = data_vec ^ swap(xkey[i]); */
+        U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
 #else
         U64x2 const data_vec = vec_vsx_ld(0, xdata + i);
         U64x2 const key_vec = vec_vsx_ld(0, xkey + i);
-#endif
         U64x2 const data_key = data_vec ^ key_vec;
+#endif
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         U32x4 const shuffled = (U32x4)vec_rl(data_key, v32);
         /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
-        U64x2 const product = XXH_vsxMultOdd((U32x4)data_key, shuffled);
-
+        U64x2 const product = XXH_vec_mulo((U32x4)data_key, shuffled);
         xacc[i] += product;
 
         if (accWidth == XXH3_acc_64bits) {
             xacc[i] += data_vec;
         } else {  /* XXH3_acc_128bits */
-            U64x2 const data_swapped = vec_permi(data_vec, data_vec, 2);   /* <===== untested !!! */
+            /* swap high and low halves */
+            U64x2 const data_swapped = vec_xxpermdi(data_vec, data_vec, 2);
             xacc[i] += data_swapped;
         }
     }
@@ -716,26 +780,31 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
     U64x2 const v47 = { 47, 47 };
     U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
     size_t i;
-
+#if XXH_VSX_BE
+    /* endian swap */
+    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
+                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
+#endif
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         U64x2 const acc_vec  = xacc[i];
         U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
         /* key_vec = xkey[i]; */
-#ifdef __BIG_ENDIAN__
-        /* swap 32-bit words */
-        U64x2 const key_vec  = vec_rl(vec_vsx_ld(0, xkey + i), v32);
+#if XXH_VSX_BE
+        /* swap bytes words */
+        U64x2 const key_raw  = vec_vsx_ld(0, xkey + i);
+	U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
 #else
         U64x2 const key_vec  = vec_vsx_ld(0, xkey + i);
-#endif
         U64x2 const data_key = data_vec ^ key_vec;
+#endif
 
         /* data_key *= PRIME32_1 */
 
         /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
-        U64x2 const prod_lo  = XXH_vsxMultOdd((U32x4)data_key, prime);
+        U64x2 const prod_even  = XXH_vec_mule((U32x4)data_key, prime);
         /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */
-        U64x2 const prod_hi  = XXH_vsxMultEven((U32x4)data_key, prime);
-        xacc[i] = prod_lo + (prod_hi << v32);
+        U64x2 const prod_odd  = XXH_vec_mulo((U32x4)data_key, prime);
+        xacc[i] = prod_odd + (prod_even << v32);
     }
 
 #else   /* scalar variant of Scrambler - universal */

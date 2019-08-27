@@ -479,7 +479,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
 }
 
 
-XXH_PUBLIC_API unsigned int XXH32 (const void* input, size_t len, unsigned int seed)
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, unsigned int seed)
 {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
@@ -596,7 +596,7 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
 }
 
 
-XXH_PUBLIC_API unsigned int XXH32_digest (const XXH32_state_t* state)
+XXH_PUBLIC_API XXH32_hash_t XXH32_digest (const XXH32_state_t* state)
 {
     U32 h32;
 

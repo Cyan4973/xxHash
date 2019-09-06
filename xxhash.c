@@ -996,8 +996,8 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long 
     state.v2 = seed + PRIME64_2;
     state.v3 = seed + 0;
     state.v4 = seed - PRIME64_1;
-     /* do not write into reserved, might be removed in a future version */
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
+     /* do not write into reserved64, might be removed in a future version */
+    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
     return XXH_OK;
 }
 

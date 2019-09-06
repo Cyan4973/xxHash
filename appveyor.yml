@@ -82,7 +82,7 @@ build_script:
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% &&
+      cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% -DCMAKE_C_FLAGS="/WX /W3" &&
       cmake --build . --config Release
     )
 

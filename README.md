@@ -20,19 +20,23 @@ The benchmark uses SMHasher speed test, compiled with Visual 2010 on a Windows S
 The reference system uses a Core 2 Duo @3GHz
 
 
-| Name          |   Speed  | Quality | Author           |
-|---------------|----------|:-------:|------------------|
-| [xxHash]      | 5.4 GB/s |   10    | Y.C.             |
-| MurmurHash 3a | 2.7 GB/s |   10    | Austin Appleby   |
-| SBox          | 1.4 GB/s |    9    | Bret Mulvey      |
-| Lookup3       | 1.2 GB/s |    9    | Bob Jenkins      |
-| CityHash64    | 1.05 GB/s|   10    | Pike & Alakuijala|
-| FNV           | 0.55 GB/s|    5    | Fowler, Noll, Vo |
-| CRC32         | 0.43 GB/s|    9    |                  |
-| MD5-32        | 0.33 GB/s|   10    | Ronald L.Rivest  |
-| SHA1-32       | 0.28 GB/s|   10    |                  |
+| Name          |   Speed     | Quality | Author            |
+|---------------|-------------|:-------:|-------------------|
+| [xxHash]      | 5.4 GB/s    |   10    | Y.C.              |
+| MurmurHash 3a | 2.7 GB/s    |   10    | Austin Appleby    |
+| SBox          | 1.4 GB/s    |    9    | Bret Mulvey       |
+| Lookup3       | 1.2 GB/s    |    9    | Bob Jenkins       |
+| CityHash64    | 1.05 GB/s   |   10    | Pike & Alakuijala |
+| FNV           | 0.55 GB/s   |    5    | Fowler, Noll, Vo  |
+| CRC32         | 0.43 GB/s † |    9    |                   |
+| MD5-32        | 0.33 GB/s   |   10    | Ronald L.Rivest   |
+| SHA1-32       | 0.28 GB/s   |   10    |                   |
 
 [xxHash]: http://www.xxhash.com
+
+Note †: other CRC32 implementations can be [over 40x
+faster](http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html?showComment=1552696407071#c3490092340461170735)
+than SMHasher's.
 
 Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.

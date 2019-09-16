@@ -195,7 +195,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
  * U8x16 vpermxor(U8x16 a, U8x16 b, U8x16 mask)
  * {
  *     U8x16 ret;
- *     for (int i = 0; i < 16; i+d+) {
+ *     for (int i = 0; i < 16; i++) {
  *         ret[i] = a[mask[i] & 0xF] ^ b[mask[i] >> 4];
  *     }
  *     return ret;

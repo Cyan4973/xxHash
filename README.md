@@ -81,9 +81,6 @@ they modify libxxhash behavior. They are all disabled by default.
                                     xxhash result is the same as a zero-length input
                                     (instead of a dereference segfault).
                                     Adds one branch at the beginning of the hash.
-- `XXH_FORCE_MEMORY_ACCESS` : default method `0` uses a portable `memcpy()` notation.
-                              Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
-                              Method `2` forces unaligned reads, which is not standard compliant, but might sometimes be the only way to extract better read performance.
 - `XXH_CPU_LITTLE_ENDIAN` : by default, endianess is determined at compile time.
                             It's possible to skip auto-detection and force format to little-endian, by setting this macro to 1.
                             Setting it to 0 forces big-endian.

@@ -36,27 +36,6 @@
 /* *************************************
 *  Tuning parameters
 ***************************************/
-/*!XXH_FORCE_MEMORY_ACCESS :
- * By default, access to unaligned memory is controlled by `memcpy()`, which is safe and portable.
- * Unfortunately, on some target/compiler combinations, the generated assembly is sub-optimal.
- * The below switch allow to select different access method for improved performance.
- * Method 0 (default) : use `memcpy()`. Safe and portable.
- * Method 1 : `__packed` statement. It depends on compiler extension (ie, not portable).
- *            This method is safe if your compiler supports it, and *generally* as fast or faster than `memcpy`.
- * Method 2 : direct access. This method doesn't depend on compiler but violate C standard.
- *            It can generate buggy code on targets which do not support unaligned memory accesses.
- *            But in some circumstances, it's the only known way to get the most performance (ie GCC + ARMv6)
- * See http://stackoverflow.com/a/32095106/646947 for details.
- * Prefer these methods in priority order (0 > 1 > 2)
- */
-#ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-#  if defined(__GNUC__) && defined(__ARM_FEATURE_UNALIGNED) && defined(__ARM_ARCH) && (__ARM_ARCH == 6)
-#    define XXH_FORCE_MEMORY_ACCESS 2
-#  elif (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
-  (defined(__GNUC__) && (defined(__ARM_ARCH) && __ARM_ARCH >= 7))
-#    define XXH_FORCE_MEMORY_ACCESS 1
-#  endif
-#endif
 
 /*!XXH_ACCEPT_NULL_INPUT_POINTER :
  * If input pointer is NULL, xxHash default behavior is to dereference it, triggering a segfault.
@@ -179,32 +158,12 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 
 /* ===   Memory access   === */
 
-#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
-
-/* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
-static U32 XXH_read32(const void* memPtr) { return *(const U32*) memPtr; }
-
-#elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
-
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
-/* currently only defined for gcc and icc */
-typedef union { U32 u32; } __attribute__((packed)) unalign;
-static U32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
-
-#else
-
-/* portable and safe solution. Generally efficient.
- * see : http://stackoverflow.com/a/32095106/646947
- */
 static U32 XXH_read32(const void* memPtr)
 {
     U32 val;
     memcpy(&val, memPtr, sizeof(val));
     return val;
 }
-
-#endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
-
 
 /* ===   Endianess   === */
 typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
@@ -679,32 +638,12 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #  endif
 #endif /* !defined(XXH_REROLL_XXH64) */
 
-#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
-
-/* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
-static U64 XXH_read64(const void* memPtr) { return *(const U64*) memPtr; }
-
-#elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
-
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
-/* currently only defined for gcc and icc */
-typedef union { U32 u32; U64 u64; } __attribute__((packed)) unalign64;
-static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
-
-#else
-
-/* portable and safe solution. Generally efficient.
- * see : http://stackoverflow.com/a/32095106/646947
- */
-
 static U64 XXH_read64(const void* memPtr)
 {
     U64 val;
     memcpy(&val, memPtr, sizeof(val));
     return val;
 }
-
-#endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
 
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap64 _byteswap_uint64

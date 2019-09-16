@@ -646,7 +646,6 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
 #else   /* scalar variant of Accumulator - universal */
 
-
     XXH_ALIGN(XXH_ACC_ALIGN) U64* const xacc = (U64*) acc;    /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
     const char* const xdata = (const char*) data;  /* no alignment restriction */
     const char* const xkey  = (const char*) key;   /* no alignment restriction */

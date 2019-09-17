@@ -50,10 +50,10 @@
  * Prefer these methods in priority order (0 > 1 > 2)
  */
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-#  if defined(__GNUC__) && defined(__ARM_FEATURE_UNALIGNED) && defined(__ARM_ARCH) && (__ARM_ARCH == 6)
+#  if !defined(__clang__) && defined(__GNUC__) && defined(__ARM_FEATURE_UNALIGNED) && defined(__ARM_ARCH) && (__ARM_ARCH == 6)
 #    define XXH_FORCE_MEMORY_ACCESS 2
-#  elif (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
-  (defined(__GNUC__) && (defined(__ARM_ARCH) && __ARM_ARCH >= 7))
+#  elif !defined(__clang__) && ((defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
+  (defined(__GNUC__) && (defined(__ARM_ARCH) && __ARM_ARCH >= 7)))
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif

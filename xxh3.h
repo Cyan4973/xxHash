@@ -71,7 +71,40 @@
 #  include <intrin.h>
 #endif
 
-
+/*
+ * Sanity check.
+ *
+ * XXH3 only requires these features to be efficient:
+ *
+ *  - Usable unaligned access
+ *  - A 32-bit or 64-bit ALU
+ *      - If 32-bit, a decent ADC instruction
+ *  - A 32 or 64-bit multiply with a 64-bit result
+ *
+ * Almost all 32-bit and 64-bit targets meet this, except for Thumb-1, the
+ * classic 16-bit only subset of ARM's instruction set.
+ *
+ * First of all, Thumb-1 lacks support for the UMULL instruction which
+ * performs the important long multiply. This means numerous __aeabi_lmul
+ * calls.
+ *
+ * Second of all, the 8 functional registers are just not enough.
+ * Setup for __aeabi_lmul, byteshift loads, pointers, and all arithmetic need
+ * Lo registers, and this shuffling results in thousands more MOVs than A32.
+ *
+ * A32 and T32 don't have this limitation. They can access all 14 registers,
+ * do a 32->64 multiply with UMULL, and the flexible operand is helpful too.
+ *
+ * If compiling Thumb-1 for a target which supports ARM instructions, we
+ * will give a warning.
+ *
+ * Usually, if this happens, it is because of an accident and you probably
+ * need to specify -march, as you probably meant to compileh for a newer
+ * architecture.
+ */
+#if defined(__thumb__) && !defined(__thumb2__) && defined(__ARM_ARCH_ISA_ARM)
+#   warning "XXH3 is highly inefficient without ARM or Thumb-2."
+#endif
 
 /* ==========================================
  * Vectorization detection
@@ -229,183 +262,136 @@ XXH_ALIGN(64) static const BYTE kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
 
-
+/*
+ * GCC for x86 has a tendency to use SSE in this loop. While it
+ * successfully avoids swapping (as MUL overwrites EAX and EDX), it
+ * slows it down because instead of free register swap shifts, it
+ * must use pshufd and punpckl/hd.
+ *
+ * To prevent this, we use this attribute to shut off SSE.
+ */
+#if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
+__attribute__((__target__("no-sse")))
+#endif
 static XXH128_hash_t
-XXH3_mul128(U64 ll1, U64 ll2)
+XXH_mult64to128(U64 lhs, U64 rhs)
 {
-/* __uint128_t seems a bad choice with emscripten current, see https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677 */
-#if !defined(__wasm__) && defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+    /*
+     * GCC/Clang __uint128_t method.
+     *
+     * On most 64-bit targets, GCC and Clang define a __uint128_t type.
+     * This is usually the best way as it usually uses a native long 64-bit
+     * multiply, such as MULQ on x86_64 or MUL + UMULH on aarch64.
+     *
+     * Usually.
+     *
+     * Despite being a 32-bit platform, Clang (and emscripten) define this
+     * type despite not having the arithmetic for it. This results in a
+     * laggy compiler builtin call which calculates a full 128-bit multiply.
+     * In that case it is best to use the portable one.
+     * https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677
+     */
+#if defined(__GNUC__) && !defined(__wasm__) \
+    && defined(__SIZEOF_INT128__) \
+    || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
-    __uint128_t lll = (__uint128_t)ll1 * ll2;
-    XXH128_hash_t const r128 = { (U64)(lll), (U64)(lll >> 64) };
+    __uint128_t product = (__uint128_t)lhs * (__uint128_t)rhs;
+    XXH128_hash_t const r128 = { (U64)(product), (U64)(product >> 64) };
     return r128;
 
+    /*
+     * MSVC for x64's _umul128 method.
+     *
+     * U64 _umul128(U64 Multiplier, U64 Multiplicand, U64 *HighProduct);
+     *
+     * This compiles to single operand MUL on x64.
+     */
 #elif defined(_M_X64) || defined(_M_IA64)
 
 #ifndef _MSC_VER
 #   pragma intrinsic(_umul128)
 #endif
-    U64 llhigh;
-    U64 const lllow = _umul128(ll1, ll2, &llhigh);
-    XXH128_hash_t const r128 = { lllow, llhigh };
+    U64 product_high;
+    U64 const product_low = _umul128(lhs, rhs, &product_high);
+    XXH128_hash_t const r128 = { product_low, product_high };
     return r128;
 
-#else /* Portable scalar version */
+#else
+    /*
+     * Portable scalar method. Optimized for 32-bit and 64-bit ALUs.
+     *
+     * This is a fast and simple grade school multiply, which is shown
+     * below with base 10 arithmetic instead of base 0x100000000.
+     *
+     *           9 3 // D2 lhs = 93
+     *         x 7 5 // D2 rhs = 75
+     *     ----------
+     *           1 5 // D2 lo_lo = (93 % 10) * (75 % 10)
+     *         4 5 | // D2 hi_lo = (93 / 10) * (75 % 10)
+     *         2 1 | // D2 lo_hi = (93 % 10) * (75 / 10)
+     *     + 6 3 | | // D2 hi_hi = (93 / 10) * (75 / 10)
+     *     ---------
+     *         2 7 | // D2 cross  = (15 / 10) + (45 % 10) + 21
+     *     + 6 7 | | // D2 upper  = (27 / 10) + (45 / 10) + 63
+     *     ---------
+     *       6 9 7 5
+     *
+     * The reasons for adding the products like this are:
+     *  1. It avoids manual carry tracking. Just like how
+     *     (9 * 9) + 9 + 9 = 99, the same applies with this for
+     *     UINT64_MAX. This avoids a lot of complexity.
+     *
+     *  2. It hints for, and on Clang, compiles to, the powerful UMAAL
+     *     instruction available in ARMv6+ A32/T32, which is shown below:
+     *
+     *         void UMAAL(U32 *RdLo, U32 *RdHi, U32 Rn, U32 Rm)
+     *         {
+     *             U64 product = (U64)*RdLo * (U64)*RdHi + Rn + Rm;
+     *             *RdLo = (U32)(product & 0xFFFFFFFF);
+     *             *RdHi = (U32)(product >> 32);
+     *         }
+     *
+     *     This instruction was designed for efficient long multiplication,
+     *     and allows this to be calculated in only 4 instructions which
+     *     is comparable to some 64-bit ALUs.
+     *
+     *  3. It isn't terrible on other platforms. Usually this will be
+     *     a couple of 32-bit ADD/ADCs.
+     */
 
-    /* emulate 64x64->128b multiplication, using four 32x32->64 */
-    U32 const h1 = (U32)(ll1 >> 32);
-    U32 const h2 = (U32)(ll2 >> 32);
-    U32 const l1 = (U32)ll1;
-    U32 const l2 = (U32)ll2;
+    /* First calculate all of the cross products. */
+    U64 const lo_lo = XXH_mult32to64(lhs & 0xFFFFFFFF, rhs & 0xFFFFFFFF);
+    U64 const hi_lo = XXH_mult32to64(lhs >> 32,        rhs & 0xFFFFFFFF);
+    U64 const lo_hi = XXH_mult32to64(lhs & 0xFFFFFFFF, rhs >> 32);
+    U64 const hi_hi = XXH_mult32to64(lhs >> 32,        rhs >> 32);
 
-    U64 const llh  = XXH_mult32to64(h1, h2);
-    U64 const llm1 = XXH_mult32to64(l1, h2);
-    U64 const llm2 = XXH_mult32to64(h1, l2);
-    U64 const lll  = XXH_mult32to64(l1, l2);
+    /* Now add the products together. These will never overflow. */
+    U64 const cross = (lo_lo >> 32) + (hi_lo & 0xFFFFFFFF) + lo_hi;
+    U64 const upper = (hi_lo >> 32) + (cross >> 32)        + hi_hi;
+    U64 const lower = (cross << 32) | (lo_lo & 0xFFFFFFFF);
 
-    U64 const t = lll + (llm1 << 32);
-    U64 const carry1 = t < lll;
-
-    U64 const lllow = t + (llm2 << 32);
-    U64 const carry2 = lllow < t;
-    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
-
-    XXH128_hash_t const r128 = { lllow, llhigh };
+    XXH128_hash_t r128 = { lower, upper };
     return r128;
-
 #endif
 }
 
-
-#if defined(__GNUC__) && defined(__i386__)
-/* GCC is stupid and tries to vectorize this.
- * This tells GCC that it is wrong. */
+/*
+ * We want to keep the attribute here because a target switch
+ * disables inlining.
+ *
+ * Does a 64-bit to 128-bit multiply, then XOR folds it.
+ * The reason for the separate function is to prevent passing
+ * too many structs around by value. This will hopefully inline
+ * the multiply, but we don't force it.
+ */
+#if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
 __attribute__((__target__("no-sse")))
 #endif
 static U64
-XXH3_mul128_fold64(U64 ll1, U64 ll2)
+XXH3_mul128_fold64(U64 lhs, U64 rhs)
 {
-/* __uint128_t seems a bad choice with emscripten current, see https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677 */
-#if !defined(__wasm__) && defined(__SIZEOF_INT128__) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
-
-    __uint128_t lll = (__uint128_t)ll1 * ll2;
-    return (U64)lll ^ (U64)(lll >> 64);
-
-#elif defined(_M_X64) || defined(_M_IA64)
-
-#ifndef _MSC_VER
-#   pragma intrinsic(_umul128)
-#endif
-    U64 llhigh;
-    U64 const lllow = _umul128(ll1, ll2, &llhigh);
-    return lllow ^ llhigh;
-
-    /* We have to do it out manually on 32-bit.
-     * This is a modified, unrolled, widened, and optimized version of the
-     * mulqdu routine from Hacker's Delight.
-     *
-     *   https://www.hackersdelight.org/hdcodetxt/mulqdu.c.txt
-     *
-     * This was modified to use U32->U64 multiplication instead
-     * of U16->U32, to add the high and low values in the end,
-     * be endian-independent, and I added a partial assembly
-     * implementation for ARM. */
-
-    /* An easy 128-bit folding multiply on ARMv6T2 and ARMv7-A/R can be done with
-     * the mighty umaal (Unsigned Multiply Accumulate Accumulate Long) which takes 4 cycles
-     * or less, doing a long multiply and adding two 32-bit integers:
-     *
-     *     void umaal(U32 *RdLo, U32 *RdHi, U32 Rn, U32 Rm)
-     *     {
-     *         U64 prodAcc = (U64)Rn * (U64)Rm;
-     *         prodAcc += *RdLo;
-     *         prodAcc += *RdHi;
-     *         *RdLo = prodAcc & 0xFFFFFFFF;
-     *         *RdHi = prodAcc >> 32;
-     *     }
-     *
-     * This is compared to umlal which adds to a single 64-bit integer:
-     *
-     *     void umlal(U32 *RdLo, U32 *RdHi, U32 Rn, U32 Rm)
-     *     {
-     *         U64 prodAcc = (U64)Rn * (U64)Rm;
-     *         prodAcc += (*RdLo | ((U64)*RdHi << 32);
-     *         *RdLo = prodAcc & 0xFFFFFFFF;
-     *         *RdHi = prodAcc >> 32;
-     *     }
-     *
-     * Getting the compiler to emit them is like pulling teeth, and checking
-     * for it is annoying because ARMv7-M lacks this instruction. However, it
-     * is worth it, because this is an otherwise expensive operation. */
-
-     /* GCC-compatible, ARMv6t2 or ARMv7+, non-M variant, and 32-bit */
-#elif defined(__GNUC__) /* GCC-compatible */ \
-    && defined(__ARM_ARCH) && !defined(__aarch64__) && !defined(__arm64__) /* 32-bit ARM */\
-    && !defined(__ARM_ARCH_7M__) /* <- Not ARMv7-M  vv*/ \
-        && !(defined(__TARGET_ARCH_ARM) && __TARGET_ARCH_ARM == 0 && __TARGET_ARCH_THUMB == 4) \
-    && (defined(__ARM_ARCH_6T2__) || __ARM_ARCH > 6) /* ARMv6T2 or later */
-
-    U32 w[4] = { 0 };
-    U32 u[2] = { (U32)(ll1 >> 32), (U32)ll1 };
-    U32 v[2] = { (U32)(ll2 >> 32), (U32)ll2 };
-    U32 k;
-
-    /* U64 t = (U64)u[1] * (U64)v[1];
-     * w[3] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
-    __asm__("umull %0, %1, %2, %3"
-            : "=r" (w[3]), "=r" (k)
-            : "r" (u[1]), "r" (v[1]));
-
-    /* t = (U64)u[0] * (U64)v[1] + w[2] + k;
-     * w[2] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
-    __asm__("umaal %0, %1, %2, %3"
-            : "+r" (w[2]), "+r" (k)
-            : "r" (u[0]), "r" (v[1]));
-    w[1] = k;
-    k = 0;
-
-    /* t = (U64)u[1] * (U64)v[0] + w[2] + k;
-     * w[2] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
-    __asm__("umaal %0, %1, %2, %3"
-            : "+r" (w[2]), "+r" (k)
-            : "r" (u[1]), "r" (v[0]));
-
-    /* t = (U64)u[0] * (U64)v[0] + w[1] + k;
-     * w[1] = t & 0xFFFFFFFF;
-     * k = t >> 32; */
-    __asm__("umaal %0, %1, %2, %3"
-            : "+r" (w[1]), "+r" (k)
-            : "r" (u[0]), "r" (v[0]));
-    w[0] = k;
-
-    return (w[1] | ((U64)w[0] << 32)) ^ (w[3] | ((U64)w[2] << 32));
-
-#else /* Portable scalar version */
-
-    /* emulate 64x64->128b multiplication, using four 32x32->64 */
-    U32 const h1 = (U32)(ll1 >> 32);
-    U32 const h2 = (U32)(ll2 >> 32);
-    U32 const l1 = (U32)ll1;
-    U32 const l2 = (U32)ll2;
-
-    U64 const llh  = XXH_mult32to64(h1, h2);
-    U64 const llm1 = XXH_mult32to64(l1, h2);
-    U64 const llm2 = XXH_mult32to64(h1, l2);
-    U64 const lll  = XXH_mult32to64(l1, l2);
-
-    U64 const t = lll + (llm1 << 32);
-    U64 const carry1 = t < lll;
-
-    U64 const lllow = t + (llm2 << 32);
-    U64 const carry2 = lllow < t;
-    U64 const llhigh = llh + (llm1 >> 32) + (llm2 >> 32) + carry1 + carry2;
-
-    return llhigh ^ lllow;
-
-#endif
+    XXH128_hash_t product = XXH_mult64to128(lhs, rhs);
+    return product.low64 ^ product.high64;
 }
 
 
@@ -835,13 +821,6 @@ XXH3_accumulate(       U64* XXH_RESTRICT acc,
                       XXH3_accWidth_e accWidth)
 {
     size_t n;
-    /* Clang doesn't unroll this loop without the pragma. Unrolling can be up to 1.4x faster.
-     * The unroll statement seems detrimental for WASM (@aras-p) and ARM though.
-     */
-#if defined(__clang__) && !defined(__OPTIMIZE_SIZE__) && !defined(__ARM_ARCH) && !defined(__EMSCRIPTEN__)
-#  pragma clang loop unroll(enable)
-#endif
-
     for (n = 0; n < nbStripes; n++ ) {
         XXH3_accumulate_512(acc,
                (const char*)data   + n*STRIPE_LEN,
@@ -1356,10 +1335,10 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
         U64 const ll1 = XXH_readLE64(data) ^ (XXH_readLE64(key64) + seed);
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
         U64 const inlow = ll1 ^ ll2;
-        XXH128_hash_t m128 = XXH3_mul128(inlow, PRIME64_1);
+        XXH128_hash_t m128 = XXH_mult64to128(inlow, PRIME64_1);
         m128.high64 += ll2 * PRIME64_1;
         m128.low64  ^= (m128.high64 >> 32);
-        {   XXH128_hash_t h128 = XXH3_mul128(m128.low64, PRIME64_2);
+        {   XXH128_hash_t h128 = XXH_mult64to128(m128.low64, PRIME64_2);
             h128.high64 += m128.high64 * PRIME64_2;
             h128.low64   = XXH3_avalanche(h128.low64);
             h128.high64  = XXH3_avalanche(h128.high64);

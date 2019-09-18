@@ -179,6 +179,8 @@ test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
 	./xxhsum lib* | ./xxhsum -c -
 	./xxhsum -H0 lib* | ./xxhsum -c -
+	# xxhsum -q does not display "Loading" message into stderr (#251)
+	! ./xxhsum -q xxh* 2>&1 | grep Loading
 	# xxhsum to/from file, shell redirection
 	./xxhsum lib* > .test.xxh64
 	./xxhsum -H0 lib* > .test.xxh32

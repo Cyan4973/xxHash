@@ -1,6 +1,6 @@
 /*
 *  xxhsum - Command line interface for xxhash algorithms
-*  Copyright (C) Yann Collet 2012-2016
+*  Copyright (C) Yann Collet 2013-present
 *
 *  GPL v2 License
 *
@@ -484,7 +484,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
             }
 
             /* Fill input buffer */
-            DISPLAYLEVEL(1, "\rLoading %s...        \n", inFileName);
+            DISPLAYLEVEL(2, "\rLoading %s...        \n", inFileName);
             {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
                 fclose(inFile);
                 if(readSize != benchedSize) {
@@ -999,7 +999,7 @@ static int BMK_hash(const char* fileName,
             && (fileNameEnd[-1-infoFilenameSize] != '/')
             && (fileNameEnd[-1-infoFilenameSize] != '\\') )
               infoFilenameSize++;
-        DISPLAY("\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
+        DISPLAYLEVEL(2, "\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
 
         /* Load file & update hash */
         switch(hashType)

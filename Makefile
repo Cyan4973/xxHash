@@ -160,6 +160,8 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	$(RUN_ENV) ./xxhsum -bi1
 	# file bench
 	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
+	# 32-bit
+	$(RUN_ENV) ./xxhsum -H0 xxhash.c
 	# 128-bit
 	$(RUN_ENV) ./xxhsum -H2 xxhash.c
 	# request incorrect variant
@@ -168,10 +170,8 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
-test-mem: xxhsum  ## valgrind tests for xxhsum CLI, looking for memory leaks
-	$(VALGRIND) ./xxhsum -bi1 xxhash.c
-	$(VALGRIND) ./xxhsum -H0  xxhash.c
-	$(VALGRIND) ./xxhsum -H1  xxhash.c
+test-mem: RUN_ENV = $(VALGRIND)
+test-mem: xxhsum check
 
 .PHONY: test32
 test32: clean xxhsum32

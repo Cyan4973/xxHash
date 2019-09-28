@@ -918,7 +918,7 @@ typedef union {
     XXH128_hash_t xxh128;
 } Multihash;
 
-/* xxhHashValue :
+/* BMK_hashStream :
  * read data from inFile,
  * generating incremental hash of type hashType,
  * using buffer of size blockSize for temporary storage. */
@@ -1054,12 +1054,15 @@ static int BMK_hash(const char* fileName,
     default:
         assert(0);
     }
-    DISPLAYRESULT("  %s \n", fileName);
+    DISPLAYRESULT("  %s\n", fileName);
 
     return 0;
 }
 
 
+/* BMK_hashFiles:
+ * if fnTotal==0, read from stdin insteal
+ */
 static int BMK_hashFiles(const char** fnList, int fnTotal,
                          algoType hashType, endianess displayEndianess)
 {
@@ -1299,55 +1302,54 @@ static void parseFile1(ParseFileArg* parseFileArg)
     memset(report, 0, sizeof(*report));
 
     while (!report->quit) {
-        FILE* fp = NULL;
         LineStatus lineStatus = LineStatus_hashFailed;
-        GetLineResult getLineResult;
         ParsedLine parsedLine;
         memset(&parsedLine, 0, sizeof(parsedLine));
 
         lineNumber++;
         if (lineNumber == 0) {
-            /* This is unlikely happen, but md5sum.c has this
-             * error check. */
+            /* This is unlikely happen, but md5sum.c has this error check. */
             DISPLAY("%s: Error: Too many checksum lines\n", inFileName);
             report->quit = 1;
             break;
         }
 
-        getLineResult = getLine(&parseFileArg->lineBuf, &parseFileArg->lineMax,
-                                parseFileArg->inFile);
-        if (getLineResult != GetLine_ok) {
-            if (getLineResult == GetLine_eof) break;
+        {   GetLineResult const getLineResult = getLine(&parseFileArg->lineBuf,
+                                                        &parseFileArg->lineMax,
+                                                         parseFileArg->inFile);
+            if (getLineResult != GetLine_ok) {
+                if (getLineResult == GetLine_eof) break;
 
-            switch (getLineResult)
-            {
-            case GetLine_ok:
-            case GetLine_eof:
-                /* These cases never happen.  See above getLineResult related "if"s.
-                   They exist just for make gcc's -Wswitch-enum happy. */
-                break;
+                switch (getLineResult)
+                {
+                case GetLine_ok:
+                case GetLine_eof:
+                    /* These cases never happen.  See above getLineResult related "if"s.
+                       They exist just for make gcc's -Wswitch-enum happy. */
+                    assert(0);
+                    break;
 
-            default:
-                DISPLAY("%s:%lu: Error: Unknown error.\n", inFileName, lineNumber);
-                break;
+                default:
+                    DISPLAY("%s:%lu: Error: Unknown error.\n", inFileName, lineNumber);
+                    break;
 
-            case GetLine_exceedMaxLineLength:
-                DISPLAY("%s:%lu: Error: Line too long.\n", inFileName, lineNumber);
-                break;
+                case GetLine_exceedMaxLineLength:
+                    DISPLAY("%s:%lu: Error: Line too long.\n", inFileName, lineNumber);
+                    break;
 
-            case GetLine_outOfMemory:
-                DISPLAY("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
+                case GetLine_outOfMemory:
+                    DISPLAY("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
+                    break;
+                }
+                report->quit = 1;
                 break;
-            }
-            report->quit = 1;
-            break;
-        }
+        }   }
 
         if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n"
-                    , inFileName, lineNumber);
+                DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n",
+                        inFileName, lineNumber);
             }
             continue;
         }
@@ -1357,8 +1359,8 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             report->nMixedFormatLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: Error: Multiple hash types in one file.\n"
-                    , inFileName, lineNumber);
+                DISPLAY("%s : %lu: Error: Multiple hash types in one file.\n",
+                        inFileName, lineNumber);
             }
             continue;
         }
@@ -1368,10 +1370,12 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->xxhBits = parsedLine.xxhBits;
         }
 
-        fp = fopen(parsedLine.filename, "rb");
-        if (fp == NULL) {
-            lineStatus = LineStatus_failedToOpen;
-        } else {
+        do {
+            FILE* const fp = fopen(parsedLine.filename, "rb");
+            if (fp == NULL) {
+                lineStatus = LineStatus_failedToOpen;
+                break;
+            }
             lineStatus = LineStatus_hashFailed;
             switch (parsedLine.xxhBits)
             {
@@ -1400,7 +1404,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 break;
             }
             fclose(fp);
-        }
+        } while (0);
 
         switch (lineStatus)
         {
@@ -1451,7 +1455,6 @@ static void parseFile1(ParseFileArg* parseFileArg)
  *    - All files are properly opened and read.
  *    - All hash values match with its content.
  *    - (strict mode) All lines in checksum file are consistent and well formatted.
- *
  */
 static int checkFile(const char* inFileName,
                      const endianess displayEndianess,

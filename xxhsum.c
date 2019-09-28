@@ -265,7 +265,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
-typedef enum { algo_xxh32, algo_xxh64 } algoType;
+typedef enum { algo_xxh32, algo_xxh64, algo_xxh128 } algoType;
 static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
@@ -912,15 +912,20 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
         DISPLAYRESULT("%02x", p[idx]);
 }
 
-static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* inFile, void* buffer, size_t blockSize)
+/* xxhHashValue : writable buffer of appropriate size :
+ * 4 for xxh32, 8 for xxh64, 16 for xxh128 */
+static void BMK_hashStream(void* xxhHashValue, const algoType hashType,
+                           FILE* inFile, void* buffer, size_t blockSize)
 {
-    XXH64_state_t state64;
     XXH32_state_t state32;
+    XXH64_state_t state64;
+    XXH3_state_t state128;
     size_t readSize;
 
     /* Init */
     (void)XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
     (void)XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
+    (void)XXH3_128bits_reset(&state128);
 
     /* Load file & update hash */
     readSize = 1;
@@ -934,6 +939,9 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
         case algo_xxh64:
             (void)XXH64_update(&state64, buffer, readSize);
             break;
+        case algo_xxh128:
+            (void)XXH3_128bits_update(&state128, buffer, readSize);
+            break;
         default:
             break;
         }
@@ -942,13 +950,18 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType, FILE* in
     switch(hashType)
     {
     case algo_xxh32:
-        {   U32 const h32 = XXH32_digest(&state32);
+        {   XXH32_hash_t const h32 = XXH32_digest(&state32);
             memcpy(xxhHashValue, &h32, sizeof(h32));
             break;
         }
     case algo_xxh64:
-        {   U64 const h64 = XXH64_digest(&state64);
+        {   XXH64_hash_t const h64 = XXH64_digest(&state64);
             memcpy(xxhHashValue, &h64, sizeof(h64));
+            break;
+        }
+    case algo_xxh128:
+        {   XXH128_hash_t const h128 = XXH3_128bits_digest(&state128);
+            memcpy(xxhHashValue, &h128, sizeof(h128));
             break;
         }
     default:
@@ -966,8 +979,9 @@ static int BMK_hash(const char* fileName,
     FILE*  inFile;
     size_t const blockSize = 64 KB;
     void*  buffer;
-    U32    h32 = 0;
-    U64    h64 = 0;
+    XXH32_hash_t h32 = 0;
+    XXH64_hash_t h64 = 0;
+    XXH128_hash_t h128 = { 0 , 0 };
 
     /* Check file existence */
     if (fileName == stdinName) {
@@ -1010,8 +1024,11 @@ static int BMK_hash(const char* fileName,
         case algo_xxh64:
             BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
             break;
-        default:
+        case algo_xxh128:
+            BMK_hashStream(&h128, algo_xxh128, inFile, buffer, blockSize);
             break;
+        default:
+            assert(0);
         }
 
         fclose(inFile);
@@ -1027,7 +1044,7 @@ static int BMK_hash(const char* fileName,
             (void)XXH32_canonicalFromHash(&hcbe32, h32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
-            DISPLAYRESULT("  %s\n", fileName);
+            DISPLAYRESULT("  %s \n", fileName);
             break;
         }
     case algo_xxh64:
@@ -1035,11 +1052,19 @@ static int BMK_hash(const char* fileName,
             (void)XXH64_canonicalFromHash(&hcbe64, h64);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
-            DISPLAYRESULT("  %s\n", fileName);
+            DISPLAYRESULT("  %s \n", fileName);
+            break;
+        }
+    case algo_xxh128:
+        {   XXH128_canonical_t hcbe128;
+            (void)XXH128_canonicalFromHash(&hcbe128, h128);
+            displayEndianess==big_endian ?
+                BMK_display_BigEndian(&hcbe128, sizeof(hcbe128)) : BMK_display_LittleEndian(&hcbe128, sizeof(hcbe128));
+            DISPLAYRESULT("  %s \n", fileName);
             break;
         }
     default:
-            break;
+        assert(0);
     }
 
     return 0;
@@ -1088,6 +1113,7 @@ typedef enum {
 typedef union {
     XXH32_canonical_t xxh32;
     XXH64_canonical_t xxh64;
+    XXH128_canonical_t xxh128;
 } Canonical;
 
 typedef struct {
@@ -1376,6 +1402,14 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 }   }
                 break;
 
+            case 128:
+                {   XXH128_hash_t xxh;
+                    BMK_hashStream(&xxh, algo_xxh128, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
+                    if (XXH128_isEqual(xxh, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
+                        lineStatus = LineStatus_hashOk;
+                }   }
+                break;
+
             default:
                 break;
             }
@@ -1547,11 +1581,11 @@ static int usage(const char* exename)
 {
     DISPLAY( WELCOME_MESSAGE(exename) );
     DISPLAY( "Usage :\n");
-    DISPLAY( "      %s [arg] [filenames]\n", exename);
-    DISPLAY( "When no filename provided, or - provided : use stdin as input\n");
-    DISPLAY( "Arguments :\n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits (default: %i)\n", (int)g_defaultAlgo);
-    DISPLAY( " -c  : read xxHash sums from the [filenames] and check them\n");
+    DISPLAY( "      %s [arg] [filenames] \n", exename);
+    DISPLAY( "When no filename provided, or - provided : use stdin as input \n");
+    DISPLAY( "Arguments : \n");
+    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=128bits (default: %i)\n", (int)g_defaultAlgo);
+    DISPLAY( " -c  : read xxHash sums from the [filenames] and check them \n");
     DISPLAY( " -h  : help \n");
     return 0;
 }
@@ -1647,8 +1681,10 @@ int main(int argc, const char** argv)
     algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;
 
-    /* special case : xxh32sum default to 32 bits checksum */
+    /* special case : xxhNNsum default to NN bits checksum */
     if (strstr(exename, "xxh32sum") != NULL) algo = algo_xxh32;
+    if (strstr(exename, "xxh64sum") != NULL) algo = algo_xxh64;
+    if (strstr(exename, "xxh128sum") != NULL) algo = algo_xxh128;
 
     for(i=1; i<argc; i++) {
         const char* argument = argv[i];

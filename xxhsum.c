@@ -943,7 +943,7 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType,
             (void)XXH3_128bits_update(&state128, buffer, readSize);
             break;
         default:
-            break;
+            assert(0);
         }
     }
 
@@ -965,7 +965,7 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType,
             break;
         }
     default:
-            break;
+        assert(0);
     }
 }
 
@@ -1682,8 +1682,8 @@ int main(int argc, const char** argv)
     endianess displayEndianess = big_endian;
 
     /* special case : xxhNNsum default to NN bits checksum */
-    if (strstr(exename, "xxh32sum") != NULL) algo = algo_xxh32;
-    if (strstr(exename, "xxh64sum") != NULL) algo = algo_xxh64;
+    if (strstr(exename,  "xxh32sum") != NULL) algo = algo_xxh32;
+    if (strstr(exename,  "xxh64sum") != NULL) algo = algo_xxh64;
     if (strstr(exename, "xxh128sum") != NULL) algo = algo_xxh128;
 
     for(i=1; i<argc; i++) {
@@ -1723,6 +1723,8 @@ int main(int argc, const char** argv)
             case 'H':
                 algo = (algoType)(argument[1] - '0');
                 argument+=2;
+                if (!((algo >= algo_xxh32) && (algo <= algo_xxh128)))
+                    return badusage(exename);
                 break;
 
             /* File check mode */

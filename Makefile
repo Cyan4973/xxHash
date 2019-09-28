@@ -160,6 +160,10 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	$(RUN_ENV) ./xxhsum -bi1
 	# file bench
 	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
+	# 128-bit
+	$(RUN_ENV) ./xxhsum -H2 xxhash.c
+	# request incorrect variant
+	! $(RUN_ENV) ./xxhsum -H9 xxhash.c
 
 
 .PHONY: test-mem

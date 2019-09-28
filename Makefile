@@ -254,8 +254,8 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
-xxhsum.1: xxhsum.1.md
-	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
+xxhsum.1: xxhsum.1.md xxhash.h
+	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
 man: xxhsum.1  ## generate man page from markdown source

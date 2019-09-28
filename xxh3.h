@@ -1336,7 +1336,7 @@ XXH3_len_9to16_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash
         U64 const ll2 = XXH_readLE64((const BYTE*)data + len - 8) ^ (XXH_readLE64(key64+1) - seed);
         U64 const inlow = ll1 ^ ll2;
         XXH128_hash_t m128 = XXH_mult64to128(inlow, PRIME64_1);
-        //U64 const lenContrib = (U64)(U32)len * (U64)PRIME32_5; m128.low64 += lenContrib;
+        U64 const lenContrib = (U64)(U32)len * (U64)PRIME32_5; m128.low64 += lenContrib;
         m128.high64 += ll2 * PRIME64_1;
         m128.low64  ^= (m128.high64 >> 32);
         {   XXH128_hash_t h128 = XXH_mult64to128(m128.low64, PRIME64_2);

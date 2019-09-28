@@ -1280,6 +1280,16 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
                 break;
             }
 
+        case 32:
+            {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
+                if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), line)
+                    != CanonicalFromString_ok) {
+                    return ParseLine_invalidFormat;
+                }
+                parsedLine->xxhBits = 128;
+                break;
+            }
+
         default:
                 return ParseLine_invalidFormat;
                 break;

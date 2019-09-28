@@ -165,7 +165,7 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	# 128-bit
 	$(RUN_ENV) ./xxhsum -H2 xxhash.c
 	# request incorrect variant
-	! $(RUN_ENV) ./xxhsum -H9 xxhash.c
+	$(RUN_ENV) ./xxhsum -H9 xxhash.c ; test $$? -eq 1
 
 
 .PHONY: test-mem
@@ -188,8 +188,10 @@ test-xxhsum-c: xxhsum
 	# xxhsum to/from file, shell redirection
 	./xxhsum xxh* > .test.xxh64
 	./xxhsum -H0 xxh* > .test.xxh32
+	./xxhsum -H2 xxh* > .test.xxh128
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
+	./xxhsum -c .test.xxh128
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
 	# xxhsum -c warns improperly format lines.
@@ -338,10 +340,12 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
 	@echo Installing man pages
 	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh128sum.1
 	@echo xxhash installation completed
 
 .PHONY: uninstall
@@ -353,9 +357,11 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
+	@$(RM) $(DESTDIR)$(BINDIR)/xxh128sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxhsum
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@$(RM) $(DESTDIR)$(MANDIR)/xxh128sum.1
 	@$(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
 	@echo xxhsum successfully uninstalled
 

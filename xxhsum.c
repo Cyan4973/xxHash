@@ -781,7 +781,7 @@ static void BMK_sanityCheck(void)
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
         BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0);                      /* zero-length hash is always 0 */
         BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0x7F69735D618DB3F0ULL);  /*  1 -  3 */
-        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0xBFCC7CB1B3554DCEULL);  /*  6 -  8 */
+        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0xBFCC7CB1B3554DCEULL);  /*  4 -  8 */
         BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x8C50DC90AC9206FCULL);  /*  9 - 16 */
         BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize, 0x1CD2C2EE9B9A0928ULL);  /* 17 - 32 */
         BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize, 0xA785256D9D65D514ULL);  /* 33 - 64 */
@@ -791,8 +791,8 @@ static void BMK_sanityCheck(void)
 
         BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize, 0xFC3911BBA656DB58ULL);  /* one block, last stripe is overlapping */
         BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x306137DD875741F1ULL);  /* one block, finishing at stripe boundary */
-        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0x2836B83880AD3C0CULL);  /* > one block, at least one scrambling */
-        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize, 0x3446E248A00CB44AULL);  /* > one block, at least one scrambling, last stripe unaligned */
+        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0x2836B83880AD3C0CULL);  /* >= 2 blocks, at least one scrambling */
+        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize, 0x3446E248A00CB44AULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
     }
 
 
@@ -912,15 +912,24 @@ static void BMK_display_BigEndian(const void* ptr, size_t length)
         DISPLAYRESULT("%02x", p[idx]);
 }
 
-/* xxhHashValue : writable buffer of appropriate size :
- * 4 for xxh32, 8 for xxh64, 16 for xxh128 */
-static void BMK_hashStream(void* xxhHashValue, const algoType hashType,
-                           FILE* inFile, void* buffer, size_t blockSize)
+typedef union {
+    XXH32_hash_t   xxh32;
+    XXH64_hash_t   xxh64;
+    XXH128_hash_t xxh128;
+} Multihash;
+
+/* xxhHashValue :
+ * read data from inFile,
+ * generating incremental hash of type hashType,
+ * using buffer of size blockSize for temporary storage. */
+static Multihash
+BMK_hashStream(FILE* inFile,
+               algoType hashType,
+               void* buffer, size_t blockSize)
 {
     XXH32_state_t state32;
     XXH64_state_t state64;
     XXH3_state_t state128;
-    size_t readSize;
 
     /* Init */
     (void)XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
@@ -928,44 +937,41 @@ static void BMK_hashStream(void* xxhHashValue, const algoType hashType,
     (void)XXH3_128bits_reset(&state128);
 
     /* Load file & update hash */
-    readSize = 1;
-    while (readSize) {
-        readSize = fread(buffer, 1, blockSize, inFile);
+    {   size_t readSize = 1;
+        while (readSize) {
+            readSize = fread(buffer, 1, blockSize, inFile);
+            switch(hashType)
+            {
+            case algo_xxh32:
+                (void)XXH32_update(&state32, buffer, readSize);
+                break;
+            case algo_xxh64:
+                (void)XXH64_update(&state64, buffer, readSize);
+                break;
+            case algo_xxh128:
+                (void)XXH3_128bits_update(&state128, buffer, readSize);
+                break;
+            default:
+                assert(0);
+            }
+    }   }
+
+    {   Multihash finalHash;
         switch(hashType)
         {
         case algo_xxh32:
-            (void)XXH32_update(&state32, buffer, readSize);
+            finalHash.xxh32 = XXH32_digest(&state32);
             break;
         case algo_xxh64:
-            (void)XXH64_update(&state64, buffer, readSize);
+            finalHash.xxh64 = XXH64_digest(&state64);
             break;
         case algo_xxh128:
-            (void)XXH3_128bits_update(&state128, buffer, readSize);
+            finalHash.xxh128 = XXH3_128bits_digest(&state128);
             break;
         default:
             assert(0);
         }
-    }
-
-    switch(hashType)
-    {
-    case algo_xxh32:
-        {   XXH32_hash_t const h32 = XXH32_digest(&state32);
-            memcpy(xxhHashValue, &h32, sizeof(h32));
-            break;
-        }
-    case algo_xxh64:
-        {   XXH64_hash_t const h64 = XXH64_digest(&state64);
-            memcpy(xxhHashValue, &h64, sizeof(h64));
-            break;
-        }
-    case algo_xxh128:
-        {   XXH128_hash_t const h128 = XXH3_128bits_digest(&state128);
-            memcpy(xxhHashValue, &h128, sizeof(h128));
-            break;
-        }
-    default:
-        assert(0);
+        return finalHash;
     }
 }
 
@@ -979,9 +985,7 @@ static int BMK_hash(const char* fileName,
     FILE*  inFile;
     size_t const blockSize = 64 KB;
     void*  buffer;
-    XXH32_hash_t h32 = 0;
-    XXH64_hash_t h64 = 0;
-    XXH128_hash_t h128 = { 0 , 0 };
+    Multihash hashValue;
 
     /* Check file existence */
     if (fileName == stdinName) {
@@ -1016,56 +1020,41 @@ static int BMK_hash(const char* fileName,
         DISPLAYLEVEL(2, "\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
 
         /* Load file & update hash */
-        switch(hashType)
-        {
-        case algo_xxh32:
-            BMK_hashStream(&h32, algo_xxh32, inFile, buffer, blockSize);
-            break;
-        case algo_xxh64:
-            BMK_hashStream(&h64, algo_xxh64, inFile, buffer, blockSize);
-            break;
-        case algo_xxh128:
-            BMK_hashStream(&h128, algo_xxh128, inFile, buffer, blockSize);
-            break;
-        default:
-            assert(0);
-        }
+        hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
 
         fclose(inFile);
         free(buffer);
         DISPLAY("%s             \r", fileNameEnd - infoFilenameSize);  /* erase line */
     }
 
-    /* display Hash */
+    /* display Hash value followed by file name */
     switch(hashType)
     {
     case algo_xxh32:
         {   XXH32_canonical_t hcbe32;
-            (void)XXH32_canonicalFromHash(&hcbe32, h32);
+            (void)XXH32_canonicalFromHash(&hcbe32, hashValue.xxh32);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
-            DISPLAYRESULT("  %s \n", fileName);
             break;
         }
     case algo_xxh64:
         {   XXH64_canonical_t hcbe64;
-            (void)XXH64_canonicalFromHash(&hcbe64, h64);
+            (void)XXH64_canonicalFromHash(&hcbe64, hashValue.xxh64);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
-            DISPLAYRESULT("  %s \n", fileName);
             break;
         }
     case algo_xxh128:
         {   XXH128_canonical_t hcbe128;
-            (void)XXH128_canonicalFromHash(&hcbe128, h128);
+            (void)XXH128_canonicalFromHash(&hcbe128, hashValue.xxh128);
             displayEndianess==big_endian ?
                 BMK_display_BigEndian(&hcbe128, sizeof(hcbe128)) : BMK_display_LittleEndian(&hcbe128, sizeof(hcbe128));
-            DISPLAYRESULT("  %s \n", fileName);
             break;
         }
     default:
         assert(0);
     }
+    DISPLAYRESULT("  %s \n", fileName);
 
     return 0;
 }
@@ -1387,25 +1376,22 @@ static void parseFile1(ParseFileArg* parseFileArg)
             switch (parsedLine.xxhBits)
             {
             case 32:
-                {   XXH32_hash_t xxh;
-                    BMK_hashStream(&xxh, algo_xxh32, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
-                    if (xxh == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
+                {   Multihash const xxh = BMK_hashStream(fp, algo_xxh32, parseFileArg->blockBuf, parseFileArg->blockSize);
+                    if (xxh.xxh32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;
 
             case 64:
-                {   XXH64_hash_t xxh;
-                    BMK_hashStream(&xxh, algo_xxh64, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
-                    if (xxh == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
+                {   Multihash const xxh = BMK_hashStream(fp, algo_xxh64, parseFileArg->blockBuf, parseFileArg->blockSize);
+                    if (xxh.xxh64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;
 
             case 128:
-                {   XXH128_hash_t xxh;
-                    BMK_hashStream(&xxh, algo_xxh128, fp, parseFileArg->blockBuf, parseFileArg->blockSize);
-                    if (XXH128_isEqual(xxh, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
+                {   Multihash const xxh = BMK_hashStream(fp, algo_xxh128, parseFileArg->blockBuf, parseFileArg->blockSize);
+                    if (XXH128_isEqual(xxh.xxh128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;

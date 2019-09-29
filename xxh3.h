@@ -1297,7 +1297,7 @@ XXH3_len_1to3_128b(const void* data, size_t len, const void* keyPtr, XXH64_hash_
         U64  const keyedl = (U64)combinedl ^ (XXH_readLE32(key32)   + seed);
         U64  const keyedh = (U64)combinedh ^ (XXH_readLE32(key32+1) - seed);
         U64  const mixedl = keyedl * PRIME64_1;
-        U64  const mixedh = keyedh * PRIME64_2;
+        U64  const mixedh = keyedh * PRIME64_5;
         XXH128_hash_t const h128 = { XXH3_avalanche(mixedl) /*low64*/, XXH3_avalanche(mixedh) /*high64*/ };
         return h128;
     }

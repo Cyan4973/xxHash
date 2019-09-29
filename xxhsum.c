@@ -802,10 +802,10 @@ static void BMK_sanityCheck(void)
     {   XXH128_hash_t const expected = { 0, 0 };
         BMK_testXXH128(NULL,           0, prime, expected);
     }
-    {   XXH128_hash_t const expected = { 0x7198D737CFE7F386ULL, 0x3EE70EA338F3F1E8ULL };
+    {   XXH128_hash_t const expected = { 0x7198D737CFE7F386ULL, 0x153C28D2A04DC807ULL };
         BMK_testXXH128(sanityBuffer,   1, 0,     expected);         /* 1-3 */
     }
-    {   XXH128_hash_t const expected = { 0x8E05996EC27C0F46ULL, 0x90DFC659A8BDCC0CULL };
+    {   XXH128_hash_t const expected = { 0x8E05996EC27C0F46ULL, 0x89A7484EC876D545ULL };
         BMK_testXXH128(sanityBuffer,   1, prime, expected);         /* 1-3 */
     }
     {   XXH128_hash_t const expected = { 0x22CBF5F3E1F6257CULL, 0xD4E6C2B94FFC3BFAULL };

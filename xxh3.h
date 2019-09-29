@@ -155,6 +155,117 @@
 #    define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
 #endif
 
+#if XXH_VECTOR == XXH_NEON
+/*
+ * NEON's VMULL.U32 (and VMLAL.U32) is different than SSE2/VSX:
+ *
+ *    U64x2 VMULL_U32(U32x2 a, U32x2 b)
+ *    {
+ *        return (U64x2)a * (U64x2)b;
+ *    }
+ *
+ * We need to split up our vector, going from this:
+ *
+ * [                 a                |                b                ]
+ *
+ * to this:
+ *
+ * [ a & 0xFFFFFFFF | b & 0xFFFFFFFF ] [    a >> 32    |     b >> 32    ]
+ *
+ * While doing this isn't complicated, there are two issues:
+ *    1. aarch64's drastic nerfs to both vzip and half registers make the
+ *       best solution COMPLETELY different from ARMv7a.
+ *    2. Neither GCC nor Clang ever generate the right code for ARMv7a,
+ *       requiring help from inline assembly.
+ *
+ * So we write a macro to do this:
+ *
+ * MACRO:
+ * inline void XXH_splitInPlace(uint64x2_t &in64, uint32x2_t &lo32, uint32x2_t &hi32)
+ * {
+ *     lo32 = (uint32x2_t)(in64 & 0xFFFFFFFF);
+ *     hi32 = (uint32x2_t)(in64 >> 32);
+ *     in64 = UNDEFINED;
+ * }
+ */
+#  if !defined(XXH_NO_VZIP_HACK) /* define this to use vshrn/vmovn instead */ \
+    && defined(__GNUC__) \
+    && !defined(__aarch64__) && !defined(__arm64__)
+   /*
+    * ARMv7a method: vzip.32 in place
+    *
+    * WHAT WE DO:
+    *
+    * Reinterpret the U64x2 as a U32x2x2, then use a half vzip.32 to
+    * shuffle in place.
+    *
+    *    typedef union {
+    *        uint64x2_t u64x2;
+    *        uint32x2x2_t u32x2x2;
+    *        uint32x4_t u32x4;
+    *    } QReg;
+    *    QReg pun = { .u64x2 = in64 };
+    *    pun.u32x2x2 = vzip_u32(vget_low_u32(pun.u32x4), vget_high_u32(pun.u32x4));
+    *    lo32 = vget_low_u32(pun.u32x4);
+    *    hi32 = vget_high_u32(pun.u32x4);
+    *
+    * WHY IT WORKS:
+    *
+    * In 32-bit NEON, you can freely use the lower and upper halves of
+    * a 128-bit NEON register separately, and they act like a union:
+    *
+    * [    q0    ][    q1    ][    q2    ]
+    * [ d0 ][ d1 ][ d2 ][ d3 ][ d4 ][ d5 ] ...
+    *
+    * vzip.32 modifies things in place:
+    *
+    * vzip.32   d0, d1
+    * d0: [ A | B ] -> [ A | C ]
+    *       .---'
+    * d1: [ C | D ] -> [ B | D ]
+    *
+    * and by shuffling the 32-bit lanes, we end up with the low and high
+    * 32-bit halves.
+    *
+    * Unfortunately, we can't use intrinsics here. Neither GCC nor Clang
+    * properly emit a vzip.32 in place, emitting excessive vmovs.
+    */
+#   define XXH_splitInPlace(in64, lo32, hi32)                \
+    do {                                                     \
+        /* %e = lower D reg half, %f = upper D reg half */   \
+        /* + = read/write, w = NEON register */              \
+        __asm__("vzip.32 %e0, %f0" : "+w" (in64));           \
+        (lo32) = vget_low_u32(vreinterpretq_u32_u64(in64));  \
+        (hi32) = vget_high_u32(vreinterpretq_u32_u64(in64)); \
+     } while (0)
+#else
+    /*
+     * aarch64/generic method: vshrn/vmovn
+     *
+     * aarch64 changed how shuffles and register access work,
+     * and for xxh3, not for the better:
+     *
+     *  1. We can't freely access upper halves of Q-registers. We need to
+     *     waste time with a vext. Additionally, just like w-registers,
+     *     writing to a half vector zeroes the upper bits.
+     *  2. Instead of vzip, we have zip1 and zip2. These don't overwrite
+     *     the source, but they only do a "half shuffle" (the same thing
+     *     as SSE2's punpcklo and punpckhi, respectively).
+     *  3. To add insult to injury, these half zips are actually *slower*
+     *     on most aarch64 chips than a *full* vzip on a Cortex-A15.
+     *
+     * Therefore, we should do vshrn/vmovn, which is just a downcast
+     * with an optional right shift (vmovn a.k.a. xtn is an alias for
+     * vshrn).
+     */
+#    define XXH_splitInPlace(in64, lo32, hi32)              \
+     do {                                                   \
+         (lo32) = vmovn_u64((in64));                        \
+         (hi32) = vshrn_n_u64((in64), 32);                  \
+     } while (0)
+#  endif
+#endif
+
 /* VSX stuff. It's a lot because VSX support is mediocre across compilers and
  * there is a lot of mischief with endianness. */
 #if XXH_VECTOR == XXH_VSX
@@ -536,59 +647,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
         size_t i;
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
-#if !defined(__aarch64__) && !defined(__arm64__) && defined(__GNUC__) /* ARM32-specific hack */
-            /* vzip on ARMv7 Clang generates a lot of vmovs (technically vorrs) without this.
-             * vzip on 32-bit ARM NEON will overwrite the original register, and I think that Clang
-             * assumes I don't want to destroy it and tries to make a copy. This slows down the code
-             * a lot.
-             * aarch64 not only uses an entirely different syntax, but it requires three
-             * instructions...
-             *    ext    v1.16B, v0.16B, #8    // select high bits because aarch64 can't address them directly
-             *    zip1   v3.2s, v0.2s, v1.2s   // first zip
-             *    zip2   v2.2s, v0.2s, v1.2s   // second zip
-             * ...to do what ARM does in one:
-             *    vzip.32 d0, d1               // Interleave high and low bits and overwrite. */
-
             /* data_vec = xdata[i]; */
             uint8x16_t const data_vec    = vld1q_u8(xdata + (i * 16));
-            /* key_vec  = xkey[i];  */
-            uint8x16_t const key_vec     = vld1q_u8(xkey  + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint32x4_t       data_key;
-
-            if (accWidth == XXH3_acc_64bits) {
-                /* Add first to prevent register swaps */
-                /* xacc[i] += data_vec; */
-                xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u8(data_vec));
-            } else {  /* XXH3_acc_128bits */
-                /* xacc[i] += swap(data_vec); */
-                /* can probably be optimized better */
-                uint64x2_t const data64 = vreinterpretq_u64_u8(data_vec);
-                uint64x2_t const swapped= vextq_u64(data64, data64, 1);
-                xacc[i] = vaddq_u64 (xacc[i], swapped);
-            }
-
-            data_key = vreinterpretq_u32_u8(veorq_u8(data_vec, key_vec));
-
-            /* Here's the magic. We use the quirkiness of vzip to shuffle data_key in place.
-             * shuffle: data_key[0, 1, 2, 3] = data_key[0, 2, 1, 3] */
-            __asm__("vzip.32 %e0, %f0" : "+w" (data_key));
-            /* xacc[i] += (uint64x2_t) data_key[0, 1] * (uint64x2_t) data_key[2, 3]; */
-            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(data_key), vget_high_u32(data_key));
-
-#else
-            /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
-
-            /* data_vec = xdata[i]; */
-            uint8x16_t const data_vec    = vld1q_u8(xdata + (i * 16));
-            /* key_vec  = xkey[i];  */
-            uint8x16_t const key_vec     = vld1q_u8(xkey  + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint8x16_t const data_key    = veorq_u8(data_vec, key_vec);
-            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
-            uint32x2_t const data_key_lo = vmovn_u64  (vreinterpretq_u64_u8(data_key));
-            /* data_key_hi = (uint32x2_t) (data_key >> 32); */
-            uint32x2_t const data_key_hi = vshrn_n_u64 (vreinterpretq_u64_u8(data_key), 32);
             if (accWidth == XXH3_acc_64bits) {
                 /* xacc[i] += data_vec; */
                 xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u8(data_vec));
@@ -598,10 +658,19 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                 uint64x2_t const swapped= vextq_u64(data64, data64, 1);
                 xacc[i] = vaddq_u64 (xacc[i], swapped);
             }
-            /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
-            xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
-
-#endif
+            {
+                /* key_vec  = xkey[i];  */
+                uint8x16_t const key_vec = vld1q_u8(xkey  + (i * 16));
+                /* data_key = data_vec ^ key_vec; */
+                uint64x2_t data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
+                uint32x2_t data_key_lo;
+                uint32x2_t data_key_hi;
+                /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
+                /* data_key_hi = (uint32x2_t) (data_key >> 32); */
+                XXH_splitInPlace(data_key, data_key_lo, data_key_hi);
+                /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
+                xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
+            }
         }
     }
 
@@ -736,18 +805,22 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const BYTE* XXH_RESTRICT key)
             /* key_vec  = xkey[i]; */
             uint32x4_t const   key_vec  = vreinterpretq_u32_u8(vld1q_u8(xkey + (i * 16)));
             /* data_key = data_vec ^ key_vec; */
-            uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
-            /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
-            uint32x2x2_t const shuffled = vzip_u32    (vget_low_u32(data_key), vget_high_u32(data_key));
+            uint32x4_t         data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
+            uint32x2_t data_key_lo;
+            uint32x2_t data_key_hi;
+            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
+            /* data_key_hi = (uint32x2_t) (data_key >> 32); */
+            XXH_splitInPlace(data_key, data_key_lo, data_key_hi);
 
-            /* data_key *= PRIME32_1 */
+            {   /* data_key *= PRIME32_1 */
 
-            /* prod_hi = (data_key >> 32) * PRIME32_1; */
-            uint64x2_t const   prod_hi = vmull_u32    (shuffled.val[1], prime);
-            /* xacc[i] = prod_hi << 32; */
-            xacc[i] = vshlq_n_u64(prod_hi, 32);
-            /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
-            xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
+                /* prod_hi = (data_key >> 32) * PRIME32_1; */
+                uint64x2_t const  prod_hi = vmull_u32(data_key_hi, prime);
+                /* xacc[i] = prod_hi << 32; */
+                xacc[i] = vshlq_n_u64(prod_hi, 32);
+                /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
+                xacc[i] = vmlal_u32(xacc[i], data_key_lo, prime);
+            }
     }   }
 
 #elif (XXH_VECTOR == XXH_VSX)

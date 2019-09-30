@@ -1659,10 +1659,10 @@ XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2)
 {
     XXH128_hash_t const h1 = *(const XXH128_hash_t*)h128_1;
     XXH128_hash_t const h2 = *(const XXH128_hash_t*)h128_2;
-    int const hcmp = (h1.high64 > h2.high64) - (h2.high64 > h1.high64);
+    int const hcmp = (h1.high64 > h2.high64) - (h1.high64 < h2.high64);
     /* note : bets that, in most cases, hash values are different */
     if (hcmp) return hcmp;
-    return (h1.low64 > h2.low64) - (h2.low64 > h1.low64);
+    return (h1.low64 > h2.low64) - (h1.low64 < h2.low64);
 }
 
 

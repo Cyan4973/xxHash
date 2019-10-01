@@ -429,15 +429,13 @@ static void BMK_dummy(volatile hashFunction h, const char* hName, const void* bu
     cStart = clock();
     while (clock() == cStart);   /* starts clock() at its exact beginning */
     cStart = clock();
-
     {   U32 u;
         for (u=0; u<nbh_perIteration; u++)
             r += h(buffer, bufferSize, u);
     }
-    if (r==0) DISPLAYLEVEL(3,"");  /* do something with r to defeat compiler "optimizing" away hash */
-
-    clock_t const end = clock();
-    g_overhead = end - cStart;
+    if (r==0) DISPLAYLEVEL(3,"%d",r);  /* do something with r to defeat compiler "optimizing" away hash */
+    { clock_t const end = clock();
+      g_overhead = end - cStart; }
 }
 
 /* BMK_benchMem():

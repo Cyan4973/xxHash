@@ -820,40 +820,40 @@ static void BMK_sanityCheck(void)
     {   XXH128_hash_t const expected = { 0xE3C75A78FE67D411ULL, 0xD4396DA60355312BULL };
         BMK_testXXH128(sanityBuffer,  12, prime, expected);         /* 9-16 */
     }
-    {   XXH128_hash_t const expected = { 0x46796F3F78B20F6BULL, 0x58FF55C3926C13FAULL };
+    {   XXH128_hash_t const expected = { 0x3FD725B2AABCF17DULL, 0x140592647F61C3E1ULL };
         BMK_testXXH128(sanityBuffer,  24, 0,     expected);         /* 17-32 */
     }
-    {   XXH128_hash_t const expected = { 0x30D5C4E9EB415C55ULL, 0x8868344B3A4645D0ULL };
+    {   XXH128_hash_t const expected = { 0x9A09D0F4A694DC09ULL, 0x1291B0C7375510E3ULL };
         BMK_testXXH128(sanityBuffer,  24, prime, expected);         /* 17-32 */
     }
-    {   XXH128_hash_t const expected = { 0xD8D4D3590D136E11ULL, 0x5527A42843020A62ULL };
+    {   XXH128_hash_t const expected = { 0x891306BA9DD1D15BULL, 0x32A41AEEC6DE94DEULL };
         BMK_testXXH128(sanityBuffer,  48, 0,     expected);         /* 33-64 */
     }
-    {   XXH128_hash_t const expected = { 0x1D8834E1A5407A1CULL, 0x44375B9FB060F541ULL };
+    {   XXH128_hash_t const expected = { 0xA199D324899B838EULL, 0x9BB6C003E18B3F75ULL };
         BMK_testXXH128(sanityBuffer,  48, prime, expected);         /* 33-64 */
     }
-    {   XXH128_hash_t const expected = { 0x4B9B448ED8DFD3DDULL, 0xE805A6D1A43D70E5ULL };
+    {   XXH128_hash_t const expected = { 0x33AA30F9947E2743ULL, 0x46307D818EC98842ULL };
         BMK_testXXH128(sanityBuffer,  81, 0,     expected);         /* 65-96 */
     }
-    {   XXH128_hash_t const expected = { 0xD2D6B075945617BAULL, 0xE58BE5736F6E7550ULL };
+    {   XXH128_hash_t const expected = { 0xAAF9F05DA0993E3CULL, 0x01752B9AFA24C856ULL };
         BMK_testXXH128(sanityBuffer,  81, prime, expected);         /* 65-96 */
     }
-    {   XXH128_hash_t const expected = { 0xC5A9F97B29EFA44EULL, 0x254DB7BE881E125CULL };
+    {   XXH128_hash_t const expected = { 0x01EE4637BFB66A1BULL, 0xE5CF6E0E85E92048ULL };
         BMK_testXXH128(sanityBuffer, 103, 0,     expected);         /* 97-128 */
     }
-    {   XXH128_hash_t const expected = { 0xFA2086367CDB177FULL, 0x0AEDEA68C988B0C0ULL };
+    {   XXH128_hash_t const expected = { 0x784D8A364F48D048ULL, 0x9010B884DAA01151ULL };
         BMK_testXXH128(sanityBuffer, 103, prime, expected);         /* 97-128 */
     }
-    {   XXH128_hash_t const expected = { 0xC3142FDDD9102A3FULL, 0x06F1747E77185F97ULL };
+    {   XXH128_hash_t const expected = { 0x5FA77B9DFE8B5CAEULL, 0x2834B37CEC6A753FULL };
         BMK_testXXH128(sanityBuffer, 192, 0,     expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0xA89F07B35987540FULL, 0xCF1B35FB2C557F54ULL };
+    {   XXH128_hash_t const expected = { 0x75441CE0359A979AULL, 0x399E2847427B3904ULL };
         BMK_testXXH128(sanityBuffer, 192, prime, expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0xA61AC4EB3295F86BULL, 0x33FA7B7598C28A07ULL };
+    {   XXH128_hash_t const expected = { 0xB02CC10BCFE61194ULL, 0xA27C9ABC8C06E4DDULL };
         BMK_testXXH128(sanityBuffer, 222, 0,     expected);         /* 129-240 */
     }
-    {   XXH128_hash_t const expected = { 0x54135EB88AD8B75EULL, 0xBC45CE6AE50BCF53ULL };
+    {   XXH128_hash_t const expected = { 0x972CB9C6BD8123EDULL, 0x3488C87B4B6FCE5FULL };
         BMK_testXXH128(sanityBuffer, 222, prime, expected);         /* 129-240 */
     }
     {   XXH128_hash_t const expected = { 0xB0C48E6D18E9D084ULL, 0xB16FC17E992FF45DULL };

@@ -1435,7 +1435,7 @@ XXH3_len_129to240_128b(const void* XXH_RESTRICT data, size_t len,
         acc1 += XXH3_mix16B (p + len - 16, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET     ,      seed);
         acc1 ^= XXH_readLE64(p+len-32) + XXH_readLE64(p+len-24);
         acc2 += XXH3_mix16B (p + len - 32, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16, 0ULL-seed);
-        acc1 ^= XXH_readLE64(p+len-16) + XXH_readLE64(p+len-8);
+        acc2 ^= XXH_readLE64(p+len-16) + XXH_readLE64(p+len-8);
 
         {   U64 const low64 = acc1 + acc2;
             U64 const high64 = (acc1 * PRIME64_1) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);
@@ -1444,6 +1444,7 @@ XXH3_len_129to240_128b(const void* XXH_RESTRICT data, size_t len,
         }
     }
 }
+
 
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_17to128_128b(const void* XXH_RESTRICT data, size_t len,

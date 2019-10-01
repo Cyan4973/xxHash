@@ -701,7 +701,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT key)
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
-    {   XXH_ALIGN(16) __m128i* const xaccX = (__m128i*) acc;
+    {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
         const         __m128i* const xkey = (const __m128i *) key;   /* not really aligned, just for ptr arithmetic */
         const __m128i prime32 = _mm_set1_epi32((int)PRIME32_1);
 

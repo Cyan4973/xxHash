@@ -122,7 +122,7 @@
 #    define XXH_VECTOR XXH_SSE2
 #  elif defined(__GNUC__) /* msvc support maybe later */ \
   && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
-  && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
+  && XXH_BYTE_ORDER == XXH_BYTE_ORDER_LITTLE_ENDIAN /* ARM big endian is a thing */
 #    define XXH_VECTOR XXH_NEON
 #  elif defined(__PPC64__) && defined(__POWER8_VECTOR__) && defined(__GNUC__)
 #    define XXH_VECTOR XXH_VSX
@@ -314,7 +314,7 @@ typedef __vector unsigned char U8x16;
 typedef __vector unsigned U32x4;
 
 #ifndef XXH_VSX_BE
-#  ifdef __BIG_ENDIAN__
+#  if XXH_BYTE_ORDER == XXH_BYTE_ORDER_BIG_ENDIAN
 #    define XXH_VSX_BE 1
 #  elif defined(__VEC_ELEMENT_REG_ORDER__) && __VEC_ELEMENT_REG_ORDER__ == __ORDER_BIG_ENDIAN__
 #    warning "-maltivec=be is not recommended. Please use native endianness."
@@ -836,9 +836,9 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const BYTE* XXH_RESTRICT secret)
             uint64x2_t const data_vec = veorq_u64   (acc_vec, shifted);
 
             /* key_vec  = xsecret[i]; */
-            uint32x4_t const key_vec  = vreinterpretq_u32_u8(vld1q_u8(xsecret + (i * 16)));
+            uint64x2_t const key_vec  = vreinterpretq_u64_u8(vld1q_u8(xsecret + (i * 16)));
             /* data_key = data_vec ^ key_vec; */
-            uint32x4_t       data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
+            uint64x2_t       data_key = veorq_u64   (data_vec, key_vec);
             uint32x2_t data_key_lo, data_key_hi;
             /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
             /* data_key_hi = (uint32x2_t) (data_key >> 32); */
@@ -1025,7 +1025,7 @@ XXH3_hashLong_64b_withSecret(const BYTE* XXH_RESTRICT input, size_t len,
 XXH_FORCE_INLINE void XXH_writeLE64(void* dst, U64 v64)
 {
     if (!XXH_CPU_LITTLE_ENDIAN) v64 = XXH_swap64(v64);
-    memcpy(dst, &v64, sizeof(v64));
+    XXH_memcpy(dst, &v64, sizeof(v64));
 }
 
 /* XXH3_initCustomSecret() :
@@ -1156,6 +1156,7 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
 
 /* ===   XXH3 streaming   === */
 
+#if !XXH_NO_STREAMING
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {
     return (XXH3_state_t*)XXH_malloc(sizeof(XXH3_state_t));
@@ -1170,7 +1171,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 XXH_PUBLIC_API void
 XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
 {
-    memcpy(dst_state, src_state, sizeof(*dst_state));
+    XXH_memcpy(dst_state, src_state, sizeof(*dst_state));
 }
 
 static void
@@ -1313,7 +1314,7 @@ XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
 XXH_FORCE_INLINE void
 XXH3_digest_long (XXH64_hash_t* acc, const XXH3_state_t* state, XXH3_accWidth_e accWidth)
 {
-    memcpy(acc, state->acc, sizeof(state->acc));  /* digest locally, state remains unaltered, and can continue ingesting more input afterwards */
+    XXH_memcpy(acc, state->acc, sizeof(state->acc));  /* digest locally, state remains unaltered, and can continue ingesting more input afterwards */
     if (state->bufferedSize >= STRIPE_LEN) {
         size_t const totalNbStripes = state->bufferedSize / STRIPE_LEN;
         XXH32_hash_t nbStripesSoFar = state->nbStripesSoFar;
@@ -1332,8 +1333,8 @@ XXH3_digest_long (XXH64_hash_t* acc, const XXH3_state_t* state, XXH3_accWidth_e 
         if (state->bufferedSize) { /* one last stripe */
             BYTE lastStripe[STRIPE_LEN];
             size_t const catchupSize = STRIPE_LEN - state->bufferedSize;
-            memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
-            memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
+            XXH_memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
+            XXH_memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
             XXH3_accumulate_512(acc,
                                 lastStripe,
                                 state->secret + state->secretLimit - XXH_SECRET_LASTACC_START,
@@ -1353,6 +1354,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
         return XXH3_64bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
     return XXH3_64bits_withSecret(state->buffer, (size_t)(state->totalLen), state->secret, state->secretLimit + STRIPE_LEN);
 }
+#endif /* !XXH_NO_STREAMING */
 
 /* ==========================================
  * XXH3 128 bits (=> XXH128)
@@ -1585,6 +1587,7 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 
 /* ===   XXH3 128-bit streaming   === */
 
+#if !XXH_NO_STREAMING
 /* all the functions are actually the same as for 64-bit streaming variant,
    just the reset one is different (different initial acc values for 0,5,6,7),
    and near the end of the digest function */
@@ -1648,6 +1651,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
         return XXH3_128bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
     return XXH3_128bits_withSecret(state->buffer, (size_t)(state->totalLen), state->secret, state->secretLimit + STRIPE_LEN);
 }
+#endif /* !XXH_NO_STREAMING */
 
 /* 128-bit utility functions */
 
@@ -1684,8 +1688,8 @@ XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash)
         hash.high64 = XXH_swap64(hash.high64);
         hash.low64  = XXH_swap64(hash.low64);
     }
-    memcpy(dst, &hash.high64, sizeof(hash.high64));
-    memcpy((char*)dst + sizeof(hash.high64), &hash.low64, sizeof(hash.low64));
+    XXH_memcpy(dst, &hash.high64, sizeof(hash.high64));
+    XXH_memcpy((char*)dst + sizeof(hash.high64), &hash.low64, sizeof(hash.low64));
 }
 
 XXH_PUBLIC_API XXH128_hash_t

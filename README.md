@@ -74,7 +74,13 @@ they modify libxxhash behavior. They are all disabled by default.
                      with performance improvements observed in the +200% range .
                      See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
                      Note: there is no need for an `xxhash.o` object file in this case.
-- `XXH_REROLL` : reduce size of generated code. Impact on performance vary, depending on platform and algorithm.
+- `XXH_OPTIMIZE_SIZE` : From a scale of 0-2, how much xxHash will prefer size over speed. This does nothing on its own, it just controls
+                        the defaults for other modifiers (see xxhash.c for the list). 0 means maximum speed, 1 means do some minor tweaksthat usually don't significantly
+                        affect performance, and it is the default when compiling with -Os or -Oz onnGCC and Clang. 2 means to prioritize size
+                        at all costs - even if it means terrible performance.
+- `XXH_REROLL` : Reroll some loops, mainly in XXH32 and XXH64. This can reduce size a lot and can sometimes be faster.
+- `XXH_DISABLE_INLINE_HINTS` : By default, xxHash uses attributes to manually enable or disable inlining. Defining this to 1 will only use `static`, allowing the compiler to decide (and reduce code size).
+- `XXH_STREAM_SINGLE_SHOT` : Use the streaming method for single shot hashes. Reduces size, but also tends to slow down short keys.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a `NULL` pointer,
                                     xxhash result is the same as a zero-length input
                                     (instead of a dereference segfault).
@@ -96,6 +102,9 @@ they modify libxxhash behavior. They are all disabled by default.
                               Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
                        for targets without 64-bit support.
+- `XXH_NO_STREAMING` : Removes support for all streaming hashes, using only the single shot variants.
+                       If you don't plan on using these, code size is roughly halved.
+                       Naturally, this cancels out `XXH_STREAM_SINGLE_SHOT`, and is not ABI-compatible.
 - `XXH_IMPORT` : MSVC specific : should only be defined for dynamic linking, it prevents linkage errors.
 
 

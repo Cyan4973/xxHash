@@ -67,6 +67,34 @@
 #  define XXH_ACCEPT_NULL_INPUT_POINTER 0
 #endif
 
+/*!XXH_OPTIMIZE_SIZE:
+ * Controls how much xxHash should prioritize size over speed.
+ * This enables suboptions automatically - they can be manually
+ * overridden.
+ *
+ * On GCC and Clang, compiling with -Os or -Oz will default this
+ * to 1, otherwise, it is zero.
+ *
+ * <= 0: Maximum speed.
+ *
+ * >= 1: Basic size optimizations. These usually don't make a large
+ *       impact on performance, and on some targets, it may be faster.
+ *   - XXH_REROLL=1: Major loops are rerolled.
+ *   - XXH_DISABLE_INLINE_HINTS=1: Gives the compiler full control of inlining..
+ *   - XXH_FORCE_ALIGN_CHECK=0: Unaligned access is always used.
+ *
+ * >= 2: Minimum size at all costs.
+ *   - XXH_STREAM_SINGLE_SHOT=1: Streams single shot hashes on XXH32/XXH64.
+ *   - More optimizations coming soon, especially for XXH3.
+ */
+#ifndef XXH_OPTIMIZE_SIZE
+#  if defined(__OPTIMIZE_SIZE__) /* predefined on GCC -Os */
+#    define XXH_OPTIMIZE_SIZE 1
+#  else
+#    define XXH_OPTIMIZE_SIZE 0
+#  endif
+#endif
+
 /*!XXH_FORCE_ALIGN_CHECK :
  * This is a minor performance trick, only useful with lots of very small keys.
  * It means : check for aligned/unaligned input.
@@ -75,11 +103,28 @@
  * or when alignment doesn't matter for performance.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#  if XXH_OPTIMIZE_SIZE >= 1 \
+     || defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
 #  endif
+#endif
+
+/*!XXH_DISABLE_INLINE_HINTS:
+ * Disables inline, __forceinline, always_inline,  and noinline, using
+ * `static` on all functions.
+ *
+ * On some devices, giving the compiler control of inlining may help performance.
+ *
+ * This is on by default with GCC/Clang's -fno-inline.
+ */
+#ifndef XXH_DISABLE_INLINE_HINTS
+#   if XXH_OPTIMIZE_SIZE >= 1 || defined(__NO_INLINE__) /* predefined on GCC -fno-inline */
+#      define XXH_DISABLE_INLINE_HINTS 1
+#   else
+#      define XXH_DISABLE_INLINE_HINTS 0
+#   endif
 #endif
 
 /*!XXH_REROLL:
@@ -88,10 +133,37 @@
  *
  * This is automatically defined on -Os/-Oz on GCC and Clang. */
 #ifndef XXH_REROLL
-#  if defined(__OPTIMIZE_SIZE__)
+#  if XXH_OPTIMIZE_SIZE >= 1
 #    define XXH_REROLL 1
 #  else
 #    define XXH_REROLL 0
+#  endif
+#endif
+
+/*!XXH_NO_STREAMING:
+ * Disables the "streaming" variants, only using single shot versions.
+ *
+ * This cancels out XXH_STREAM_SINGLE_SHOT. */
+#ifndef XXH_NO_STREAMING
+#   define XXH_NO_STREAMING 0
+#endif
+
+#if XXH_NO_STREAMING
+#   undef XXH_STREAM_SINGLE_SHOT
+#   define XXH_STREAM_SINGLE_SHOT 0
+#endif
+
+/*!XXH_STREAM_SINGLE_SHOT:
+ * Whether to make the single shot hash functions reuse the streaming variant
+ * instead of using a specialized version.
+ *
+ * This can significantly reduce the binary size, but short keys are usually
+ * MUCH slower. */
+#ifndef XXH_STREAM_SINGLE_SHOT
+#  if XXH_OPTIMIZE_SIZE >= 2
+#    define XXH_STREAM_SINGLE_SHOT 1
+#  else
+#    define XXH_STREAM_SINGLE_SHOT 0
 #  endif
 #endif
 
@@ -101,8 +173,10 @@
 /*! Modify the local functions below should you wish to use some other memory routines
 *   for malloc(), free() */
 #include <stdlib.h>
+#if !XXH_NO_STREAMING
 static void* XXH_malloc(size_t s) { return malloc(s); }
 static void  XXH_free  (void* p)  { free(p); }
+#endif
 /*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
@@ -116,7 +190,10 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 /* *************************************
 *  Compiler Specific Options
 ***************************************/
-#ifdef _MSC_VER    /* Visual Studio */
+#if XXH_DISABLE_INLINE_HINTS /* only use static */
+#  define XXH_FORCE_INLINE static
+#  define XXH_NO_INLINE static
+#elif defined(_MSC_VER)   /* Visual Studio */
 #  pragma warning(disable : 4127)      /* disable: C4127: conditional expression is constant */
 #  define XXH_FORCE_INLINE static __forceinline
 #  define XXH_NO_INLINE static __declspec(noinline)
@@ -135,7 +212,20 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #  endif /* __STDC_VERSION__ */
 #endif
 
+#define XXH_BYTE_ORDER_LITTLE_ENDIAN 1234
+#define XXH_BYTE_ORDER_BIG_ENDIAN 4321
 
+#ifndef XXH_BYTE_ORDER
+#  if defined(__BYTE_ORDER__)
+#      define XXH_BYTE_ORDER __BYTE_ORDER__
+#  elif defined(_WIN32) || defined(__LITTLE_ENDIAN__)
+#      define XXH_BYTE_ORDER XXH_BYTE_ORDER_LITTLE_ENDIAN
+#  elif defined(__BIG_ENDIAN__)
+#      define XXH_BYTE_ORDER XXH_BYTE_ORDER_BIG_ENDIAN
+#  else
+#      define XXH_BYTE_ORDER -1
+#  endif
+#endif
 
 /* *************************************
 *  Debug
@@ -199,7 +289,7 @@ static U32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
 static U32 XXH_read32(const void* memPtr)
 {
     U32 val;
-    memcpy(&val, memPtr, sizeof(val));
+    XXH_memcpy(&val, memPtr, sizeof(val));
     return val;
 }
 
@@ -211,12 +301,18 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
+#   if XXH_BYTE_ORDER == XXH_BYTE_ORDER_LITTLE_ENDIAN
+#       define XXH_CPU_LITTLE_ENDIAN XXH_littleEndian
+#   elif XXH_BYTE_ORDER == XXH_BYTE_ORDER_BIG_ENDIAN
+#       define XXH_CPU_LITTLE_ENDIAN XXH_bigEndian
+#   else
 static int XXH_isLittleEndian(void)
 {
     const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
     return one.c[0];
 }
 #   define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
+#   endif
 #endif
 
 
@@ -475,7 +571,7 @@ XXH32_endian_align(const BYTE* input, size_t len, U32 seed, XXH_alignment align)
 
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, unsigned int seed)
 {
-#if 0
+#if XXH_STREAM_SINGLE_SHOT
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH32_state_t state;
     XXH32_reset(&state, seed);
@@ -497,6 +593,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, unsigned int s
 
 /*======   Hash streaming   ======*/
 
+#if !XXH_NO_STREAMING
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 {
     return (XXH32_state_t*)XXH_malloc(sizeof(XXH32_state_t));
@@ -509,7 +606,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 
 XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t* srcState)
 {
-    memcpy(dstState, srcState, sizeof(*dstState));
+    XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
 XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int seed)
@@ -521,7 +618,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int s
     state.v3 = seed + 0;
     state.v4 = seed - PRIME32_1;
     /* do not write into reserved, planned to be removed in a future version */
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
+    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
 
@@ -607,7 +704,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest (const XXH32_state_t* state)
 
     return XXH32_finalize(h32, (const BYTE*)state->mem32, state->memsize, XXH_aligned);
 }
-
+#endif /* !XXH_NO_STREAMING */
 
 /*======   Canonical representation   ======*/
 
@@ -621,7 +718,7 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 {
     XXH_STATIC_ASSERT(sizeof(XXH32_canonical_t) == sizeof(XXH32_hash_t));
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
-    memcpy(dst, &hash, sizeof(*dst));
+    XXH_memcpy(dst, &hash, sizeof(*dst));
 }
 
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src)
@@ -698,7 +795,7 @@ static U64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
 static U64 XXH_read64(const void* memPtr)
 {
     U64 val;
-    memcpy(&val, memPtr, sizeof(val));
+    XXH_memcpy(&val, memPtr, sizeof(val));
     return val;
 }
 
@@ -948,7 +1045,7 @@ XXH64_endian_align(const BYTE* input, size_t len, U64 seed, XXH_alignment align)
 
 XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, unsigned long long seed)
 {
-#if 0
+#if XXH_STREAM_SINGLE_SHOT
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH64_state_t state;
     XXH64_reset(&state, seed);
@@ -969,6 +1066,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, unsigned long 
 
 /*======   Hash Streaming   ======*/
 
+#if !XXH_NO_STREAMING
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 {
     return (XXH64_state_t*)XXH_malloc(sizeof(XXH64_state_t));
@@ -981,7 +1079,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 
 XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t* srcState)
 {
-    memcpy(dstState, srcState, sizeof(*dstState));
+    XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long long seed)
@@ -993,7 +1091,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, unsigned long 
     state.v3 = seed + 0;
     state.v4 = seed - PRIME64_1;
      /* do not write into reserved64, might be removed in a future version */
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
+    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
     return XXH_OK;
 }
 
@@ -1081,7 +1179,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest (const XXH64_state_t* state)
 
     return XXH64_finalize(h64, (const BYTE*)state->mem64, (size_t)state->total_len, XXH_aligned);
 }
-
+#endif /* !XXH_NO_STREAMING */
 
 /*====== Canonical representation   ======*/
 
@@ -1089,7 +1187,7 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_canonical_t) == sizeof(XXH64_hash_t));
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
-    memcpy(dst, &hash, sizeof(*dst));
+    XXH_memcpy(dst, &hash, sizeof(*dst));
 }
 
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src)
@@ -1103,8 +1201,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 *  XXH3
 *  New generation hash designed for speed on small keys and vectorization
 ************************************************************************ */
-
 #include "xxh3.h"
-
 
 #endif  /* XXH_NO_LONG_LONG */

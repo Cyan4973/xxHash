@@ -1417,19 +1417,25 @@ XXH3_len_129to240_128b(const void* XXH_RESTRICT data, size_t len,
         int const nbRounds = (int)len / 32;
         int i;
         for (i=0; i<4; i++) {
-            acc1 += XXH3_mix16B(p+(32*i),    key+(32*i),         seed);
-            acc2 += XXH3_mix16B(p+(32*i)+16, key+(32*i)+16, 0ULL-seed);
+            acc1 += XXH3_mix16B (p+(32*i),    key+(32*i),         seed);
+            acc1 ^= XXH_readLE64(p+(32*i)+16) + XXH_readLE64(p+(32*i)+24);
+            acc2 += XXH3_mix16B (p+(32*i)+16, key+(32*i)+16, 0ULL-seed);
+            acc2 ^= XXH_readLE64(p+(32*i)) + XXH_readLE64(p+(32*i)+8);
         }
         acc1 = XXH3_avalanche(acc1);
         acc2 = XXH3_avalanche(acc2);
         XXH_ASSERT(nbRounds >= 4);
         for (i=4 ; i < nbRounds; i++) {
-            acc1 += XXH3_mix16B(p+(32*i)   , key+(32*(i-4))    + XXH3_MIDSIZE_STARTOFFSET,      seed);
-            acc2 += XXH3_mix16B(p+(32*i)+16, key+(32*(i-4))+16 + XXH3_MIDSIZE_STARTOFFSET, 0ULL-seed);
+            acc1 += XXH3_mix16B (p+(32*i)   , key+(32*(i-4))    + XXH3_MIDSIZE_STARTOFFSET,      seed);
+            acc1 ^= XXH_readLE64(p+(32*i)+16) + XXH_readLE64(p+(32*i)+24);
+            acc2 += XXH3_mix16B (p+(32*i)+16, key+(32*(i-4))+16 + XXH3_MIDSIZE_STARTOFFSET, 0ULL-seed);
+            acc2 ^= XXH_readLE64(p+(32*i)) + XXH_readLE64(p+(32*i)+8);
         }
         /* last bytes */
-        acc1 += XXH3_mix16B(p + len - 16, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET     ,      seed);
-        acc2 += XXH3_mix16B(p + len - 32, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16, 0ULL-seed);
+        acc1 += XXH3_mix16B (p + len - 16, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET     ,      seed);
+        acc1 ^= XXH_readLE64(p+len-32) + XXH_readLE64(p+len-24);
+        acc2 += XXH3_mix16B (p + len - 32, key + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16, 0ULL-seed);
+        acc1 ^= XXH_readLE64(p+len-16) + XXH_readLE64(p+len-8);
 
         {   U64 const low64 = acc1 + acc2;
             U64 const high64 = (acc1 * PRIME64_1) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);
@@ -1456,16 +1462,24 @@ XXH3_len_17to128_128b(const void* XXH_RESTRICT data, size_t len,
             if (len > 64) {
                 if (len > 96) {
                     acc1 += XXH3_mix16B(p+48, key+96, seed);
+                    acc1 ^= XXH_readLE64(p+len-64) + XXH_readLE64(p+len-56);
                     acc2 += XXH3_mix16B(p+len-64, key+112, seed);
+                    acc2 ^= XXH_readLE64(p+48) + XXH_readLE64(p+56);
                 }
                 acc1 += XXH3_mix16B(p+32, key+64, seed);
+                acc1 ^= XXH_readLE64(p+len-48) + XXH_readLE64(p+len-40);
                 acc2 += XXH3_mix16B(p+len-48, key+80, seed);
+                acc2 ^= XXH_readLE64(p+32) + XXH_readLE64(p+40);
             }
             acc1 += XXH3_mix16B(p+16, key+32, seed);
+            acc1 ^= XXH_readLE64(p+len-32) + XXH_readLE64(p+len-24);
             acc2 += XXH3_mix16B(p+len-32, key+48, seed);
+            acc2 ^= XXH_readLE64(p+16) + XXH_readLE64(p+24);
         }
         acc1 += XXH3_mix16B(p+0, key+0, seed);
+        acc1 ^= XXH_readLE64(p+len-16) + XXH_readLE64(p+len-8);
         acc2 += XXH3_mix16B(p+len-16, key+16, seed);
+        acc2 ^= XXH_readLE64(p) + XXH_readLE64(p+8);
 
         {   U64 const low64 = acc1 + acc2;
             U64 const high64 = (acc1 * PRIME64_1) + (acc2 * PRIME64_4) + ((len - seed) * PRIME64_2);

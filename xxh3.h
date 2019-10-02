@@ -1317,10 +1317,9 @@ XXH3_len_9to16_128b(const BYTE* input, size_t len, const BYTE* secret, XXH64_has
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(9 <= len && len <= 16);
-    {   U64 input_lo = XXH_readLE64(input) ^ (XXH_readLE64(secret) + seed);
-        U64 input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret+8) - seed);
-        input_lo ^= input_hi;
-        XXH128_hash_t m128 = XXH_mult64to128(input_lo, PRIME64_1);
+    {   U64 const input_lo = XXH_readLE64(input) ^ (XXH_readLE64(secret) + seed);
+        U64 const input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret+8) - seed);
+        XXH128_hash_t m128 = XXH_mult64to128(input_lo ^ input_hi, PRIME64_1);
         U64 const lenContrib = XXH_mult32to64(len, PRIME32_5);
         m128.low64 += lenContrib;
         m128.high64 += input_hi * PRIME64_1;

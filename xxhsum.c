@@ -345,8 +345,10 @@ static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return 
 static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
 static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64bits(buffer, bufferSize); }
+static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed); }
 
-static U32 localXXH128(const void* buffer, size_t bufferSize, U32 seed) { return (U32)(XXH128(buffer, bufferSize, seed).low64); }
+static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)(XXH3_128bits(buffer, bufferSize).low64); }
+static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64); }
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
@@ -360,7 +362,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-17.17s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
+        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
@@ -379,7 +381,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                 continue;
             }
             if (timeS < fastestH) fastestH = timeS;
-            DISPLAYLEVEL(2, "%1u-%-17.17s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+            DISPLAYLEVEL(2, "%1u-%-22.22s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                     iterationNb, hName, (U32)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
@@ -389,7 +391,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-19.19s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
+    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
         (double)1 / fastestH,
         ((double)bufferSize / (1<<20)) / fastestH);
     if (g_displayLevel<1)
@@ -424,7 +426,7 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 
     /* Bench XXH3 */
     if ((specificTest==0) | (specificTest==5))
-        BMK_benchHash(localXXH3_64b, "XXH3_64bits", buffer, bufferSize);
+        BMK_benchHash(localXXH3_64b, "XXH3_64b", buffer, bufferSize);
 
     /* Bench XXH3 on Unaligned input */
     if ((specificTest==0) | (specificTest==6))
@@ -432,13 +434,29 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 
     /* Bench XXH3 */
     if ((specificTest==0) | (specificTest==7))
-        BMK_benchHash(localXXH128, "XXH128", buffer, bufferSize);
+        BMK_benchHash(localXXH3_64b_seeded, "XXH3_64b seeded", buffer, bufferSize);
 
     /* Bench XXH3 on Unaligned input */
     if ((specificTest==0) | (specificTest==8))
-        BMK_benchHash(localXXH128, "XXH128 unaligned", ((const char*)buffer)+3, bufferSize);
+        BMK_benchHash(localXXH3_64b_seeded, "XXH3_64b seeded unaligned", ((const char*)buffer)+3, bufferSize);
 
-    if (specificTest > 8) {
+    /* Bench XXH3 */
+    if ((specificTest==0) | (specificTest==9))
+        BMK_benchHash(localXXH3_128b, "XXH128", buffer, bufferSize);
+
+    /* Bench XXH3 on Unaligned input */
+    if ((specificTest==0) | (specificTest==10))
+        BMK_benchHash(localXXH3_128b, "XXH128 unaligned", ((const char*)buffer)+3, bufferSize);
+
+    /* Bench XXH3 */
+    if ((specificTest==0) | (specificTest==11))
+        BMK_benchHash(localXXH3_128b_seeded, "XXH128 seeded", buffer, bufferSize);
+
+    /* Bench XXH3 on Unaligned input */
+    if ((specificTest==0) | (specificTest==12))
+        BMK_benchHash(localXXH3_128b_seeded, "XXH128 seeded unaligned", ((const char*)buffer)+3, bufferSize);
+
+    if (specificTest > 12) {
         DISPLAY("Benchmark mode invalid.\n");
         return 1;
     }

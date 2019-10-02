@@ -365,17 +365,15 @@ static U32 XXH32_avalanche(U32 h32)
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
 static U32
-XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
+XXH32_finalize(U32 h32, const BYTE* ptr, size_t len, XXH_alignment align)
 {
-    const BYTE* p = (const BYTE*)ptr;
-
 #define PROCESS1               \
-    h32 += (*p++) * PRIME32_5; \
+    h32 += (*ptr++) * PRIME32_5; \
     h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
 
 #define PROCESS4                         \
-    h32 += XXH_get32bits(p) * PRIME32_3; \
-    p+=4;                                \
+    h32 += XXH_get32bits(ptr) * PRIME32_3; \
+    ptr+=4;                                \
     h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
 
     /* Compact rerolled version */
@@ -436,16 +434,15 @@ XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align)
 }
 
 XXH_FORCE_INLINE U32
-XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
+XXH32_endian_align(const BYTE* input, size_t len, U32 seed, XXH_alignment align)
 {
-    const BYTE* p = (const BYTE*)input;
-    const BYTE* bEnd = p + len;
+    const BYTE* bEnd = input + len;
     U32 h32;
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
-    if (p==NULL) {
+    if (input==NULL) {
         len=0;
-        bEnd=p=(const BYTE*)(size_t)16;
+        bEnd=input=(const BYTE*)(size_t)16;
     }
 #endif
 
@@ -457,11 +454,11 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
         U32 v4 = seed - PRIME32_1;
 
         do {
-            v1 = XXH32_round(v1, XXH_get32bits(p)); p+=4;
-            v2 = XXH32_round(v2, XXH_get32bits(p)); p+=4;
-            v3 = XXH32_round(v3, XXH_get32bits(p)); p+=4;
-            v4 = XXH32_round(v4, XXH_get32bits(p)); p+=4;
-        } while (p < limit);
+            v1 = XXH32_round(v1, XXH_get32bits(input)); input += 4;
+            v2 = XXH32_round(v2, XXH_get32bits(input)); input += 4;
+            v3 = XXH32_round(v3, XXH_get32bits(input)); input += 4;
+            v4 = XXH32_round(v4, XXH_get32bits(input)); input += 4;
+        } while (input < limit);
 
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
@@ -471,7 +468,7 @@ XXH32_endian_align(const void* input, size_t len, U32 seed, XXH_alignment align)
 
     h32 += (U32)len;
 
-    return XXH32_finalize(h32, p, len&15, align);
+    return XXH32_finalize(h32, input, len&15, align);
 }
 
 
@@ -481,17 +478,17 @@ XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, unsigned int s
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH32_state_t state;
     XXH32_reset(&state, seed);
-    XXH32_update(&state, input, len);
+    XXH32_update(&state, (const BYTE*)input, len);
     return XXH32_digest(&state);
 
 #else
 
     if (XXH_FORCE_ALIGN_CHECK) {
         if ((((size_t)input) & 3) == 0) {   /* Input is 4-bytes aligned, leverage the speed benefit */
-            return XXH32_endian_align(input, len, seed, XXH_aligned);
+            return XXH32_endian_align((const BYTE*)input, len, seed, XXH_aligned);
     }   }
 
-    return XXH32_endian_align(input, len, seed, XXH_unaligned);
+    return XXH32_endian_align((const BYTE*)input, len, seed, XXH_unaligned);
 #endif
 }
 
@@ -607,7 +604,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest (const XXH32_state_t* state)
 
     h32 += state->total_len_32;
 
-    return XXH32_finalize(h32, state->mem32, state->memsize, XXH_aligned);
+    return XXH32_finalize(h32, (const BYTE*)state->mem32, state->memsize, XXH_aligned);
 }
 
 
@@ -782,22 +779,20 @@ static U64 XXH64_avalanche(U64 h64)
 #define XXH_get64bits(p) XXH_readLE64_align(p, align)
 
 static U64
-XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
+XXH64_finalize(U64 h64, const BYTE* ptr, size_t len, XXH_alignment align)
 {
-    const BYTE* p = (const BYTE*)ptr;
-
 #define PROCESS1_64            \
-    h64 ^= (*p++) * PRIME64_5; \
+    h64 ^= (*ptr++) * PRIME64_5; \
     h64 = XXH_rotl64(h64, 11) * PRIME64_1;
 
 #define PROCESS4_64          \
-    h64 ^= (U64)(XXH_get32bits(p)) * PRIME64_1; \
-    p+=4;                    \
+    h64 ^= (U64)(XXH_get32bits(ptr)) * PRIME64_1; \
+    ptr+=4;                    \
     h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
 
 #define PROCESS8_64 {        \
-    U64 const k1 = XXH64_round(0, XXH_get64bits(p)); \
-    p+=8;                    \
+    U64 const k1 = XXH64_round(0, XXH_get64bits(ptr)); \
+    ptr+=8;                    \
     h64 ^= k1;               \
     h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4; \
 }
@@ -907,16 +902,15 @@ XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align)
 }
 
 XXH_FORCE_INLINE U64
-XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_alignment align)
+XXH64_endian_align(const BYTE* input, size_t len, U64 seed, XXH_alignment align)
 {
-    const BYTE* p = (const BYTE*)input;
-    const BYTE* bEnd = p + len;
+    const BYTE* bEnd = input + len;
     U64 h64;
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
-    if (p==NULL) {
+    if (input==NULL) {
         len=0;
-        bEnd=p=(const BYTE*)(size_t)32;
+        bEnd=input=(const BYTE*)(size_t)32;
     }
 #endif
 
@@ -928,11 +922,11 @@ XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_alignment align)
         U64 v4 = seed - PRIME64_1;
 
         do {
-            v1 = XXH64_round(v1, XXH_get64bits(p)); p+=8;
-            v2 = XXH64_round(v2, XXH_get64bits(p)); p+=8;
-            v3 = XXH64_round(v3, XXH_get64bits(p)); p+=8;
-            v4 = XXH64_round(v4, XXH_get64bits(p)); p+=8;
-        } while (p<=limit);
+            v1 = XXH64_round(v1, XXH_get64bits(input)); input+=8;
+            v2 = XXH64_round(v2, XXH_get64bits(input)); input+=8;
+            v3 = XXH64_round(v3, XXH_get64bits(input)); input+=8;
+            v4 = XXH64_round(v4, XXH_get64bits(input)); input+=8;
+        } while (input<=limit);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
         h64 = XXH64_mergeRound(h64, v1);
@@ -946,7 +940,7 @@ XXH64_endian_align(const void* input, size_t len, U64 seed, XXH_alignment align)
 
     h64 += (U64) len;
 
-    return XXH64_finalize(h64, p, len, align);
+    return XXH64_finalize(h64, input, len, align);
 }
 
 
@@ -956,17 +950,17 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, unsigned long 
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH64_state_t state;
     XXH64_reset(&state, seed);
-    XXH64_update(&state, input, len);
+    XXH64_update(&state, (const BYTE*)input, len);
     return XXH64_digest(&state);
 
 #else
 
     if (XXH_FORCE_ALIGN_CHECK) {
         if ((((size_t)input) & 7)==0) {  /* Input is aligned, let's leverage the speed advantage */
-            return XXH64_endian_align(input, len, seed, XXH_aligned);
+            return XXH64_endian_align((const BYTE*)input, len, seed, XXH_aligned);
     }   }
 
-    return XXH64_endian_align(input, len, seed, XXH_unaligned);
+    return XXH64_endian_align((const BYTE*)input, len, seed, XXH_unaligned);
 
 #endif
 }
@@ -1083,7 +1077,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest (const XXH64_state_t* state)
 
     h64 += (U64) state->total_len;
 
-    return XXH64_finalize(h64, state->mem64, (size_t)state->total_len, XXH_aligned);
+    return XXH64_finalize(h64, (const BYTE*)state->mem64, (size_t)state->total_len, XXH_aligned);
 }
 
 

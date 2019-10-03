@@ -650,22 +650,16 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
     const BYTE* const xsecret  = (const BYTE*) secret;   /* no alignment restriction */
     size_t i;
     XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
-    for (i=0; i < ACC_NB; i+=2) {
-        U64 const in1 = XXH_readLE64(xinput + 8*i);
-        U64 const in2 = XXH_readLE64(xinput + 8*(i+1));
-        U64 const key1  = XXH_readLE64(xsecret + 8*i);
-        U64 const key2  = XXH_readLE64(xsecret + 8*(i+1));
-        U64 const data_key1 = key1 ^ in1;
-        U64 const data_key2 = key2 ^ in2;
-        xacc[i]   += XXH_mult32to64(data_key1 & 0xFFFFFFFF, data_key1 >> 32);
-        xacc[i+1] += XXH_mult32to64(data_key2 & 0xFFFFFFFF, data_key2 >> 32);
-        if (accWidth == XXH3_acc_128bits) {
-            xacc[i]   += in2;
-            xacc[i+1] += in1;
-        } else {  /* XXH3_acc_64bits */
-            xacc[i]   += in1;
-            xacc[i+1] += in2;
+    for (i=0; i < ACC_NB; i++) {
+        U64 const data_val = XXH_readLE64(xinput + 8*i);
+        U64 const data_key = data_val ^ XXH_readLE64(xsecret + i*8);
+
+        if (accWidth == XXH3_acc_64bits) {
+            xacc[i] += data_val;
+        } else {
+            xacc[i ^ 1] += data_val; /* swap adjacent lanes */
         }
+        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
     }
 #endif
 }
@@ -690,7 +684,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             __m256i const key_vec     = _mm256_loadu_si256   (xsecret+i);
             __m256i const data_key    = _mm256_xor_si256     (data_vec, key_vec);
 
-            /* xacx[i] *= PRIME32_1; */
+            /* xacc[i] *= PRIME32_1; */
             __m256i const data_key_hi = _mm256_shuffle_epi32 (data_key, 0x31);
             __m256i const prod_lo     = _mm256_mul_epu32     (data_key, prime32);
             __m256i const prod_hi     = _mm256_mul_epu32     (data_key_hi, prime32);
@@ -715,7 +709,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             __m128i const key_vec     = _mm_loadu_si128   (xsecret+i);
             __m128i const data_key    = _mm_xor_si128     (data_vec, key_vec);
 
-            /* xacx[i] *= PRIME32_1; */
+            /* xacc[i] *= PRIME32_1; */
             __m128i const data_key_hi = _mm_shuffle_epi32 (data_key, 0x31);
             __m128i const prod_lo     = _mm_mul_epu32     (data_key, prime32);
             __m128i const prod_hi     = _mm_mul_epu32     (data_key_hi, prime32);
@@ -776,7 +770,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #if XXH_VSX_BE
         /* swap bytes words */
         U64x2 const key_raw  = vec_vsx_ld(0, xsecret + i);
-	U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
+        U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
 #else
         U64x2 const key_vec  = vec_vsx_ld(0, xsecret + i);
         U64x2 const data_key = data_vec ^ key_vec;
@@ -797,7 +791,6 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
     const BYTE* const xsecret = (const BYTE*) secret;   /* no alignment restriction */
     size_t i;
     XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
-
     for (i=0; i < ACC_NB; i++) {
         U64 const key64 = XXH_readLE64(xsecret + 8*i);
         U64 acc64 = xacc[i];
@@ -832,7 +825,8 @@ XXH3_accumulate(       U64* XXH_RESTRICT acc,
  *        However, it auto-vectorizes better AVX2 if it is `FORCE_INLINE`
  *        Pretty much every other modes and compilers prefer `FORCE_INLINE`.
  */
-#if defined(__clang__) && (XXH_VECTOR==0) && !defined(__AVX2__)
+
+#if defined(__clang__) && (XXH_VECTOR==0) && !defined(__AVX2__) && !defined(__arm__) && !defined(__thumb__)
 static void
 #else
 XXH_FORCE_INLINE void

@@ -155,9 +155,114 @@
 #    define XXH_mult32to64(x, y) ((U64)((x) & 0xFFFFFFFF) * (U64)((y) & 0xFFFFFFFF))
 #endif
 
+/*
+ * AVX2 and SSE2 use the exact same algorithm, just with different function names.
+ *
+ * We use these macros/typedefs to reduce duplication.
+ */
+#if XXH_VECTOR == XXH_AVX2
+   typedef __m256i XXH_vec_t;
+#  define XXH_loadu_si      _mm256_loadu_si256
+#  define XXH_set1_epi32    _mm256_set1_epi32
+#  define XXH_xor_si        _mm256_xor_si256
+#  define XXH_add_epi64     _mm256_add_epi64
+#  define XXH_shuffle_epi32 _mm256_shuffle_epi32
+#  define XXH_mul_epu32     _mm256_mul_epu32
+#  define XXH_slli_epi64    _mm256_slli_epi64
+#  define XXH_srli_epi64    _mm256_srli_epi64
+#elif XXH_VECTOR == XXH_SSE2
+   typedef __m128i XXH_vec_t;
+#  define XXH_loadu_si      _mm_loadu_si128
+#  define XXH_set1_epi32    _mm_set1_epi32
+#  define XXH_xor_si        _mm_xor_si128
+#  define XXH_add_epi64     _mm_add_epi64
+#  define XXH_shuffle_epi32 _mm_shuffle_epi32
+#  define XXH_mul_epu32     _mm_mul_epu32
+#  define XXH_slli_epi64    _mm_slli_epi64
+#  define XXH_srli_epi64    _mm_srli_epi64
+#elif XXH_VECTOR == XXH_NEON
+/*
+ * NEON's setup for vmlal_u32 is a little more complicated than it is on
+ * SSE2, AVX2, and VSX2.
+ *
+ * NEON needs to split the 128-bit 'Q' register into two 64-bit 'D' registers,
+ * meaning that this:
+ *                                     Q5
+ *   [                a                 |                 b                ]
+ *
+ * must first be turned into this:
+ *                   D10                                 D11
+ *   [ a & 0xFFFFFFFF | b & 0xFFFFFFFF ],[    a >> 32     |     b >> 32    ]
+ *
+ * Due to significant changes in aarch64, the fastest method for aarch64 is
+ * completely different than the fastest method for ARMv7-A.
+ *
+ * ARMv7-A treats D registers as unions overlaying Q registers, so modifying
+ * D11 will modify the high half of Q5. This is similar to how modifying AH
+ * will only affect bits 8-15 of AX on x86.
+ *
+ * VZIP takes two registers, and puts even lanes in one register and odd lanes
+ * in the other.
+ *
+ * On ARMv7-A, this modifies both parameters in place instead of taking the
+ * usual 3-operand form.
+ *
+ * Therefore, if we want to do this, we can simply use a D-form VZIP.32 on the
+ * lower and upper halves of the Q register to end up with the high and low
+ * halves where we want - all in one instruction! (It needs inline assembly,
+ * though, as Clang and GCC always save a copy).
+ *
+ *   vzip.32   d10, d11       @ d10 = { d10[0], d11[0] }; d11 = { d10[1], d11[1] }
+ *
+ * aarch64 needs a different method.
+ *
+ * aarch64 cannot access the high bits of a Q-form register, and writes to a
+ * D-form register zero the high bits, similar to how writes to W-form scalar
+ * registers (or DWORD registers on x86_64) work.
+ *
+ * We would need to shift first with EXT.
+ *
+ * Additionally, VZIP.32 is replaced with ZIP1 and ZIP2, to keep in sync with
+ * the strict 3-operand format. The SSE2 equivalent is the PUNPCKL* and
+ * PUNPCKH* instructions.
+ *
+ * Instead, we use the normal way, vmovn_u64 (XTN), and vshrn_n_u64 (SHRN):
+ *
+ *   shrn   v1.2s, v0.2d, #32  // v1 = (uint32x2_t)(v0 >> 32);
+ *   xtn    v0.2s, v0.2d       // v0 = (uint32x2_t)(v0 & 0xFFFFFFFF);
+ */
+
+/*
+ * Function-like macro:
+ * XXH_SPLIT_IN_PLACE(uint64x2_t &in, uint32x2_t &outLo, uint32x2_t outHi)
+ * {
+ *     outLo = (uint32x2_t)(in & 0xFFFFFFFF);
+ *     outHi = (uint32x2_t)(in >> 32);
+ *     in = UNDEFINED;
+ * }
+ */
+#  if !defined(XXH_NO_VZIP_HACK) /* define to disable */ \
+     && defined(__GNUC__) \
+     && !defined(__aarch64__) && !defined(__arm64__)
+#    define XXH_SPLIT_IN_PLACE(in, outLo, outHi)                                             \
+     do {                                                                                  \
+         /* Undocumented GCC operand modifier: %e0 = lower D half, %f0 = upper D half */   \
+         /* https://github.com/gcc-mirror/gcc/blob/38cf91e5/gcc/config/arm/arm.c#L22486 */ \
+         __asm__("vzip.32\t%e0, %f0" : "+w" (in));                                         \
+         (outLo) = vget_low_u32(vreinterpretq_u32_u64(in));                                \
+         (outHi) = vget_high_u32(vreinterpretq_u32_u64(in));                               \
+     } while (0)
+#  else
+
+#    define XXH_SPLIT_IN_PLACE(in, outLo, outHi)   \
+     do {                                        \
+         (outLo) = vmovn_u64(in);                \
+         (outHi) = vshrn_n_u64(in, 32);          \
+     } while (0)
+#  endif
+#elif XXH_VECTOR == XXH_VSX
 /* VSX stuff. It's a lot because VSX support is mediocre across compilers and
  * there is a lot of mischief with endianness. */
-#if XXH_VECTOR == XXH_VSX
 #  include <altivec.h>
 #  undef vector
 typedef __vector unsigned long long U64x2;
@@ -478,116 +583,52 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT secret,
                     XXH3_accWidth_e accWidth)
 {
-#if (XXH_VECTOR == XXH_AVX2)
+#if (XXH_VECTOR == XXH_SSE2) || (XXH_VECTOR == XXH_AVX2)
 
-    XXH_ASSERT((((size_t)acc) & 31) == 0);
-    {   XXH_ALIGN(32) __m256i* const xacc  =       (__m256i *) acc;
-        const         __m256i* const xinput = (const __m256i *) input;  /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
-        const         __m256i* const xsecret = (const __m256i *) secret;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this type */
-
-        size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
-            __m256i const data_vec = _mm256_loadu_si256 (xinput+i);
-            __m256i const key_vec = _mm256_loadu_si256 (xsecret+i);
-            __m256i const data_key = _mm256_xor_si256 (data_vec, key_vec);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
-            __m256i const product = _mm256_mul_epu32 (data_key, _mm256_shuffle_epi32 (data_key, 0x31));  /* uint64 mul[4] = {dk0*dk1, dk2*dk3, ...} */
-            if (accWidth == XXH3_acc_128bits) {
-                __m256i const data_swap = _mm256_shuffle_epi32(data_vec, _MM_SHUFFLE(1,0,3,2));
-                __m256i const sum = _mm256_add_epi64(xacc[i], data_swap);
-                xacc[i]  = _mm256_add_epi64(product, sum);
-            } else {  /* XXH3_acc_64bits */
-                __m256i const sum = _mm256_add_epi64(xacc[i], data_vec);
-                xacc[i]  = _mm256_add_epi64(product, sum);
-            }
-    }   }
-
-#elif (XXH_VECTOR == XXH_SSE2)
-
-    XXH_ASSERT((((size_t)acc) & 15) == 0);
-    {   XXH_ALIGN(16) __m128i* const xacc  =       (__m128i *) acc;
-        const         __m128i* const xinput = (const __m128i *) input;  /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
-        const         __m128i* const xsecret = (const __m128i *) secret;   /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this type */
+    XXH_ASSERT((((size_t)acc) % XXH_ACC_ALIGN) == 0);
+    {   XXH_ALIGN(XXH_ACC_ALIGN) XXH_vec_t* const xacc  =       (XXH_vec_t *) acc;
+        const         XXH_vec_t* const xinput = (const XXH_vec_t *) input;  /* not really aligned, just for ptr arithmetic, and because XXH_vec_loadu_si() requires this type */
+        const         XXH_vec_t* const xsecret = (const XXH_vec_t *) secret;   /* not really aligned, just for ptr arithmetic, and because XXH_vec_loadu_si() requires this type */
 
         size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-            __m128i const data_vec = _mm_loadu_si128 (xinput+i);
-            __m128i const key_vec = _mm_loadu_si128 (xsecret+i);
-            __m128i const data_key = _mm_xor_si128 (data_vec, key_vec);                                  /* uint32 dk[8]  = {d0+k0, d1+k1, d2+k2, d3+k3, ...} */
-            __m128i const product = _mm_mul_epu32 (data_key, _mm_shuffle_epi32 (data_key, 0x31));  /* uint64 mul[4] = {dk0*dk1, dk2*dk3, ...} */
-            if (accWidth == XXH3_acc_128bits) {
-                __m128i const data_swap = _mm_shuffle_epi32(data_vec, _MM_SHUFFLE(1,0,3,2));
-                __m128i const sum = _mm_add_epi64(xacc[i], data_swap);
-                xacc[i]  = _mm_add_epi64(product, sum);
-            } else {  /* XXH3_acc_64bits */
-                __m128i const sum = _mm_add_epi64(xacc[i], data_vec);
-                xacc[i]  = _mm_add_epi64(product, sum);
+        for (i=0; i < STRIPE_LEN/sizeof(XXH_vec_t); i++) {
+            /* data_vec = xinput[i]; */
+            XXH_vec_t const data_vec = XXH_loadu_si (xinput+i);
+            /* key_vec = xsecret[i]; */
+            XXH_vec_t const key_vec  = XXH_loadu_si (xsecret+i);
+
+            if (accWidth == XXH3_acc_64bits) {
+                /* xacc[i] += data_vec; */
+                xacc[i] = XXH_add_epi64 (xacc[i], data_vec);
+            } else {  /* XXH3_acc_128bits */
+                /* xacc[i] += swap(data_vec); */
+                XXH_vec_t const data_swap = XXH_shuffle_epi32(data_vec, _MM_SHUFFLE(1,0,3,2));
+                xacc[i] = XXH_add_epi64(xacc[i], data_swap);
             }
-    }   }
+            {   /* data_key = data_vec ^ key_vec; */
+                XXH_vec_t const data_key    = XXH_xor_si       (data_vec, key_vec);
+                /* data_key_hi = data_key >> 32; */
+                XXH_vec_t const data_key_hi = XXH_shuffle_epi32(data_key, _MM_SHUFFLE(2, 3, 0, 1));
+                /* product = (data_key & 0xFFFFFFFF) * (data_key_hi & 0xFFFFFFFF); */
+                XXH_vec_t const product     = XXH_mul_epu32    (data_key, data_key_hi);
+                /* xacc[i] += product; */
+                xacc[i] = XXH_add_epi64(xacc[i], product);
+    }   }    }
 
 #elif (XXH_VECTOR == XXH_NEON)
 
     XXH_ASSERT((((size_t)acc) & 15) == 0);
     {
         XXH_ALIGN(16) uint64x2_t* const xacc = (uint64x2_t *) acc;
-        /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
+        /* We don't use a uint64_t pointer because it causes bus errors on ARMv7. */
         uint8_t const* const xinput = (const uint8_t *) input;
         uint8_t const* const xsecret  = (const uint8_t *) secret;
 
         size_t i;
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
-#if !defined(__aarch64__) && !defined(__arm64__) && defined(__GNUC__) /* ARM32-specific hack */
-            /* vzip on ARMv7 Clang generates a lot of vmovs (technically vorrs) without this.
-             * vzip on 32-bit ARM NEON will overwrite the original register, and I think that Clang
-             * assumes I don't want to destroy it and tries to make a copy. This slows down the code
-             * a lot.
-             * aarch64 not only uses an entirely different syntax, but it requires three
-             * instructions...
-             *    ext    v1.16B, v0.16B, #8    // select high bits because aarch64 can't address them directly
-             *    zip1   v3.2s, v0.2s, v1.2s   // first zip
-             *    zip2   v2.2s, v0.2s, v1.2s   // second zip
-             * ...to do what ARM does in one:
-             *    vzip.32 d0, d1               // Interleave high and low bits and overwrite. */
-
-            /* data_vec = xsecret[i]; */
+            /* data_vec = xinput[i]; */
             uint8x16_t const data_vec    = vld1q_u8(xinput + (i * 16));
-            /* key_vec  = xsecret[i];  */
-            uint8x16_t const key_vec     = vld1q_u8(xsecret  + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint32x4_t       data_key;
 
-            if (accWidth == XXH3_acc_64bits) {
-                /* Add first to prevent register swaps */
-                /* xacc[i] += data_vec; */
-                xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u8(data_vec));
-            } else {  /* XXH3_acc_128bits */
-                /* xacc[i] += swap(data_vec); */
-                /* can probably be optimized better */
-                uint64x2_t const data64 = vreinterpretq_u64_u8(data_vec);
-                uint64x2_t const swapped= vextq_u64(data64, data64, 1);
-                xacc[i] = vaddq_u64 (xacc[i], swapped);
-            }
-
-            data_key = vreinterpretq_u32_u8(veorq_u8(data_vec, key_vec));
-
-            /* Here's the magic. We use the quirkiness of vzip to shuffle data_key in place.
-             * shuffle: data_key[0, 1, 2, 3] = data_key[0, 2, 1, 3] */
-            __asm__("vzip.32 %e0, %f0" : "+w" (data_key));
-            /* xacc[i] += (uint64x2_t) data_key[0, 1] * (uint64x2_t) data_key[2, 3]; */
-            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(data_key), vget_high_u32(data_key));
-
-#else
-            /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
-
-            /* data_vec = xsecret[i]; */
-            uint8x16_t const data_vec    = vld1q_u8(xinput + (i * 16));
-            /* key_vec  = xsecret[i];  */
-            uint8x16_t const key_vec     = vld1q_u8(xsecret  + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint64x2_t const data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
-            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
-            uint32x2_t const data_key_lo = vmovn_u64  (data_key);
-            /* data_key_hi = (uint32x2_t) (data_key >> 32); */
-            uint32x2_t const data_key_hi = vshrn_n_u64 (data_key, 32);
             if (accWidth == XXH3_acc_64bits) {
                 /* xacc[i] += data_vec; */
                 xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u8(data_vec));
@@ -597,10 +638,18 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                 uint64x2_t const swapped= vextq_u64(data64, data64, 1);
                 xacc[i] = vaddq_u64 (xacc[i], swapped);
             }
-            /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
-            xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
-
-#endif
+            {   /* key_vec  = xsecret[i];  */
+                uint8x16_t const key_vec     = vld1q_u8(xsecret  + (i * 16));
+                /* data_key = data_vec ^ key_vec; */
+                uint64x2_t       data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
+                /* prepare for split */
+                uint32x2_t data_key_lo, data_key_hi;
+                /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
+                /* data_key_hi = (uint32x2_t) (data_key >> 32); */
+                XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
+                /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
+                xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
+            }
         }
     }
 
@@ -667,61 +716,41 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
-#if (XXH_VECTOR == XXH_AVX2)
+#if (XXH_VECTOR == XXH_SSE2) || (XXH_VECTOR == XXH_AVX2)
 
-    XXH_ASSERT((((size_t)acc) & 31) == 0);
-    {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
-        const         __m256i* const xsecret = (const __m256i *) secret;   /* not really aligned, just for ptr arithmetic, and because _mm256_loadu_si256() requires this argument type */
-        const __m256i prime32 = _mm256_set1_epi32((int)PRIME32_1);
-
-        size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
-            /* xacc[i] ^= (xacc[i] >> 47) */
-            __m256i const acc_vec     = xacc[i];
-            __m256i const shifted     = _mm256_srli_epi64    (acc_vec, 47);
-            __m256i const data_vec    = _mm256_xor_si256     (acc_vec, shifted);
-            /* xacc[i] ^= xsecret; */
-            __m256i const key_vec     = _mm256_loadu_si256   (xsecret+i);
-            __m256i const data_key    = _mm256_xor_si256     (data_vec, key_vec);
-
-            /* xacc[i] *= PRIME32_1; */
-            __m256i const data_key_hi = _mm256_shuffle_epi32 (data_key, 0x31);
-            __m256i const prod_lo     = _mm256_mul_epu32     (data_key, prime32);
-            __m256i const prod_hi     = _mm256_mul_epu32     (data_key_hi, prime32);
-            xacc[i] = _mm256_add_epi64(prod_lo, _mm256_slli_epi64(prod_hi, 32));
-        }
-    }
-
-#elif (XXH_VECTOR == XXH_SSE2)
-
-    XXH_ASSERT((((size_t)acc) & 15) == 0);
-    {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
-        const         __m128i* const xsecret = (const __m128i *) secret;   /* not really aligned, just for ptr arithmetic, and because _mm_loadu_si128() requires this argument type */
-        const __m128i prime32 = _mm_set1_epi32((int)PRIME32_1);
+    XXH_ASSERT((((size_t)acc) % XXH_ACC_ALIGN) == 0);
+    {   XXH_ALIGN(XXH_ACC_ALIGN) XXH_vec_t* const xacc = (XXH_vec_t*) acc;
+        const         XXH_vec_t* const xsecret = (const XXH_vec_t *) secret;   /* not really aligned, just for ptr arithmetic, and because XXH_loadu_si() requires this argument type */
+        const XXH_vec_t prime32 = XXH_set1_epi32((int)PRIME32_1);
 
         size_t i;
-        for (i=0; i < STRIPE_LEN/sizeof(__m128i); i++) {
-            /* xacc[i] ^= (xacc[i] >> 47) */
-            __m128i const acc_vec     = xacc[i];
-            __m128i const shifted     = _mm_srli_epi64    (acc_vec, 47);
-            __m128i const data_vec    = _mm_xor_si128     (acc_vec, shifted);
+        for (i=0; i < STRIPE_LEN/sizeof(XXH_vec_t); i++) {
+            /* data_vec = xacc[i] ^ (xacc[i] >> 47) */
+            XXH_vec_t const acc_vec     = xacc[i];
+            XXH_vec_t const shifted     = XXH_srli_epi64    (acc_vec, 47);
+            XXH_vec_t const data_vec    = XXH_xor_si        (acc_vec, shifted);
             /* xacc[i] ^= xsecret; */
-            __m128i const key_vec     = _mm_loadu_si128   (xsecret+i);
-            __m128i const data_key    = _mm_xor_si128     (data_vec, key_vec);
+            XXH_vec_t const key_vec     = XXH_loadu_si      (xsecret+i);
+            XXH_vec_t const data_key    = XXH_xor_si        (data_vec, key_vec);
 
-            /* xacc[i] *= PRIME32_1; */
-            __m128i const data_key_hi = _mm_shuffle_epi32 (data_key, 0x31);
-            __m128i const prod_lo     = _mm_mul_epu32     (data_key, prime32);
-            __m128i const prod_hi     = _mm_mul_epu32     (data_key_hi, prime32);
-            xacc[i] = _mm_add_epi64(prod_lo, _mm_slli_epi64(prod_hi, 32));
+            /* data_key *= PRIME32_1; */
+
+            /* data_key_hi = (data_key >> 32); */
+            XXH_vec_t const data_key_hi = XXH_shuffle_epi32 (data_key, 0x31);
+            /* prod_lo     = (data_key & 0xFFFFFFFF) * PRIME32_1; */
+            XXH_vec_t const prod_lo     = XXH_mul_epu32     (data_key, prime32);
+            /* prod_hi     = (data_key_hi & 0xFFFFFFFF) * PRIME32_1; */
+            XXH_vec_t const prod_hi     = XXH_mul_epu32     (data_key_hi, prime32);
+            /* xacc[i]     = prod_lo + (prod_hi << 32); */
+            xacc[i] = XXH_add_epi64(prod_lo, XXH_slli_epi64(prod_hi, 32));
         }
     }
 
 #elif (XXH_VECTOR == XXH_NEON)
 
-    XXH_ASSERT((((size_t)acc) & 15) == 0);
+    XXH_ASSERT((((size_t)acc) % XXH_ACC_ALIGN) == 0);
 
-    {   uint64x2_t* const xacc =     (uint64x2_t*) acc;
+    {   XXH_ALIGN(16) uint64x2_t* const xacc =     (uint64x2_t*) acc;
         uint8_t const* const xsecret = (uint8_t const*) secret;
         uint32x2_t const prime     = vdup_n_u32 (PRIME32_1);
 
@@ -733,19 +762,18 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             uint64x2_t const   data_vec = veorq_u64   (acc_vec, shifted);
 
             /* key_vec  = xsecret[i]; */
-            uint32x4_t const   key_vec  = vreinterpretq_u32_u8(vld1q_u8(xsecret + (i * 16)));
+            uint8x16_t const   key_vec  = vld1q_u8    (xsecret + (i * 16));
             /* data_key = data_vec ^ key_vec; */
-            uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
+            uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), vreinterpretq_u32_u8(key_vec));
             /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
             uint32x2x2_t const shuffled = vzip_u32    (vget_low_u32(data_key), vget_high_u32(data_key));
 
             /* data_key *= PRIME32_1 */
-
             /* prod_hi = (data_key >> 32) * PRIME32_1; */
             uint64x2_t const   prod_hi = vmull_u32    (shuffled.val[1], prime);
             /* xacc[i] = prod_hi << 32; */
             xacc[i] = vshlq_n_u64(prod_hi, 32);
-            /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
+            /* xacc[i] += (data_key & 0xFFFFFFFF) * PRIME32_1; */
             xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
     }   }
 
@@ -790,7 +818,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
     XXH_ALIGN(XXH_ACC_ALIGN) U64* const xacc = (U64*) acc;   /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
     const BYTE* const xsecret = (const BYTE*) secret;   /* no alignment restriction */
     size_t i;
-    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
+    XXH_ASSERT((((size_t)acc) % XXH_ACC_ALIGN) == 0);
     for (i=0; i < ACC_NB; i++) {
         U64 const key64 = XXH_readLE64(xsecret + 8*i);
         U64 acc64 = xacc[i];

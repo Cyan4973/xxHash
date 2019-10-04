@@ -122,7 +122,8 @@
 #    define XXH_VECTOR XXH_SSE2
 #  elif defined(__GNUC__) /* msvc support maybe later */ \
   && (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
-  && defined(__LITTLE_ENDIAN__) /* ARM big endian is a thing */
+  && (defined(__LITTLE_ENDIAN__) /* We only support little endian NEON */ \
+    || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #    define XXH_VECTOR XXH_NEON
 #  elif defined(__PPC64__) && defined(__POWER8_VECTOR__) && defined(__GNUC__)
 #    define XXH_VECTOR XXH_VSX
@@ -165,7 +166,8 @@ typedef __vector unsigned char U8x16;
 typedef __vector unsigned U32x4;
 
 #ifndef XXH_VSX_BE
-#  ifdef __BIG_ENDIAN__
+#  if defined(__BIG_ENDIAN__) \
+  || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 #    define XXH_VSX_BE 1
 #  elif defined(__VEC_ELEMENT_REG_ORDER__) && __VEC_ELEMENT_REG_ORDER__ == __ORDER_BIG_ENDIAN__
 #    warning "-maltivec=be is not recommended. Please use native endianness."

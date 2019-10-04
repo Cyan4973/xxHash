@@ -211,12 +211,21 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
+#  if defined(_WIN32) /* Windows is always little endian */ \
+     || defined(__LITTLE_ENDIAN__) \
+     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#    define XXH_CPU_LITTLE_ENDIAN 1
+#  elif defined(__BIG_ENDIAN__) \
+     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#    define XXH_CPU_LITTLE_ENDIAN 0
+#  else
 static int XXH_isLittleEndian(void)
 {
     const union { U32 u; BYTE c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
     return one.c[0];
 }
 #   define XXH_CPU_LITTLE_ENDIAN   XXH_isLittleEndian()
+#  endif
 #endif
 
 

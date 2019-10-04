@@ -973,27 +973,17 @@ XXH3_len_17to128_64b(const BYTE* XXH_RESTRICT input, size_t len,
                      const BYTE* XXH_RESTRICT secret, size_t secretSize,
                      XXH64_hash_t seed)
 {
+    int i = (int)((len - 1) / 32);
+    U64 acc = len * PRIME64_1;
+
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
     XXH_ASSERT(16 < len && len <= 128);
 
-    {   U64 acc = len * PRIME64_1;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    acc += XXH3_mix16B(input+48, secret+96, seed);
-                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
-                }
-                acc += XXH3_mix16B(input+32, secret+64, seed);
-                acc += XXH3_mix16B(input+len-48, secret+80, seed);
-            }
-            acc += XXH3_mix16B(input+16, secret+32, seed);
-            acc += XXH3_mix16B(input+len-32, secret+48, seed);
-        }
-        acc += XXH3_mix16B(input+0, secret+0, seed);
-        acc += XXH3_mix16B(input+len-16, secret+16, seed);
-
-        return XXH3_avalanche(acc);
+    for (; i >= 0; --i) {
+        acc += XXH3_mix16B(input + (16*i),               secret + (16 * (2 * i)),      seed);
+        acc += XXH3_mix16B(input + len - (16 * (i + 1)), secret + (16 * ((2 * i) + 1)), seed);
     }
+    return XXH3_avalanche(acc);
 }
 
 #define XXH3_MIDSIZE_MAX 240
@@ -1426,31 +1416,27 @@ XXH3_len_129to240_128b(const BYTE* XXH_RESTRICT input, size_t len,
 
 
 XXH_FORCE_INLINE XXH128_hash_t
-XXH3_len_17to128_128b(const BYTE* XXH_RESTRICT input, size_t len,
-                      const BYTE* XXH_RESTRICT secret, size_t secretSize,
-                      XXH64_hash_t seed)
+XXH3_len_17to128_128b(const BYTE* XXH_RESTRICT input,
+                     size_t len,
+                     const BYTE* XXH_RESTRICT secret, size_t secretSize,
+                     XXH64_hash_t seed)
 {
+    int i = (int)((len - 1) / 32);
+
+    XXH128_hash_t acc;
+    acc.low64 = len * PRIME64_1;
+    acc.high64 = 0;
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
     XXH_ASSERT(16 < len && len <= 128);
 
-    {   XXH128_hash_t acc;
-        acc.low64 = len * PRIME64_1;
-        acc.high64 = 0;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    acc = XXH128_mix32B(acc, input+48, input+len-64, secret+96, seed);
-                }
-                acc = XXH128_mix32B(acc, input+32, input+len-48, secret+64, seed);
-            }
-            acc = XXH128_mix32B(acc, input+16, input+len-32, secret+32, seed);
-        }
-        acc = XXH128_mix32B(acc, input, input+len-16, secret, seed);
-        {   U64 const low64 = acc.low64 + acc.high64;
-            U64 const high64 = (acc.low64 * PRIME64_1) + (acc.high64 * PRIME64_4) + ((len - seed) * PRIME64_2);
-            XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
-            return h128;
-        }
+    for (; i >= 0; --i) {
+        acc = XXH128_mix32B(acc, input + (16 * i), input + len - (16*(i+1)), secret + (16 * (2 * i)),  seed);
+    }
+
+    {   U64 const low64 = acc.low64 + acc.high64;
+        U64 const high64 = (acc.low64 * PRIME64_1) + (acc.high64 * PRIME64_4) + ((len - seed) * PRIME64_2);
+        XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
+        return h128;
     }
 }
 

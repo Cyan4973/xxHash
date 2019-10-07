@@ -161,19 +161,15 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 /* *************************************
 *  Basic Types
 ***************************************/
-#ifndef MEM_MODULE
-# if !defined (__VMS) \
-  && (defined (__cplusplus) \
-  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
-#   include <stdint.h>
-    typedef uint8_t  xxh_u8;
-    typedef uint16_t xxh_u16;
-# else
-    typedef unsigned char      xxh_u8;
-    typedef unsigned short     xxh_u16;
-# endif
-  typedef XXH32_hash_t xxh_u32;
+#if !defined (__VMS) \
+ && (defined (__cplusplus) \
+ || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+# include <stdint.h>
+  typedef uint8_t  xxh_u8;
+#else
+  typedef unsigned char      xxh_u8;
 #endif
+typedef XXH32_hash_t xxh_u32;
 
 
 /* ===   Memory access   === */
@@ -645,9 +641,8 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 /*======   Memory access   ======*/
 
-#ifndef MEM_MODULE
-  typedef XXH64_hash_t xxh_u64;
-#endif
+typedef XXH64_hash_t xxh_u64;
+
 
 /*! XXH_REROLL_XXH64:
  * Whether to reroll the XXH64_finalize() loop.

@@ -136,29 +136,24 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 # define MEM_MODULE
 # if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
 #   include <stdint.h>
-    typedef uint8_t  xxh_u8;
-    typedef uint16_t xxh_u16;
-    typedef uint32_t xxh_u32;
-    typedef  int32_t xxh_s32;
-    typedef uint64_t xxh_u64;
+    typedef uint8_t  U8;
+    typedef uint32_t U32;
+    typedef uint64_t U64;
 #  else
 #   include <limits.h>
-    typedef unsigned char      xxh_u8;
-    typedef unsigned short     xxh_u16;
+    typedef unsigned char      U8;
 #   if UINT_MAX == 0xFFFFFFFFUL
-      typedef unsigned int     xxh_u32;
-      typedef   signed int     xxh_s32;
+      typedef unsigned int     U32;
 #   else
-      typedef unsigned long    xxh_u32;
-      typedef   signed long    xxh_s32;
+      typedef unsigned long    U32;
 #   endif
-    typedef unsigned long long xxh_u64;
+    typedef unsigned long long U64;
 #  endif
 #endif
 
 static unsigned BMK_isLittleEndian(void)
 {
-    const union { xxh_u32 u; xxh_u8 c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
     return one.c[0];
 }
 
@@ -294,7 +289,7 @@ static int g_displayLevel = 2;
 /* ************************************
  *  Local variables
  **************************************/
-static xxh_u32 g_nbIterations = NBLOOPS;
+static U32 g_nbIterations = NBLOOPS;
 
 
 /* ************************************
@@ -306,7 +301,7 @@ static clock_t BMK_clockSpan( clock_t start )
 }
 
 
-static size_t BMK_findMaxMem(xxh_u64 requiredMem)
+static size_t BMK_findMaxMem(U64 requiredMem)
 {
     size_t const step = 64 MB;
     void* testmem = NULL;
@@ -330,7 +325,7 @@ static size_t BMK_findMaxMem(xxh_u64 requiredMem)
 }
 
 
-static xxh_u64 BMK_GetFileSize(const char* infilename)
+static U64 BMK_GetFileSize(const char* infilename)
 {
     int r;
 #if defined(_MSC_VER)
@@ -341,39 +336,39 @@ static xxh_u64 BMK_GetFileSize(const char* infilename)
     r = stat(infilename, &statbuf);
 #endif
     if (r || !S_ISREG(statbuf.st_mode)) return 0;   /* No good... */
-    return (xxh_u64)statbuf.st_size;
+    return (U64)statbuf.st_size;
 }
 
-typedef xxh_u32 (*hashFunction)(const void* buffer, size_t bufferSize, xxh_u32 seed);
+typedef U32 (*hashFunction)(const void* buffer, size_t bufferSize, U32 seed);
 
-static xxh_u32 localXXH32(const void* buffer, size_t bufferSize, xxh_u32 seed) { return XXH32(buffer, bufferSize, seed); }
+static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return XXH32(buffer, bufferSize, seed); }
 
-static xxh_u32 localXXH64(const void* buffer, size_t bufferSize, xxh_u32 seed) { return (xxh_u32)XXH64(buffer, bufferSize, seed); }
+static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
-static xxh_u32 localXXH3_64b(const void* buffer, size_t bufferSize, xxh_u32 seed) { (void)seed; return (xxh_u32)XXH3_64bits(buffer, bufferSize); }
-static xxh_u32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, xxh_u32 seed) { return (xxh_u32)XXH3_64bits_withSeed(buffer, bufferSize, seed); }
+static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64bits(buffer, bufferSize); }
+static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed); }
 
-static xxh_u32 localXXH3_128b(const void* buffer, size_t bufferSize, xxh_u32 seed) { (void)seed; return (xxh_u32)(XXH3_128bits(buffer, bufferSize).low64); }
-static xxh_u32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, xxh_u32 seed) { return (xxh_u32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64); }
+static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)(XXH3_128bits(buffer, bufferSize).low64); }
+static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64); }
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
-    xxh_u32 nbh_perIteration = (xxh_u32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
-    xxh_u32 iterationNb;
+    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
+    U32 iterationNb;
     double fastestH = 100000000.;
 
     DISPLAYLEVEL(2, "\r%70s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
-        xxh_u32 r=0;
+        U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", iterationNb, hName, (xxh_u32)bufferSize);
+        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
 
-        {   xxh_u32 u;
+        {   U32 u;
             for (u=0; u<nbh_perIteration; u++)
                 r += h(buffer, bufferSize, u);
         }
@@ -388,20 +383,20 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
             }
             if (timeS < fastestH) fastestH = timeS;
             DISPLAYLEVEL(2, "%1u-%-22.22s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
-                    iterationNb, hName, (xxh_u32)bufferSize,
+                    iterationNb, hName, (U32)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1<<20)) / fastestH );
         }
         {   double nbh_perSecond = (1 / fastestH) + 1;
             if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);
-            nbh_perIteration = (xxh_u32)nbh_perSecond;
+            nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (xxh_u32)bufferSize,
+    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
         (double)1 / fastestH,
         ((double)bufferSize / (1<<20)) / fastestH);
     if (g_displayLevel<1)
-        DISPLAYLEVEL(0, "%u, ", (xxh_u32)((double)1 / fastestH));
+        DISPLAYLEVEL(0, "%u, ", (U32)((double)1 / fastestH));
 }
 
 
@@ -410,7 +405,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
  * buffer : is supposed 8-bytes aligned (if malloc'ed, it should be)
  * the real allocated size of buffer is supposed to be >= (bufferSize+3).
  * @return : 0 on success, 1 if error (invalid mode selected) */
-static int BMK_benchMem(const void* buffer, size_t bufferSize, xxh_u32 specificTest)
+static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
     assert((((size_t)buffer) & 8) == 0);  /* ensure alignment */
 
@@ -471,9 +466,9 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, xxh_u32 specificT
 
 
 static size_t BMK_selectBenchedSize(const char* fileName)
-{   xxh_u64 const inFileSize = BMK_GetFileSize(fileName);
+{   U64 const inFileSize = BMK_GetFileSize(fileName);
     size_t benchedSize = (size_t) BMK_findMaxMem(inFileSize);
-    if ((xxh_u64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
+    if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
     if (benchedSize < inFileSize) {
         DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", fileName, (int)(benchedSize>>20));
     }
@@ -481,7 +476,7 @@ static size_t BMK_selectBenchedSize(const char* fileName)
 }
 
 
-static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, xxh_u32 specificTest)
+static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specificTest)
 {
     int result = 0;
     int fileIdx;
@@ -528,7 +523,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, xxh_u32 spec
 }
 
 
-static int BMK_benchInternal(size_t keySize, xxh_u32 specificTest)
+static int BMK_benchInternal(size_t keySize, U32 specificTest)
 {
     void* const buffer = calloc(keySize+16+3, 1);
     if (!buffer) {
@@ -541,9 +536,9 @@ static int BMK_benchInternal(size_t keySize, xxh_u32 specificTest)
         /* bench */
         DISPLAYLEVEL(1, "Sample of ");
         if (keySize > 10 KB) {
-            DISPLAYLEVEL(1, "%u KB", (xxh_u32)(keySize >> 10));
+            DISPLAYLEVEL(1, "%u KB", (U32)(keySize >> 10));
         } else {
-            DISPLAYLEVEL(1, "%u bytes", (xxh_u32)keySize);
+            DISPLAYLEVEL(1, "%u bytes", (U32)keySize);
         }
         DISPLAYLEVEL(1, "...        \n");
 
@@ -578,7 +573,7 @@ static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rError: 64-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n", (xxh_u32)(r1>>32), (xxh_u32)r1, (xxh_u32)(r2>>32), (xxh_u32)r2);
+        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
@@ -592,8 +587,8 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
     if ((r1.low64 != r2.low64) || (r1.high64 != r2.high64)) {
         DISPLAY("\rError: 128-bit hash test %i: Internal sanity check failed.\n", nbTests);
         DISPLAY("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, %08X%08XULL } \n",
-                (xxh_u32)(r1.low64>>32), (xxh_u32)r1.low64, (xxh_u32)(r1.high64>>32), (xxh_u32)r1.high64,
-                (xxh_u32)(r2.low64>>32), (xxh_u32)r2.low64, (xxh_u32)(r2.high64>>32), (xxh_u32)r2.high64 );
+                (U32)(r1.low64>>32), (U32)r1.low64, (U32)(r1.high64>>32), (U32)r1.high64,
+                (U32)(r2.low64>>32), (U32)r2.low64, (U32)(r2.high64>>32), (U32)r2.high64 );
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
@@ -602,7 +597,7 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 }
 
 
-static void BMK_testXXH32(const void* sequence, size_t len, xxh_u32 seed, xxh_u32 Nresult)
+static void BMK_testXXH32(const void* sequence, size_t len, U32 seed, U32 Nresult)
 {
     XXH32_state_t state;
     size_t pos;
@@ -619,7 +614,7 @@ static void BMK_testXXH32(const void* sequence, size_t len, xxh_u32 seed, xxh_u3
     BMK_checkResult32(XXH32_digest(&state), Nresult);
 }
 
-static void BMK_testXXH64(const void* data, size_t len, xxh_u64 seed, xxh_u64 Nresult)
+static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
     size_t pos;
@@ -636,15 +631,15 @@ static void BMK_testXXH64(const void* data, size_t len, xxh_u64 seed, xxh_u64 Nr
     BMK_checkResult64(XXH64_digest(&state), Nresult);
 }
 
-static void BMK_testXXH3(const void* data, size_t len, xxh_u64 seed, xxh_u64 Nresult)
+static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 {
-    {   xxh_u64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
+    {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
         BMK_checkResult64(Dresult, Nresult);
     }
 
     /* check that the no-seed variant produces same result as seed==0 */
     if (seed == 0) {
-        xxh_u64 const Dresult = XXH3_64bits(data, len);
+        U64 const Dresult = XXH3_64bits(data, len);
         BMK_checkResult64(Dresult, Nresult);
     }
 
@@ -673,9 +668,9 @@ static void BMK_testXXH3(const void* data, size_t len, xxh_u64 seed, xxh_u64 Nre
     }   }
 }
 
-static void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, xxh_u64 Nresult)
+static void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
 {
-    {   xxh_u64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
+    {   U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
         BMK_checkResult64(Dresult, Nresult);
     }
 
@@ -694,7 +689,7 @@ static void BMK_testXXH3_withSecret(const void* data, size_t len, const void* se
     }   }
 }
 
-void BMK_testXXH128(const void* data, size_t len, xxh_u64 seed, XXH128_hash_t Nresult)
+void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
 {
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSeed(data, len, seed);
         BMK_checkResult128(Dresult, Nresult);
@@ -740,14 +735,14 @@ void BMK_testXXH128(const void* data, size_t len, xxh_u64 seed, XXH128_hash_t Nr
 #define SANITY_BUFFER_SIZE 2243
 static void BMK_sanityCheck(void)
 {
-    const xxh_u32 prime = 2654435761U;
-    const xxh_u64 prime64 = 11400714785074694797ULL;
-    xxh_u8 sanityBuffer[SANITY_BUFFER_SIZE];
-    xxh_u64 byteGen = prime;
+    const U32 prime = 2654435761U;
+    const U64 prime64 = 11400714785074694797ULL;
+    U8 sanityBuffer[SANITY_BUFFER_SIZE];
+    U64 byteGen = prime;
 
     int i;
     for (i=0; i<SANITY_BUFFER_SIZE; i++) {
-        sanityBuffer[i] = (xxh_u8)(byteGen>>56);
+        sanityBuffer[i] = (U8)(byteGen>>56);
         byteGen *= prime64;
     }
 
@@ -922,7 +917,7 @@ static void BMK_sanityCheck(void)
 
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
-    const xxh_u8* p = (const xxh_u8*)ptr;
+    const U8* p = (const U8*)ptr;
     size_t idx;
     for (idx=length-1; idx<length; idx--)    /* intentional underflow to negative to detect end */
         DISPLAYRESULT("%02x", p[idx]);
@@ -930,7 +925,7 @@ static void BMK_display_LittleEndian(const void* ptr, size_t length)
 
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
-    const xxh_u8* p = (const xxh_u8*)ptr;
+    const U8* p = (const U8*)ptr;
     size_t idx;
     for (idx=0; idx<length; idx++)
         DISPLAYRESULT("%02x", p[idx]);
@@ -1155,10 +1150,10 @@ typedef struct {
     char*           lineBuf;
     size_t          blockSize;
     char*           blockBuf;
-    xxh_u32             strictMode;
-    xxh_u32             statusOnly;
-    xxh_u32             warn;
-    xxh_u32             quiet;
+    U32             strictMode;
+    U32             statusOnly;
+    U32             warn;
+    U32             quiet;
     ParseFileReport report;
 } ParseFileArg;
 
@@ -1492,10 +1487,10 @@ static void parseFile1(ParseFileArg* parseFileArg)
  */
 static int checkFile(const char* inFileName,
                      const endianess displayEndianess,
-                     xxh_u32 strictMode,
-                     xxh_u32 statusOnly,
-                     xxh_u32 warn,
-                     xxh_u32 quiet)
+                     U32 strictMode,
+                     U32 statusOnly,
+                     U32 warn,
+                     U32 quiet)
 {
     int result = 0;
     FILE* inFile = NULL;
@@ -1576,10 +1571,10 @@ static int checkFile(const char* inFileName,
 
 static int checkFiles(const char** fnList, int fnTotal,
                       const endianess displayEndianess,
-                      xxh_u32 strictMode,
-                      xxh_u32 statusOnly,
-                      xxh_u32 warn,
-                      xxh_u32 quiet)
+                      U32 strictMode,
+                      U32 statusOnly,
+                      U32 warn,
+                      U32 quiet)
 {
     int ok = 1;
 
@@ -1693,13 +1688,13 @@ int main(int argc, const char** argv)
 {
     int i, filenamesStart = 0;
     const char* const exename = argv[0];
-    xxh_u32 benchmarkMode = 0;
-    xxh_u32 fileCheckMode = 0;
-    xxh_u32 strictMode    = 0;
-    xxh_u32 statusOnly    = 0;
-    xxh_u32 warn          = 0;
-    xxh_u32 quiet         = 0;
-    xxh_u32 specificTest  = 0;
+    U32 benchmarkMode = 0;
+    U32 fileCheckMode = 0;
+    U32 strictMode    = 0;
+    U32 statusOnly    = 0;
+    U32 warn          = 0;
+    U32 quiet         = 0;
+    U32 specificTest  = 0;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
     algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;

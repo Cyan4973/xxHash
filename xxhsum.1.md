@@ -33,11 +33,14 @@ OPTIONS
 -------
 
 * `-V`, `--version`:
-  Display xxhsum version
+  Display xxhsum version and exits
 
 * `-H`<HASHTYPE>:
   Hash selection.  <HASHTYPE> means `0`=32bits, `1`=64bits, `2`=128bits.
   Default value is `1` (64bits)
+
+* `-q`, `--quiet`:
+  Remove status messages like "Loading ..." written to `stderr` .
 
 * `--little-endian`:
   Set output hexadecimal checksum value as little endian convention.
@@ -51,7 +54,7 @@ OPTIONS
 * `-c`, `--check`:
   Read xxHash sums from the <FILE>s and check them
 
-* `--quiet`:
+* `q`, `--quiet`:
   Exit non-zero for improperly formatted checksum lines
 
 * `--strict`:

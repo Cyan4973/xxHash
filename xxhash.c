@@ -33,6 +33,12 @@
 */
 
 
+/* since xxhash.c can be included (via XXH_INLINE_ALL),
+ * it's good practice to protect it with guard
+ * in case of multiples inclusions */
+#ifndef XXHASH_C_01393879
+#define XXHASH_C_01393879
+
 /* *************************************
 *  Tuning parameters
 ***************************************/
@@ -1100,3 +1106,5 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 
 
 #endif  /* XXH_NO_LONG_LONG */
+
+#endif  /* XXHASH_C_01393879 */

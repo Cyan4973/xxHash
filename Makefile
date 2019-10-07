@@ -203,7 +203,7 @@ test-xxhsum-c: xxhsum
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-	@$(RM) -f .test.xxh32 .test.xxh64
+	@$(RM) -f .test.xxh32 .test.xxh64 .test.xxh128
 
 .PHONY: armtest
 armtest: clean

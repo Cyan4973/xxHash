@@ -38,3 +38,4 @@ infer-out
 
 # test artifacts
 .test*
+tmp*

@@ -28,8 +28,6 @@
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
 
-#ifndef XXHASH_C_2097394837
-#define XXHASH_C_2097394837
 
 /* ************************************
  *  Compiler Options
@@ -1011,11 +1009,11 @@ static int BMK_hash(const char* fileName,
         inFile = stdin;
         fileName = "stdin";
         SET_BINARY_MODE(stdin);
-    }
-    else
+    } else {
         inFile = fopen( fileName, "rb" );
+    }
     if (inFile==NULL) {
-        DISPLAY("Error: Could not open '%s': %s.\n", fileName, strerror(errno));
+        DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
         return 1;
     }
 
@@ -1043,7 +1041,7 @@ static int BMK_hash(const char* fileName,
 
         fclose(inFile);
         free(buffer);
-        DISPLAY("%s             \r", fileNameEnd - infoFilenameSize);  /* erase line */
+        DISPLAYLEVEL(2, "%*s             \r", infoFilenameSize, "");  /* erase line */
     }
 
     /* display Hash value followed by file name */
@@ -1093,7 +1091,7 @@ static int BMK_hashFiles(const char** fnList, int fnTotal,
 
     for (fnNb=0; fnNb<fnTotal; fnNb++)
         result += BMK_hash(fnList[fnNb], hashType, displayEndianess);
-    DISPLAY("\r%70s\r", "");
+    DISPLAYLEVEL(2, "\r%70s\r", "");
     return result;
 }
 
@@ -1613,17 +1611,18 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
-    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian)\n");
-    DISPLAY( " -V, --version   : display version\n");
-    DISPLAY( " -h, --help      : display long help and exit\n");
+    DISPLAY( " -V, --version   : display version \n");
+    DISPLAY( " -q, --quiet     : do not display 'Loading' messages \n");
+    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian) \n");
+    DISPLAY( " -h, --help      : display long help and exit \n");
     DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %u)\n", g_nbIterations);
+    DISPLAY( " -i# : number of iterations (benchmark mode; default %u) \n", g_nbIterations);
     DISPLAY( "\n");
-    DISPLAY( "The following four options are useful only when verifying checksums (-c):\n");
-    DISPLAY( "--strict : don't print OK for each successfully verified file\n");
-    DISPLAY( "--status : don't output anything, status code shows success\n");
-    DISPLAY( "--quiet  : exit non-zero for improperly formatted checksum lines\n");
-    DISPLAY( "--warn   : warn about improperly formatted checksum lines\n");
+    DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");
+    DISPLAY( "--strict : don't print OK for each successfully verified file \n");
+    DISPLAY( "--status : don't output anything, status code shows success \n");
+    DISPLAY( "-q, --quiet : exit non-zero for improperly formatted checksum lines \n");
+    DISPLAY( "--warn   : warn about improperly formatted checksum lines \n");
     return 0;
 }
 
@@ -1693,7 +1692,6 @@ int main(int argc, const char** argv)
     U32 strictMode    = 0;
     U32 statusOnly    = 0;
     U32 warn          = 0;
-    U32 quiet         = 0;
     U32 specificTest  = 0;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
     algoType algo     = g_defaultAlgo;
@@ -1713,7 +1711,7 @@ int main(int argc, const char** argv)
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
-        if (!strcmp(argument, "--quiet")) { quiet = 1; continue; }
+        if (!strcmp(argument, "--quiet")) { g_displayLevel--; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
         if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); return 0; }
@@ -1802,10 +1800,8 @@ int main(int argc, const char** argv)
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {
         return checkFiles(argv+filenamesStart, argc-filenamesStart,
-                          displayEndianess, strictMode, statusOnly, warn, quiet);
+                          displayEndianess, strictMode, statusOnly, warn, (g_displayLevel < 2) /*quiet*/);
     } else {
         return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
     }
 }
-
-#endif /* XXHASH_C_2097394837 */

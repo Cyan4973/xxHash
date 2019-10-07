@@ -168,17 +168,11 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 #   include <stdint.h>
     typedef uint8_t  xxh_u8;
     typedef uint16_t xxh_u16;
-    typedef uint32_t xxh_u32;
 # else
-#   include <limits.h>
     typedef unsigned char      xxh_u8;
     typedef unsigned short     xxh_u16;
-#   if (UINT_MAX == 0xFFFFFFFFUL)
-      typedef unsigned int     xxh_u32;
-#   else
-      typedef unsigned long    xxh_u32;
-#   endif
 # endif
+  typedef XXH32_hash_t xxh_u32;
 #endif
 
 
@@ -652,16 +646,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 /*======   Memory access   ======*/
 
 #ifndef MEM_MODULE
-# define MEM_MODULE
-# if !defined (__VMS) \
-  && (defined (__cplusplus) \
-  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
-#   include <stdint.h>
-    typedef uint64_t xxh_u64;
-# else
-    /* if compiler doesn't support unsigned long long, replace by another 64-bit type */
-    typedef unsigned long long xxh_u64;
-# endif
+  typedef XXH64_hash_t xxh_u64;
 #endif
 
 /*! XXH_REROLL_XXH64:

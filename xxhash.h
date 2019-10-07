@@ -182,7 +182,11 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 #   if UINT_MAX == 0xFFFFFFFFUL
       typedef unsigned int XXH32_hash_t;
 #   else
-      typedef unsigned long XXH32_hash_t;
+#     if ULONG_MAX == 0xFFFFFFFFUL
+        typedef unsigned long XXH32_hash_t;
+#     else
+#       error "unsupported platform : need a 32-bit type"
+#     endif
 #   endif
 #endif
 
@@ -257,6 +261,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #   include <stdint.h>
     typedef uint64_t XXH64_hash_t;
 #else
+    /* the following type must have a width of 64-bit */
     typedef unsigned long long XXH64_hash_t;
 #endif
 

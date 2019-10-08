@@ -1,6 +1,3 @@
-# compilation chain
-.clang_complete
-
 # objects
 *.o
 *.s
@@ -18,6 +15,9 @@ xxhsum_privateXXH
 xxhsum_inlinedXXH
 xxhsum_inlinedXXH.exe
 
+# compilation chain
+.clang_complete
+
 # Mac OS-X artefacts
 *.dSYM
 .DS_Store
@@ -32,3 +32,10 @@ build*/
 
 # project managers artifacts
 .projectile
+
+# analyzer artifacts
+infer-out
+
+# test artifacts
+.test*
+tmp*

@@ -8,13 +8,14 @@ SYNOPSIS
 `xxhsum -b [<OPTION>] ...`
 
 `xxh32sum` is equivalent to `xxhsum -H0`  
-`xxh64sum` is equivalent to `xxhsum -H1`
+`xxh64sum` is equivalent to `xxhsum -H1`  
+`xxh128sum` is equivalent to `xxhsum -H2`
 
 
 DESCRIPTION
 -----------
 
-Print or check xxHash (32 or 64bit) checksums.  When <FILE> is `-`, read
+Print or check xxHash (32, 64 or 128 bits) checksums.  When <FILE> is `-`, read
 standard input.
 
 `xxhsum` supports a command line syntax similar but not identical to
@@ -32,11 +33,14 @@ OPTIONS
 -------
 
 * `-V`, `--version`:
-  Display xxhsum version
+  Display xxhsum version and exits
 
 * `-H`<HASHTYPE>:
-  Hash selection.  <HASHTYPE> means `0`=32bits, `1`=64bits.
+  Hash selection.  <HASHTYPE> means `0`=32bits, `1`=64bits, `2`=128bits.
   Default value is `1` (64bits)
+
+* `-q`, `--quiet`:
+  Remove status messages like "Loading ..." written to `stderr` .
 
 * `--little-endian`:
   Set output hexadecimal checksum value as little endian convention.
@@ -50,7 +54,7 @@ OPTIONS
 * `-c`, `--check`:
   Read xxHash sums from the <FILE>s and check them
 
-* `--quiet`:
+* `q`, `--quiet`:
   Exit non-zero for improperly formatted checksum lines
 
 * `--strict`:
@@ -75,7 +79,7 @@ OPTIONS
 * `-i`<ITERATIONS>:
   Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
   <ITERATIONS> specifies number of iterations in benchmark. Single iteration
-  takes at least 2500 milliseconds. Default value is 3
+  lasts approximately 1000 milliseconds. Default value is 3
 
 EXIT STATUS
 -----------
@@ -101,10 +105,10 @@ Read xxHash sums from specific files and check them
     $ xxhsum -c xyz.xxh32 qux.xxh64
 
 Benchmark xxHash algorithm for 16384 bytes data in 10 times. `xxhsum`
-benchmarks xxHash algorithm for 32-bit and 64-bit and output results to
-standard output.  First column means algorithm, second column is source data
-size in bytes, last column means hash generation speed in mega-bytes per
-seconds.
+benchmarks all xxHash variants and output results to standard output.  
+First column means algorithm, second column is source data size in bytes,
+third column is number of hashes generated per second (throughput),
+and finally last column translates speed in mega-bytes per seconds.
 
     $ xxhsum -b -i10 -B16384
 

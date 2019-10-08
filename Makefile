@@ -38,7 +38,7 @@ DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
             -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
-            -Wredundant-decls -Wstrict-overflow=5
+            -Wredundant-decls -Wstrict-overflow=2
 CFLAGS += $(DEBUGFLAGS)
 FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION = $(LIBVER)
@@ -160,14 +160,18 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	$(RUN_ENV) ./xxhsum -bi1
 	# file bench
 	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
+	# 32-bit
+	$(RUN_ENV) ./xxhsum -H0 xxhash.c
+	# 128-bit
+	$(RUN_ENV) ./xxhsum -H2 xxhash.c
+	# request incorrect variant
+	$(RUN_ENV) ./xxhsum -H9 xxhash.c ; test $$? -eq 1
 
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
-test-mem: xxhsum  ## valgrind tests for xxhsum CLI, looking for memory leaks
-	$(VALGRIND) ./xxhsum -bi1 xxhash.c
-	$(VALGRIND) ./xxhsum -H0  xxhash.c
-	$(VALGRIND) ./xxhsum -H1  xxhash.c
+test-mem: RUN_ENV = $(VALGRIND)
+test-mem: xxhsum check
 
 .PHONY: test32
 test32: clean xxhsum32
@@ -177,13 +181,17 @@ test32: clean xxhsum32
 .PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
-	./xxhsum lib* | ./xxhsum -c -
-	./xxhsum -H0 lib* | ./xxhsum -c -
+	./xxhsum xxh* | ./xxhsum -c -
+	./xxhsum -H0 xxh* | ./xxhsum -c -
+	# xxhsum -q does not display "Loading" message into stderr (#251)
+	! ./xxhsum -q xxh* 2>&1 | grep Loading
 	# xxhsum to/from file, shell redirection
-	./xxhsum lib* > .test.xxh64
-	./xxhsum -H0 lib* > .test.xxh32
+	./xxhsum xxh* > .test.xxh64
+	./xxhsum -H0 xxh* > .test.xxh32
+	./xxhsum -H2 xxh* > .test.xxh128
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
+	./xxhsum -c .test.xxh128
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
 	# xxhsum -c warns improperly format lines.
@@ -195,7 +203,7 @@ test-xxhsum-c: xxhsum
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-	@$(RM) -f .test.xxh32 .test.xxh64
+	@$(RM) -f .test.xxh32 .test.xxh64 .test.xxh128
 
 .PHONY: armtest
 armtest: clean
@@ -248,8 +256,8 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
-xxhsum.1: xxhsum.1.md
-	cat $^ | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
+xxhsum.1: xxhsum.1.md xxhash.h
+	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
 man: xxhsum.1  ## generate man page from markdown source
@@ -332,10 +340,12 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
+	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
 	@echo Installing man pages
 	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
 	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh128sum.1
 	@echo xxhash installation completed
 
 .PHONY: uninstall
@@ -347,9 +357,11 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
+	@$(RM) $(DESTDIR)$(BINDIR)/xxh128sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxhsum
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
 	@$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1
+	@$(RM) $(DESTDIR)$(MANDIR)/xxh128sum.1
 	@$(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
 	@echo xxhsum successfully uninstalled
 

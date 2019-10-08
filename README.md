@@ -20,19 +20,21 @@ The benchmark uses SMHasher speed test, compiled with Visual 2010 on a Windows S
 The reference system uses a Core 2 Duo @3GHz
 
 
-| Name          |   Speed  | Quality | Author           |
-|---------------|----------|:-------:|------------------|
-| [xxHash]      | 5.4 GB/s |   10    | Y.C.             |
-| MurmurHash 3a | 2.7 GB/s |   10    | Austin Appleby   |
-| SBox          | 1.4 GB/s |    9    | Bret Mulvey      |
-| Lookup3       | 1.2 GB/s |    9    | Bob Jenkins      |
-| CityHash64    | 1.05 GB/s|   10    | Pike & Alakuijala|
-| FNV           | 0.55 GB/s|    5    | Fowler, Noll, Vo |
-| CRC32         | 0.43 GB/s|    9    |                  |
-| MD5-32        | 0.33 GB/s|   10    | Ronald L.Rivest  |
-| SHA1-32       | 0.28 GB/s|   10    |                  |
+| Name          |   Speed     | Quality | Author            |
+|---------------|-------------|:-------:|-------------------|
+| [xxHash]      | 5.4 GB/s    |   10    | Y.C.              |
+| MurmurHash 3a | 2.7 GB/s    |   10    | Austin Appleby    |
+| SBox          | 1.4 GB/s    |    9    | Bret Mulvey       |
+| Lookup3       | 1.2 GB/s    |    9    | Bob Jenkins       |
+| CityHash64    | 1.05 GB/s   |   10    | Pike & Alakuijala |
+| FNV           | 0.55 GB/s   |    5    | Fowler, Noll, Vo  |
+| CRC32         | 0.43 GB/s † |    9    |                   |
+| MD5-32        | 0.33 GB/s   |   10    | Ronald L.Rivest   |
+| SHA1-32       | 0.28 GB/s   |   10    |                   |
 
 [xxHash]: http://www.xxhash.com
+
+Note †: SMHasher's CRC32 implementation is known to be slow. Faster implementations exist.
 
 Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
@@ -104,21 +106,18 @@ Calling xxhash 64-bit variant from a C program :
 ```C
 #include "xxhash.h"
 
-unsigned long long calcul_hash(const void* buffer, size_t length)
-{
-    unsigned long long const seed = 0;   /* or any other value */
-    unsigned long long const hash = XXH64(buffer, length, seed);
-    return hash;
+    (...)
+    XXH64_hash_t hash = XXH64(buffer, size, seed);
 }
 ```
 
-Using streaming variant is more involved, but makes it possible to provide data in multiple rounds :
+Using streaming variant is more involved, but makes it possible to provide data incrementally :
 ```C
 #include "stdlib.h"   /* abort() */
 #include "xxhash.h"
 
 
-unsigned long long calcul_hash_streaming(someCustomType handler)
+XXH64_hash_t calcul_hash_streaming(FileHandler fh)
 {
     /* create a hash state */
     XXH64_state_t* const state = XXH64_createState();
@@ -129,16 +128,14 @@ unsigned long long calcul_hash_streaming(someCustomType handler)
     if (buffer==NULL) abort();
 
     /* Initialize state with selected seed */
-    unsigned long long const seed = 0;   /* or any other value */
-    XXH_errorcode const resetResult = XXH64_reset(state, seed);
-    if (resetResult == XXH_ERROR) abort();
+    XXH64_hash_t const seed = 0;   /* or any other value */
+    if (XXH64_reset(state, seed) == XXH_ERROR) abort();
 
     /* Feed the state with input data, any size, any number of times */
     (...)
     while ( /* any condition */ ) {
-        size_t const length = get_more_data(buffer, bufferSize, handler);   
-        XXH_errorcode const updateResult = XXH64_update(state, buffer, length);
-        if (updateResult == XXH_ERROR) abort();
+        size_t const length = get_more_data(buffer, bufferSize, fh);   
+        if (XXH64_update(state, buffer, length) == XXH_ERROR) abort();
         (...)
     }
     (...)
@@ -146,11 +143,11 @@ unsigned long long calcul_hash_streaming(someCustomType handler)
     /* Get the hash */
     XXH64_hash_t const hash = XXH64_digest(state);
 
-    /* State can then be re-used; in this example, it is simply freed  */
+    /* State can be re-used; in this example, it is simply freed  */
     free(buffer);
     XXH64_freeState(state);
 
-    return (unsigned long long)hash;
+    return hash;
 }
 ```
 
@@ -167,9 +164,10 @@ as can be observed in following graphs :
 
 ![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
 
-The algorithm is currently labelled experimental, its return values can still change in a future version.
-It can be used for ephemeral data, and for tests, but avoid storing long-term hash values yet.
-To access it, one need to unlock its declaration using macro `XXH_STATIC_LINKING_ONLY`.
+The algorithm is currently labeled experimental, its return values can still change in future versions.
+It can already be used for ephemeral data, and for tests, but avoid storing long-term hash values yet.
+
+To access experimental prototypes, one need to unlock their declaration using macro `XXH_STATIC_LINKING_ONLY`.
 `XXH3` will be stabilized in a future version.
 This period is used to collect users' feedback.
 

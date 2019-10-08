@@ -93,6 +93,9 @@ endif(XXHASH_BUILD_XXHSUM)
 
 # Extra warning flags
 include (CheckCCompilerFlag)
+if (XXHASH_C_FLAGS)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${XXHASH_C_FLAGS}")
+endif()
 foreach (flag
     -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow
     -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement
@@ -165,4 +168,3 @@ if(NOT XXHASH_BUNDLED_MODE)
     DESTINATION ${xxHash_CONFIG_INSTALL_DIR}
     NAMESPACE ${PROJECT_NAME}::)
 endif(NOT XXHASH_BUNDLED_MODE)
-

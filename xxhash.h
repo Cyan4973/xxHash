@@ -49,9 +49,12 @@ Lookup3         1.2 GB/s      9       Bob Jenkins
 SuperFastHash   1.2 GB/s      1       Paul Hsieh
 CityHash64      1.05 GB/s    10       Pike & Alakuijala
 FNV             0.55 GB/s     5       Fowler, Noll, Vo
-CRC32           0.43 GB/s     9
+CRC32           0.43 GB/s †   9
 MD5-32          0.33 GB/s    10       Ronald L. Rivest
 SHA1-32         0.28 GB/s    10
+
+Note †: other CRC32 implementations can be over 40x faster than SMHasher's:
+http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html?showComment=1552696407071#c3490092340461170735
 
 Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
@@ -161,7 +164,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    7
-#define XXH_VERSION_RELEASE  1
+#define XXH_VERSION_RELEASE  2
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -175,7 +178,16 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 #   include <stdint.h>
     typedef uint32_t XXH32_hash_t;
 #else
-    typedef unsigned int XXH32_hash_t;
+#   include <limits.h>
+#   if UINT_MAX == 0xFFFFFFFFUL
+      typedef unsigned int XXH32_hash_t;
+#   else
+#     if ULONG_MAX == 0xFFFFFFFFUL
+        typedef unsigned long XXH32_hash_t;
+#     else
+#       error "unsupported platform : need a 32-bit type"
+#     endif
+#   endif
 #endif
 
 /*! XXH32() :
@@ -183,21 +195,13 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
     The memory between input & input+length must be valid (allocated and read-accessible).
     "seed" can be used to alter the result predictably.
     Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s */
-XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, unsigned int seed);
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, XXH32_hash_t seed);
 
 /*======   Streaming   ======*/
-typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
-XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
-XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
-XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dst_state, const XXH32_state_t* src_state);
-
-XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned int seed);
-XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
 
 /*
- * Streaming functions generate the xxHash of an input provided in multiple segments.
- * Note that, for small input, they are slower than single-call functions, due to state management.
+ * Streaming functions generate the xxHash value from an incrememtal input.
+ * This method is slower than single-call functions, due to state management.
  * For small inputs, prefer `XXH32()` and `XXH64()`, which are better optimized.
  *
  * XXH state must first be allocated, using XXH*_createState() .
@@ -211,22 +215,40 @@ XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
  * This function returns the nn-bits hash as an int or long long.
  *
  * It's still possible to continue inserting input into the hash state after a digest,
- * and generate some new hashes later on, by calling again XXH*_digest().
+ * and generate some new hash values later on, by invoking again XXH*_digest().
  *
- * When done, free XXH state space if it was allocated dynamically.
+ * When done, release the state, using XXH*_freeState().
  */
 
+typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
+XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
+XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
+XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dst_state, const XXH32_state_t* src_state);
+
+XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, XXH32_hash_t seed);
+XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
+
 /*======   Canonical representation   ======*/
+
+/* Default return values from XXH functions are basic unsigned 32 and 64 bits.
+ * This the simplest and fastest format for further post-processing.
+ * However, this leaves open the question of what is the order of bytes,
+ * since little and big endian conventions will write the same number differently.
+ *
+ * The canonical representation settles this issue,
+ * by mandating big-endian convention,
+ * aka, the same convention as human-readable numbers (large digits first).
+ * When writing hash values to storage, sending them over a network, or printing them,
+ * it's highly recommended to use the canonical representation,
+ * to ensure portability across a wider range of systems, present and future.
+ *
+ * The following functions allow transformation of hash values into and from canonical format.
+ */
 
 typedef struct { unsigned char digest[4]; } XXH32_canonical_t;
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash);
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
-
-/* Default result type for XXH functions are primitive unsigned 32 and 64 bits.
- * The canonical representation uses human-readable write convention, aka big-endian (large digits first).
- * These functions allow transformation of hash result into and from its canonical format.
- * This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
- */
 
 
 #ifndef XXH_NO_LONG_LONG
@@ -239,6 +261,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #   include <stdint.h>
     typedef uint64_t XXH64_hash_t;
 #else
+    /* the following type must have a width of 64-bit */
     typedef unsigned long long XXH64_hash_t;
 #endif
 
@@ -247,7 +270,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
     "seed" can be used to alter the result predictably.
     This function runs faster on 64-bit systems, but slower on 32-bit systems (see benchmark).
 */
-XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, unsigned long long seed);
+XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, XXH64_hash_t seed);
 
 /*======   Streaming   ======*/
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
@@ -255,7 +278,7 @@ XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state, const XXH64_state_t* src_state);
 
-XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
+XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 
@@ -303,7 +326,8 @@ struct XXH64_state_s {
    XXH64_hash_t v4;
    XXH64_hash_t mem64[4];
    XXH32_hash_t memsize;
-   XXH32_hash_t reserved[2];     /* never read nor write, might be removed in a future version */
+   XXH32_hash_t reserved32;  /* required for padding anyway */
+   XXH64_hash_t reserved64;  /* never read nor write, might be removed in a future version */
 };   /* typedef'd to XXH64_state_t */
 #endif   /* XXH_NO_LONG_LONG */
 
@@ -332,9 +356,9 @@ struct XXH64_state_s {
  *
  * The XXH3 algorithm is still considered experimental.
  * Produced results can still change between versions.
- * For example, results produced by v0.7.1 are not comparable with results from v0.7.0 .
+ * Results produced by v0.7.x are not comparable with results from v0.7.y .
  * It's nonetheless possible to use XXH3 for ephemeral data (local sessions),
- * but avoid storing values in long-term storage for later re-use.
+ * but avoid storing values in long-term storage for later reads.
  *
  * The API supports one-shot hashing, streaming mode, and custom secrets.
  *
@@ -347,20 +371,39 @@ struct XXH64_state_s {
  *                          However, at field level, they are identical on all platforms.
  *                          The canonical representation solves the issue of identical byte-level representation across platforms,
  *                          which is necessary for serialization.
- *                          Would there be a better representation for a 128-bit hash result ?
- *                          Are the names of the inner 64-bit fields important ? Should they be changed ?
+ *                          Q1 : Would there be a better representation for a 128-bit hash result ?
+ *                          Q2 : Are the names of the inner 64-bit fields important ? Should they be changed ?
  *
- * - Seed type for 128-bits variant : currently, it's a single 64-bit value, like the 64-bit variant.
+ * - Prototype XXH128() :   XXH128() uses the same arguments as XXH64(), for consistency.
+ *                          It means it maps to XXH3_128bits_withSeed().
+ *                          This variant is slightly slower than XXH3_128bits(),
+ *                          because the seed is now part of the algorithm, and can't be simplified.
+ *                          Is that a good idea ?
+ *
+ * - Seed type for XXH128() : currently, it's a single 64-bit value, like the 64-bit variant.
  *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
  *                          But 128-bit seed is more difficult to use, since it requires to pass a structure instead of a scalar value.
  *                          Such a variant could either replace current one, or become an additional one.
  *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
- *                          If both 64-bit and 128-bit seeds are possible, which variant should be called XXH128 ?
+ *                          Follow up question : if both 64-bit and 128-bit seeds are allowed, which variant should be called XXH128 ?
  *
- * - Result for len==0 : Currently, the result of hashing a zero-length input is `0`.
- *                          It seems okay as a return value when using all "default" secret and seed (it used to be a request for XXH32/XXH64).
+ * - Result for len==0 :    Currently, the result of hashing a zero-length input is always `0`.
+ *                          It seems okay as a return value when using "default" secret and seed.
  *                          But is it still fine to return `0` when secret or seed are non-default ?
  *                          Are there use cases which could depend on generating a different hash result for zero-length input when the secret is different ?
+ *
+ * - Consistency (1) :      Streaming XXH128 uses an XXH3 state, which is the same state as XXH3_64bits().
+ *                          It means a 128bit streaming loop must invoke the following symbols :
+ *                          XXH3_createState(), XXH3_128bits_reset(), XXH3_128bits_update() (loop), XXH3_128bits_digest(), XXH3_freeState().
+ *                          Is that consistent enough ?
+ *
+ * - Consistency (2) :      The canonical representation of `XXH3_64bits` is provided by existing functions
+ *                          XXH64_canonicalFromHash(), and reverse operation XXH64_hashFromCanonical().
+ *                          As a mirror, canonical functions for XXH128_hash_t results generated by `XXH3_128bits`
+ *                          are XXH128_canonicalFromHash() and XXH128_hashFromCanonical().
+ *                          Which means, `XXH3` doesn't appear in the names, because canonical functions operate on a type,
+ *                          independently of which algorithm was used to generate that type.
+ *                          Is that consistent enough ?
  */
 
 #ifdef XXH_NAMESPACE
@@ -423,18 +466,18 @@ typedef struct XXH3_state_s XXH3_state_t;
 #define XXH3_INTERNALBUFFER_SIZE 256
 struct XXH3_state_s {
    XXH_ALIGN(64) XXH64_hash_t acc[8];
-   XXH_ALIGN(64) char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
-   XXH_ALIGN(64) char buffer[XXH3_INTERNALBUFFER_SIZE];
-   const void* secret;
+   XXH_ALIGN(64) unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
+   XXH_ALIGN(64) unsigned char buffer[XXH3_INTERNALBUFFER_SIZE];
    XXH32_hash_t bufferedSize;
    XXH32_hash_t nbStripesPerBlock;
    XXH32_hash_t nbStripesSoFar;
+   XXH32_hash_t secretLimit;
    XXH32_hash_t reserved32;
    XXH32_hash_t reserved32_2;
-   XXH32_hash_t secretLimit;
    XXH64_hash_t totalLen;
    XXH64_hash_t seed;
    XXH64_hash_t reserved64;
+   const unsigned char* secret;    /* note : there is some padding after, due to alignment on 64 bytes */
 };   /* typedef'd to XXH3_state_t */
 
 /* Streaming requires state maintenance.
@@ -503,7 +546,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 
 
-/* Note : for better performance, following functions should be inlined,
+/* Note : for better performance, following functions can be inlined,
  * using XXH_INLINE_ALL */
 
 /* return : 1 is equal, 0 if different */

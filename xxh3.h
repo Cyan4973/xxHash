@@ -211,7 +211,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
 #  else
 #    define XXH_vec_permxor __builtin_crypto_vpermxor
 #  endif
-#endif
+#endif  /* XXH_VSX_BE */
 /*
  * Because we reinterpret the multiply, there are endian memes: vec_mulo actually becomes
  * vec_mule.
@@ -234,8 +234,23 @@ XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b) {
     __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
-#endif
-#endif
+#endif /* __has_builtin(__builtin_altivec_vmuleuw) */
+#endif /* XXH_VECTOR == XXH_VSX */
+
+/* prefetch
+ * can be disabled, by declaring XXH_NO_PREFETCH build macro */
+#if defined(XXH_NO_PREFETCH)
+#  define XXH_PREFETCH(ptr)  (void)(ptr)  /* disabled */
+#else
+#  if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_I86))  /* _mm_prefetch() is not defined outside of x86/x64 */
+#    include <mmintrin.h>   /* https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx */
+#    define XXH_PREFETCH(ptr)  _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
+#  elif defined(__GNUC__) && ( (__GNUC__ >= 4) || ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 1) ) )
+#    define XXH_PREFETCH(ptr)  __builtin_prefetch((ptr), 0 /* rw==read */, 3 /* locality */)
+#  else
+#    define XXH_PREFETCH(ptr) (void)(ptr)  /* disabled */
+#  endif
+#endif  /* XXH_NO_PREFETCH */
 
 
 /* ==========================================
@@ -805,6 +820,8 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #endif
 }
 
+#define XXH_PREFETCH_DIST 384
+
 /* assumption : nbStripes will not overflow secret size */
 XXH_FORCE_INLINE void
 XXH3_accumulate(       xxh_u64* XXH_RESTRICT acc,
@@ -815,8 +832,10 @@ XXH3_accumulate(       xxh_u64* XXH_RESTRICT acc,
 {
     size_t n;
     for (n = 0; n < nbStripes; n++ ) {
+        const xxh_u8* const in = input + n*STRIPE_LEN;
+        XXH_PREFETCH(in + XXH_PREFETCH_DIST);
         XXH3_accumulate_512(acc,
-                            input  + n*STRIPE_LEN,
+                            in,
                             secret + n*XXH_SECRET_CONSUME_RATE,
                             accWidth);
     }

@@ -824,7 +824,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 /* assumption : nbStripes will not overflow secret size */
 XXH_FORCE_INLINE void
-XXH3_accumulate(       xxh_u64* XXH_RESTRICT acc,
+XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
                 const xxh_u8* XXH_RESTRICT input,
                 const xxh_u8* XXH_RESTRICT secret,
                       size_t nbStripes,

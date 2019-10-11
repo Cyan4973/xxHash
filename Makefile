@@ -1,6 +1,6 @@
 # ################################################################
 # xxHash Makefile
-# Copyright (C) Yann Collet 2012-2015
+# Copyright (C) Yann Collet 2012-present
 #
 # GPL v2 License
 #
@@ -78,7 +78,7 @@ all: lib xxhsum xxhsum_inlinedXXH
 xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c
+xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.h xxh3.h
@@ -86,9 +86,9 @@ xxhash.o: xxhash.h xxh3.h
 xxhsum.o: xxhash.h
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum xxh32sum xxh64sum
+xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
 
-xxh32sum xxh64sum: xxhsum
+xxh32sum xxh64sum xxh128sum: xxhsum
 	ln -sf $^ $@
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
@@ -272,11 +272,15 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DDEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test
+test: all namespaceTest check test-xxhsum-c c90test test-tools
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
 test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
+
+.PHONY: test-tools
+test-tools:
+	MOREFLAGS=-Werror $(MAKE) -C tests/bench
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

@@ -49,16 +49,18 @@ Lookup3         1.2 GB/s      9       Bob Jenkins
 SuperFastHash   1.2 GB/s      1       Paul Hsieh
 CityHash64      1.05 GB/s    10       Pike & Alakuijala
 FNV             0.55 GB/s     5       Fowler, Noll, Vo
-CRC32           0.43 GB/s †   9
+CRC32           0.43 GB/s     9
 MD5-32          0.33 GB/s    10       Ronald L. Rivest
 SHA1-32         0.28 GB/s    10
-
-Note †: other CRC32 implementations can be over 40x faster than SMHasher's:
-http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html?showComment=1552696407071#c3490092340461170735
 
 Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
 10 is a perfect score.
+
+Note : SMHasher's CRC32 implementation is not the fastest one.
+Other speed-oriented implementations can be faster,
+especially in combination with PCLMUL instruction :
+http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html?showComment=1552696407071#c3490092340461170735
 
 A 64-bit version, named XXH64, is available since r35.
 It offers much better speed, but for 64-bit applications only.

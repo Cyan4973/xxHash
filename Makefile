@@ -339,6 +339,7 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
+	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
 	@echo Installing xxhsum
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum

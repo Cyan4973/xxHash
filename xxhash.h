@@ -78,13 +78,6 @@ extern "C" {
 #define XXHASH_H_5627135585666179 1
 
 /* ****************************
-*  Definitions
-******************************/
-#include <stddef.h>   /* size_t */
-typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
-
-
-/* ****************************
  *  API modifier
  ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
@@ -169,6 +162,13 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #define XXH_VERSION_RELEASE  2
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
+
+
+/* ****************************
+*  Definitions
+******************************/
+#include <stddef.h>   /* size_t */
+typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 
 
 /*-**********************************************************************
@@ -668,9 +668,6 @@ static void  XXH_free  (void* p)  { free(p); }
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
 #include <limits.h>   /* ULLONG_MAX */
-
-#define XXH_STATIC_LINKING_ONLY
-#include "xxhash.h"
 
 
 /* *************************************

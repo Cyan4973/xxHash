@@ -229,11 +229,13 @@ c90test: xxhash.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
 	$(RM) xxhash.o
 
+.PHONY: usan
 usan: CC=clang
+usan: CXX=clang++
 usan:  ## check CLI runtime for undefined behavior, using clang's sanitizer
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) clean
-	$(MAKE) test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
+	$(MAKE) test CC=$(CC) CXX=$(CXX) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 .PHONY: staticAnalyze
 SCANBUILD ?= scan-build

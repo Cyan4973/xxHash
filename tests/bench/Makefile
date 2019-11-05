@@ -31,6 +31,7 @@ CFLAGS   ?= -O3
 CFLAGS   += -std=c99 -Wall -Wextra -Wstrict-aliasing=1
 CFLAGS   += $(MOREFLAGS)   # custom way to add flags
 CXXFLAGS ?= -O3
+LDFLAGS  += $(MOREFLAGS)
 
 
 OBJ_LIST  = main.o bhDisplay.o benchHash.o benchfn.o timefn.o

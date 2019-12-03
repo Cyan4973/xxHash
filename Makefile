@@ -221,6 +221,10 @@ cxxtest: clean
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
 .PHONY: c90test
+ifeq ($(NO_C90_TEST),true)
+c90test:
+	@echo no c90 compatibility test
+else
 c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
 c90test: CFLAGS += -std=c90 -Werror -pedantic
 c90test: xxhash.c
@@ -228,6 +232,7 @@ c90test: xxhash.c
 	$(RM) xxhash.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
 	$(RM) xxhash.o
+endif
 
 .PHONY: usan
 usan: CC=clang

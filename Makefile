@@ -221,6 +221,10 @@ cxxtest: clean
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
 .PHONY: c90test
+ifeq ($(NO_C90_TEST),true)
+c90test:
+	@echo no c90 compatibility test
+else
 c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
 c90test: CFLAGS += -std=c90 -Werror -pedantic
 c90test: xxhash.c
@@ -228,12 +232,15 @@ c90test: xxhash.c
 	$(RM) xxhash.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
 	$(RM) xxhash.o
+endif
 
+.PHONY: usan
 usan: CC=clang
+usan: CXX=clang++
 usan:  ## check CLI runtime for undefined behavior, using clang's sanitizer
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) clean
-	$(MAKE) test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
+	$(MAKE) test CC=$(CC) CXX=$(CXX) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 .PHONY: staticAnalyze
 SCANBUILD ?= scan-build
@@ -339,6 +346,7 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
+	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
 	@echo Installing xxhsum
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum

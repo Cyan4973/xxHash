@@ -199,7 +199,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
     Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s */
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, XXH32_hash_t seed);
 
-/*======   Streaming   ======*/
+/*******   Streaming   *******/
 
 /*
  * Streaming functions generate the xxHash value from an incrememtal input.
@@ -231,7 +231,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, XXH32_hash_t
 XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
 
-/*======   Canonical representation   ======*/
+/*******   Canonical representation   *******/
 
 /* Default return values from XXH functions are basic unsigned 32 and 64 bits.
  * This the simplest and fastest format for further post-processing.
@@ -274,7 +274,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
  */
 XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, XXH64_hash_t seed);
 
-/*======   Streaming   ======*/
+/*******   Streaming   *******/
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
@@ -284,7 +284,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, XXH64_hash_t
 XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 
-/*======   Canonical representation   ======*/
+/*******   Canonical representation   *******/
 typedef struct { unsigned char digest[8]; } XXH64_canonical_t;
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
@@ -298,12 +298,12 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 
 #if defined(XXH_STATIC_LINKING_ONLY) && !defined(XXHASH_H_STATIC_13879238742)
 #define XXHASH_H_STATIC_13879238742
-/* ================================================================================================
+/* ************************************************************************************************
    This section contains declarations which are not guaranteed to remain stable.
    They may change in future versions, becoming incompatible with a different version of the library.
    These declarations should only be used with static linking.
    Never use them in association with dynamic linking !
-=================================================================================================== */
+*************************************************************************************************** */
 
 /* These definitions are only present to allow
  * static allocation of XXH state, on stack or in a struct for example.
@@ -342,7 +342,7 @@ struct XXH64_state_s {
 *  New experimental hash
 ************************************************************************/
 
-/* ============================================
+/* *********************************************
  * XXH3 is a new hash algorithm,
  * featuring improved speed performance for both small and large inputs.
  * See full speed analysis at : http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
@@ -562,7 +562,7 @@ XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
 XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
 
 
-/*======   Canonical representation   ======*/
+/*******   Canonical representation   *******/
 typedef struct { unsigned char digest[16]; } XXH128_canonical_t;
 XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
 XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
@@ -729,7 +729,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 typedef XXH32_hash_t xxh_u32;
 
 
-/* ===   Memory access   === */
+/* ***   Memory access   *** */
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
@@ -758,7 +758,7 @@ static xxh_u32 XXH_read32(const void* memPtr)
 #endif   /* XXH_FORCE_DIRECT_MEMORY_ACCESS */
 
 
-/* ===   Endianess   === */
+/* ***   Endianess   *** */
 typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command line */
@@ -1055,7 +1055,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t s
 
 
 
-/*======   Hash streaming   ======*/
+/*******   Hash streaming   *******/
 
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 {
@@ -1169,7 +1169,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest (const XXH32_state_t* state)
 }
 
 
-/*======   Canonical representation   ======*/
+/*******   Canonical representation   *******/
 
 /*! Default XXH result types are basic unsigned 32 and 64 bits.
 *   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
@@ -1196,7 +1196,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 *  64-bit hash functions
 *********************************************************************/
 
-/*======   Memory access   ======*/
+/*******   Memory access   *******/
 
 typedef XXH64_hash_t xxh_u64;
 
@@ -1292,7 +1292,7 @@ XXH_readLE64_align(const void* ptr, XXH_alignment align)
 }
 
 
-/*======   xxh64   ======*/
+/*******   xxh64   *******/
 
 static const xxh_u64 PRIME64_1 = 0x9E3779B185EBCA87ULL;   /* 0b1001111000110111011110011011000110000101111010111100101010000111 */
 static const xxh_u64 PRIME64_2 = 0xC2B2AE3D27D4EB4FULL;   /* 0b1100001010110010101011100011110100100111110101001110101101001111 */
@@ -1516,7 +1516,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, XXH64_hash_t s
 #endif
 }
 
-/*======   Hash Streaming   ======*/
+/*******   Hash Streaming   *******/
 
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 {
@@ -1632,7 +1632,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest (const XXH64_state_t* state)
 }
 
 
-/*====== Canonical representation   ======*/
+/******* Canonical representation   *******/
 
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash)
 {

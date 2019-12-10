@@ -260,7 +260,8 @@ static const char author[] = "Yann Collet";
 static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define NBLOOPS    3                              /* Default number of benchmark iterations */
 #define TIMELOOP_S 1
-#define TIMELOOP  (TIMELOOP_S * CLOCKS_PER_SEC)   /* Minimum timing per iteration */
+#define TIMELOOP  (TIMELOOP_S * CLOCKS_PER_SEC)   /* target timing per iteration */
+#define TIMELOOP_MIN (TIMELOOP / 2)               /* minimum timing to validate a result */
 #define XXHSUM32_DEFAULT_SEED 0                   /* Default seed for algo_xxh32 */
 #define XXHSUM64_DEFAULT_SEED 0                   /* Default seed for algo_xxh64 */
 
@@ -376,26 +377,36 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to defeat compiler "optimizing" away hash */
 
         {   clock_t const nbTicks = BMK_clockSpan(cStart);
-            double const timeS = ((double)nbTicks / CLOCKS_PER_SEC) / nbh_perIteration;
-            if (nbTicks == 0) { /* faster than resolution timer */
-                nbh_perIteration *= 100;
+            double const ticksPerHash = ((double)nbTicks / TIMELOOP) / nbh_perIteration;
+
+            if (nbTicks < TIMELOOP_MIN) {
+                /* not enough time spent in benchmarking, risk of rounding bias */
+                if (nbTicks == 0) { /* faster than resolution timer */
+                    nbh_perIteration *= 100;
+                } else {
+                    /* update nbh_perIteration so that next round last approximately 1 second */
+                    double nbh_perSecond = (1 / ticksPerHash) + 1;
+                    if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
+                    nbh_perIteration = (U32)nbh_perSecond;
+                }
                 iterationNb--;   /* try again */
                 continue;
             }
-            if (timeS < fastestH) fastestH = timeS;
+            if (ticksPerHash < fastestH) fastestH = ticksPerHash;
             DISPLAYLEVEL(2, "%1u-%-22.22s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
-                    iterationNb, hName, (U32)bufferSize,
-                    (double)1 / fastestH,
-                    ((double)bufferSize / (1<<20)) / fastestH );
+                            iterationNb, hName, (U32)bufferSize,
+                            (double)1 / fastestH,
+                            ((double)bufferSize / (1 MB)) / fastestH );
         }
         {   double nbh_perSecond = (1 / fastestH) + 1;
-            if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);
+            if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n", hName, (U32)bufferSize,
-        (double)1 / fastestH,
-        ((double)bufferSize / (1<<20)) / fastestH);
+    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+                    hName, (U32)bufferSize,
+                    (double)1 / fastestH,
+                    ((double)bufferSize / (1 MB)) / fastestH );
     if (g_displayLevel<1)
         DISPLAYLEVEL(0, "%u, ", (U32)((double)1 / fastestH));
 }
@@ -546,8 +557,7 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
         {   int const result = BMK_benchMem(alignedBuffer, keySize, specificTest);
             free(buffer);
             return result;
-        }
-    }
+    }   }
 }
 
 

@@ -234,7 +234,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
 {
     U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
                               0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
-    return (U64x2)XXH_vec_permxor((U8x16)val, (U8x16)input, vXorSwap);
+    return (U64x2)XXH_vec_permxor((U8x16)acc, (U8x16)input, vXorSwap);
 }
 #  else
 XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)

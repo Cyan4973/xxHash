@@ -125,7 +125,7 @@
   && (defined(__LITTLE_ENDIAN__) /* We only support little endian NEON */ \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #    define XXH_VECTOR XXH_NEON
-#  elif defined(__PPC64__) && defined(__POWER8_VECTOR__) && defined(__GNUC__)
+#  elif (defined(__PPC64__) && defined(__POWER8_VECTOR__)) || (defined(__s390x__) && defined(__VEC__)) && defined(__GNUC__)
 #    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
@@ -159,7 +159,11 @@
 /* VSX stuff. It's a lot because VSX support is mediocre across compilers and
  * there is a lot of mischief with endianness. */
 #if XXH_VECTOR == XXH_VSX
-#  include <altivec.h>
+#  if defined(__s390x__)
+#    include <s390intrin.h>
+#  else
+#    include <altivec.h>
+#  endif
 #  undef vector
 typedef __vector unsigned long long U64x2;
 typedef __vector unsigned char U8x16;
@@ -177,10 +181,20 @@ typedef __vector unsigned U32x4;
 #  endif
 #endif
 
+#ifdef __s390x__
+/* TODO: fix this ugly hack */
+#  define vec_vsx_ld(offset, ptr) \
+__extension__({ \
+    U64x2 _ret; \
+    __builtin_memcpy(&_ret, (const xxh_u8 *)(ptr) + (offset), sizeof(U64x2)); \
+    _ret; \
+})
+#endif
+
 /* We need some helpers for big endian mode. */
 #if XXH_VSX_BE
 /* A wrapper for POWER9's vec_revb. */
-#  ifdef __POWER9_VECTOR__
+#  if defined(__POWER9_VECTOR__) || defined(__s390x__)
 #    define XXH_vec_revb vec_revb
 #  else
 XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
@@ -205,11 +219,28 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
  *
  * Because both of the main loops load the key, swap, and xor it with input,
  * we can combine the key swap into this instruction.
+ *
+ * This is not available on s390x.
  */
 #  ifdef vec_permxor
 #    define XXH_vec_permxor vec_permxor
-#  else
+#  elif defined(__POWER8_VECTOR__)
 #    define XXH_vec_permxor __builtin_crypto_vpermxor
+#  endif
+
+#  ifdef XXH_vec_permxor
+
+XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
+{
+    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
+                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
+    return (U64x2)XXH_vec_permxor((U8x16)val, (U8x16)input, vXorSwap);
+}
+#  else
+XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
+{
+    return acc ^ XXH_vec_revb(input);
+}
 #  endif
 #endif  /* XXH_VSX_BE */
 /*
@@ -219,7 +250,10 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
  * Additionally, the intrinsic wasn't added until GCC 8, despite existing for a while.
  * Clang has an easy way to control this, we can just use the builtin which doesn't swap.
  * GCC needs inline assembly. */
-#if __has_builtin(__builtin_altivec_vmuleuw)
+#if defined(__s390x__)
+#  define XXH_vec_mulo vec_mulo
+#  define XXH_vec_mule vec_mule
+#elif __has_builtin(__builtin_altivec_vmuleuw)
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
 #else
@@ -626,10 +660,6 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
     U64x2 const* const xinput = (U64x2 const*) input;   /* no alignment restriction */
     U64x2 const* const xsecret  = (U64x2 const*) secret;    /* no alignment restriction */
     U64x2 const v32 = { 32,  32 };
-#if XXH_VSX_BE
-    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
-                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
-#endif
     size_t i;
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         /* data_vec = xinput[i]; */
@@ -637,9 +667,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 #if XXH_VSX_BE
         /* byteswap */
         U64x2 const data_vec = XXH_vec_revb(vec_vsx_ld(0, xinput + i));
-        U64x2 const key_raw = vec_vsx_ld(0, xsecret + i);
-        /* See comment above. data_key = data_vec ^ swap(xsecret[i]); */
-        U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
+        /* data_key = data_vec ^ swap(xsecret[i]); */
+        U64x2 const data_key = XXH_vec_xor_revb(data_vec, vec_vsx_ld(0, xsecret + i));
 #else
         U64x2 const data_vec = vec_vsx_ld(0, xinput + i);
         U64x2 const key_vec = vec_vsx_ld(0, xsecret + i);
@@ -655,7 +684,11 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             xacc[i] += data_vec;
         } else {  /* XXH3_acc_128bits */
             /* swap high and low halves */
+#ifdef __s390x__
+            U64x2 const data_swapped = vec_permi(data_vec, data_vec, 2);
+#else
             U64x2 const data_swapped = vec_xxpermdi(data_vec, data_vec, 2);
+#endif
             xacc[i] += data_swapped;
         }
     }
@@ -775,21 +808,15 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
     U64x2 const v47 = { 47, 47 };
     U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
     size_t i;
-#if XXH_VSX_BE
-    /* endian swap */
-    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
-                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
-#endif
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         U64x2 const acc_vec  = xacc[i];
         U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
+        U64x2 const key_vec  = vec_vsx_ld(0, xsecret + i);
         /* key_vec = xsecret[i]; */
 #if XXH_VSX_BE
         /* swap bytes words */
-        U64x2 const key_raw  = vec_vsx_ld(0, xsecret + i);
-        U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
+        U64x2 const data_key  = XXH_vec_xor_revb(data_vec, key_vec);
 #else
-        U64x2 const key_vec  = vec_vsx_ld(0, xsecret + i);
         U64x2 const data_key = data_vec ^ key_vec;
 #endif
 

@@ -94,6 +94,9 @@ matrix:
       script:
         # Scalar (universal) code path
         - CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check
+        # s390x code path (64-bit)
+        - make clean
+        - CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -march=arch11 -mzvector" LDFLAGS="-static" make check
 
     - name: cmake build test
       script:

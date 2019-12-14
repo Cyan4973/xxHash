@@ -90,8 +90,11 @@ matrix:
         - CPPFLAGS=-DXXH_VECTOR=4 CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check
 
     - name: IBM s390x compilation and consistency checks
+      dist: bionic
       arch: s390x
       script:
+        # for info
+        - cat /proc/cpuinfo
         # Scalar (universal) code path
         - CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check
         # s390x code path (64-bit)

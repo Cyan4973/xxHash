@@ -190,7 +190,7 @@ typedef __vector unsigned U32x4;
 #  endif
 #endif
 
-#if XXH_VEC_BE
+#if XXH_VSX_BE
 /* A wrapper for POWER9's vec_revb. */
 #  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
 #    define XXH_vec_revb vec_revb
@@ -202,7 +202,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
     return vec_perm(val, val, vByteSwap);
 }
 #  endif
-#endif /* XXH_VEC_BE */
+#endif /* XXH_VSX_BE */
 
 /*
  * Performs an unaligned load and byte swaps it on big endian.

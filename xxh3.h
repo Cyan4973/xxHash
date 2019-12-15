@@ -109,11 +109,11 @@
 /* ==========================================
  * Vectorization detection
  * ========================================== */
-#define XXH_SCALAR 0
-#define XXH_SSE2   1
-#define XXH_AVX2   2
-#define XXH_NEON   3
-#define XXH_VSX    4
+#define XXH_SCALAR 0 /* Portable scalar version */
+#define XXH_SSE2   1 /* SSE2 for Pentium 4 and all x86_64 */
+#define XXH_AVX2   2 /* AVX2 for Haswell and Bulldozer */
+#define XXH_NEON   3 /* NEON for most ARMv7-A and all AArch64 */
+#define XXH_VSX    4 /* VSX and ZVector for POWER8/z13 */
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX2__)
@@ -125,7 +125,9 @@
   && (defined(__LITTLE_ENDIAN__) /* We only support little endian NEON */ \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #    define XXH_VECTOR XXH_NEON
-#  elif defined(__PPC64__) && defined(__POWER8_VECTOR__) && defined(__GNUC__)
+#  elif (defined(__PPC64__) && defined(__POWER8_VECTOR__)) \
+     || (defined(__s390x__) && defined(__VEC__)) \
+     && defined(__GNUC__) /* TODO: IBM XL */
 #    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
@@ -135,15 +137,15 @@
 /* control alignment of accumulator,
  * for compatibility with fast vector loads */
 #ifndef XXH_ACC_ALIGN
-#  if XXH_VECTOR == 0   /* scalar */
+#  if XXH_VECTOR == XXH_SCALAR  /* scalar */
 #     define XXH_ACC_ALIGN 8
-#  elif XXH_VECTOR == 1  /* sse2 */
+#  elif XXH_VECTOR == XXH_SSE2  /* sse2 */
 #     define XXH_ACC_ALIGN 16
-#  elif XXH_VECTOR == 2  /* avx2 */
+#  elif XXH_VECTOR == XXH_AVX2  /* avx2 */
 #     define XXH_ACC_ALIGN 32
-#  elif XXH_VECTOR == 3  /* neon */
+#  elif XXH_VECTOR == XXH_NEON  /* neon */
 #     define XXH_ACC_ALIGN 16
-#  elif XXH_VECTOR == 4  /* vsx */
+#  elif XXH_VECTOR == XXH_VSX   /* vsx */
 #     define XXH_ACC_ALIGN 16
 #  endif
 #endif
@@ -156,11 +158,22 @@
 #    define XXH_mult32to64(x, y) ((xxh_u64)((x) & 0xFFFFFFFF) * (xxh_u64)((y) & 0xFFFFFFFF))
 #endif
 
-/* VSX stuff. It's a lot because VSX support is mediocre across compilers and
- * there is a lot of mischief with endianness. */
+/*
+ * VSX and Z Vector helpers.
+ *
+ * This is very messy, and any pull requests to clean this up are welcome.
+ *
+ * There are a lot of problems with supporting VSX and s390x, due to
+ * inconsistent intrinsics, spotty coverage, and multiple endiannesses.
+ */
 #if XXH_VECTOR == XXH_VSX
-#  include <altivec.h>
-#  undef vector
+#  if defined(__s390x__)
+#    include <s390intrin.h>
+#  else
+#    include <altivec.h>
+#  endif
+
+#  undef vector /* Undo the pollution */
 typedef __vector unsigned long long U64x2;
 typedef __vector unsigned char U8x16;
 typedef __vector unsigned U32x4;
@@ -177,10 +190,9 @@ typedef __vector unsigned U32x4;
 #  endif
 #endif
 
-/* We need some helpers for big endian mode. */
 #if XXH_VSX_BE
 /* A wrapper for POWER9's vec_revb. */
-#  ifdef __POWER9_VECTOR__
+#  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
 #    define XXH_vec_revb vec_revb
 #  else
 XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
@@ -190,52 +202,53 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
     return vec_perm(val, val, vByteSwap);
 }
 #  endif
+#endif /* XXH_VSX_BE */
 
-/* Power8 Crypto gives us vpermxor which is very handy for
- * PPC64EB.
- *
- * U8x16 vpermxor(U8x16 a, U8x16 b, U8x16 mask)
- * {
- *     U8x16 ret;
- *     for (int i = 0; i < 16; i++) {
- *         ret[i] = a[mask[i] & 0xF] ^ b[mask[i] >> 4];
- *     }
- *     return ret;
- * }
- *
- * Because both of the main loops load the key, swap, and xor it with input,
- * we can combine the key swap into this instruction.
- */
-#  ifdef vec_permxor
-#    define XXH_vec_permxor vec_permxor
-#  else
-#    define XXH_vec_permxor __builtin_crypto_vpermxor
-#  endif
-#endif  /* XXH_VSX_BE */
 /*
- * Because we reinterpret the multiply, there are endian memes: vec_mulo actually becomes
- * vec_mule.
+ * Performs an unaligned load and byte swaps it on big endian.
+ */
+XXH_FORCE_INLINE U64x2 XXH_vec_loadu(const void *ptr)
+{
+    U64x2 ret;
+    memcpy(&ret, ptr, sizeof(U64x2));
+#if XXH_VSX_BE
+    ret = XXH_vec_revb(ret);
+#endif
+    return ret;
+}
+
+/*
+ * vec_mulo and vec_mule are very problematic intrinsics:
  *
- * Additionally, the intrinsic wasn't added until GCC 8, despite existing for a while.
- * Clang has an easy way to control this, we can just use the builtin which doesn't swap.
- * GCC needs inline assembly. */
-#if __has_builtin(__builtin_altivec_vmuleuw)
+ *  1. Compilers like to swap them at will.
+ *  2. They are endian dependent
+ *  2. GCC lacks this before version 8.0
+ */
+#if defined(__s390x__)
+/* s390x is always big endian, this is not an issue. */
+#  define XXH_vec_mulo vec_mulo
+#  define XXH_vec_mule vec_mule
+#elif __has_builtin(__builtin_altivec_vmuleuw)
+/* Clang has a handy builtin which ALWAYS emits the right instruction */
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
 #else
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
-XXH_FORCE_INLINE U64x2 XXH_vec_mulo(U32x4 a, U32x4 b) {
+XXH_FORCE_INLINE U64x2 XXH_vec_mulo(U32x4 a, U32x4 b)
+{
     U64x2 result;
     __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
-XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b) {
+XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b)
+{
     U64x2 result;
     __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
 #endif /* __has_builtin(__builtin_altivec_vmuleuw) */
 #endif /* XXH_VECTOR == XXH_VSX */
+
 
 /* prefetch
  * can be disabled, by declaring XXH_NO_PREFETCH build macro */
@@ -625,26 +638,14 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
           U64x2* const xacc =        (U64x2*) acc;    /* presumed aligned */
     U64x2 const* const xinput = (U64x2 const*) input;   /* no alignment restriction */
     U64x2 const* const xsecret  = (U64x2 const*) secret;    /* no alignment restriction */
-    U64x2 const v32 = { 32,  32 };
-#if XXH_VSX_BE
-    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
-                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
-#endif
+    U64x2 const v32 = { 32, 32 };
     size_t i;
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         /* data_vec = xinput[i]; */
         /* key_vec = xsecret[i]; */
-#if XXH_VSX_BE
-        /* byteswap */
-        U64x2 const data_vec = XXH_vec_revb(vec_vsx_ld(0, xinput + i));
-        U64x2 const key_raw = vec_vsx_ld(0, xsecret + i);
-        /* See comment above. data_key = data_vec ^ swap(xsecret[i]); */
-        U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
-#else
-        U64x2 const data_vec = vec_vsx_ld(0, xinput + i);
-        U64x2 const key_vec = vec_vsx_ld(0, xsecret + i);
+        U64x2 const data_vec = XXH_vec_loadu(xinput + i);
+        U64x2 const key_vec = XXH_vec_loadu(xsecret + i);
         U64x2 const data_key = data_vec ^ key_vec;
-#endif
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         U32x4 const shuffled = (U32x4)vec_rl(data_key, v32);
         /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
@@ -655,7 +656,11 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             xacc[i] += data_vec;
         } else {  /* XXH3_acc_128bits */
             /* swap high and low halves */
+#ifdef __s390x__
+            U64x2 const data_swapped = vec_permi(data_vec, data_vec, 2);
+#else
             U64x2 const data_swapped = vec_xxpermdi(data_vec, data_vec, 2);
+#endif
             xacc[i] += data_swapped;
         }
     }
@@ -775,26 +780,14 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
     U64x2 const v47 = { 47, 47 };
     U32x4 const prime = { PRIME32_1, PRIME32_1, PRIME32_1, PRIME32_1 };
     size_t i;
-#if XXH_VSX_BE
-    /* endian swap */
-    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
-                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
-#endif
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         U64x2 const acc_vec  = xacc[i];
         U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
+        U64x2 const key_vec  = XXH_vec_loadu(xsecret + i);
         /* key_vec = xsecret[i]; */
-#if XXH_VSX_BE
-        /* swap bytes words */
-        U64x2 const key_raw  = vec_vsx_ld(0, xsecret + i);
-        U64x2 const data_key = (U64x2)XXH_vec_permxor((U8x16)data_vec, (U8x16)key_raw, vXorSwap);
-#else
-        U64x2 const key_vec  = vec_vsx_ld(0, xsecret + i);
         U64x2 const data_key = data_vec ^ key_vec;
-#endif
 
         /* data_key *= PRIME32_1 */
-
         /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
         U64x2 const prod_even  = XXH_vec_mule((U32x4)data_key, prime);
         /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */

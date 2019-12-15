@@ -1,5 +1,9 @@
 language: c
 
+# Dump CPU info before start
+before_install:
+  - cat /proc/cpuinfo
+
 matrix:
   fast_finish: true
   include:
@@ -93,8 +97,6 @@ matrix:
       dist: bionic
       arch: s390x
       script:
-        # for info
-        - cat /proc/cpuinfo
         # Scalar (universal) code path
         - CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check
         # s390x code path (64-bit)
@@ -108,3 +110,4 @@ matrix:
         - cd build
         - cmake ..
         - make
+

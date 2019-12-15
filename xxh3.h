@@ -109,11 +109,11 @@
 /* ==========================================
  * Vectorization detection
  * ========================================== */
-#define XXH_SCALAR 0
-#define XXH_SSE2   1
-#define XXH_AVX2   2
-#define XXH_NEON   3
-#define XXH_VSX    4
+#define XXH_SCALAR 0 /* Portable scalar version */
+#define XXH_SSE2   1 /* SSE2 for Pentium 4 and all x86_64 */
+#define XXH_AVX2   2 /* AVX2 for Haswell and Bulldozer */
+#define XXH_NEON   3 /* NEON for most ARMv7-A and all AArch64 */
+#define XXH_VSX    4 /* VSX and ZVector for POWER8/z13 */
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX2__)
@@ -125,7 +125,9 @@
   && (defined(__LITTLE_ENDIAN__) /* We only support little endian NEON */ \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #    define XXH_VECTOR XXH_NEON
-#  elif (defined(__PPC64__) && defined(__POWER8_VECTOR__)) || (defined(__s390x__) && defined(__VEC__)) && defined(__GNUC__)
+#  elif (defined(__PPC64__) && defined(__POWER8_VECTOR__)) \
+     || (defined(__s390x__) && defined(__VEC__)) \
+     && defined(__GNUC__) /* TODO: IBM XL */
 #    define XXH_VECTOR XXH_VSX
 #  else
 #    define XXH_VECTOR XXH_SCALAR
@@ -135,15 +137,15 @@
 /* control alignment of accumulator,
  * for compatibility with fast vector loads */
 #ifndef XXH_ACC_ALIGN
-#  if XXH_VECTOR == 0   /* scalar */
+#  if XXH_VECTOR == XXH_SCALAR  /* scalar */
 #     define XXH_ACC_ALIGN 8
-#  elif XXH_VECTOR == 1  /* sse2 */
+#  elif XXH_VECTOR == XXH_SSE2  /* sse2 */
 #     define XXH_ACC_ALIGN 16
-#  elif XXH_VECTOR == 2  /* avx2 */
+#  elif XXH_VECTOR == XXH_AVX2  /* avx2 */
 #     define XXH_ACC_ALIGN 32
-#  elif XXH_VECTOR == 3  /* neon */
+#  elif XXH_VECTOR == XXH_NEON  /* neon */
 #     define XXH_ACC_ALIGN 16
-#  elif XXH_VECTOR == 4  /* vsx */
+#  elif XXH_VECTOR == XXH_VSX   /* vsx */
 #     define XXH_ACC_ALIGN 16
 #  endif
 #endif
@@ -156,15 +158,22 @@
 #    define XXH_mult32to64(x, y) ((xxh_u64)((x) & 0xFFFFFFFF) * (xxh_u64)((y) & 0xFFFFFFFF))
 #endif
 
-/* VSX stuff. It's a lot because VSX support is mediocre across compilers and
- * there is a lot of mischief with endianness. */
+/*
+ * VSX and Z Vector helpers.
+ *
+ * This is very messy, and any pull requests to clean this up are welcome.
+ *
+ * There are a lot of problems with supporting VSX and s390x, due to
+ * inconsistent intrinsics, spotty coverage, and multiple endiannesses.
+ */
 #if XXH_VECTOR == XXH_VSX
 #  if defined(__s390x__)
 #    include <s390intrin.h>
 #  else
 #    include <altivec.h>
 #  endif
-#  undef vector
+
+#  undef vector /* Undo the pollution */
 typedef __vector unsigned long long U64x2;
 typedef __vector unsigned char U8x16;
 typedef __vector unsigned U32x4;
@@ -182,13 +191,32 @@ typedef __vector unsigned U32x4;
 #endif
 
 #ifdef __s390x__
-/* TODO: fix this ugly hack */
-#  define vec_vsx_ld(offset, ptr) \
-__extension__({ \
-    U64x2 _ret; \
-    __builtin_memcpy(&_ret, (const xxh_u8 *)(ptr) + (offset), sizeof(U64x2)); \
-    _ret; \
-})
+/*
+ * TODO: Fix this ugly hack if possible.
+ *
+ * This function performs a raw unaligned load, simulating VSX's
+ * vec_vsx_ld.
+ *
+ * vec_xl will always emit an 8-byte aligned load:
+ *
+ *    lv   %v24, 0(%r2), 3 # 2 ^ 3 = 8
+ *
+ * The only way I can successfully generate an unaligned load
+ * is with memcpy:
+ *
+ *    lv   %v24, 0(%r2)
+ *
+ * I am unsure if I am missing an intrinsic for unaligned loads,
+ * but for the time being, this does the job. It is hard to tell
+ * because IBM's documentation is rather vague.
+ */
+#undef vec_vsx_ld
+XXH_FORCE_INLINE U64x2 vec_vsx_ld(int offset, const void *ptr)
+{
+    U64x2 ret;
+    memcpy(&ret, (const xxh_u8 *)ptr + offset, sizeof(U64x2));
+    return ret;
+}
 #endif
 
 /* We need some helpers for big endian mode. */
@@ -205,7 +233,8 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
 }
 #  endif
 
-/* Power8 Crypto gives us vpermxor which is very handy for
+/*
+ * Power8 Crypto gives us vpermxor which is very handy for
  * PPC64EB.
  *
  * U8x16 vpermxor(U8x16 a, U8x16 b, U8x16 mask)
@@ -228,8 +257,10 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
 #    define XXH_vec_permxor __builtin_crypto_vpermxor
 #  endif
 
+/*
+ * acc ^ bswap(input)
+ */
 #  ifdef XXH_vec_permxor
-
 XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
 {
     U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
@@ -243,33 +274,39 @@ XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
 }
 #  endif
 #endif  /* XXH_VSX_BE */
+
 /*
- * Because we reinterpret the multiply, there are endian memes: vec_mulo actually becomes
- * vec_mule.
+ * vec_mulo and vec_mule are very problematic intrinsics:
  *
- * Additionally, the intrinsic wasn't added until GCC 8, despite existing for a while.
- * Clang has an easy way to control this, we can just use the builtin which doesn't swap.
- * GCC needs inline assembly. */
+ *  1. Compilers like to swap them at will.
+ *  2. They are endian dependent
+ *  2. GCC lacks this before version 8.0
+ */
 #if defined(__s390x__)
+/* s390x is always big endian, this is not an issue. */
 #  define XXH_vec_mulo vec_mulo
 #  define XXH_vec_mule vec_mule
 #elif __has_builtin(__builtin_altivec_vmuleuw)
+/* Clang has a handy builtin which ALWAYS emits the right instruction */
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
 #else
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
-XXH_FORCE_INLINE U64x2 XXH_vec_mulo(U32x4 a, U32x4 b) {
+XXH_FORCE_INLINE U64x2 XXH_vec_mulo(U32x4 a, U32x4 b)
+{
     U64x2 result;
     __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
-XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b) {
+XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b)
+{
     U64x2 result;
     __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
 #endif /* __has_builtin(__builtin_altivec_vmuleuw) */
 #endif /* XXH_VECTOR == XXH_VSX */
+
 
 /* prefetch
  * can be disabled, by declaring XXH_NO_PREFETCH build macro */

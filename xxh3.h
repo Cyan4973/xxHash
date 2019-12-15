@@ -194,7 +194,7 @@ __extension__({ \
 /* We need some helpers for big endian mode. */
 #if XXH_VSX_BE
 /* A wrapper for POWER9's vec_revb. */
-#  if defined(__POWER9_VECTOR__) || defined(__s390x__)
+#  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
 #    define XXH_vec_revb vec_revb
 #  else
 XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)

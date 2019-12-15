@@ -190,37 +190,7 @@ typedef __vector unsigned U32x4;
 #  endif
 #endif
 
-#ifdef __s390x__
-/*
- * TODO: Fix this ugly hack if possible.
- *
- * This function performs a raw unaligned load, simulating VSX's
- * vec_vsx_ld.
- *
- * vec_xl will always emit an 8-byte aligned load:
- *
- *    lv   %v24, 0(%r2), 3 # 2 ^ 3 = 8
- *
- * The only way I can successfully generate an unaligned load
- * is with memcpy:
- *
- *    lv   %v24, 0(%r2)
- *
- * I am unsure if I am missing an intrinsic for unaligned loads,
- * but for the time being, this does the job. It is hard to tell
- * because IBM's documentation is rather vague.
- */
-#undef vec_vsx_ld
-XXH_FORCE_INLINE U64x2 vec_vsx_ld(int offset, const void *ptr)
-{
-    U64x2 ret;
-    memcpy(&ret, (const xxh_u8 *)ptr + offset, sizeof(U64x2));
-    return ret;
-}
-#endif
-
-/* We need some helpers for big endian mode. */
-#if XXH_VSX_BE
+#if XXH_VEC_BE
 /* A wrapper for POWER9's vec_revb. */
 #  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
 #    define XXH_vec_revb vec_revb
@@ -232,48 +202,20 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
     return vec_perm(val, val, vByteSwap);
 }
 #  endif
+#endif /* XXH_VEC_BE */
 
 /*
- * Power8 Crypto gives us vpermxor which is very handy for
- * PPC64EB.
- *
- * U8x16 vpermxor(U8x16 a, U8x16 b, U8x16 mask)
- * {
- *     U8x16 ret;
- *     for (int i = 0; i < 16; i++) {
- *         ret[i] = a[mask[i] & 0xF] ^ b[mask[i] >> 4];
- *     }
- *     return ret;
- * }
- *
- * Because both of the main loops load the key, swap, and xor it with input,
- * we can combine the key swap into this instruction.
- *
- * This is not available on s390x.
+ * Performs an unaligned load and byte swaps it on big endian.
  */
-#  ifdef vec_permxor
-#    define XXH_vec_permxor vec_permxor
-#  elif defined(__POWER8_VECTOR__)
-#    define XXH_vec_permxor __builtin_crypto_vpermxor
-#  endif
-
-/*
- * acc ^ bswap(input)
- */
-#  ifdef XXH_vec_permxor
-XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
+XXH_FORCE_INLINE U64x2 XXH_vec_loadu(const void *ptr)
 {
-    U8x16 const vXorSwap  = { 0x07, 0x16, 0x25, 0x34, 0x43, 0x52, 0x61, 0x70,
-                              0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8 };
-    return (U64x2)XXH_vec_permxor((U8x16)acc, (U8x16)input, vXorSwap);
+    U64x2 ret;
+    memcpy(&ret, ptr, sizeof(U64x2));
+#if XXH_VSX_BE
+    ret = XXH_vec_revb(ret);
+#endif
+    return ret;
 }
-#  else
-XXH_FORCE_INLINE U64x2 XXH_vec_xor_revb(U64x2 acc, U64x2 input)
-{
-    return acc ^ XXH_vec_revb(input);
-}
-#  endif
-#endif  /* XXH_VSX_BE */
 
 /*
  * vec_mulo and vec_mule are very problematic intrinsics:
@@ -696,21 +638,14 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
           U64x2* const xacc =        (U64x2*) acc;    /* presumed aligned */
     U64x2 const* const xinput = (U64x2 const*) input;   /* no alignment restriction */
     U64x2 const* const xsecret  = (U64x2 const*) secret;    /* no alignment restriction */
-    U64x2 const v32 = { 32,  32 };
+    U64x2 const v32 = { 32, 32 };
     size_t i;
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         /* data_vec = xinput[i]; */
         /* key_vec = xsecret[i]; */
-#if XXH_VSX_BE
-        /* byteswap */
-        U64x2 const data_vec = XXH_vec_revb(vec_vsx_ld(0, xinput + i));
-        /* data_key = data_vec ^ swap(xsecret[i]); */
-        U64x2 const data_key = XXH_vec_xor_revb(data_vec, vec_vsx_ld(0, xsecret + i));
-#else
-        U64x2 const data_vec = vec_vsx_ld(0, xinput + i);
-        U64x2 const key_vec = vec_vsx_ld(0, xsecret + i);
+        U64x2 const data_vec = XXH_vec_loadu(xinput + i);
+        U64x2 const key_vec = XXH_vec_loadu(xsecret + i);
         U64x2 const data_key = data_vec ^ key_vec;
-#endif
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         U32x4 const shuffled = (U32x4)vec_rl(data_key, v32);
         /* product = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)shuffled & 0xFFFFFFFF); */
@@ -848,17 +783,11 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
     for (i = 0; i < STRIPE_LEN / sizeof(U64x2); i++) {
         U64x2 const acc_vec  = xacc[i];
         U64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
-        U64x2 const key_vec  = vec_vsx_ld(0, xsecret + i);
+        U64x2 const key_vec  = XXH_vec_loadu(xsecret + i);
         /* key_vec = xsecret[i]; */
-#if XXH_VSX_BE
-        /* swap bytes words */
-        U64x2 const data_key  = XXH_vec_xor_revb(data_vec, key_vec);
-#else
         U64x2 const data_key = data_vec ^ key_vec;
-#endif
 
         /* data_key *= PRIME32_1 */
-
         /* prod_lo = ((U64x2)data_key & 0xFFFFFFFF) * ((U64x2)prime & 0xFFFFFFFF);  */
         U64x2 const prod_even  = XXH_vec_mule((U32x4)data_key, prime);
         /* prod_hi = ((U64x2)data_key >> 32) * ((U64x2)prime >> 32);  */

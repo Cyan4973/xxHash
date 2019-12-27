@@ -192,18 +192,19 @@ test-xxhsum-c: xxhsum
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
 	./xxhsum -c .test.xxh128
+	# read list of files from stdin
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
 	# xxhsum -c warns improperly format lines.
-	cat .test.xxh64 .test.xxh32 | ./xxhsum -c -
-	cat .test.xxh32 .test.xxh64 | ./xxhsum -c -
+	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
+	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly
 	# Expects "FAILED"
 	echo "0000000000000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-	@$(RM) -f .test.xxh32 .test.xxh64 .test.xxh128
+	@$(RM) .test.xxh32 .test.xxh64 .test.xxh128
 
 .PHONY: armtest
 armtest: clean

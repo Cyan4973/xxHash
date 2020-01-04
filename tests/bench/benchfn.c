@@ -106,18 +106,17 @@ static BMK_runOutcome_t BMK_setValid_runTime(BMK_runTime_t runTime)
 BMK_runOutcome_t BMK_benchFunction(BMK_benchParams_t p,
                                    unsigned nbLoops)
 {
-    size_t dstSize = 0;
-    nbLoops += !nbLoops;   /* minimum nbLoops is 1 */
-
     /* init */
     {   size_t i;
-        for(i = 0; i < p.blockCount; i++) {
+        for (i = 0; i < p.blockCount; i++) {
             memset(p.dstBuffers[i], 0xE5, p.dstCapacities[i]);  /* warm up and erase result buffer */
     }   }
 
     /* benchmark */
     {   UTIL_time_t const clockStart = UTIL_getTime();
+        size_t dstSize = 0;
         unsigned loopNb, blockNb;
+        nbLoops += !nbLoops;   /* minimum nbLoops is 1 */
         if (p.initFn != NULL) p.initFn(p.initPayload);
         for (loopNb = 0; loopNb < nbLoops; loopNb++) {
             for (blockNb = 0; blockNb < p.blockCount; blockNb++) {
@@ -211,13 +210,12 @@ BMK_runOutcome_t BMK_benchTimedFn(BMK_timedFnState_t* cont,
 {
     PTime const runBudget_ns = cont->runBudget_ns;
     PTime const runTimeMin_ns = runBudget_ns / 2;
-    int completed = 0;
     BMK_runTime_t bestRunTime = cont->fastestRun;
 
-    while (!completed) {
+    for (;;) {
         BMK_runOutcome_t const runResult = BMK_benchFunction(p, cont->nbLoops);
 
-        if(!BMK_isSuccessful_runOutcome(runResult)) { /* error : move out */
+        if (!BMK_isSuccessful_runOutcome(runResult)) { /* error : move out */
             return runResult;
         }
 
@@ -237,17 +235,17 @@ BMK_runOutcome_t BMK_benchTimedFn(BMK_timedFnState_t* cont,
                 cont->nbLoops *= multiplier;
             }
 
-            if(loopDuration_ns < runTimeMin_ns) {
-                /* don't report results for which benchmark run time was too small : increased risks of rounding errors */
-                assert(completed == 0);
+            if (loopDuration_ns < runTimeMin_ns) {
+                /* When benchmark run time is too small : don't report results.
+                 * increased risks of rounding errors */
                 continue;
-            } else {
-                if(newRunTime.nanoSecPerRun < bestRunTime.nanoSecPerRun) {
-                    bestRunTime = newRunTime;
-                }
-                completed = 1;
+            }
+
+            if (newRunTime.nanoSecPerRun < bestRunTime.nanoSecPerRun) {
+                bestRunTime = newRunTime;
             }
         }
+        break;
     }   /* while (!completed) */
 
     return BMK_setValid_runTime(bestRunTime);

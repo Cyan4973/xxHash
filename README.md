@@ -62,6 +62,17 @@ thanks to [Takayuki Matsuoka](https://github.com/t-mat) contributions.
 The library files `xxhash.c` and `xxhash.h` are BSD licensed.
 The utility `xxhsum` is GPL licensed.
 
+### Building xxHash - Using vcpkg
+
+You can download and install xxHash using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    ./vcpkg install xxhash
+
+The xxHash port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
 
 ### Build modifiers
 

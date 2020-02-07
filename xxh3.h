@@ -219,7 +219,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
  * Additionally, the intrinsic wasn't added until GCC 8, despite existing for a while.
  * Clang has an easy way to control this, we can just use the builtin which doesn't swap.
  * GCC needs inline assembly. */
-#if __has_builtin(__builtin_altivec_vmuleuw)
+#if defined(__clang__) && __has_builtin(__builtin_altivec_vmuleuw)
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
 #else

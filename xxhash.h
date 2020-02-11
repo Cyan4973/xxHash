@@ -641,6 +641,31 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 #  endif
 #endif
 
+/*!XXH_NO_INLINE_HINTS :
+ * By default, xxHash tries to force the compiler to inline
+ * almost all internal functions.
+ * This can usually improve performance due to reduced jumping
+ * and improved constant folding, but significantly increases
+ * the size of the binary which might not be favorable.
+ *
+ * Additionally, sometimes the forced inlining can be detrimental
+ * to performance, depending on the architecture.
+ *
+ * XXH_NO_INLINE_HINTS marks all internal functions as static,
+ * giving the compiler full control on whether to inline or not.
+ *
+ * When not optimizing (-O0), optimizing for size (-Os,-Oz), or using
+ * -fno-inline with GCC or Clang, this will automatically be
+ * defined. */
+#ifndef XXH_NO_INLINE_HINTS
+#  if defined(__OPTIMIZE_SIZE__) /* -Os, -Oz */ \
+   || defined(__NO_INLINE__)     /* -O0, -fno-inline */
+#    define XXH_NO_INLINE_HINTS 1
+#  else
+#    define XXH_NO_INLINE_HINTS 0
+#  endif
+#endif
+
 /*!XXH_REROLL:
  * Whether to reroll XXH32_finalize, and XXH64_finalize,
  * instead of using an unrolled jump table/if statement loop.
@@ -673,8 +698,14 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 /* *************************************
 *  Compiler Specific Options
 ***************************************/
-#ifdef _MSC_VER    /* Visual Studio */
+#ifdef _MSC_VER /* Visual Studio warning fix */
 #  pragma warning(disable : 4127)      /* disable: C4127: conditional expression is constant */
+#endif
+
+#if XXH_NO_INLINE_HINTS /* disable inlining hints */
+#  define XXH_FORCE_INLINE static
+#  define XXH_NO_INLINE static
+#elif defined(_MSC_VER)    /* Visual Studio */
 #  define XXH_FORCE_INLINE static __forceinline
 #  define XXH_NO_INLINE static __declspec(noinline)
 #else

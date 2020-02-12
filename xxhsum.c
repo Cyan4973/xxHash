@@ -241,6 +241,10 @@ static unsigned BMK_isLittleEndian(void)
 #  define ARCH "mips64"
 #elif defined(__mips)
 #  define ARCH "mips"
+#elif defined(__s390x__)
+#  define ARCH "s390x"
+#elif defined(__s390__)
+#  define ARCH "s390"
 #else
 #  define ARCH "unknown"
 #endif

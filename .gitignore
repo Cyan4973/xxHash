@@ -8,6 +8,7 @@ libxxhash.*
 # Executables
 xxh32sum
 xxh64sum
+xxh128sum
 xxhsum
 xxhsum.exe
 xxhsum32

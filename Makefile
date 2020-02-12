@@ -140,7 +140,8 @@ help:  ## list documented targets
 clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o libxxhash.*
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
+	@$(RM) xxh32sum xxh64sum xxh128sum
 	@echo cleaning completed
 
 

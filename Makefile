@@ -283,9 +283,13 @@ preview-man: man
 test: DEBUGFLAGS += -DDEBUGLEVEL=1
 test: all namespaceTest check test-xxhsum-c c90test test-tools
 
+.PHONY: test-inline
+test-inline:
+	$(MAKE) -C tests test
+
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
+test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze
 
 .PHONY: test-tools
 test-tools:

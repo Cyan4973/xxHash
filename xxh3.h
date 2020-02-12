@@ -593,7 +593,7 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     {   if (len > 8) return XXH3_len_9to16_64b(input, len, secret, seed);
         if (len >= 4) return XXH3_len_4to8_64b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
-        return 0;
+        return XXH3_avalanche((PRIME64_1 + seed) ^ XXH_read64(secret));
     }
 }
 
@@ -1426,7 +1426,9 @@ XXH3_len_0to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
     {   if (len > 8) return XXH3_len_9to16_128b(input, len, secret, seed);
         if (len >= 4) return XXH3_len_4to8_128b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_128b(input, len, secret, seed);
-        {   XXH128_hash_t const h128 = { 0, 0 };
+        {   XXH128_hash_t h128;
+            h128.low64 = XXH3_avalanche((PRIME64_1 + seed) ^ XXH_readLE64(secret));
+            h128.high64 = XXH3_avalanche((PRIME64_2 - seed) ^ XXH_readLE64(secret+8));
             return h128;
     }   }
 }

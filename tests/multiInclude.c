@@ -1,6 +1,6 @@
 /*
-*  test_multiinclude
-*  test program, just to validate including multiple times in any order
+*  multiinclude test program
+*  validate that xxhash.h can be included multiple times and in any order
 *
 *  Copyright (C) Yann Collet 2013-present
 *
@@ -25,26 +25,29 @@
 *  - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
-#include <stdio.h>  // printf
+#include <stdio.h>   /* printf */
 
 /* normal include, gives access to public symbols */
 #include "../xxhash.h"
 
-/* advanced include, gives access to experimental symbols */
-/* note : without specific effort, experimental symbols might be unavailable */
+/* advanced include, gives access to experimental symbols
+ * This test ensure that xxhash.h can be included multiple times
+ * and in any order. This order is more difficult :
+ * without care, declaration of experimental symbols could be skipped */
 #define XXH_STATIC_LINKING_ONLY
 #include "../xxhash.h"
 
-/* inlining : re-define all symbols, keep them private to the unit.
- * note : without specific efforts, symbol names will collide
- * note 2 : no linking to xxhash.o, so that link stage will fail if inline is ignored */
+/* inlining : re-define all identifiers, keep them private to the unit.
+ * note : without specific efforts, identifier names would collide
+ * To be linked with and withouy xxhash.o,
+ * to test symbol's presence and naming collisions */
 #define XXH_INLINE_ALL
 #include "../xxhash.h"
 
 
 int main(void)
 {
-    XXH3_state_t state;   /* part of experimental */
+    XXH3_state_t state;   /* part of experimental API */
 
     XXH3_64bits_reset(&state);
     const char input[] = "Hello World !";

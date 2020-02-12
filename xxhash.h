@@ -74,7 +74,7 @@ extern "C" {
 #endif
 
 /* ****************************
- *  API modifier
+ *  INLINE mode
  ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
  *  Implement requested xxhash functions directly in the unit.
@@ -140,6 +140,10 @@ extern "C" {
 #endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
 
 
+
+/* ****************************************************************
+ *  Stable API
+ *****************************************************************/
 #ifndef XXHASH_H_5627135585666179
 #define XXHASH_H_5627135585666179 1
 

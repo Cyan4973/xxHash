@@ -54,11 +54,8 @@
 #include <assert.h>     /* assert */
 #include <errno.h>      /* errno */
 
-#include "xxhash.h"
-
 #define XXH_STATIC_LINKING_ONLY   /* *_state_t */
-#include "xxhash.h"    /* note : intentional double include, for validation.
-                        * this test ensures that xxhash.h can be included in any order. */
+#include "xxhash.h"
 
 
 /* ************************************

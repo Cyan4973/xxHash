@@ -40,11 +40,12 @@
 #ifndef XXH3_H_1397135465
 #define XXH3_H_1397135465
 
-
 /* ===   Dependencies   === */
-
-#undef XXH_INLINE_ALL   /* in case it's already defined */
-#define XXH_INLINE_ALL
+#ifndef XXHASH_H_5627135585666179
+/* special : when including `xxh3.h` directly, turn on XXH_INLINE_ALL */
+#  undef XXH_INLINE_ALL   /* avoid redefinition */
+#  define XXH_INLINE_ALL
+#endif
 #include "xxhash.h"
 
 

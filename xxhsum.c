@@ -93,7 +93,7 @@
  || defined(__MSYS__)
 #  include <unistd.h>   /* isatty */
 #  define IS_CONSOLE(stdStream) isatty(fileno(stdStream))
-#elif defined(MSDOS) || defined(OS2) || defined(__CYGWIN__)
+#elif defined(MSDOS) || defined(OS2)
 #  include <io.h>       /* _isatty */
 #  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
 #elif defined(WIN32) || defined(_WIN32)
@@ -369,7 +369,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", iterationNb, hName, (U32)bufferSize);
+        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", (unsigned)iterationNb, hName, (unsigned)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
@@ -398,7 +398,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
             DISPLAYLEVEL(2, "%1u-%-22.22s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
-                            iterationNb, hName, (U32)bufferSize,
+                            (unsigned)iterationNb, hName, (unsigned)bufferSize,
                             (double)1 / fastestH,
                             ((double)bufferSize / (1 MB)) / fastestH );
         }
@@ -408,11 +408,11 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         }
     }
     DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
-                    hName, (U32)bufferSize,
+                    hName, (unsigned)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1 MB)) / fastestH );
     if (g_displayLevel<1)
-        DISPLAYLEVEL(0, "%u, ", (U32)((double)1 / fastestH));
+        DISPLAYLEVEL(0, "%u, ", (unsigned)((double)1 / fastestH));
 }
 
 
@@ -552,9 +552,9 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
         /* bench */
         DISPLAYLEVEL(1, "Sample of ");
         if (keySize > 10 KB) {
-            DISPLAYLEVEL(1, "%u KB", (U32)(keySize >> 10));
+            DISPLAYLEVEL(1, "%u KB", (unsigned)(keySize >> 10));
         } else {
-            DISPLAYLEVEL(1, "%u bytes", (U32)keySize);
+            DISPLAYLEVEL(1, "%u bytes", (unsigned)keySize);
         }
         DISPLAYLEVEL(1, "...        \n");
 
@@ -575,7 +575,7 @@ static void BMK_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rError: 32-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X, expected 0x%08X.\n", r1, r2);
+        DISPLAY("\rGot 0x%08X, expected 0x%08X.\n", (unsigned)r1, (unsigned)r2);
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
@@ -588,7 +588,8 @@ static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rError: 64-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n", (U32)(r1>>32), (U32)r1, (U32)(r2>>32), (U32)r2);
+        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n",
+                (unsigned)(r1>>32), (unsigned)r1, (unsigned)(r2>>32), (unsigned)r2);
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
@@ -602,8 +603,8 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
     if ((r1.low64 != r2.low64) || (r1.high64 != r2.high64)) {
         DISPLAY("\rError: 128-bit hash test %i: Internal sanity check failed.\n", nbTests);
         DISPLAY("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, %08X%08XULL } \n",
-                (U32)(r1.low64>>32), (U32)r1.low64, (U32)(r1.high64>>32), (U32)r1.high64,
-                (U32)(r2.low64>>32), (U32)r2.low64, (U32)(r2.high64>>32), (U32)r2.high64 );
+                (unsigned)(r1.low64>>32), (unsigned)r1.low64, (unsigned)(r1.high64>>32), (unsigned)r1.high64,
+                (unsigned)(r2.low64>>32), (unsigned)r2.low64, (unsigned)(r2.high64>>32), (unsigned)r2.high64 );
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
@@ -612,20 +613,22 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 }
 
 
-static void BMK_testXXH32(const void* sequence, size_t len, U32 seed, U32 Nresult)
+static void BMK_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
 {
     XXH32_state_t state;
     size_t pos;
 
-    BMK_checkResult32(XXH32(sequence, len, seed), Nresult);
+    if (len>0) assert(data != NULL);
+
+    BMK_checkResult32(XXH32(data, len, seed), Nresult);
 
     (void)XXH32_reset(&state, seed);
-    (void)XXH32_update(&state, sequence, len);
+    (void)XXH32_update(&state, data, len);
     BMK_checkResult32(XXH32_digest(&state), Nresult);
 
     (void)XXH32_reset(&state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH32_update(&state, ((const char*)sequence)+pos, 1);
+        (void)XXH32_update(&state, ((const char*)data)+pos, 1);
     BMK_checkResult32(XXH32_digest(&state), Nresult);
 }
 
@@ -633,6 +636,8 @@ static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t state;
     size_t pos;
+
+    if (len>0) assert(data != NULL);
 
     BMK_checkResult64(XXH64(data, len, seed), Nresult);
 
@@ -648,6 +653,8 @@ static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 
 static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 {
+    if (len>0) assert(data != NULL);
+
     {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
         BMK_checkResult64(Dresult, Nresult);
     }
@@ -685,6 +692,8 @@ static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 
 static void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
 {
+    if (len>0) assert(data != NULL);
+
     {   U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
         BMK_checkResult64(Dresult, Nresult);
     }
@@ -1633,7 +1642,7 @@ static int usage_advanced(const char* exename)
     DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian) \n");
     DISPLAY( " -h, --help      : display long help and exit \n");
     DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %u) \n", g_nbIterations);
+    DISPLAY( " -i# : number of iterations (benchmark mode; default %u) \n", (unsigned)g_nbIterations);
     DISPLAY( "\n");
     DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");
     DISPLAY( "--strict : don't print OK for each successfully verified file \n");

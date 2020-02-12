@@ -37,8 +37,8 @@
    It will be integrated into `xxhash.c` when development phase is complete.
 */
 
-#ifndef XXH3_H
-#define XXH3_H
+#ifndef XXH3_H_1397135465
+#define XXH3_H_1397135465
 
 
 /* ===   Dependencies   === */
@@ -158,6 +158,108 @@
 #    define XXH_mult32to64(x, y) ((xxh_u64)((x) & 0xFFFFFFFF) * (xxh_u64)((y) & 0xFFFFFFFF))
 #endif
 
+#if XXH_VECTOR == XXH_NEON
+/*
+ * NEON's setup for vmlal_u32 is a little more complicated than it is on
+ * SSE2, AVX2, and VSX.
+ *
+ * While PMULUDQ and VMULEUW both perform a mask, VMLAL.U32 performs an upcast.
+ *
+ * To do the same operation, the 128-bit 'Q' register needs to be split into
+ * two 64-bit 'D' registers, performing this operation::
+ *
+ *   [                a                 |                 b                ]
+ *            |              '---------. .--------'                |
+ *            |                         x                          |
+ *            |              .---------' '--------.                |
+ *   [ a & 0xFFFFFFFF | b & 0xFFFFFFFF ],[    a >> 32     |     b >> 32    ]
+ *
+ * Due to significant changes in aarch64, the fastest method for aarch64 is
+ * completely different than the fastest method for ARMv7-A.
+ *
+ * ARMv7-A treats D registers as unions overlaying Q registers, so modifying
+ * D11 will modify the high half of Q5. This is similar to how modifying AH
+ * will only affect bits 8-15 of AX on x86.
+ *
+ * VZIP takes two registers, and puts even lanes in one register and odd lanes
+ * in the other.
+ *
+ * On ARMv7-A, this strangely modifies both parameters in place instead of
+ * taking the usual 3-operand form.
+ *
+ * Therefore, if we want to do this, we can simply use a D-form VZIP.32 on the
+ * lower and upper halves of the Q register to end up with the high and low
+ * halves where we want - all in one instruction.
+ *
+ *   vzip.32   d10, d11       @ d10 = { d10[0], d11[0] }; d11 = { d10[1], d11[1] }
+ *
+ * Unfortunately we need inline assembly for this: Instructions modifying two
+ * registers at once is not possible in GCC or Clang's IR, and they have to
+ * create a copy.
+ *
+ * aarch64 requires a different approach.
+ *
+ * In order to make it easier to write a decent compiler for aarch64, many
+ * quirks were removed, such as conditional execution.
+ *
+ * NEON was also affected by this.
+ *
+ * aarch64 cannot access the high bits of a Q-form register, and writes to a
+ * D-form register zero the high bits, similar to how writes to W-form scalar
+ * registers (or DWORD registers on x86_64) work.
+ *
+ * The formerly free vget_high intrinsics now require a vext (with a few
+ * exceptions)
+ *
+ * Additionally, VZIP was replaced by ZIP1 and ZIP2, which are the equivalent
+ * of PUNPCKL* and PUNPCKH* in SSE, respectively, in order to only modify one
+ * operand.
+ *
+ * The equivalent of the VZIP.32 on the lower and upper halves would be this
+ * mess:
+ *
+ *   ext     v2.4s, v0.4s, v0.4s, #2 // v2 = { v0[2], v0[3], v0[0], v0[1] }
+ *   zip1    v1.2s, v0.2s, v2.2s     // v1 = { v0[0], v2[0] }
+ *   zip2    v0.2s, v0.2s, v1.2s     // v0 = { v0[1], v2[1] }
+ *
+ * Instead, we use a literal downcast, vmovn_u64 (XTN), and vshrn_n_u64 (SHRN):
+ *
+ *   shrn    v1.2s, v0.2d, #32  // v1 = (uint32x2_t)(v0 >> 32);
+ *   xtn     v0.2s, v0.2d       // v0 = (uint32x2_t)(v0 & 0xFFFFFFFF);
+ *
+ * This is available on ARMv7-A, but is less efficient than a single VZIP.32.
+ */
+
+/*
+ * Function-like macro:
+ * void XXH_SPLIT_IN_PLACE(uint64x2_t &in, uint32x2_t &outLo, uint32x2_t &outHi)
+ * {
+ *     outLo = (uint32x2_t)(in & 0xFFFFFFFF);
+ *     outHi = (uint32x2_t)(in >> 32);
+ *     in = UNDEFINED;
+ * }
+ */
+# if !defined(XXH_NO_VZIP_HACK) /* define to disable */ \
+   && defined(__GNUC__) \
+   && !defined(__aarch64__) && !defined(__arm64__)
+#  define XXH_SPLIT_IN_PLACE(in, outLo, outHi)                                              \
+    do {                                                                                    \
+      /* Undocumented GCC/Clang operand modifier: %e0 = lower D half, %f0 = upper D half */ \
+      /* https://github.com/gcc-mirror/gcc/blob/38cf91e5/gcc/config/arm/arm.c#L22486 */     \
+      /* https://github.com/llvm-mirror/llvm/blob/2c4ca683/lib/Target/ARM/ARMAsmPrinter.cpp#L399 */ \
+      __asm__("vzip.32  %e0, %f0" : "+w" (in));                                             \
+      (outLo) = vget_low_u32 (vreinterpretq_u32_u64(in));                                   \
+      (outHi) = vget_high_u32(vreinterpretq_u32_u64(in));                                   \
+   } while (0)
+# else
+#  define XXH_SPLIT_IN_PLACE(in, outLo, outHi)                                            \
+    do {                                                                                  \
+      (outLo) = vmovn_u64    (in);                                                        \
+      (outHi) = vshrn_n_u64  ((in), 32);                                                  \
+    } while (0)
+# endif
+#endif  /* XXH_VECTOR == XXH_NEON */
+
 /*
  * VSX and Z Vector helpers.
  *
@@ -174,11 +276,12 @@
 #  endif
 
 #  undef vector /* Undo the pollution */
+
 typedef __vector unsigned long long U64x2;
 typedef __vector unsigned char U8x16;
 typedef __vector unsigned U32x4;
 
-#ifndef XXH_VSX_BE
+# ifndef XXH_VSX_BE
 #  if defined(__BIG_ENDIAN__) \
   || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 #    define XXH_VSX_BE 1
@@ -188,9 +291,9 @@ typedef __vector unsigned U32x4;
 #  else
 #    define XXH_VSX_BE 0
 #  endif
-#endif
+# endif /* !defined(XXH_VSX_BE) */
 
-#if XXH_VSX_BE
+# if XXH_VSX_BE
 /* A wrapper for POWER9's vec_revb. */
 #  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
 #    define XXH_vec_revb vec_revb
@@ -202,7 +305,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_revb(U64x2 val)
     return vec_perm(val, val, vByteSwap);
 }
 #  endif
-#endif /* XXH_VSX_BE */
+# endif /* XXH_VSX_BE */
 
 /*
  * Performs an unaligned load and byte swaps it on big endian.
@@ -211,28 +314,28 @@ XXH_FORCE_INLINE U64x2 XXH_vec_loadu(const void *ptr)
 {
     U64x2 ret;
     memcpy(&ret, ptr, sizeof(U64x2));
-#if XXH_VSX_BE
+# if XXH_VSX_BE
     ret = XXH_vec_revb(ret);
-#endif
+# endif
     return ret;
 }
 
 /*
  * vec_mulo and vec_mule are very problematic intrinsics:
  *
- *  1. Compilers like to swap them at will.
- *  2. They are endian dependent
- *  2. GCC lacks this before version 8.0
- */
-#if defined(__s390x__)
-/* s390x is always big endian, this is not an issue. */
-#  define XXH_vec_mulo vec_mulo
-#  define XXH_vec_mule vec_mule
-#elif __has_builtin(__builtin_altivec_vmuleuw)
-/* Clang has a handy builtin which ALWAYS emits the right instruction */
+ * The intrinsic weren't added until GCC 8, despite existing for a while.
+ * Besides, they are endian dependent, and their meaning swap depending on version.
+ * */
+# if defined(__clang__) && __has_builtin(__builtin_altivec_vmuleuw)
+/* Clang has a better way to control this, we can just use the builtin which doesn't swap. */
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
-#else
+# elif defined(__s390x__) && defined(__GNUC__) && (__GNUC__ >= 8)
+/* s390x is always big endian, there is no endian issue. */
+#  define XXH_vec_mulo vec_mulo
+#  define XXH_vec_mule vec_mule
+# else
+/* gcc needs inline assembly */
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
 XXH_FORCE_INLINE U64x2 XXH_vec_mulo(U32x4 a, U32x4 b)
 {
@@ -246,7 +349,7 @@ XXH_FORCE_INLINE U64x2 XXH_vec_mule(U32x4 a, U32x4 b)
     __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
     return result;
 }
-#endif /* __has_builtin(__builtin_altivec_vmuleuw) */
+# endif /* XXH_vec_mulo, XXH_vec_mule */
 #endif /* XXH_VECTOR == XXH_VSX */
 
 
@@ -565,59 +668,13 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
         size_t i;
         for (i=0; i < STRIPE_LEN / sizeof(uint64x2_t); i++) {
-#if !defined(__aarch64__) && !defined(__arm64__) && defined(__GNUC__) /* ARM32-specific hack */
-            /* vzip on ARMv7 Clang generates a lot of vmovs (technically vorrs) without this.
-             * vzip on 32-bit ARM NEON will overwrite the original register, and I think that Clang
-             * assumes I don't want to destroy it and tries to make a copy. This slows down the code
-             * a lot.
-             * aarch64 not only uses an entirely different syntax, but it requires three
-             * instructions...
-             *    ext    v1.16B, v0.16B, #8    // select high bits because aarch64 can't address them directly
-             *    zip1   v3.2s, v0.2s, v1.2s   // first zip
-             *    zip2   v2.2s, v0.2s, v1.2s   // second zip
-             * ...to do what ARM does in one:
-             *    vzip.32 d0, d1               // Interleave high and low bits and overwrite. */
-
             /* data_vec = xsecret[i]; */
-            uint8x16_t const data_vec    = vld1q_u8(xinput + (i * 16));
+            uint8x16_t data_vec    = vld1q_u8(xinput + (i * 16));
             /* key_vec  = xsecret[i];  */
-            uint8x16_t const key_vec     = vld1q_u8(xsecret  + (i * 16));
+            uint8x16_t key_vec     = vld1q_u8(xsecret  + (i * 16));
             /* data_key = data_vec ^ key_vec; */
-            uint32x4_t       data_key;
-
-            if (accWidth == XXH3_acc_64bits) {
-                /* Add first to prevent register swaps */
-                /* xacc[i] += data_vec; */
-                xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u8(data_vec));
-            } else {  /* XXH3_acc_128bits */
-                /* xacc[i] += swap(data_vec); */
-                /* can probably be optimized better */
-                uint64x2_t const data64 = vreinterpretq_u64_u8(data_vec);
-                uint64x2_t const swapped= vextq_u64(data64, data64, 1);
-                xacc[i] = vaddq_u64 (xacc[i], swapped);
-            }
-
-            data_key = vreinterpretq_u32_u8(veorq_u8(data_vec, key_vec));
-
-            /* Here's the magic. We use the quirkiness of vzip to shuffle data_key in place.
-             * shuffle: data_key[0, 1, 2, 3] = data_key[0, 2, 1, 3] */
-            __asm__("vzip.32 %e0, %f0" : "+w" (data_key));
-            /* xacc[i] += (uint64x2_t) data_key[0, 1] * (uint64x2_t) data_key[2, 3]; */
-            xacc[i] = vmlal_u32(xacc[i], vget_low_u32(data_key), vget_high_u32(data_key));
-
-#else
-            /* On aarch64, vshrn/vmovn seems to be equivalent to, if not faster than, the vzip method. */
-
-            /* data_vec = xsecret[i]; */
-            uint8x16_t const data_vec    = vld1q_u8(xinput + (i * 16));
-            /* key_vec  = xsecret[i];  */
-            uint8x16_t const key_vec     = vld1q_u8(xsecret  + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint64x2_t const data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
-            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF); */
-            uint32x2_t const data_key_lo = vmovn_u64  (data_key);
-            /* data_key_hi = (uint32x2_t) (data_key >> 32); */
-            uint32x2_t const data_key_hi = vshrn_n_u64 (data_key, 32);
+            uint64x2_t data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
+            uint32x2_t data_key_lo, data_key_hi;
             if (accWidth == XXH3_acc_64bits) {
                 /* xacc[i] += data_vec; */
                 xacc[i] = vaddq_u64 (xacc[i], vreinterpretq_u64_u8(data_vec));
@@ -627,10 +684,13 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                 uint64x2_t const swapped= vextq_u64(data64, data64, 1);
                 xacc[i] = vaddq_u64 (xacc[i], swapped);
             }
+            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF);
+             * data_key_hi = (uint32x2_t) (data_key >> 32);
+             * data_key = UNDEFINED; */
+            XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
             /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
             xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
 
-#endif
         }
     }
 
@@ -743,32 +803,48 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
     XXH_ASSERT((((size_t)acc) & 15) == 0);
 
-    {   uint64x2_t* const xacc =     (uint64x2_t*) acc;
-        uint8_t const* const xsecret = (uint8_t const*) secret;
-        uint32x2_t const prime     = vdup_n_u32 (PRIME32_1);
+    {   uint64x2_t* xacc       = (uint64x2_t*) acc;
+        uint8_t const* xsecret = (uint8_t const*) secret;
+        uint32x2_t prime       = vdup_n_u32 (PRIME32_1);
 
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(uint64x2_t); i++) {
             /* data_vec = xacc[i] ^ (xacc[i] >> 47); */
-            uint64x2_t const   acc_vec  = xacc[i];
-            uint64x2_t const   shifted  = vshrq_n_u64 (acc_vec, 47);
-            uint64x2_t const   data_vec = veorq_u64   (acc_vec, shifted);
+            uint64x2_t acc_vec  = xacc[i];
+            uint64x2_t shifted  = vshrq_n_u64 (acc_vec, 47);
+            uint64x2_t data_vec = veorq_u64   (acc_vec, shifted);
 
             /* key_vec  = xsecret[i]; */
-            uint32x4_t const   key_vec  = vreinterpretq_u32_u8(vld1q_u8(xsecret + (i * 16)));
+            uint8x16_t key_vec  = vld1q_u8(xsecret + (i * 16));
             /* data_key = data_vec ^ key_vec; */
-            uint32x4_t const   data_key = veorq_u32   (vreinterpretq_u32_u64(data_vec), key_vec);
-            /* shuffled = { data_key[0, 2], data_key[1, 3] }; */
-            uint32x2x2_t const shuffled = vzip_u32    (vget_low_u32(data_key), vget_high_u32(data_key));
+            uint64x2_t data_key = veorq_u64(data_vec, vreinterpretq_u64_u8(key_vec));
 
             /* data_key *= PRIME32_1 */
-
-            /* prod_hi = (data_key >> 32) * PRIME32_1; */
-            uint64x2_t const   prod_hi = vmull_u32    (shuffled.val[1], prime);
-            /* xacc[i] = prod_hi << 32; */
-            xacc[i] = vshlq_n_u64(prod_hi, 32);
-            /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
-            xacc[i] = vmlal_u32(xacc[i], shuffled.val[0], prime);
+            uint32x2_t data_key_lo, data_key_hi;
+            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF);
+             * data_key_hi = (uint32x2_t) (data_key >> 32);
+             * data_key = UNDEFINED; */
+            XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
+            {   /* prod_hi = (data_key >> 32) * PRIME32_1;
+                 * Avoid vmul_u32 + vshll_n_u32 since Clang 6 and 7
+                 * will incorrectly "optimize" this:
+                 *   tmp     = vmul_u32(vmovn_u64(a), vmovn_u64(b));
+                 *   shifted = vshll_n_u32(tmp, 32);
+                 * to this:
+                 *   tmp     = "vmulq_u64"(a, b); // no such thing!
+                 *   shifted = vshlq_n_u64(tmp, 32);
+                 * However, unlike SSE, Clang lacks a 64-bit multiply routine
+                 * for NEON, and it scalarizes two 64-bit multiplies instead.
+                 *
+                 * vmull_u32 has the same timing as vmul_u32, and it avoids
+                 * this bug completely.
+                 * See https://bugs.llvm.org/show_bug.cgi?id=39967 */
+                uint64x2_t prod_hi = vmull_u32 (data_key_hi, prime);
+                /* xacc[i] = prod_hi << 32; */
+                xacc[i] = vshlq_n_u64(prod_hi, 32);
+                /* xacc[i] += (prod_hi & 0xFFFFFFFF) * PRIME32_1; */
+                xacc[i] = vmlal_u32(xacc[i], data_key_lo, prime);
+            }
     }   }
 
 #elif (XXH_VECTOR == XXH_VSX)
@@ -1622,4 +1698,4 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
 
 
 
-#endif  /* XXH3_H */
+#endif  /* XXH3_H_1397135465 */

@@ -51,20 +51,25 @@ OPTIONS
 
 **The following four options are useful only when verifying checksums (`-c`)**
 
-* `-c`, `--check`:
-  Read xxHash sums from the <FILE>s and check them
+* `-c`, `--check` <FILE>:
+  Read xxHash sums from <FILE> and check them
 
-* `q`, `--quiet`:
-  Exit non-zero for improperly formatted checksum lines
+* `-q`, `--quiet`:
+  On top of removing status messages written to `stderr`,
+  also don't print OK for each successfully verified file
 
 * `--strict`:
-  Don't print OK for each successfully verified file
+  Return an error code if any line in the file is invalid,
+  not just if some checksums are wrong.
+  This policy is disabled by default,
+  though UI will prompt an informational message
+  if any line in the file is detected invalid.
 
 * `--status`:
-  Don't output anything, status code shows success
+  Don't output anything. Status code shows success.
 
 * `-w`, `--warn`:
-  Warn about improperly formatted checksum lines
+  Emit a warning message about each improperly formatted checksum line.
 
 **The following options are useful only benchmark purpose**
 

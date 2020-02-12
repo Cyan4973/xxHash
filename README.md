@@ -62,6 +62,17 @@ thanks to [Takayuki Matsuoka](https://github.com/t-mat) contributions.
 The library files `xxhash.c` and `xxhash.h` are BSD licensed.
 The utility `xxhsum` is GPL licensed.
 
+### Building xxHash - Using vcpkg
+
+You can download and install xxHash using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    ./vcpkg install xxhash
+
+The xxHash port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
 
 ### Build modifiers
 
@@ -74,6 +85,7 @@ they modify libxxhash behavior. They are all disabled by default.
                      with performance improvements observed in the +200% range .
                      See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
                      Note: there is no need for an `xxhash.o` object file in this case.
+- `XXH_NO_INLINE_HINTS` : By default, xxHash uses tricks like `__attribute__((always_inline))` and `__forceinline` to try and improve performance at the cost of code size. Defining this to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not. This is very useful when optimizing for the smallest binary size, and it is automatically defined when compiling with `-O0`, `-Os`, `-Oz`, or `-fno-inline` on GCC and Clang. This may also increase performance depending on the compiler and the architecture.
 - `XXH_REROLL` : reduce size of generated code. Impact on performance vary, depending on platform and algorithm.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a `NULL` pointer,
                                     xxhash result is the same as a zero-length input

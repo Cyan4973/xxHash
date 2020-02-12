@@ -321,19 +321,19 @@ XXH_FORCE_INLINE U64x2 XXH_vec_loadu(const void *ptr)
 }
 
 /*
- * vec_mulo and vec_mule are very problematic intrinsics:
+ * vec_mulo and vec_mule are very problematic intrinsics on PowerPC
  *
- * The intrinsic weren't added until GCC 8, despite existing for a while.
- * Besides, they are endian dependent, and their meaning swap depending on version.
+ * These intrinsics weren't added until GCC 8, despite existing for a while,
+ * and they are endian dependent. Also, their meaning swap depending on version.
  * */
-# if defined(__clang__) && __has_builtin(__builtin_altivec_vmuleuw)
+# if defined(__s390x__)
+ /* s390x is always big endian, no issue on this platform */
+#  define XXH_vec_mulo vec_mulo
+#  define XXH_vec_mule vec_mule
+# elif defined(__clang__) && __has_builtin(__builtin_altivec_vmuleuw)
 /* Clang has a better way to control this, we can just use the builtin which doesn't swap. */
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
-# elif defined(__s390x__) && defined(__GNUC__) && (__GNUC__ >= 8)
-/* s390x is always big endian, there is no endian issue. */
-#  define XXH_vec_mulo vec_mulo
-#  define XXH_vec_mule vec_mule
 # else
 /* gcc needs inline assembly */
 /* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */

@@ -1654,7 +1654,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
 
 /* 128-bit utility functions */
 
-#include <string.h>   /* memcmp */
+#include <string.h>   /* memcmp, memcpy */
 
 /* return : 1 is equal, 0 if different */
 XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2)

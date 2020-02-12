@@ -73,29 +73,29 @@ XXH32        6.8 GB/s            6.0 GB/s
 extern "C" {
 #endif
 
-
-#ifndef XXHASH_H_5627135585666179
-#define XXHASH_H_5627135585666179 1
-
 /* ****************************
  *  API modifier
  ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
- *  This build macro includes xxhash functions in `static` mode
- *  in order to inline them, and remove their symbol from the public list.
- *  Inlining offers great performance improvement on small keys,
+ *  Implement requested xxhash functions directly in the unit.
+ *  Inlining offers great performance improvement on small inputs,
  *  and dramatic ones when length is expressed as a compile-time constant.
  *  See https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html .
+ *  It also removes all symbols from the public list.
  *  Methodology :
  *     #define XXH_INLINE_ALL
  *     #include "xxhash.h"
- * `xxhash.c` is automatically included.
- *  It's not useful to compile and link it as a separate object.
+ *  Do not compile and link xxhash.o as a separate object (not useful)
  */
-#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
-#  ifndef XXH_STATIC_LINKING_ONLY
-#    define XXH_STATIC_LINKING_ONLY
-#  endif
+#if (defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)) \
+    && !defined(XXH_INLINE_ALL_31684351384)
+   /* this section should be traversed only once */
+#  define XXH_INLINE_ALL_31684351384
+   /* give access to advanced API, required to compile implementations */
+#  undef XXH_STATIC_LINKING_ONLY   /* avoid macro redef */
+#  define XXH_STATIC_LINKING_ONLY
+   /* make functions private */
+#  undef XXH_PUBLIC_API
 #  if defined(__GNUC__)
 #    define XXH_PUBLIC_API static __inline __attribute__((unused))
 #  elif defined (__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
@@ -103,10 +103,48 @@ extern "C" {
 #  elif defined(_MSC_VER)
 #    define XXH_PUBLIC_API static __inline
 #  else
-     /* this version may generate warnings for unused static functions */
+     /* note : this version may generate warnings for unused static functions */
 #    define XXH_PUBLIC_API static
 #  endif
-#else
+
+   /* prefix all names, to avoid symbol duplicates with potential library */
+#  ifdef XXH_NAMESPACE
+#    error "XXH_INLINE_ALL with XXH_NAMESPACE is not supported"
+#    /* Note : Alternative is to #undef all symbols (it's a pretty large list).
+      * If doing nothing : it compiles, but functions are actually Not inlined.
+      * */
+#  endif
+#  define XXH_NAMESPACE XXH_INLINE_
+   /* some identifiers are not symbols,
+    * they must nonetheless be renamed to avoid double declaration
+    * Alternative : do not redeclare them,
+    * which requires some #ifdef, and is more dispersed in the file
+    * while renaming can be achieved in a single place */
+#  define XXH_IPREF(Id)   XXH_INLINE_ ## Id
+#  define XXH_OK XXH_IPREF(XXH_OK)
+#  define XXH_ERROR XXH_IPREF(XXH_ERROR)
+#  define XXH_errorcode XXH_IPREF(XXH_errorcode)
+#  define XXH32_canonical_t XXH_IPREF(XXH32_canonical_t)
+#  define XXH64_canonical_t XXH_IPREF(XXH64_canonical_t)
+#  define XXH128_canonical_t XXH_IPREF(XXH128_canonical_t)
+#  define XXH32_state_s XXH_IPREF(XXH32_state_s)
+#  define XXH32_state_t XXH_IPREF(XXH32_state_t)
+#  define XXH64_state_s XXH_IPREF(XXH64_state_s)
+#  define XXH64_state_t XXH_IPREF(XXH64_state_t)
+#  define XXH3_state_s XXH_IPREF(XXH3_state_s)
+#  define XXH3_state_t XXH_IPREF(XXH3_state_t)
+#  define XXH128_hash_t XXH_IPREF(XXH128_hash_t)
+   /* Ensure header is parsed again, even if it was previously included */
+#  undef XXHASH_H_5627135585666179
+#  undef XXHASH_H_STATIC_13879238742
+#endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
+
+
+#ifndef XXHASH_H_5627135585666179
+#define XXHASH_H_5627135585666179 1
+
+/* specific declaration modes for Windows */
+#if !defined(XXH_INLINE_ALL) && !defined(XXH_PRIVATE_API)
 #  if defined(WIN32) && defined(_MSC_VER) && (defined(XXH_IMPORT) || defined(XXH_EXPORT))
 #    ifdef XXH_EXPORT
 #      define XXH_PUBLIC_API __declspec(dllexport)
@@ -116,7 +154,7 @@ extern "C" {
 #  else
 #    define XXH_PUBLIC_API   /* do nothing */
 #  endif
-#endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
+#endif
 
 /*! XXH_NAMESPACE, aka Namespace Emulation :
  *
@@ -577,9 +615,14 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 #endif  /* defined(XXH_STATIC_LINKING_ONLY) && !defined(XXHASH_H_STATIC_13879238742) */
 
 
+/* ======================================================================== */
+/* ======================================================================== */
+/* ======================================================================== */
+
 
 /*-**********************************************************************
 *  xxHash implementation
+* -**********************************************************************
 *  Functions implementation used to be hosted within xxhash.c .
 *  However, code inlining requires to place implementation in the header file.
 *  As a consequence, xxhash.c used to be included within xxhash.h .

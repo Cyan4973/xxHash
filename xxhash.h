@@ -77,11 +77,11 @@ extern "C" {
  *  INLINE mode
  ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
- *  Implement requested xxhash functions directly in the unit.
- *  Inlining offers great performance improvement on small inputs,
- *  and dramatic ones when length is expressed as a compile-time constant.
- *  See https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html .
- *  It also removes all symbols from the public list.
+ *  Use these macros to inline xxhash in target unit.
+ *  Inlining improves performance on small inputs,
+ *  up to dramatic levels when length is expressed as a compile-time constant :
+ *  https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html .
+ *  It also keeps xxhash symbols private to the unit (they are not published).
  *  Methodology :
  *     #define XXH_INLINE_ALL
  *     #include "xxhash.h"
@@ -94,7 +94,7 @@ extern "C" {
    /* give access to advanced API, required to compile implementations */
 #  undef XXH_STATIC_LINKING_ONLY   /* avoid macro redef */
 #  define XXH_STATIC_LINKING_ONLY
-   /* make functions private */
+   /* make all functions private */
 #  undef XXH_PUBLIC_API
 #  if defined(__GNUC__)
 #    define XXH_PUBLIC_API static __inline __attribute__((unused))
@@ -107,11 +107,17 @@ extern "C" {
 #    define XXH_PUBLIC_API static
 #  endif
 
-   /* prefix all names, to avoid symbol duplicates with potential library */
+   /* This part deals with the special case where a unit wants to inline xxhash,
+    * but "xxhash.h" has already been included without XXH_INLINE_ALL,
+    * typically as part of another included *.h header file.
+    * Without further action, the new include would be ignored,
+    * and the functions would _not_ be inlined (silent failure).
+    * The following lines avoid this situation by prefixing all names,
+    * avoiding naming collision with previous include. */
 #  ifdef XXH_NAMESPACE
 #    error "XXH_INLINE_ALL with XXH_NAMESPACE is not supported"
 #    /* Note : Alternative is to #undef all symbols (it's a pretty large list).
-      * If doing nothing : it compiles, but functions are actually Not inlined.
+      * Without #error : it compiles, but functions are actually Not inlined.
       * */
 #  endif
 #  define XXH_NAMESPACE XXH_INLINE_
@@ -201,7 +207,7 @@ extern "C" {
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    7
-#define XXH_VERSION_RELEASE  2
+#define XXH_VERSION_RELEASE  3
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 

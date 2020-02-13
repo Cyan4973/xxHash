@@ -291,7 +291,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DDEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools test-unicode
+test: all namespaceTest check test-xxhsum-c c90test test-tools
 
 .PHONY: test-inline
 test-inline:
@@ -299,7 +299,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze
+test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze test-unicode
 
 .PHONY: test-tools
 test-tools:

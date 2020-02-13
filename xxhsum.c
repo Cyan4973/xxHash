@@ -168,7 +168,7 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
     FILE *f = NULL;
     wchar_t *wide_filename = utf8_to_utf16(filename);
     if (wide_filename != NULL) {
-        errno = _wfopen_s(&f, wide_filename, mode);
+        f = _wfopen(wide_filename, mode);
         free(wide_filename);
     }
     return f;
@@ -1884,11 +1884,12 @@ static int XXH_main(int argc, char** argv)
 }
 
 #if defined(_WIN32)
+/* Converts a UTF-16 argv to UTF-8. */
 static char **convert_argv(int argc, wchar_t **argv)
 {
     char **buf = (char **)malloc((size_t)(argc + 1) * sizeof(char *));
-    int i;
     if (buf != NULL) {
+        int i;
         for (i = 0; i < argc; i++) {
             buf[i] = utf16_to_utf8(argv[i]);
         }
@@ -1896,9 +1897,13 @@ static char **convert_argv(int argc, wchar_t **argv)
     }
     return buf;
 }
+/* Frees arguments returned by convert_argv */
 static void free_argv(int argc, char **argv)
 {
     int i;
+    if (argv == NULL) {
+        return;
+    }
     for (i = 0; i < argc; i++) {
         free(argv[i]);
     }
@@ -1912,15 +1917,20 @@ static void free_argv(int argc, char **argv)
  * While this doesn't affect most programs, what does happen is that we can't
  * open any files with Unicode filenames.
  *
- * Another possible method is to use wmain, but in order for that to link on
- * MinGW, an extra flag is required.
+ * On MSVC or when -municode is used in MSYS2, we can just use wmain to get
+ * UTF-16 command line arguments and convert the to UTF-8.
  *
- * Instead, we can use GetCommandLineW and CommandLineToArgvW to get a fully
- * functional wmain equivalent.
+ * However, without the -municode flag (which isn't even available on the
+ * original MinGW), we will get a linker error.
  *
- * We still use wmain if UNICODE is defined, though.
+ * To fix this, we can combine main with GetCommandLineW and
+ * CommandLineToArgvW to get the real UTF-16 arguments.
  */
-#if defined(_UNICODE) || defined(UNICODE)
+#if defined(_MSC_VER) || defined(_UNICODE) || defined(UNICODE)
+
+#if defined(__cplusplus)
+extern "C"
+#endif
 int wmain(int argc, wchar_t **utf16_argv)
 {
     char **argv;
@@ -1930,19 +1940,25 @@ int main(int argc, char **argv)
     wchar_t **utf16_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 #endif
     int ret;
-
+    /* Convert the UTF-16 arguments to UTF-8. */
     argv = convert_argv(argc, utf16_argv);
 
-    /* While we're here, we will set stderr to unbuffered mode to make text
-     * display instantly on MinGW. */
-    setvbuf(stderr, NULL, _IONBF, 0);
+    if (argv == NULL) {
+        fprintf(stderr, "Error converting command line arguments!\n");
+        /* return 1; */
+        ret = 1;
+    } else {
+        /* While we're here, we will set stderr to unbuffered mode to make text
+         * display instantly on MinGW. */
+        setvbuf(stderr, NULL, _IONBF, 0);
 
-    ret = XXH_main(argc, argv);
+        /* Call our real main function */
+        ret = XXH_main(argc, argv);
 
-    free_argv(argc, argv);
-
-#if !defined(_UNICODE) && !defined(UNICODE)
-    /* Microsoft says to use LocalFree here. */
+        free_argv(argc, argv);
+    }
+#if !(defined(_MSC_VER) || defined(_UNICODE) || defined(UNICODE))
+    /* CommandLineToArgvW needs to be freed with LocalFree. */
     LocalFree(utf16_argv);
 #endif
     return ret;

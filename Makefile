@@ -78,8 +78,8 @@ all: lib xxhsum xxhsum_inlinedXXH
 xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhsum32$(EXT): CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32$(EXT): xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
+xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
+xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.h xxh3.h

@@ -172,7 +172,7 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 # Make sure that Unicode works.
 # https://github.com/Cyan4973/xxHash/issues/293
 # Japanese: echo "This filename is Unicode." > "Unicode.txt"
-.PHOHY: test-unicode
+.PHONY: test-unicode
 test-unicode: xxhsum check
 	# Test Unicode filenames.
 	echo "このファイル名はユニコードです。" > "ユニコード.txt"

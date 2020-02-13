@@ -126,6 +126,60 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
+#if defined(_WIN32)
+/* Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards. */
+static wchar_t *utf8_to_utf16(const char *str)
+{
+    int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    if (len == 0) {
+        return NULL;
+    }
+    {   wchar_t *buf = (wchar_t *)malloc((size_t)len * sizeof(wchar_t));
+        if (buf != NULL) {
+            if (MultiByteToWideChar(CP_UTF8, 0, str, -1, buf, len) == 0) {
+                free(buf);
+                return NULL;
+            }
+       }
+       return buf;
+    }
+}
+/* Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards. */
+static char *utf16_to_utf8(const wchar_t *str)
+{
+    int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
+    if (len == 0) {
+        return NULL;
+    }
+    {   char *buf = (char *)malloc((size_t)len * sizeof(char));
+        if (buf != NULL) {
+            if (WideCharToMultiByte(CP_UTF8, 0, str, -1, buf, len, NULL, NULL) == 0) {
+                free(buf);
+                return NULL;
+            }
+       }
+       return buf;
+    }
+}
+
+/* We need to use UTF-16 and _wfopen_s on Windows, otherwise we can't open Unicode filenames. */
+static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
+{
+    FILE *f = NULL;
+    wchar_t *wide_filename = utf8_to_utf16(filename);
+    if (wide_filename != NULL) {
+        errno = _wfopen_s(&f, wide_filename, mode);
+        free(wide_filename);
+    }
+    return f;
+}
+
+  /* Since we always use literals in the "mode" argument, it is just easier to append "L" to the string
+   * and avoid the hassle of a *second* conversion. */
+#  define XXH_fopen(filename, mode) XXH_fopen_wrapped(filename, L##mode)
+#else
+#  define XXH_fopen(filename, mode) fopen(filename, mode)
+#endif
 
 /* ************************************
 *  Basic Types
@@ -489,7 +543,7 @@ static size_t BMK_selectBenchedSize(const char* fileName)
 }
 
 
-static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specificTest)
+static int BMK_benchFiles(char** fileNamesTable, int nbFiles, U32 specificTest)
 {
     int result = 0;
     int fileIdx;
@@ -498,7 +552,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles, U32 specific
         const char* const inFileName = fileNamesTable[fileIdx];
         assert(inFileName != NULL);
         {
-            FILE* const inFile = fopen( inFileName, "rb" );
+            FILE* const inFile = XXH_fopen( inFileName, "rb" );
             size_t const benchedSize = BMK_selectBenchedSize(inFileName);
             char* const buffer = (char*)calloc(benchedSize+16+3, 1);
             void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
@@ -1033,7 +1087,7 @@ static int BMK_hash(const char* fileName,
         fileName = "stdin";
         SET_BINARY_MODE(stdin);
     } else {
-        inFile = fopen( fileName, "rb" );
+        inFile = XXH_fopen( fileName, "rb" );
     }
     if (inFile==NULL) {
         DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
@@ -1103,7 +1157,7 @@ static int BMK_hash(const char* fileName,
 /* BMK_hashFiles:
  * if fnTotal==0, read from stdin insteal
  */
-static int BMK_hashFiles(const char** fnList, int fnTotal,
+static int BMK_hashFiles(char** fnList, int fnTotal,
                          algoType hashType, endianess displayEndianess)
 {
     int fnNb;
@@ -1421,7 +1475,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
         }
 
         do {
-            FILE* const fp = fopen(parsedLine.filename, "rb");
+            FILE* const fp = XXH_fopen(parsedLine.filename, "rb");
             if (fp == NULL) {
                 lineStatus = LineStatus_failedToOpen;
                 break;
@@ -1532,7 +1586,7 @@ static int checkFile(const char* inFileName,
         inFileName = "stdin";
         inFile = stdin;
     } else {
-        inFile = fopen( inFileName, "rt" );
+        inFile = XXH_fopen( inFileName, "rt" );
     }
 
     if (inFile == NULL) {
@@ -1590,7 +1644,7 @@ static int checkFile(const char* inFileName,
 }
 
 
-static int checkFiles(const char** fnList, int fnTotal,
+static int checkFiles(char** fnList, int fnTotal,
                       const endianess displayEndianess,
                       U32 strictMode,
                       U32 statusOnly,
@@ -1706,7 +1760,7 @@ static unsigned readU32FromChar(const char** stringPtr) {
     return result;
 }
 
-int main(int argc, const char** argv)
+static int XXH_main(int argc, char** argv)
 {
     int i, filenamesStart = 0;
     const char* const exename = argv[0];
@@ -1828,3 +1882,75 @@ int main(int argc, const char** argv)
         return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
     }
 }
+
+#if defined(_WIN32)
+static char **convert_argv(int argc, wchar_t **argv)
+{
+    char **buf = (char **)malloc((size_t)(argc + 1) * sizeof(char *));
+    int i;
+    if (buf != NULL) {
+        for (i = 0; i < argc; i++) {
+            buf[i] = utf16_to_utf8(argv[i]);
+        }
+        buf[argc] = NULL;
+    }
+    return buf;
+}
+static void free_argv(int argc, char **argv)
+{
+    int i;
+    for (i = 0; i < argc; i++) {
+        free(argv[i]);
+    }
+    free(argv);
+}
+
+/*
+ * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
+ * encoding, and unknown characters will show up as mojibake.
+ *
+ * While this doesn't affect most programs, what does happen is that we can't
+ * open any files with Unicode filenames.
+ *
+ * Another possible method is to use wmain, but in order for that to link on
+ * MinGW, an extra flag is required.
+ *
+ * Instead, we can use GetCommandLineW and CommandLineToArgvW to get a fully
+ * functional wmain equivalent.
+ *
+ * We still use wmain if UNICODE is defined, though.
+ */
+#if defined(_UNICODE) || defined(UNICODE)
+int wmain(int argc, wchar_t **utf16_argv)
+{
+    char **argv;
+#else
+int main(int argc, char **argv)
+{
+    wchar_t **utf16_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+#endif
+    int ret;
+
+    argv = convert_argv(argc, utf16_argv);
+
+    /* While we're here, we will set stderr to unbuffered mode to make text
+     * display instantly on MinGW. */
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+    ret = XXH_main(argc, argv);
+
+    free_argv(argc, argv);
+
+#if !defined(_UNICODE) && !defined(UNICODE)
+    /* Microsoft says to use LocalFree here. */
+    LocalFree(utf16_argv);
+#endif
+    return ret;
+}
+
+#else
+int main(int argc, char **argv)
+{
+    return XXH_main(argc, argv);
+}
+#endif

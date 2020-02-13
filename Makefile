@@ -76,9 +76,10 @@ default: lib xxhsum_and_links
 all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
+xxhsum32$(EXT): CFLAGS += -m32  ## generate CLI in 32-bits mode
+xxhsum32$(EXT): xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.h xxh3.h
@@ -89,7 +90,7 @@ xxhsum.o: xxhash.h
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
 
 xxh32sum xxh64sum xxh128sum: xxhsum
-	ln -sf $^ $@
+	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
 xxhsum_inlinedXXH: xxhsum.c
@@ -141,7 +142,7 @@ clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o libxxhash.*
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
-	@$(RM) xxh32sum xxh64sum xxh128sum
+	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
 
 
@@ -154,20 +155,29 @@ clean:  ## remove all build artifacts
 .PHONY: check
 check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
 	# stdin
-	$(RUN_ENV) ./xxhsum < xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
-	$(RUN_ENV) ./xxhsum xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
 	# internal bench
-	$(RUN_ENV) ./xxhsum -bi1
+	$(RUN_ENV) ./xxhsum$(EXT) -bi1
 	# file bench
-	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -bi1 xxhash.c
 	# 32-bit
-	$(RUN_ENV) ./xxhsum -H0 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -H0 xxhash.c
 	# 128-bit
-	$(RUN_ENV) ./xxhsum -H2 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -H2 xxhash.c
 	# request incorrect variant
-	$(RUN_ENV) ./xxhsum -H9 xxhash.c ; test $$? -eq 1
+	$(RUN_ENV) ./xxhsum$(EXT) -H9 xxhash.c ; test $$? -eq 1
 
+# Make sure that Unicode works.
+# https://github.com/Cyan4973/xxHash/issues/293
+# Japanese: echo "This filename is Unicode." > "Unicode.txt"
+.PHOHY: test-unicode
+test-unicode: xxhsum check
+	# Test Unicode filenames.
+	echo "このファイル名はユニコードです。" > "ユニコード.txt"
+	$(RUN_ENV) ./xxhsum$(EXT) "ユニコード.txt"
+	@$(RM) "ユニコード.txt"
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
@@ -281,7 +291,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DDEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools
+test: all namespaceTest check test-xxhsum-c c90test test-tools test-unicode
 
 .PHONY: test-inline
 test-inline:

@@ -787,8 +787,8 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(sanityBuffer,222, 0,     0xB641AE8CB691C174ULL);
     BMK_testXXH64(sanityBuffer,222, prime, 0x20CB8AB7AE10C14AULL);
 
-    BMK_testXXH3(NULL,           0, 0,       0);                      /* zero-length hash is always 0 */
-    BMK_testXXH3(NULL,           0, prime64, 0);
+    BMK_testXXH3(NULL,           0, 0,       0x383739D89B1CF3E3ULL);  /* empty string */
+    BMK_testXXH3(NULL,           0, prime64, 0xAA62E4419E745027ULL);
     BMK_testXXH3(sanityBuffer,   1, 0,       0x7198D737CFE7F386ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   1, prime64, 0xB70252DB7161C2BDULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   6, 0,       0x22CBF5F3E1F6257CULL);  /*  4 -  8 */
@@ -819,7 +819,7 @@ static void BMK_sanityCheck(void)
 
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
-        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0);                      /* zero-length hash is always 0 */
+        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0x367FF684075249CEULL);  /* empty string */
         BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0x7F69735D618DB3F0ULL);  /*  1 -  3 */
         BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0xBFCC7CB1B3554DCEULL);  /*  4 -  8 */
         BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x8C50DC90AC9206FCULL);  /*  9 - 16 */
@@ -836,10 +836,10 @@ static void BMK_sanityCheck(void)
     }
 
 
-    {   XXH128_hash_t const expected = { 0, 0 };
-        BMK_testXXH128(NULL,           0, 0,     expected);         /* zero-length hash is { seed, -seed } by default */
+    {   XXH128_hash_t const expected = { 0x383739D89B1CF3E3ULL, 0x877994721AD18197ULL };
+        BMK_testXXH128(NULL,           0, 0,     expected);         /* empty string */
     }
-    {   XXH128_hash_t const expected = { 0, 0 };
+    {   XXH128_hash_t const expected = { 0x6614A8A3473C59AFULL, 0xB31E50030E102FBFULL };
         BMK_testXXH128(NULL,           0, prime, expected);
     }
     {   XXH128_hash_t const expected = { 0x7198D737CFE7F386ULL, 0x153C28D2A04DC807ULL };

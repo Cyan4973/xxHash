@@ -3,6 +3,19 @@ CFLAGS += -Wall -Wextra -g
 NM = nm
 GREP = grep
 
+# Define *.exe as extension for Windows systems
+ifneq (,$(filter Windows%,$(OS)))
+EXT =.exe
+else
+EXT =
+endif
+
+ifneq (,$(filter %UTF-8,$(LANG)))
+ENABLE_UNICODE ?= 1
+else
+ENABLE_UNICODE ?= 0
+endif
+
 .PHONY: default
 default: all
 
@@ -10,7 +23,7 @@ default: all
 all: test
 
 .PHONY: test
-test: test_multiinclude
+test: test_multiinclude test_unicode
 
 .PHONY: test_multiinclude
 test_multiinclude:
@@ -34,6 +47,25 @@ test_multiinclude:
 	# ! $(NM) multiInclude | $(GREP) TESTN_
 	#@$(MAKE) clean
 
+xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxh3.h ../xxhsum.c
+	$(CC) $(CFLAGS) $(LDFLAGS) ../xxhash.c ../xxhsum.c -o $@
+
+# Make sure that Unicode filenames work.
+# https://github.com/Cyan4973/xxHash/issues/293
+.PHONY: test_unicode
+ifeq (0,$(ENABLE_UNICODE))
+test_unicode:
+	@echo "Skipping Unicode test, your terminal doesn't appear to support UTF-8."
+	@echo "Try with ENABLE_UNICODE=1"
+else
+test_unicode: xxhsum$(EXT) generate_unicode_test.c
+	# Generate a Unicode filename test dynamically
+	# to keep UTF-8 out of the source tree.
+	$(CC) $(CFLAGS) $(LDFLAGS) generate_unicode_test.c -o generate_unicode_test$(EXT)
+	./generate_unicode_test$(EXT)
+	$(SHELL) ./unicode_test.sh
+endif
+
 xxhash.o: ../xxhash.c ../xxhash.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -c -o $@ $<
 
@@ -43,3 +75,4 @@ multiInclude_withxxhash: multiInclude.o xxhash.o
 clean:
 	@$(RM) *.o
 	@$(RM) multiInclude multiInclude_withxxhash
+	@$(RM) *.unicode generate_unicode_test$(EXT) unicode_test.* xxhsum$(EXT)

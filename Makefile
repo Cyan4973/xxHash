@@ -169,15 +169,9 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	# request incorrect variant
 	$(RUN_ENV) ./xxhsum$(EXT) -H9 xxhash.c ; test $$? -eq 1
 
-# Make sure that Unicode works.
-# https://github.com/Cyan4973/xxHash/issues/293
-# Japanese: echo "This filename is Unicode." > "Unicode.txt"
 .PHONY: test-unicode
-test-unicode: xxhsum check
-	# Test Unicode filenames.
-	echo "このファイル名はユニコードです。" > "ユニコード.txt"
-	$(RUN_ENV) ./xxhsum$(EXT) "ユニコード.txt"
-	@$(RM) "ユニコード.txt"
+test-unicode:
+	$(MAKE) -C tests test_unicode
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
@@ -295,7 +289,7 @@ test: all namespaceTest check test-xxhsum-c c90test test-tools
 
 .PHONY: test-inline
 test-inline:
-	$(MAKE) -C tests test
+	$(MAKE) -C tests test_multiInclude
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror

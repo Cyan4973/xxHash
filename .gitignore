@@ -1,20 +1,21 @@
 # objects
 *.o
+*.obj
 *.s
 
 # libraries
 libxxhash.*
 
 # Executables
+*.exe
 xxh32sum
 xxh64sum
 xxh128sum
 xxhsum
-xxhsum.exe
 xxhsum32
 xxhsum_privateXXH
 xxhsum_inlinedXXH
-xxhsum_inlinedXXH.exe
+tests/generate_unicode_test
 
 # compilation chain
 .clang_complete
@@ -40,3 +41,5 @@ infer-out
 # test artifacts
 .test*
 tmp*
+tests/*.unicode
+tests/unicode_test*

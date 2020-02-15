@@ -126,6 +126,7 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
+/* Unicode helpers for Windows */
 #if defined(_WIN32)
 /* Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards. */
 static wchar_t *utf8_to_utf16(const char *str)
@@ -162,7 +163,13 @@ static char *utf16_to_utf8(const wchar_t *str)
     }
 }
 
-/* We need to use UTF-16 and _wfopen_s on Windows, otherwise we can't open Unicode filenames. */
+/*
+ * fopen on Windows, like main's argv, is useless.
+ *
+ * fopen will only accept ANSI filenames, which means that we can't open Unicode filenames.
+ *
+ * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
+ */
 static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 {
     FILE *f = NULL;
@@ -174,8 +181,10 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
     return f;
 }
 
-  /* Since we always use literals in the "mode" argument, it is just easier to append "L" to the string
-   * and avoid the hassle of a *second* conversion. */
+/*
+ * Since we always use literals in the "mode" argument, it is just easier to append "L" to
+ * the string to make it UTF-16 and avoid the hassle of a second manual conversion.
+ */
 #  define XXH_fopen(filename, mode) XXH_fopen_wrapped(filename, L##mode)
 #else
 #  define XXH_fopen(filename, mode) fopen(filename, mode)

@@ -23,10 +23,10 @@ default: all
 all: test
 
 .PHONY: test
-test: test_multiinclude test_unicode
+test: test_multiInclude test_unicode
 
-.PHONY: test_multiinclude
-test_multiinclude:
+.PHONY: test_multiInclude
+test_multiInclude:
 	@$(MAKE) clean
 	# compile without xxhash.o, ensure symbols exist within target
 	# note : built using only default rules

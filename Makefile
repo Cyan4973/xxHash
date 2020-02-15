@@ -82,9 +82,10 @@ xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
 xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.h xxh3.h
-
-xxhsum.o: xxhash.h
+xxhash.o: xxhash.c xxhash.h xxh3.h
+	$(CC) $(FLAGS) -c $< -o $@
+xxhsum.o: xxhsum.c xxhash.h
+	$(CC) $(FLAGS) -c $< -o $@
 
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum

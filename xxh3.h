@@ -574,11 +574,11 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(4 <= len && len < 8);
-    {   xxh_u32 const input_1 = XXH_readLE32(input);
-        xxh_u32 const input_2 = XXH_readLE32(input + len - 4);
-        xxh_u32 const key1 = input_1 ^ ((seed >> 32) + XXH_readLE32(secret));
-        xxh_u32 const key2 = input_2 ^ (seed + XXH_readLE32(secret+4));
-        return XXH3_avalanche(XXH_mult32to64(key1, key2) + len);
+    {   xxh_u32 const input1 = XXH_readLE32(input);
+        xxh_u32 const input2 = XXH_readLE32(input + len - 4);
+        xxh_u32 const key1 = input1 ^ ((xxh_u32)(seed >> 32) + XXH_readLE32(secret));
+        xxh_u32 const key2 = input2 ^ ((xxh_u32)seed + XXH_readLE32(secret+4));
+        return XXH3_avalanche(XXH_mult32to64(key1, key2) + input1 + input2 + len);
     }
 }
 

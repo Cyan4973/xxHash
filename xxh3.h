@@ -58,6 +58,16 @@
 #  define XXH_RESTRICT   /* disable */
 #endif
 
+#if (defined(__GNUC__) && (__GNUC__ >= 3))  \
+  || (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 800)) \
+  || defined(__clang__)
+#    define XXH_likely(x) __builtin_expect(x, 1)
+#    define XXH_unlikely(x) __builtin_expect(x, 0)
+#else
+#    define XXH_likely(x) (x)
+#    define XXH_unlikely(x) (x)
+#endif
+
 #if defined(__GNUC__)
 #  if defined(__AVX2__)
 #    include <immintrin.h>
@@ -563,7 +573,7 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
 {
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
-    XXH_ASSERT(4 <= len && len <= 8);
+    XXH_ASSERT(4 <= len && len < 8);
     {   xxh_u32 const input_1 = XXH_readLE32(input);
         xxh_u32 const input_2 = XXH_readLE32(input + len - 4);
         xxh_u64 const input_64 = input_2 | ((xxh_u64)input_1 << 32);
@@ -578,7 +588,7 @@ XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 {
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
-    XXH_ASSERT(9 <= len && len <= 16);
+    XXH_ASSERT(8 <= len && len <= 16);
     {   xxh_u64 const input_lo = XXH_readLE64(input)           ^  XXH_readLE64(secret);
         xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret + 8) - seed);
         xxh_u64 const acc = len + (input_lo + input_hi) + XXH3_mul128_fold64(input_lo, input_hi);
@@ -590,8 +600,8 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {
     XXH_ASSERT(len <= 16);
-    {   if (len > 8) return XXH3_len_9to16_64b(input, len, secret, seed);
-        if (len >= 4) return XXH3_len_4to8_64b(input, len, secret, seed);
+    {   if (XXH_likely(len >= 8)) return XXH3_len_9to16_64b(input, len, secret, seed);
+        if (XXH_likely(len >= 4)) return XXH3_len_4to8_64b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
         return XXH3_avalanche((PRIME64_1 + seed) ^ XXH_readLE64(secret));
     }

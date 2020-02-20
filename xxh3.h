@@ -574,16 +574,17 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(4 <= len && len < 8);
-    seed = XXH_rotl64(seed, 13);
+    //seed = XXH_rotl64(seed, 13);
     {   xxh_u32 const input1 = XXH_readLE32(input);
         xxh_u32 const input2 = XXH_readLE32(input + len - 4);
         xxh_u32 const key1 = input1 ^ ((xxh_u32)(seed >> 32) + XXH_readLE32(secret));
         xxh_u32 const key2 = input2 ^ (XXH_readLE32(secret+4) - (xxh_u32)seed);
         xxh_u64 const mix = XXH_mult32to64(key1, key2)
-                          + input1
-                          + input2
+                          + (XXH_swap64(input1) >> 12)
+                          + (XXH_swap64(input2) >> 13)
                           + len;
-        return XXH3_avalanche(mix);
+        //return XXH3_avalanche(mix);
+        return XXH3_avalanche(mix ^ (mix >> 47));
     }
 }
 
@@ -604,7 +605,7 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {
     XXH_ASSERT(len <= 16);
-    {   if (XXH_likely(len >= 8)) return XXH3_len_9to16_64b(input, len, secret, seed);
+    {   if (XXH_likely(len >  8)) return XXH3_len_9to16_64b(input, len, secret, seed);
         if (XXH_likely(len >= 4)) return XXH3_len_4to8_64b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
         return XXH3_avalanche((PRIME64_1 + seed) ^ XXH_readLE64(secret));

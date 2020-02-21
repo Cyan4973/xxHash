@@ -511,14 +511,21 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
 #  define XXH_ALIGN(n)   /* disabled */
 #endif
 
+/* Old GCC versions only accept the attribute after the type in structures. */
+#ifdef __GNUC__
+#   define XXH_ALIGN_MEMBER(align, type) type XXH_ALIGN(align)
+#else
+#   define XXH_ALIGN_MEMBER(align, type) XXH_ALIGN(align) type
+#endif
+
 typedef struct XXH3_state_s XXH3_state_t;
 
 #define XXH3_SECRET_DEFAULT_SIZE 192   /* minimum XXH3_SECRET_SIZE_MIN */
 #define XXH3_INTERNALBUFFER_SIZE 256
 struct XXH3_state_s {
-   XXH_ALIGN(64) XXH64_hash_t acc[8];
-   XXH_ALIGN(64) unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
-   XXH_ALIGN(64) unsigned char buffer[XXH3_INTERNALBUFFER_SIZE];
+   XXH_ALIGN_MEMBER(64, XXH64_hash_t acc[8]);
+   XXH_ALIGN_MEMBER(64, unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE]);  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
+   XXH_ALIGN_MEMBER(64, unsigned char buffer[XXH3_INTERNALBUFFER_SIZE]);
    XXH32_hash_t bufferedSize;
    XXH32_hash_t nbStripesPerBlock;
    XXH32_hash_t nbStripesSoFar;
@@ -530,6 +537,8 @@ struct XXH3_state_s {
    XXH64_hash_t reserved64;
    const unsigned char* secret;    /* note : there is some padding after, due to alignment on 64 bytes */
 };   /* typedef'd to XXH3_state_t */
+
+#undef XXH_ALIGN_MEMBER
 
 /* Streaming requires state maintenance.
  * This operation costs memory and cpu.

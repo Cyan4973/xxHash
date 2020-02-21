@@ -151,14 +151,6 @@
 #  endif
 #endif
 
-/* xxh_u64 XXH_mult32to64(xxh_u32 a, xxh_u64 b) { return (xxh_u64)a * (xxh_u64)b; } */
-#if defined(_MSC_VER) && defined(_M_IX86)
-#    include <intrin.h>
-#    define XXH_mult32to64(x, y) __emulu(x, y)
-#else
-#    define XXH_mult32to64(x, y) ((xxh_u64)((x) & 0xFFFFFFFF) * (xxh_u64)((y) & 0xFFFFFFFF))
-#endif
-
 #if XXH_VECTOR == XXH_NEON
 /*
  * NEON's setup for vmlal_u32 is a little more complicated than it is on
@@ -395,6 +387,14 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x2b, 0x16, 0xbe, 0x58, 0x7d, 0x47, 0xa1, 0xfc, 0x8f, 0xf8, 0xb8, 0xd1, 0x7a, 0xd0, 0x31, 0xce,
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
+
+/* xxh_u64 XXH_mult32to64(xxh_u32 a, xxh_u32 b) { return (xxh_u64)a * (xxh_u64)b; } */
+#if defined(_MSC_VER) && defined(_M_IX86)
+#    include <intrin.h>
+#    define XXH_mult32to64(x, y) __emulu(x, y)
+#else
+#    define XXH_mult32to64(x, y) ((xxh_u64)(xxh_u32)(x) * (xxh_u64)(xxh_u32)(y))
+#endif
 
 /*
  * GCC for x86 has a tendency to use SSE in this loop. While it

@@ -574,12 +574,13 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(4 <= len && len < 8);
+    seed ^= XXH_swap64(seed);
     {   xxh_u32 const input1 = XXH_readLE32(input);
         xxh_u32 const input2 = XXH_readLE32(input + len - 4);
-        xxh_u32 const key1 = input1 ^ ((xxh_u32)(seed >> 32) + XXH_readLE32(secret));
+        xxh_u32 const key1 = XXH_swap32(input1) ^ ((xxh_u32)(seed >> 32) + XXH_readLE32(secret));
         xxh_u32 const key2 = input2 ^ (XXH_readLE32(secret+4) - (xxh_u32)seed);
         xxh_u64 const mix = XXH_mult32to64(key1, key2)
-                          + XXH_swap64(input1)
+                          + ((xxh_u64)input1 << 32)
                           + ((xxh_u64)(XXH_rotl32(input2,23)) << 32)
                           + len;
         return XXH3_avalanche(mix ^ (mix >> 59));

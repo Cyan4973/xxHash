@@ -151,6 +151,37 @@
 #  endif
 #endif
 
+/*
+ * UGLY HACK:
+ * GCC usually generates the best code with -O3 for xxHash,
+ * except for AVX2 where it is overzealous in its unrolling
+ * resulting in code roughly 3/4 the speed of Clang.
+ *
+ * There are other issues, such as GCC splitting _mm256_loadu_si256
+ * into _mm_loadu_si128 + _mm256_inserti128_si256 which is an
+ * optimization which only applies to Sandy and Ivy Bridge... which
+ * don't even support AVX2.
+ *
+ * That is why when compiling the AVX2 version, it is recommended
+ * to use either
+ *   -O2 -mavx2 -march=haswell
+ * or
+ *   -O2 -mavx2 -mno-avx256-split-unaligned-load
+ * for decent performance, or just use Clang instead.
+ *
+ * Fortunately, we can control the first one with a pragma
+ * that forces GCC into -O2, but the other one we can't without
+ * "failed to inline always inline function due to target mismatch"
+ * warnings.
+ */
+#if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
+  && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
+#  pragma GCC push_options
+#  pragma GCC optimize("-O2")
+#endif
+
+
 #if XXH_VECTOR == XXH_NEON
 /*
  * NEON's setup for vmlal_u32 is a little more complicated than it is on
@@ -1699,6 +1730,11 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
     return h;
 }
 
-
+/* Pop our optimization override from above */
+#if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
+  && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
+#  pragma GCC pop_options
+#endif
 
 #endif  /* XXH3_H_1397135465 */

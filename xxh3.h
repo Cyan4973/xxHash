@@ -151,13 +151,36 @@
 #  endif
 #endif
 
-/* xxh_u64 XXH_mult32to64(xxh_u32 a, xxh_u64 b) { return (xxh_u64)a * (xxh_u64)b; } */
-#if defined(_MSC_VER) && defined(_M_IX86)
-#    include <intrin.h>
-#    define XXH_mult32to64(x, y) __emulu(x, y)
-#else
-#    define XXH_mult32to64(x, y) ((xxh_u64)((x) & 0xFFFFFFFF) * (xxh_u64)((y) & 0xFFFFFFFF))
+/*
+ * UGLY HACK:
+ * GCC usually generates the best code with -O3 for xxHash,
+ * except for AVX2 where it is overzealous in its unrolling
+ * resulting in code roughly 3/4 the speed of Clang.
+ *
+ * There are other issues, such as GCC splitting _mm256_loadu_si256
+ * into _mm_loadu_si128 + _mm256_inserti128_si256 which is an
+ * optimization which only applies to Sandy and Ivy Bridge... which
+ * don't even support AVX2.
+ *
+ * That is why when compiling the AVX2 version, it is recommended
+ * to use either
+ *   -O2 -mavx2 -march=haswell
+ * or
+ *   -O2 -mavx2 -mno-avx256-split-unaligned-load
+ * for decent performance, or just use Clang instead.
+ *
+ * Fortunately, we can control the first one with a pragma
+ * that forces GCC into -O2, but the other one we can't without
+ * "failed to inline always inline function due to target mismatch"
+ * warnings.
+ */
+#if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
+  && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
+#  pragma GCC push_options
+#  pragma GCC optimize("-O2")
 #endif
+
 
 #if XXH_VECTOR == XXH_NEON
 /*
@@ -395,6 +418,14 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x2b, 0x16, 0xbe, 0x58, 0x7d, 0x47, 0xa1, 0xfc, 0x8f, 0xf8, 0xb8, 0xd1, 0x7a, 0xd0, 0x31, 0xce,
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
+
+/* xxh_u64 XXH_mult32to64(xxh_u32 a, xxh_u32 b) { return (xxh_u64)a * (xxh_u64)b; } */
+#if defined(_MSC_VER) && defined(_M_IX86)
+#    include <intrin.h>
+#    define XXH_mult32to64(x, y) __emulu(x, y)
+#else
+#    define XXH_mult32to64(x, y) ((xxh_u64)(xxh_u32)(x) * (xxh_u64)(xxh_u32)(y))
+#endif
 
 /*
  * GCC for x86 has a tendency to use SSE in this loop. While it
@@ -1699,6 +1730,11 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
     return h;
 }
 
-
+/* Pop our optimization override from above */
+#if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
+  && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
+#  pragma GCC pop_options
+#endif
 
 #endif  /* XXH3_H_1397135465 */

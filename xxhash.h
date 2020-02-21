@@ -511,14 +511,22 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
 #  define XXH_ALIGN(n)   /* disabled */
 #endif
 
+/* Old GCC versions only accept the attribute after the type in structures. */
+#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L))   /* C11+ */ \
+    && defined(__GNUC__)
+#   define XXH_ALIGN_MEMBER(align, type) type XXH_ALIGN(align)
+#else
+#   define XXH_ALIGN_MEMBER(align, type) XXH_ALIGN(align) type
+#endif
+
 typedef struct XXH3_state_s XXH3_state_t;
 
 #define XXH3_SECRET_DEFAULT_SIZE 192   /* minimum XXH3_SECRET_SIZE_MIN */
 #define XXH3_INTERNALBUFFER_SIZE 256
 struct XXH3_state_s {
-   XXH_ALIGN(64) XXH64_hash_t acc[8];
-   XXH_ALIGN(64) unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE];  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
-   XXH_ALIGN(64) unsigned char buffer[XXH3_INTERNALBUFFER_SIZE];
+   XXH_ALIGN_MEMBER(64, XXH64_hash_t acc[8]);
+   XXH_ALIGN_MEMBER(64, unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE]);  /* used to store a custom secret generated from the seed. Makes state larger. Design might change */
+   XXH_ALIGN_MEMBER(64, unsigned char buffer[XXH3_INTERNALBUFFER_SIZE]);
    XXH32_hash_t bufferedSize;
    XXH32_hash_t nbStripesPerBlock;
    XXH32_hash_t nbStripesSoFar;
@@ -530,6 +538,8 @@ struct XXH3_state_s {
    XXH64_hash_t reserved64;
    const unsigned char* secret;    /* note : there is some padding after, due to alignment on 64 bytes */
 };   /* typedef'd to XXH3_state_t */
+
+#undef XXH_ALIGN_MEMBER
 
 /* Streaming requires state maintenance.
  * This operation costs memory and cpu.
@@ -658,8 +668,11 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  * Method 2 : direct access. This method doesn't depend on compiler but violate C standard.
  *            It can generate buggy code on targets which do not support unaligned memory accesses.
  *            But in some circumstances, it's the only known way to get the most performance (ie GCC + ARMv6)
+ * Method 3 : byteshift. This can generate the best code on old compilers which don't inline small
+ *            `memcpy()` calls, and it might also be faster on big-endian systems which lack a
+ *            native byteswap instruction.
  * See http://stackoverflow.com/a/32095106/646947 for details.
- * Prefer these methods in priority order (0 > 1 > 2)
+ * Prefer these methods in priority order (0 > 1 > 2 > 3)
  */
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
 #  if !defined(__clang__) && defined(__GNUC__) && defined(__ARM_FEATURE_UNALIGNED) && defined(__ARM_ARCH) && (__ARM_ARCH == 6)
@@ -815,7 +828,12 @@ typedef XXH32_hash_t xxh_u32;
 
 /* ***   Memory access   *** */
 
-#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
+#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
+/*
+ * Manual byteshift. Best for old compilers which don't inline memcpy.
+ * We actually directly use XXH_readLE32 and XXH_readBE32.
+ */
+#elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
 static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr; }
@@ -908,6 +926,32 @@ static xxh_u32 XXH_swap32 (xxh_u32 x)
 *****************************/
 typedef enum { XXH_aligned, XXH_unaligned } XXH_alignment;
 
+/*
+ * XXH_FORCE_MEMORY_ACCESS==3 is an endian-independent byteshift load.
+ *
+ * This is ideal for older compilers which don't inline memcpy.
+ */
+#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
+
+XXH_FORCE_INLINE xxh_u32 XXH_readLE32(const void* memPtr)
+{
+    const xxh_u8* bytePtr = (const xxh_u8 *)memPtr;
+    return bytePtr[0]
+         | ((xxh_u32)bytePtr[1] << 8)
+         | ((xxh_u32)bytePtr[2] << 16)
+         | ((xxh_u32)bytePtr[3] << 24);
+}
+
+XXH_FORCE_INLINE xxh_u32 XXH_readBE32(const void* memPtr)
+{
+    const xxh_u8* bytePtr = (const xxh_u8 *)memPtr;
+    return bytePtr[3]
+         | ((xxh_u32)bytePtr[2] << 8)
+         | ((xxh_u32)bytePtr[1] << 16)
+         | ((xxh_u32)bytePtr[0] << 24);
+}
+
+#else
 XXH_FORCE_INLINE xxh_u32 XXH_readLE32(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));
@@ -917,6 +961,7 @@ static xxh_u32 XXH_readBE32(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
 }
+#endif
 
 XXH_FORCE_INLINE xxh_u32
 XXH_readLE32_align(const void* ptr, XXH_alignment align)
@@ -1311,7 +1356,12 @@ typedef XXH64_hash_t xxh_u64;
 #  endif
 #endif /* !defined(XXH_REROLL_XXH64) */
 
-#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
+#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
+/*
+ * Manual byteshift. Best for old compilers which don't inline memcpy.
+ * We actually directly use XXH_readLE64 and XXH_readBE64.
+ */
+#elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
 static xxh_u64 XXH_read64(const void* memPtr) { return *(const xxh_u64*) memPtr; }
@@ -1356,6 +1406,37 @@ static xxh_u64 XXH_swap64 (xxh_u64 x)
 }
 #endif
 
+
+/* XXH_FORCE_MEMORY_ACCESS==3 is an endian-independent byteshift load. */
+#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
+
+XXH_FORCE_INLINE xxh_u64 XXH_readLE64(const void* memPtr)
+{
+    const xxh_u8* bytePtr = (const xxh_u8 *)memPtr;
+    return bytePtr[0]
+         | ((xxh_u64)bytePtr[1] << 8)
+         | ((xxh_u64)bytePtr[2] << 16)
+         | ((xxh_u64)bytePtr[3] << 24)
+         | ((xxh_u64)bytePtr[4] << 32)
+         | ((xxh_u64)bytePtr[5] << 40)
+         | ((xxh_u64)bytePtr[6] << 48)
+         | ((xxh_u64)bytePtr[7] << 56);
+}
+
+XXH_FORCE_INLINE xxh_u64 XXH_readBE64(const void* memPtr)
+{
+    const xxh_u8* bytePtr = (const xxh_u8 *)memPtr;
+    return bytePtr[7]
+         | ((xxh_u64)bytePtr[6] << 8)
+         | ((xxh_u64)bytePtr[5] << 16)
+         | ((xxh_u64)bytePtr[4] << 24)
+         | ((xxh_u64)bytePtr[3] << 32)
+         | ((xxh_u64)bytePtr[2] << 40)
+         | ((xxh_u64)bytePtr[1] << 48)
+         | ((xxh_u64)bytePtr[0] << 56);
+}
+
+#else
 XXH_FORCE_INLINE xxh_u64 XXH_readLE64(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_read64(ptr) : XXH_swap64(XXH_read64(ptr));
@@ -1365,6 +1446,7 @@ static xxh_u64 XXH_readBE64(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_swap64(XXH_read64(ptr)) : XXH_read64(ptr);
 }
+#endif
 
 XXH_FORCE_INLINE xxh_u64
 XXH_readLE64_align(const void* ptr, XXH_alignment align)

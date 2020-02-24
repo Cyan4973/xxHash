@@ -55,7 +55,7 @@ int main(void)
     XXH3_64bits_update(&state, input, sizeof(input));
 
     XXH64_hash_t const h = XXH3_64bits_digest(&state);
-    printf("hash '%s' : %0llx \n", input, (unsigned long long)h);
+    printf("hash '%s' : %08x%08x \n", input, (unsigned)(h >> 32), (unsigned)h);
 
     return 0;
 }

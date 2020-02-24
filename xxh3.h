@@ -1408,8 +1408,8 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];
-        xxh_u32  const combinedl = ((xxh_u32)c1) + (((xxh_u32)c2) << 8) + (((xxh_u32)c3) << 16) + (((xxh_u32)len) << 24);
-        xxh_u32  const combinedh = XXH_swap32(combinedl);
+        xxh_u32  const combinedl = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
+        xxh_u32  const combinedh = XXH_rotl32(XXH_swap32(combinedl), 13);
         xxh_u64  const keyed_lo = (xxh_u64)combinedl ^ (XXH_readLE32(secret)   + seed);
         xxh_u64  const keyed_hi = (xxh_u64)combinedh ^ (XXH_readLE32(secret+4) - seed);
         xxh_u64  const mixedl = keyed_lo * PRIME64_1;

@@ -58,6 +58,16 @@
 #  define XXH_RESTRICT   /* disable */
 #endif
 
+#if (defined(__GNUC__) && (__GNUC__ >= 3))  \
+  || (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 800)) \
+  || defined(__clang__)
+#    define XXH_likely(x) __builtin_expect(x, 1)
+#    define XXH_unlikely(x) __builtin_expect(x, 0)
+#else
+#    define XXH_likely(x) (x)
+#    define XXH_unlikely(x) (x)
+#endif
+
 #if defined(__GNUC__)
 #  if defined(__AVX2__)
 #    include <immintrin.h>
@@ -563,7 +573,7 @@ XXH3_mul128_fold64(xxh_u64 lhs, xxh_u64 rhs)
 static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
     h64 ^= h64 >> 37;
-    h64 *= PRIME64_3;
+    h64 *= 0x165667919E3779F9ULL;
     h64 ^= h64 >> 32;
     return h64;
 }
@@ -582,7 +592,7 @@ XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];
-        xxh_u32  const combined = ((xxh_u32)c1) | (((xxh_u32)c2) << 8) | (((xxh_u32)c3) << 16) | (((xxh_u32)len) << 24);
+        xxh_u32  const combined = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
         xxh_u64  const keyed = (xxh_u64)combined ^ (XXH_readLE32(secret) + seed);
         xxh_u64  const mixed = keyed * PRIME64_1;
         return XXH3_avalanche(mixed);
@@ -594,13 +604,17 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
 {
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
-    XXH_ASSERT(4 <= len && len <= 8);
-    {   xxh_u32 const input_lo = XXH_readLE32(input);
-        xxh_u32 const input_hi = XXH_readLE32(input + len - 4);
-        xxh_u64 const input_64 = input_lo | ((xxh_u64)input_hi << 32);
-        xxh_u64 const keyed = input_64 ^ (XXH_readLE64(secret) + seed);
-        xxh_u64 const mix64 = len + ((keyed ^ (keyed >> 51)) * PRIME32_1);
-        return XXH3_avalanche((mix64 ^ (mix64 >> 47)) * PRIME64_2);
+    XXH_ASSERT(4 <= len && len < 8);
+    seed ^= seed << 32;
+    {   xxh_u32 const input1 = XXH_readLE32(input);
+        xxh_u32 const input2 = XXH_readLE32(input + len - 4);
+        xxh_u32 const key1 = XXH_swap32(input1) ^ ((xxh_u32)(seed >> 32) + XXH_readLE32(secret));
+        xxh_u32 const key2 = input2 ^ (XXH_readLE32(secret+4) - (xxh_u32)seed);
+        xxh_u64 const mix = XXH_mult32to64(key1, key2)
+                          + ((xxh_u64)input1 << 32)
+                          + ((xxh_u64)(XXH_rotl32(input2,23)) << 32)
+                          + len;
+        return XXH3_avalanche(mix ^ (mix >> 59));
     }
 }
 
@@ -609,8 +623,8 @@ XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 {
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
-    XXH_ASSERT(9 <= len && len <= 16);
-    {   xxh_u64 const input_lo = XXH_readLE64(input)           ^ (XXH_readLE64(secret)     + seed);
+    XXH_ASSERT(8 <= len && len <= 16);
+    {   xxh_u64 const input_lo = XXH_readLE64(input)           ^  XXH_readLE64(secret);
         xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret + 8) - seed);
         xxh_u64 const acc = len + (input_lo + input_hi) + XXH3_mul128_fold64(input_lo, input_hi);
         return XXH3_avalanche(acc);
@@ -621,8 +635,8 @@ XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {
     XXH_ASSERT(len <= 16);
-    {   if (len > 8) return XXH3_len_9to16_64b(input, len, secret, seed);
-        if (len >= 4) return XXH3_len_4to8_64b(input, len, secret, seed);
+    {   if (XXH_likely(len >  8)) return XXH3_len_9to16_64b(input, len, secret, seed);
+        if (XXH_likely(len >= 4)) return XXH3_len_4to8_64b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
         return XXH3_avalanche((PRIME64_1 + seed) ^ XXH_readLE64(secret));
     }

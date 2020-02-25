@@ -1436,15 +1436,17 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         xxh_u32 const input_hi = XXH_readLE32(input + len - 4);
         xxh_u64 const input_64 = input_hi + ((xxh_u64)input_lo << 32);
         xxh_u64 const keyed = input_64 ^ (XXH_readLE64(secret) + seed);
-        XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1);
-        m128.low64  += len;
-        m128.high64 -= len;
+
+        XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1 + len);
+
+        // alternative more "classical" insertion of len
+        // The one above is slightly faster (135->138)
+        //XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1);
+        //m128.low64  += len;
+        //m128.high64 -= len;
+
         m128.low64  ^= (m128.high64 >> 5);
         m128.high64 += (m128.low64 << 3);
-
-        // optional, quality seems good enough without it
-        //m128.low64   = XXH_xorshift64(m128.low64, 47);
-        //m128.high64  = XXH_xorshift64(m128.high64, 51);
 
         m128.low64   = XXH3_avalanche(m128.low64);
         m128.high64  = XXH3_avalanche(m128.high64);

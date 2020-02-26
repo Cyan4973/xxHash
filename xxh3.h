@@ -1439,14 +1439,8 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 
         XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1 + (len << 2));
 
-        // alternative more "classical" insertion of len
-        // The one above is slightly faster (135->138)
-        //XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1);
-        //m128.low64  += len;
-        //m128.high64 -= len;
-
-        m128.low64  ^= (m128.high64 >> 5);
-        m128.high64 += (m128.low64 << 3);
+        m128.high64 += (m128.low64 << 1);
+        m128.low64  ^= (m128.high64 >> 3);
 
         m128.low64   = XXH3_avalanche(m128.low64);
         m128.high64  = XXH3_avalanche(m128.high64);

@@ -111,8 +111,8 @@
  * shift is larger than 32. This means:
  *  - All the bits we need are in the upper 32 bits, so we can ignore the lower
  *    32 bits in the shift.
- *  - The result will always fit in one 32-bit register, and therefore,
- *    we can ignore the high 32 bits with the xor.
+ *  - The shift result will always fit in the lower 32 bits, and therefore,
+ *    we can ignore the upper 32 bits in the xor.
  *
  * Therefore, XXH3 only requires these features to be efficient:
  *

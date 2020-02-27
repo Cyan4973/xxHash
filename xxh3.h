@@ -570,11 +570,17 @@ XXH3_mul128_fold64(xxh_u64 lhs, xxh_u64 rhs)
 }
 
 
+XXH_FORCE_INLINE xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
+{
+    XXH_ASSERT(0 <= shift && shift < 64);
+    return v64 ^ (v64 >> shift);
+}
+
 static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
-    h64 ^= h64 >> 37;
+    h64 = XXH_xorshift64(h64, 37);
     h64 *= 0x165667919E3779F9ULL;
-    h64 ^= h64 >> 32;
+    h64 = XXH_xorshift64(h64, 32);
     return h64;
 }
 
@@ -614,7 +620,7 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
                           + ((xxh_u64)input1 << 32)
                           + ((xxh_u64)(XXH_rotl32(input2,23)) << 32)
                           + len;
-        return XXH3_avalanche(mix ^ (mix >> 59));
+        return XXH3_avalanche(XXH_xorshift64(mix, 59));
     }
 }
 
@@ -926,7 +932,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
     for (i=0; i < ACC_NB; i++) {
         xxh_u64 const key64 = XXH_readLE64(xsecret + 8*i);
         xxh_u64 acc64 = xacc[i];
-        acc64 ^= acc64 >> 47;
+        acc64 = XXH_xorshift64(acc64, 47);
         acc64 ^= key64;
         acc64 *= PRIME32_1;
         xacc[i] = acc64;
@@ -1408,8 +1414,8 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];
-        xxh_u32  const combinedl = ((xxh_u32)c1) + (((xxh_u32)c2) << 8) + (((xxh_u32)c3) << 16) + (((xxh_u32)len) << 24);
-        xxh_u32  const combinedh = XXH_swap32(combinedl);
+        xxh_u32  const combinedl = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
+        xxh_u32  const combinedh = XXH_rotl32(XXH_swap32(combinedl), 13);
         xxh_u64  const keyed_lo = (xxh_u64)combinedl ^ (XXH_readLE32(secret)   + seed);
         xxh_u64  const keyed_hi = (xxh_u64)combinedh ^ (XXH_readLE32(secret+4) - seed);
         xxh_u64  const mixedl = keyed_lo * PRIME64_1;
@@ -1419,26 +1425,27 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     }
 }
 
-
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(4 <= len && len <= 8);
+    seed ^= (xxh_u64)XXH_swap32((xxh_u32)seed) << 32;
     {   xxh_u32 const input_lo = XXH_readLE32(input);
         xxh_u32 const input_hi = XXH_readLE32(input + len - 4);
-        xxh_u64 const input_64_lo = input_lo + ((xxh_u64)input_hi << 32);
-        xxh_u64 const input_64_hi = XXH_swap64(input_64_lo);
-        xxh_u64 const keyed_lo = input_64_lo ^ (XXH_readLE64(secret) + seed);
-        xxh_u64 const keyed_hi = input_64_hi ^ (XXH_readLE64(secret + 8) - seed);
-        xxh_u64 const mix64l1 = len + ((keyed_lo ^ (keyed_lo >> 51)) * PRIME32_1);
-        xxh_u64 const mix64l2 = (mix64l1 ^ (mix64l1 >> 47)) * PRIME64_2;
-        xxh_u64 const mix64h1 = ((keyed_hi ^ (keyed_hi >> 47)) * PRIME64_1) - len;
-        xxh_u64 const mix64h2 = (mix64h1 ^ (mix64h1 >> 43)) * PRIME64_4;
-        {   XXH128_hash_t const h128 = { XXH3_avalanche(mix64l2) /*low64*/, XXH3_avalanche(mix64h2) /*high64*/ };
-            return h128;
-    }   }
+        xxh_u64 const input_64 = input_hi + ((xxh_u64)input_lo << 32);
+        xxh_u64 const keyed = input_64 ^ (XXH_readLE64(secret) + seed);
+
+        XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1 + (len << 2));
+
+        m128.high64 += (m128.low64 << 1);
+        m128.low64  ^= (m128.high64 >> 3);
+
+        m128.low64   = XXH3_avalanche(m128.low64);
+        m128.high64  = XXH3_avalanche(m128.high64);
+        return m128;
+    }
 }
 
 XXH_FORCE_INLINE XXH128_hash_t

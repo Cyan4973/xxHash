@@ -83,7 +83,7 @@
 #endif
 
 /*
- * One priority of XXH3 was to make it fast on both 32-bit and 64-bit, while
+ * One goal of XXH3 was to make it fast on both 32-bit and 64-bit, while
  * remaining a true 64-bit/128-bit hash function.
  *
  * This is done by prioritizing a subset of 64-bit operations that can be
@@ -114,7 +114,7 @@
  *  - The shift result will always fit in the lower 32 bits, and therefore,
  *    we can ignore the upper 32 bits in the xor.
  *
- * Therefore, XXH3 only requires these features to be efficient:
+ * Thanks to this optimization, XXH3 only requires these features to be efficient:
  *
  *  - Usable unaligned access
  *  - A 32-bit or 64-bit ALU
@@ -804,17 +804,23 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
 typedef enum { XXH3_acc_64bits, XXH3_acc_128bits } XXH3_accWidth_e;
 
 /*
- * XXH3_accumulate_512 is the tightest loop for long inputs, and is the most optimized.
+ * XXH3_accumulate_512 is the tightest loop for long inputs, and it is the most optimized.
  *
- * It is a modified version of UMAC (based of of FARSH's implementation) which ensures that the
- * original input is preserved.
+ * It is a hardened version of UMAC, based off of FARSH's implementation.
  *
  * This was chosen because it adapts quite well to 32-bit, 64-bit, and SIMD implementations,
- * and is ridiculously fast.
+ * and it is ridiculously fast.
  *
- * On 128-bit inputs, we swap the 128-bit lane pairs to improve cross-pollination (otherwise the
- * upper and lower halves would be essentially independent), but since this doesn't matter on
- * 64-bit hashes (they all get merged together in the end), we avoid the extra steps.
+ * We harden it by mixing the original input to the accumulators as well as the product.
+ *
+ * This means that in the (relatively likely) case of a multiply by zero, the original
+ * input is preserved.
+ *
+ * On 128-bit inputs, we swap 64-bit pairs when we add the input to improve cross
+ * pollination, as otherwise the upper and lower halves would be essentially independent.
+ *
+ * This doesn't matter on 64-bit hashes since they all get merged together in the end,
+ * so we skip the extra step.
  *
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */

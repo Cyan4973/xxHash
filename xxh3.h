@@ -595,6 +595,11 @@ XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(1 <= len && len <= 3);
     XXH_ASSERT(secret != NULL);
+    /*
+     * len = 1: combined = { input[0], 0x01, input[0], input[0] }
+     * len = 2: combined = { input[1], 0x02, input[0], input[0] }
+     * len = 3: combined = { input[2], 0x03, input[0], input[1] }
+     */
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];
@@ -1411,6 +1416,11 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(1 <= len && len <= 3);
     XXH_ASSERT(secret != NULL);
+    /*
+     * len = 1: combinedl = { input[0], 0x01, input[0], input[0] }
+     * len = 2: combinedl = { input[1], 0x02, input[0], input[0] }
+     * len = 3: combinedl = { input[2], 0x03, input[0], input[1] }
+     */
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];

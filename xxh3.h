@@ -576,6 +576,7 @@ XXH_FORCE_INLINE xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
     return v64 ^ (v64 >> shift);
 }
 
+/* We don't need to (or want to) mix as much as XXH64 - short hashes are more evenly distributed */
 static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
     h64 = XXH_xorshift64(h64, 37);
@@ -587,7 +588,19 @@ static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 
 /* ==========================================
  * Short keys
- * ========================================== */
+ * ==========================================
+ * One of the shortcomings of XXH32 and XXH64 was that their performance was sub-optimal on
+ * short lengths. It used an iterative algorithm which strongly favored even lengths.
+ *
+ * Instead of iterating over individual inputs, we use a set of single shot functions which
+ * piece together a range of lengths and operate in constant time.
+ *
+ * Additionally, the number of multiplies has been significantly reduced. This reduces latency,
+ * especially with 64-bit multiplies on 32-bit.
+ *
+ * Depending on the platform, this may or may not be faster than XXH32, but it is almost
+ * guaranteed to be faster than XXH64.
+ */
 
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)

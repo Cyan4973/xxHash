@@ -711,7 +711,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
         size_t i;
         for (i=0; i < STRIPE_LEN/sizeof(__m256i); i++) {
             /* data_vec    = xinput[i]; */
-            __m256i const data_vec   = _mm256_loadu_si256    (xinput+i);
+            __m256i const data_vec    = _mm256_loadu_si256    (xinput+i);
             /* key_vec     = xsecret[i]; */
             __m256i const key_vec     = _mm256_loadu_si256   (xsecret+i);
             /* data_key    = data_vec ^ key_vec; */
@@ -725,7 +725,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                 __m256i const data_swap = _mm256_shuffle_epi32(data_vec, _MM_SHUFFLE(1, 0, 3, 2));
                 __m256i const sum       = _mm256_add_epi64(xacc[i], data_swap);
                 /* xacc[i] += product; */
-                xacc[i] = _mm_add_epi64(product, sum);
+                xacc[i] = _mm256_add_epi64(product, sum);
             } else {  /* XXH3_acc_64bits */
                 /* xacc[i] += data_vec; */
                 __m256i const sum = _mm256_add_epi64(xacc[i], data_vec);

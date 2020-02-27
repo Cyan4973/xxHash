@@ -83,9 +83,34 @@
 #endif
 
 /*
- * Sanity check.
+ * One priority of XXH3 was to make it fast on both 32-bit and 64-bit, while
+ * remaining a true 64-bit/128-bit hash function.
  *
- * XXH3 only requires these features to be efficient:
+ * This is done by prioritizing a subset of 64-bit operations that can be
+ * emulated without too many steps on the average 32-bit machine.
+ *
+ * For example, these two lines seem similar, and run equally fast on 64-bit:
+ *
+ *   xxh_u64 x;
+ *   x ^= (x >> 13); // bad
+ *   x ^= (x >> 47); // good
+ *
+ * However, to a 32-bit machine, there is a major difference.
+ *
+ * x ^= (x >> 13) looks like this:
+ *
+ *   // note: funnel shifts are not usually cheap.
+ *   x.lo ^= (x.lo >> 13) | (x.hi << (32 - 13));
+ *   x.hi ^= (x.hi >> 13);
+ *
+ * while x ^= (x >> 47) looks like this:
+ *
+ *   x.lo ^= (x.hi >> (47 - 32));
+ *
+ * This is due to the shift amount being greater than 32, avoiding
+ * cross-register shifts and only modifying the low 32 bits.
+ *
+ * Therefore, XXH3 only requires these features to be efficient:
  *
  *  - Usable unaligned access
  *  - A 32-bit or 64-bit ALU
@@ -93,8 +118,11 @@
  *  - A 32 or 64-bit multiply with a 64-bit result
  *  - For the 128-bit variant, a decent byteswap helps short inputs.
  *
- * Almost all 32-bit and 64-bit targets meet this, except for Thumb-1, the
- * classic 16-bit only subset of ARM's instruction set.
+ * The first two are already required by XXH32, and almost all 32-bit and 64-bit
+ * platforms which can run XXH32 can run XXH3 efficiently.
+ *
+ * Thumb-1, the classic 16-bit only subset of ARM's instruction set, is one
+ * notable exception.
  *
  * First of all, Thumb-1 lacks support for the UMULL instruction which
  * performs the important long multiply. This means numerous __aeabi_lmul
@@ -105,10 +133,13 @@
  * Lo registers, and this shuffling results in thousands more MOVs than A32.
  *
  * A32 and T32 don't have this limitation. They can access all 14 registers,
- * do a 32->64 multiply with UMULL, and the flexible operand is helpful too.
+ * do a 32->64 multiply with UMULL, and the flexible operand allowing free
+ * shifts is helpful, too.
+ *
+ * Therefore, we do a quick sanity check.
  *
  * If compiling Thumb-1 for a target which supports ARM instructions, we
- * will give a warning.
+ * will give a warning, as it is not a "sane" platform to compile for.
  *
  * Usually, if this happens, it is because of an accident and you probably
  * need to specify -march, as you probably meant to compile for a newer

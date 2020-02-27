@@ -1434,7 +1434,7 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     seed ^= (xxh_u64)XXH_swap32((xxh_u32)seed) << 32;
     {   xxh_u32 const input_lo = XXH_readLE32(input);
         xxh_u32 const input_hi = XXH_readLE32(input + len - 4);
-        xxh_u64 const input_64 = input_hi + ((xxh_u64)input_lo << 32);
+        xxh_u64 const input_64 = input_lo + ((xxh_u64)input_hi << 32);
         xxh_u64 const keyed = input_64 ^ (XXH_readLE64(secret) + seed);
 
         XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1 + (len << 2));

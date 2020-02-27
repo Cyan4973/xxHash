@@ -962,17 +962,7 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     }
 }
 
-/* note : clang auto-vectorizes well in SS2 mode _if_ this function is `static`,
- *        and doesn't auto-vectorize it at all if it is `FORCE_INLINE`.
- *        However, it auto-vectorizes better AVX2 if it is `FORCE_INLINE`
- *        Pretty much every other modes and compilers prefer `FORCE_INLINE`.
- */
-
-#if defined(__clang__) && (XXH_VECTOR==0) && !defined(__AVX2__) && !defined(__arm__) && !defined(__thumb__)
-static void
-#else
 XXH_FORCE_INLINE void
-#endif
 XXH3_hashLong_internal_loop( xxh_u64* XXH_RESTRICT acc,
                       const xxh_u8* XXH_RESTRICT input, size_t len,
                       const xxh_u8* XXH_RESTRICT secret, size_t secretSize,

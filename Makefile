@@ -33,7 +33,21 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-CFLAGS ?= -O3
+# Shut off autovectorization, it does more harm than goodm
+#
+# We write SIMD when we want SIMD and scalar code when we don't.
+# On 32-bit targets, Clang tends to vectorize 64-bit mutiplies.
+#
+# SSE2 has to deal with a little bit of latency, mainly due to lack
+# of ILP and shuffles which would be free with 32-bit registers.
+#
+# However, NEON takes a major hit: Clang doesn't have an implementation
+# for NEON _but it doesn't know it_. Instead of using one of the many ways
+# to do a 64-bit multiply, it extracts from the vector and does 2 scalar
+# 64-bit multiplies. This tanks performance, especially when it tries to
+# vectorize XXH3_mult64to128 -- it is only four instructions and ~12 cycles
+# in scalar thanks to the amazing DSP extension.
+CFLAGS ?= -O3 -fno-tree-vectorize -fno-tree-slp-vectorize
 DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \

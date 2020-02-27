@@ -1182,9 +1182,29 @@ XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
     return XXH3_hashLong_internal(input, len, secret, sizeof(secret));
 }
 
-
+/*
+ * DISCLAIMER: There are known *seed-dependent* multicollisions here due to multiplication
+ * by zero, affecting hashes of lengths 17 to 240, however, they are very unlilely.
+ *
+ * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all unseeded
+ * non-cryptographic hashes, it does not attempt to defend itself against specially crafted
+ * inputs, only random inputs.
+ *
+ * Compared to classic UMAC where a 1 in 2^31 chance of 4 consecutive bytes cancelling out
+ * the secret is taken an arbitrary number of times (addressed in XXH3_accumulate_512), this
+ * collision is very unlikely with random inputs and/or proper seeding:
+ *
+ * This only has a 1 in 2^63 chance of 8 consecutive bytes cancelling out, in a function
+ * that is only called up to 16 times per hash with up to 240 bytes of input.
+ *
+ * This is not too bad for a non-cryptographic hash function, especially with only 64 bit
+ * outputs.
+ *
+ * The 128-bit variant (which trades some speed for strength) is NOT affected by this,
+ * although it is always a good idea to use a proper seed if you care about strength.
+ */
 XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
-                                 const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
+                                     const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
 {
     xxh_u64 const input_lo = XXH_readLE64(input);
     xxh_u64 const input_hi = XXH_readLE64(input+8);
@@ -1192,7 +1212,6 @@ XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                input_lo ^ (XXH_readLE64(secret)   + seed64),
                input_hi ^ (XXH_readLE64(secret+8) - seed64) );
 }
-
 
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,

@@ -669,6 +669,96 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     }
 }
 
+/*
+ * DISCLAIMER: There are known *seed-dependent* multicollisions here due to multiplication
+ * by zero, affecting hashes of lengths 17 to 240, however, they are very unlikely.
+ *
+ * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all unseeded
+ * non-cryptographic hashes, it does not attempt to defend itself against specially crafted
+ * inputs, only random inputs.
+ *
+ * Compared to classic UMAC where a 1 in 2^31 chance of 4 consecutive bytes cancelling out
+ * the secret is taken an arbitrary number of times (addressed in XXH3_accumulate_512), this
+ * collision is very unlikely with random inputs and/or proper seeding:
+ *
+ * This only has a 1 in 2^63 chance of 8 consecutive bytes cancelling out, in a function
+ * that is only called up to 16 times per hash with up to 240 bytes of input.
+ *
+ * This is not too bad for a non-cryptographic hash function, especially with only 64 bit
+ * outputs.
+ *
+ * The 128-bit variant (which trades some speed for strength) is NOT affected by this,
+ * although it is always a good idea to use a proper seed if you care about strength.
+ */
+XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
+                                     const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
+{
+    xxh_u64 const input_lo = XXH_readLE64(input);
+    xxh_u64 const input_hi = XXH_readLE64(input+8);
+    return XXH3_mul128_fold64(
+               input_lo ^ (XXH_readLE64(secret)   + seed64),
+               input_hi ^ (XXH_readLE64(secret+8) - seed64) );
+}
+
+/* For mid range keys, XXH3 uses a Mum-hash variant. */
+XXH_FORCE_INLINE XXH64_hash_t
+XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
+                     const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                     XXH64_hash_t seed)
+{
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(16 < len && len <= 128);
+
+    {   xxh_u64 acc = len * PRIME64_1;
+        if (len > 32) {
+            if (len > 64) {
+                if (len > 96) {
+                    acc += XXH3_mix16B(input+48, secret+96, seed);
+                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
+                }
+                acc += XXH3_mix16B(input+32, secret+64, seed);
+                acc += XXH3_mix16B(input+len-48, secret+80, seed);
+            }
+            acc += XXH3_mix16B(input+16, secret+32, seed);
+            acc += XXH3_mix16B(input+len-32, secret+48, seed);
+        }
+        acc += XXH3_mix16B(input+0, secret+0, seed);
+        acc += XXH3_mix16B(input+len-16, secret+16, seed);
+
+        return XXH3_avalanche(acc);
+    }
+}
+
+#define XXH3_MIDSIZE_MAX 240
+
+XXH_NO_INLINE XXH64_hash_t
+XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
+                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                      XXH64_hash_t seed)
+{
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
+
+    #define XXH3_MIDSIZE_STARTOFFSET 3
+    #define XXH3_MIDSIZE_LASTOFFSET  17
+
+    {   xxh_u64 acc = len * PRIME64_1;
+        int const nbRounds = (int)len / 16;
+        int i;
+        for (i=0; i<8; i++) {
+            acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
+        }
+        acc = XXH3_avalanche(acc);
+        XXH_ASSERT(nbRounds >= 8);
+        for (i=8 ; i < nbRounds; i++) {
+            acc += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
+        }
+        /* last bytes */
+        acc += XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
+        return XXH3_avalanche(acc);
+    }
+}
+
 
 /* ===    Long Keys    === */
 
@@ -1185,96 +1275,6 @@ XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
     return XXH3_hashLong_internal(input, len, secret, sizeof(secret));
 }
 
-/*
- * DISCLAIMER: There are known *seed-dependent* multicollisions here due to multiplication
- * by zero, affecting hashes of lengths 17 to 240, however, they are very unlikely.
- *
- * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all unseeded
- * non-cryptographic hashes, it does not attempt to defend itself against specially crafted
- * inputs, only random inputs.
- *
- * Compared to classic UMAC where a 1 in 2^31 chance of 4 consecutive bytes cancelling out
- * the secret is taken an arbitrary number of times (addressed in XXH3_accumulate_512), this
- * collision is very unlikely with random inputs and/or proper seeding:
- *
- * This only has a 1 in 2^63 chance of 8 consecutive bytes cancelling out, in a function
- * that is only called up to 16 times per hash with up to 240 bytes of input.
- *
- * This is not too bad for a non-cryptographic hash function, especially with only 64 bit
- * outputs.
- *
- * The 128-bit variant (which trades some speed for strength) is NOT affected by this,
- * although it is always a good idea to use a proper seed if you care about strength.
- */
-XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
-                                     const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
-{
-    xxh_u64 const input_lo = XXH_readLE64(input);
-    xxh_u64 const input_hi = XXH_readLE64(input+8);
-    return XXH3_mul128_fold64(
-               input_lo ^ (XXH_readLE64(secret)   + seed64),
-               input_hi ^ (XXH_readLE64(secret+8) - seed64) );
-}
-
-/* For mid range keys, XXH3 uses a Mum-hash variant. */
-XXH_FORCE_INLINE XXH64_hash_t
-XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
-                     const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
-                     XXH64_hash_t seed)
-{
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    XXH_ASSERT(16 < len && len <= 128);
-
-    {   xxh_u64 acc = len * PRIME64_1;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    acc += XXH3_mix16B(input+48, secret+96, seed);
-                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
-                }
-                acc += XXH3_mix16B(input+32, secret+64, seed);
-                acc += XXH3_mix16B(input+len-48, secret+80, seed);
-            }
-            acc += XXH3_mix16B(input+16, secret+32, seed);
-            acc += XXH3_mix16B(input+len-32, secret+48, seed);
-        }
-        acc += XXH3_mix16B(input+0, secret+0, seed);
-        acc += XXH3_mix16B(input+len-16, secret+16, seed);
-
-        return XXH3_avalanche(acc);
-    }
-}
-
-#define XXH3_MIDSIZE_MAX 240
-
-XXH_NO_INLINE XXH64_hash_t
-XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
-                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
-                      XXH64_hash_t seed)
-{
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
-
-    #define XXH3_MIDSIZE_STARTOFFSET 3
-    #define XXH3_MIDSIZE_LASTOFFSET  17
-
-    {   xxh_u64 acc = len * PRIME64_1;
-        int const nbRounds = (int)len / 16;
-        int i;
-        for (i=0; i<8; i++) {
-            acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
-        }
-        acc = XXH3_avalanche(acc);
-        XXH_ASSERT(nbRounds >= 8);
-        for (i=8 ; i < nbRounds; i++) {
-            acc += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
-        }
-        /* last bytes */
-        acc += XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
-        return XXH3_avalanche(acc);
-    }
-}
-
 /* ===   Public entry point   === */
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t len)
@@ -1607,6 +1607,82 @@ XXH3_len_0to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
     }   }
 }
 
+/*
+ * A bit slower than XXH3_mix16B, but handles multiply by zero better.
+ */
+XXH_FORCE_INLINE XXH128_hash_t
+XXH128_mix32B(XXH128_hash_t acc, const xxh_u8* input_1, const xxh_u8* input_2, const xxh_u8* secret, XXH64_hash_t seed)
+{
+    acc.low64  += XXH3_mix16B (input_1, secret+0, seed);
+    acc.low64  ^= XXH_readLE64(input_2) + XXH_readLE64(input_2 + 8);
+    acc.high64 += XXH3_mix16B (input_2, secret+16, seed);
+    acc.high64 ^= XXH_readLE64(input_1) + XXH_readLE64(input_1 + 8);
+    return acc;
+}
+
+
+XXH_FORCE_INLINE XXH128_hash_t
+XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
+                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                      XXH64_hash_t seed)
+{
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(16 < len && len <= 128);
+
+    {   XXH128_hash_t acc;
+        acc.low64 = len * PRIME64_1;
+        acc.high64 = 0;
+        if (len > 32) {
+            if (len > 64) {
+                if (len > 96) {
+                    acc = XXH128_mix32B(acc, input+48, input+len-64, secret+96, seed);
+                }
+                acc = XXH128_mix32B(acc, input+32, input+len-48, secret+64, seed);
+            }
+            acc = XXH128_mix32B(acc, input+16, input+len-32, secret+32, seed);
+        }
+        acc = XXH128_mix32B(acc, input, input+len-16, secret, seed);
+        {   xxh_u64 const low64 = acc.low64 + acc.high64;
+            xxh_u64 const high64 = (acc.low64 * PRIME64_1) + (acc.high64 * PRIME64_4) + ((len - seed) * PRIME64_2);
+            XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
+            return h128;
+        }
+    }
+}
+
+XXH_NO_INLINE XXH128_hash_t
+XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
+                       const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                       XXH64_hash_t seed)
+{
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
+
+    {   XXH128_hash_t acc;
+        int const nbRounds = (int)len / 32;
+        int i;
+        acc.low64 = len * PRIME64_1;
+        acc.high64 = 0;
+        for (i=0; i<4; i++) {
+            acc = XXH128_mix32B(acc, input+(32*i), input+(32*i)+16, secret+(32*i), seed);
+        }
+        acc.low64 = XXH3_avalanche(acc.low64);
+        acc.high64 = XXH3_avalanche(acc.high64);
+        XXH_ASSERT(nbRounds >= 4);
+        for (i=4 ; i < nbRounds; i++) {
+            acc = XXH128_mix32B(acc, input+(32*i), input+(32*i)+16, secret+XXH3_MIDSIZE_STARTOFFSET+(32*(i-4)), seed);
+        }
+        /* last bytes */
+        acc = XXH128_mix32B(acc, input + len - 16, input + len - 32, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16, 0ULL - seed);
+
+        {   xxh_u64 const low64 = acc.low64 + acc.high64;
+            xxh_u64 const high64 = (acc.low64 * PRIME64_1) + (acc.high64 * PRIME64_4) + ((len - seed) * PRIME64_2);
+            XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
+            return h128;
+        }
+    }
+}
+
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_hashLong_128b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
                             const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
@@ -1647,79 +1723,6 @@ XXH3_hashLong_128b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
     return XXH3_hashLong_128b_internal(input, len, secret, sizeof(secret));
 }
 
-
-XXH_FORCE_INLINE XXH128_hash_t
-XXH128_mix32B(XXH128_hash_t acc, const xxh_u8* input_1, const xxh_u8* input_2, const xxh_u8* secret, XXH64_hash_t seed)
-{
-    acc.low64  += XXH3_mix16B (input_1, secret+0, seed);
-    acc.low64  ^= XXH_readLE64(input_2) + XXH_readLE64(input_2 + 8);
-    acc.high64 += XXH3_mix16B (input_2, secret+16, seed);
-    acc.high64 ^= XXH_readLE64(input_1) + XXH_readLE64(input_1 + 8);
-    return acc;
-}
-
-XXH_NO_INLINE XXH128_hash_t
-XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
-                       const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
-                       XXH64_hash_t seed)
-{
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
-
-    {   XXH128_hash_t acc;
-        int const nbRounds = (int)len / 32;
-        int i;
-        acc.low64 = len * PRIME64_1;
-        acc.high64 = 0;
-        for (i=0; i<4; i++) {
-            acc = XXH128_mix32B(acc, input+(32*i), input+(32*i)+16, secret+(32*i), seed);
-        }
-        acc.low64 = XXH3_avalanche(acc.low64);
-        acc.high64 = XXH3_avalanche(acc.high64);
-        XXH_ASSERT(nbRounds >= 4);
-        for (i=4 ; i < nbRounds; i++) {
-            acc = XXH128_mix32B(acc, input+(32*i), input+(32*i)+16, secret+XXH3_MIDSIZE_STARTOFFSET+(32*(i-4)), seed);
-        }
-        /* last bytes */
-        acc = XXH128_mix32B(acc, input + len - 16, input + len - 32, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16, 0ULL - seed);
-
-        {   xxh_u64 const low64 = acc.low64 + acc.high64;
-            xxh_u64 const high64 = (acc.low64 * PRIME64_1) + (acc.high64 * PRIME64_4) + ((len - seed) * PRIME64_2);
-            XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
-            return h128;
-        }
-    }
-}
-
-
-XXH_FORCE_INLINE XXH128_hash_t
-XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
-                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
-                      XXH64_hash_t seed)
-{
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    XXH_ASSERT(16 < len && len <= 128);
-
-    {   XXH128_hash_t acc;
-        acc.low64 = len * PRIME64_1;
-        acc.high64 = 0;
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    acc = XXH128_mix32B(acc, input+48, input+len-64, secret+96, seed);
-                }
-                acc = XXH128_mix32B(acc, input+32, input+len-48, secret+64, seed);
-            }
-            acc = XXH128_mix32B(acc, input+16, input+len-32, secret+32, seed);
-        }
-        acc = XXH128_mix32B(acc, input, input+len-16, secret, seed);
-        {   xxh_u64 const low64 = acc.low64 + acc.high64;
-            xxh_u64 const high64 = (acc.low64 * PRIME64_1) + (acc.high64 * PRIME64_4) + ((len - seed) * PRIME64_2);
-            XXH128_hash_t const h128 = { XXH3_avalanche(low64), (XXH64_hash_t)0 - XXH3_avalanche(high64) };
-            return h128;
-        }
-    }
-}
 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
 {

@@ -33,7 +33,7 @@ LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-# Shut off autovectorization, it does more harm than goodm
+# Shut off autovectorization, it does more harm than good.
 #
 # We write SIMD when we want SIMD and scalar code when we don't.
 # On 32-bit targets, Clang tends to vectorize 64-bit mutiplies.

@@ -91,6 +91,7 @@
  *  - A 32-bit or 64-bit ALU
  *      - If 32-bit, a decent ADC instruction
  *  - A 32 or 64-bit multiply with a 64-bit result
+ *  - For the 128-bit variant, a decent byteswap helps short inputs.
  *
  * Almost all 32-bit and 64-bit targets meet this, except for Thumb-1, the
  * classic 16-bit only subset of ARM's instruction set.
@@ -110,7 +111,7 @@
  * will give a warning.
  *
  * Usually, if this happens, it is because of an accident and you probably
- * need to specify -march, as you probably meant to compileh for a newer
+ * need to specify -march, as you probably meant to compile for a newer
  * architecture.
  */
 #if defined(__thumb__) && !defined(__thumb2__) && defined(__ARM_ARCH_ISA_ARM)
@@ -501,15 +502,15 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *           9 3 // D2 lhs = 93
      *         x 7 5 // D2 rhs = 75
      *     ----------
-     *           1 5 // D2 lo_lo = (93 % 10) * (75 % 10)
-     *         4 5 | // D2 hi_lo = (93 / 10) * (75 % 10)
-     *         2 1 | // D2 lo_hi = (93 % 10) * (75 / 10)
-     *     + 6 3 | | // D2 hi_hi = (93 / 10) * (75 / 10)
+     *           1 5 // D2 lo_lo = (93 % 10) * (75 % 10) = 15
+     *         4 5 | // D2 hi_lo = (93 / 10) * (75 % 10) = 45
+     *         2 1 | // D2 lo_hi = (93 % 10) * (75 / 10) = 21
+     *     + 6 3 | | // D2 hi_hi = (93 / 10) * (75 / 10) = 63
      *     ---------
-     *         2 7 | // D2 cross  = (15 / 10) + (45 % 10) + 21
-     *     + 6 7 | | // D2 upper  = (27 / 10) + (45 / 10) + 63
+     *         2 7 | // D2 cross = (15 / 10) + (45 % 10) + 21 = 27
+     *     + 6 7 | | // D2 upper = (27 / 10) + (45 / 10) + 63 = 67
      *     ---------
-     *       6 9 7 5
+     *       6 9 7 5 // D4 res = (27 * 10) + (15 % 10) + (67 * 100) = 6975
      *
      * The reasons for adding the products like this are:
      *  1. It avoids manual carry tracking. Just like how
@@ -517,7 +518,8 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *     UINT64_MAX. This avoids a lot of complexity.
      *
      *  2. It hints for, and on Clang, compiles to, the powerful UMAAL
-     *     instruction available in ARMv6+ A32/T32, which is shown below:
+     *     instruction available in ARM's Digital Signal Processing extension
+     *     in 32-bit ARMv6 and later, which is shown below:
      *
      *         void UMAAL(xxh_u32 *RdLo, xxh_u32 *RdHi, xxh_u32 Rn, xxh_u32 Rm)
      *         {

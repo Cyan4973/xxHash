@@ -92,23 +92,27 @@
  * For example, these two lines seem similar, and run equally fast on 64-bit:
  *
  *   xxh_u64 x;
- *   x ^= (x >> 13); // bad
  *   x ^= (x >> 47); // good
+ *   x ^= (x >> 13); // bad
  *
  * However, to a 32-bit machine, there is a major difference.
  *
- * x ^= (x >> 13) looks like this:
+ * x ^= (x >> 47) looks like this:
+ *
+ *   x.lo ^= (x.hi >> (47 - 32));
+ *
+ * while x ^= (x >> 13) looks like this:
  *
  *   // note: funnel shifts are not usually cheap.
  *   x.lo ^= (x.lo >> 13) | (x.hi << (32 - 13));
  *   x.hi ^= (x.hi >> 13);
  *
- * while x ^= (x >> 47) looks like this:
- *
- *   x.lo ^= (x.hi >> (47 - 32));
- *
- * This is due to the shift amount being greater than 32, avoiding
- * cross-register shifts and only modifying the low 32 bits.
+ * The first one is significantly faster than the second, simply because the
+ * shift is larger than 32. This means:
+ *  - All the bits we need are in the upper 32 bits, so we can ignore the lower
+ *    32 bits in the shift.
+ *  - The result will always fit in one 32-bit register, and therefore,
+ *    we can ignore the high 32 bits with the xor.
  *
  * Therefore, XXH3 only requires these features to be efficient:
  *

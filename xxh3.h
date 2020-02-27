@@ -1437,6 +1437,7 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         xxh_u64 const input_64 = input_lo + ((xxh_u64)input_hi << 32);
         xxh_u64 const keyed = input_64 ^ (XXH_readLE64(secret) + seed);
 
+        /* Shift len to the left to ensure it is even, this avoids even multiplies. */
         XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1 + (len << 2));
 
         m128.high64 += (m128.low64 << 1);

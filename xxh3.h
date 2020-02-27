@@ -414,6 +414,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
 #  error "default keyset is not large enough"
 #endif
 
+/* Pseudorandom secret taken directly from FARSH */
 XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0xb8, 0xfe, 0x6c, 0x39, 0x23, 0xa4, 0x4b, 0xbe, 0x7c, 0x01, 0x81, 0x2c, 0xf7, 0x21, 0xad, 0x1c,
     0xde, 0xd4, 0x6d, 0xe9, 0x83, 0x90, 0x97, 0xdb, 0x72, 0x40, 0xa4, 0xa4, 0xb7, 0xb3, 0x67, 0x1f,
@@ -571,7 +572,7 @@ XXH3_mul128_fold64(xxh_u64 lhs, xxh_u64 rhs)
     return product.low64 ^ product.high64;
 }
 
-
+/* Seems to produce slightly better code on GCC for some reason. */
 XXH_FORCE_INLINE xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
 {
     XXH_ASSERT(0 <= shift && shift < 64);
@@ -1215,6 +1216,7 @@ XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                input_hi ^ (XXH_readLE64(secret+8) - seed64) );
 }
 
+/* For mid range keys, XXH3 uses a Mum-hash variant. */
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
@@ -1524,12 +1526,12 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];
-        xxh_u32  const combinedl = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
-        xxh_u32  const combinedh = XXH_rotl32(XXH_swap32(combinedl), 13);
-        xxh_u64  const keyed_lo = (xxh_u64)combinedl ^ (XXH_readLE32(secret)   + seed);
-        xxh_u64  const keyed_hi = (xxh_u64)combinedh ^ (XXH_readLE32(secret+4) - seed);
-        xxh_u64  const mixedl = keyed_lo * PRIME64_1;
-        xxh_u64  const mixedh = keyed_hi * PRIME64_5;
+        xxh_u32 const combinedl = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
+        xxh_u32 const combinedh = XXH_rotl32(XXH_swap32(combinedl), 13);
+        xxh_u64 const keyed_lo = (xxh_u64)combinedl ^ (XXH_readLE32(secret)   + seed);
+        xxh_u64 const keyed_hi = (xxh_u64)combinedh ^ (XXH_readLE32(secret+4) - seed);
+        xxh_u64 const mixedl = keyed_lo * PRIME64_1;
+        xxh_u64 const mixedh = keyed_hi * PRIME64_5;
         XXH128_hash_t const h128 = { XXH3_avalanche(mixedl) /*low64*/, XXH3_avalanche(mixedh) /*high64*/ };
         return h128;
     }

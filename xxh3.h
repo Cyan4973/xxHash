@@ -1187,7 +1187,7 @@ XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 
 /*
  * DISCLAIMER: There are known *seed-dependent* multicollisions here due to multiplication
- * by zero, affecting hashes of lengths 17 to 240, however, they are very unlilely.
+ * by zero, affecting hashes of lengths 17 to 240, however, they are very unlikely.
  *
  * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all unseeded
  * non-cryptographic hashes, it does not attempt to defend itself against specially crafted

@@ -780,6 +780,8 @@ typedef enum { XXH3_acc_64bits, XXH3_acc_128bits } XXH3_accWidth_e;
  * On 128-bit inputs, we swap the 128-bit lane pairs to improve cross-pollination (otherwise the
  * upper and lower halves would be essentially independent), but since this doesn't matter on
  * 64-bit hashes (they all get merged together in the end), we avoid the extra steps.
+ *
+ * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
 XXH_FORCE_INLINE void
 XXH3_accumulate_512(      void* XXH_RESTRICT acc,
@@ -967,6 +969,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
  * need to (or want to) mix as often or as much as HighwayHash does.
  *
  * This isn't as tight as XXH3_accumulate, but still written in SIMD to avoid extraction.
+ *
+ * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
@@ -1399,6 +1403,9 @@ XXH3_consumeStripes( xxh_u64* acc,
     }
 }
 
+/*
+ * Both XXH3_64bits_update and XXH3_128bits_update use this routine.
+ */
 XXH_FORCE_INLINE XXH_errorcode
 XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_e accWidth)
 {

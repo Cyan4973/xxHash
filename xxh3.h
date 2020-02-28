@@ -688,7 +688,9 @@ XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     XXH_ASSERT(8 <= len && len <= 16);
     {   xxh_u64 const input_lo = XXH_readLE64(input)           ^  XXH_readLE64(secret);
         xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret + 8) - seed);
-        xxh_u64 const acc = len + (input_lo + input_hi) + XXH3_mul128_fold64(input_lo, input_hi);
+        xxh_u64 const acc = len
+                          + XXH_swap64(input_lo) + input_hi
+                          + XXH3_mul128_fold64(input_lo, input_hi);
         return XXH3_avalanche(acc);
     }
 }

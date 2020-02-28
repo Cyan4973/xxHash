@@ -77,7 +77,7 @@ extern "C" {
  *  INLINE mode
  ******************************/
 /** XXH_INLINE_ALL (and XXH_PRIVATE_API)
- *  Use these macros to inline xxhash in target unit.
+ *  Use these build macros to inline xxhash in target unit.
  *  Inlining improves performance on small inputs,
  *  up to dramatic levels when length is expressed as a compile-time constant :
  *  https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html .
@@ -108,37 +108,37 @@ extern "C" {
 #  endif
 
    /* This part deals with the special case where a unit wants to inline xxhash,
-    * but "xxhash.h" has already been included without XXH_INLINE_ALL,
-    * typically as part of another included *.h header file.
-    * Without further action, the new include would be ignored,
-    * and the functions would _not_ be inlined (silent failure).
-    * The following lines avoid this situation by prefixing all names,
+    * but "xxhash.h" has previously been included without XXH_INLINE_ALL,
+    * for example as part of some previously included *.h header file.
+    * Without further action, the new include would just be ignored,
+    * and functions would effectively _not_ be inlined (silent failure).
+    * The following macros solve this situation by prefixing all inlined names,
     * avoiding naming collision with previous include. */
 #  ifdef XXH_NAMESPACE
 #    error "XXH_INLINE_ALL with XXH_NAMESPACE is not supported"
-#    /* Note : Alternative is to #undef all symbols (it's a pretty large list).
+#    /* Note : Alternative : #undef all symbols (it's a pretty large list).
       * Without #error : it compiles, but functions are actually Not inlined.
       * */
 #  endif
 #  define XXH_NAMESPACE XXH_INLINE_
-   /* some identifiers are not symbols,
-    * they must nonetheless be renamed to avoid double declaration
-    * Alternative : do not redeclare them,
-    * which requires some #ifdef, and is more dispersed in the file
+   /* some identifiers (enums, type names) are not symbols,
+    * they must nonetheless be renamed to avoid double declaration/
+    * Alternative solution : do not redeclare them,
+    * However, this requires some #ifdef, and is more dispersed action
     * while renaming can be achieved in a single place */
 #  define XXH_IPREF(Id)   XXH_INLINE_ ## Id
 #  define XXH_OK XXH_IPREF(XXH_OK)
 #  define XXH_ERROR XXH_IPREF(XXH_ERROR)
 #  define XXH_errorcode XXH_IPREF(XXH_errorcode)
-#  define XXH32_canonical_t XXH_IPREF(XXH32_canonical_t)
-#  define XXH64_canonical_t XXH_IPREF(XXH64_canonical_t)
+#  define XXH32_canonical_t  XXH_IPREF(XXH32_canonical_t)
+#  define XXH64_canonical_t  XXH_IPREF(XXH64_canonical_t)
 #  define XXH128_canonical_t XXH_IPREF(XXH128_canonical_t)
 #  define XXH32_state_s XXH_IPREF(XXH32_state_s)
 #  define XXH32_state_t XXH_IPREF(XXH32_state_t)
 #  define XXH64_state_s XXH_IPREF(XXH64_state_s)
 #  define XXH64_state_t XXH_IPREF(XXH64_state_t)
-#  define XXH3_state_s XXH_IPREF(XXH3_state_s)
-#  define XXH3_state_t XXH_IPREF(XXH3_state_t)
+#  define XXH3_state_s  XXH_IPREF(XXH3_state_s)
+#  define XXH3_state_t  XXH_IPREF(XXH3_state_t)
 #  define XXH128_hash_t XXH_IPREF(XXH128_hash_t)
    /* Ensure header is parsed again, even if it was previously included */
 #  undef XXHASH_H_5627135585666179

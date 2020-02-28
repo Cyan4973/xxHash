@@ -867,11 +867,11 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(sanityBuffer,222, 0,     0xB641AE8CB691C174ULL);
     BMK_testXXH64(sanityBuffer,222, prime, 0x20CB8AB7AE10C14AULL);
 
+#if 0 // tests to update
     BMK_testXXH3(NULL,           0, 0,       0x879CDF7824B71543ULL);  /* empty string */
     BMK_testXXH3(NULL,           0, prime64, 0xD51AC181E10C75E7ULL);
     BMK_testXXH3(sanityBuffer,   1, 0,       0x75161D5DC4F378E9ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   1, prime64, 0x9416563B6EC79D3FULL);  /*  1 -  3 */
-#if 0 // tests to update
     BMK_testXXH3(sanityBuffer,   6, 0,       0x3DB90BED7A20AF98ULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,   6, prime64, 0x19F27058CC2CA6A2ULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,  12, 0,       0xC3A48A8EFD27368CULL);  /*  9 - 16 */

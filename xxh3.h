@@ -654,9 +654,10 @@ XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     {   xxh_u8 const c1 = input[0];
         xxh_u8 const c2 = input[len >> 1];
         xxh_u8 const c3 = input[len - 1];
-        xxh_u32  const combined = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
-        xxh_u64  const keyed = (xxh_u64)combined ^ (XXH_readLE32(secret) + seed);
-        xxh_u64  const mixed = keyed * PRIME64_1;
+        xxh_u32 const combined = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
+        xxh_u64 const bitflip = (XXH_readLE32(secret) ^ XXH_readLE32(secret+4)) + seed;
+        xxh_u64 const keyed = (xxh_u64)combined ^ bitflip;
+        xxh_u64 const mixed = keyed * PRIME64_1;
         return XXH3_avalanche(mixed);
     }
 }
@@ -670,8 +671,10 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     seed ^= (xxh_u64)XXH_swap32((xxh_u32)seed) << 32;
     {   xxh_u32 const input1 = XXH_readLE32(input);
         xxh_u32 const input2 = XXH_readLE32(input + len - 4);
-        xxh_u32 const key1 = XXH_swap32(input1) ^ ((xxh_u32)(seed >> 32) + XXH_readLE32(secret));
-        xxh_u32 const key2 = input2 ^ (XXH_readLE32(secret+4) - (xxh_u32)seed);
+        xxh_u32 const bitflip1 = (XXH_readLE32(secret+8) ^ XXH_readLE32(secret)+12) + (xxh_u32)(seed >> 32);
+        xxh_u32 const bitflip2 = (XXH_readLE32(secret+16) ^ XXH_readLE32(secret)+20) - (xxh_u32)seed;
+        xxh_u32 const key1 = XXH_swap32(input1) ^ bitflip1;
+        xxh_u32 const key2 = input2 ^ bitflip2;
         xxh_u64 const mix = XXH_mult32to64(key1, key2)
                           + ((xxh_u64)input1 << 32)
                           + ((xxh_u64)(XXH_rotl32(input2,23)) << 32)
@@ -686,8 +689,10 @@ XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(8 <= len && len <= 16);
-    {   xxh_u64 const input_lo = XXH_readLE64(input)           ^  XXH_readLE64(secret);
-        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret + 8) - seed);
+    {   xxh_u64 const bitflip1 = (XXH_readLE64(secret+16) ^ XXH_readLE64(secret+24)) + seed;
+        xxh_u64 const bitflip2 = (XXH_readLE64(secret+32) ^ XXH_readLE64(secret+40)) - seed;
+        xxh_u64 const input_lo = XXH_readLE64(input)           ^ bitflip1;
+        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitflip2;
         xxh_u64 const acc = len
                           + XXH_swap64(input_lo) + input_hi
                           + XXH3_mul128_fold64(input_lo, input_hi);

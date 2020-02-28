@@ -1583,8 +1583,10 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         xxh_u8 const c3 = input[len - 1];
         xxh_u32 const combinedl = ((xxh_u32)c1<<16) | (((xxh_u32)c2) << 24) | (((xxh_u32)c3) << 0) | (((xxh_u32)len) << 8);
         xxh_u32 const combinedh = XXH_rotl32(XXH_swap32(combinedl), 13);
-        xxh_u64 const keyed_lo = (xxh_u64)combinedl ^ (XXH_readLE32(secret)   + seed);
-        xxh_u64 const keyed_hi = (xxh_u64)combinedh ^ (XXH_readLE32(secret+4) - seed);
+        xxh_u64 const bitflipl = (XXH_readLE32(secret) ^ XXH_readLE32(secret+4)) + seed;
+        xxh_u64 const bitfliph = (XXH_readLE32(secret+8) ^ XXH_readLE32(secret+12)) - seed;
+        xxh_u64 const keyed_lo = (xxh_u64)combinedl ^ bitflipl;
+        xxh_u64 const keyed_hi = (xxh_u64)combinedh ^ bitfliph;
         xxh_u64 const mixedl = keyed_lo * PRIME64_1;
         xxh_u64 const mixedh = keyed_hi * PRIME64_5;
         XXH128_hash_t const h128 = { XXH3_avalanche(mixedl) /*low64*/, XXH3_avalanche(mixedh) /*high64*/ };
@@ -1602,7 +1604,8 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     {   xxh_u32 const input_lo = XXH_readLE32(input);
         xxh_u32 const input_hi = XXH_readLE32(input + len - 4);
         xxh_u64 const input_64 = input_lo + ((xxh_u64)input_hi << 32);
-        xxh_u64 const keyed = input_64 ^ (XXH_readLE64(secret) + seed);
+        xxh_u64 const bitflip = (XXH_readLE64(secret+16) ^ XXH_readLE64(secret+24)) + seed;
+        xxh_u64 const keyed = input_64 ^ bitflip;
 
         /* Shift len to the left to ensure it is even, this avoids even multiplies. */
         XXH128_hash_t m128 = XXH_mult64to128(keyed, PRIME64_1 + (len << 2));
@@ -1622,8 +1625,10 @@ XXH3_len_9to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(9 <= len && len <= 16);
-    {   xxh_u64 const input_lo = XXH_readLE64(input)           ^ (XXH_readLE64(secret));
-        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ (XXH_readLE64(secret + 8) - seed);
+    {   xxh_u64 const bitflipl = XXH_readLE64(secret+32) ^ XXH_readLE64(secret+40);
+        xxh_u64 const bitfliph = (XXH_readLE64(secret+48) ^ XXH_readLE64(secret+56)) - seed;
+        xxh_u64 const input_lo = XXH_readLE64(input)           ^ bitflipl;
+        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitfliph;
         XXH128_hash_t m128 = XXH_mult64to128(input_lo ^ input_hi, PRIME64_1);
         /*
          * Put len in the middle of m128 to ensure that the length gets mixed to both the low
@@ -1695,8 +1700,10 @@ XXH3_len_0to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
         if (len >= 4) return XXH3_len_4to8_128b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_128b(input, len, secret, seed);
         {   XXH128_hash_t h128;
-            h128.low64 = XXH3_avalanche((PRIME64_1 + seed) ^ XXH_readLE64(secret));
-            h128.high64 = XXH3_avalanche((PRIME64_2 - seed) ^ XXH_readLE64(secret+8));
+            xxh_u64 const bitflipl = XXH_readLE64(secret+64) ^ XXH_readLE64(secret+72);
+            xxh_u64 const bitfliph = XXH_readLE64(secret+80) ^ XXH_readLE64(secret+88);
+            h128.low64 = XXH3_avalanche((PRIME64_1 + seed) ^ bitflipl);
+            h128.high64 = XXH3_avalanche((PRIME64_2 - seed) ^ bitfliph);
             return h128;
     }   }
 }

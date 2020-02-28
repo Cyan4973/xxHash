@@ -260,9 +260,10 @@ static unsigned BMK_isLittleEndian(void)
 #endif
 
 /* makes the next part easier */
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX64)
+#   define ARCH_X64 1
 #   define ARCH_X86 "x86_64"
-#elif defined(__i386__) || defined(_M_X86) || defined(_M_X86_FP)
+#elif defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
 #   define ARCH_X86 "i386"
 #endif
 
@@ -272,19 +273,35 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH ARCH_X86 " + AVX2"
 #  elif defined(__AVX__)
 #    define ARCH ARCH_X86 " + AVX"
-#  elif defined(__SSE2__)
+#  elif defined(_M_IX64) || defined(_M_AMD64) || defined(__x86_64__) \
+      || defined(__SSE2__) || (defined(_M_IX86_FP) && _M_IX86_FP == 2)
 #     define ARCH ARCH_X86 " + SSE2"
 #  else
-#      define ARCH ARCH_X86
+#     define ARCH ARCH_X86
 #  endif
 #elif defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
-#  define ARCH "aarch64"
+#  define ARCH "aarch64 + NEON"
 #elif defined(__arm__) || defined(__thumb__) || defined(__thumb2__) || defined(_M_ARM)
-#  if defined(__ARM_NEON) || defined(__ARM_NEON__)
-#    define ARCH "arm + NEON"
+/* ARM has a lot of different features that can change xxHash significantly. */
+#  if defined(__thumb2__) || (defined(__thumb__) && (__thumb__ == 2 || __ARM_ARCH >= 7))
+#    define ARCH_THUMB " Thumb-2"
+#  elif defined(__thumb__)
+#    define ARCH_THUMB " Thumb-1"
 #  else
-#    define ARCH "arm"
+#    define ARCH_THUMB ""
 #  endif
+/* ARMv7 has unaligned by default */
+#  if defined(__ARM_FEATURE_UNALIGNED) || __ARM_ARCH >= 7 || defined(_M_ARMV7VE)
+#    define ARCH_UNALIGNED " + unaligned"
+#  else
+#    define ARCH_UNALIGNED ""
+#  endif
+#  if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#    define ARCH_NEON " + NEON"
+#  else
+#    define ARCH_NEON ""
+#  endif
+#  define ARCH "ARMv" EXPAND_AND_QUOTE(__ARM_ARCH) ARCH_THUMB ARCH_NEON ARCH_UNALIGNED
 #elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
 #  if defined(__GNUC__) && defined(__POWER9_VECTOR__)
 #    define ARCH "ppc64 + POWER9 vector"

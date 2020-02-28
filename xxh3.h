@@ -689,8 +689,8 @@ XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(8 <= len && len <= 16);
-    {   xxh_u64 const bitflip1 = (XXH_readLE64(secret+16) ^ XXH_readLE64(secret+24)) + seed;
-        xxh_u64 const bitflip2 = (XXH_readLE64(secret+32) ^ XXH_readLE64(secret+40)) - seed;
+    {   xxh_u64 const bitflip1 = (XXH_readLE64(secret+24) ^ XXH_readLE64(secret+32)) + seed;
+        xxh_u64 const bitflip2 = (XXH_readLE64(secret+40) ^ XXH_readLE64(secret+48)) - seed;
         xxh_u64 const input_lo = XXH_readLE64(input)           ^ bitflip1;
         xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitflip2;
         xxh_u64 const acc = len

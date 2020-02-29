@@ -54,7 +54,7 @@
 
 
 
-typedef enum { ht64, ht128 } Htype_e;
+typedef enum { ht32, ht64, ht128 } Htype_e;
 
 /* ===  Debug  === */
 
@@ -76,7 +76,7 @@ void hexDisp(const void* buffer, size_t size)
 
 static void printHash(const void* table, size_t n, Htype_e htype)
 {
-    if (htype == ht64) {
+    if ((htype == ht64) || (htype == ht32)){
         uint64_t const h64 = ((const uint64_t*)table)[n];
         hexRaw(&h64, sizeof(h64));
     } else {
@@ -531,7 +531,7 @@ typedef struct {
 
 static int isEqual(void* hTablePtr, size_t index1, size_t index2, Htype_e htype)
 {
-    if (htype == ht64) {
+    if ((htype == ht64) || (htype == ht32)) {
         uint64_t const h1 = ((const uint64_t*)hTablePtr)[index1];
         uint64_t const h2 = ((const uint64_t*)hTablePtr)[index2];
         return (h1 == h2);
@@ -546,7 +546,7 @@ static int isEqual(void* hTablePtr, size_t index1, size_t index2, Htype_e htype)
 static int isHighEqual(void* hTablePtr, size_t index1, size_t index2, Htype_e htype, int rShift)
 {
     uint64_t h1, h2;
-    if (htype == ht64) {
+    if ((htype == ht64) || (htype == ht32)) {
         h1 = ((const uint64_t*)hTablePtr)[index1];
         h2 = ((const uint64_t*)hTablePtr)[index2];
     } else {
@@ -563,11 +563,29 @@ static int isHighEqual(void* hTablePtr, size_t index1, size_t index2, Htype_e ht
 /* assumption : (htype*)hTablePtr[index] is valid */
 static void addHashCandidate(void* hTablePtr, UniHash h, Htype_e htype, size_t index)
 {
-    if (htype == ht64) {
+    if ((htype == ht64) || (htype == ht32)) {
         ((uint64_t*)hTablePtr)[index] = h.h64;
     } else {
         assert(htype == ht128);
         ((XXH128_hash_t*)hTablePtr)[index] = h.h128;
+    }
+}
+
+static int getNbBits_fromHtype(Htype_e htype) {
+    switch(htype) {
+        case ht32: return 32;
+        case ht64: return 64;
+        case ht128:return 128;
+        default: EXIT("hash size not supported");
+    }
+}
+
+static Htype_e getHtype_fromHbits(int nbBits) {
+    switch(nbBits) {
+        case 32 : return ht32;
+        case 64 : return ht64;
+        case 128: return ht128;
+        default: EXIT("hash size not supported");
     }
 }
 
@@ -581,7 +599,7 @@ static size_t search_collisions(
     const int filter = (param.filterLog >= 0);
     const size_t sampleSize = param.sampleSize;
     const int hashID = param.hashID;
-    const Htype_e htype = (hashfnTable[hashID].bits == 64) ? ht64 : ht128;
+    const Htype_e htype = getHtype_fromHbits(hashfnTable[hashID].bits);
     const int display = param.display;
     /* init */
     sampleFactory* const sf = create_sampleFactory(sampleSize, totalH, param.prngSeed);
@@ -639,7 +657,7 @@ static size_t search_collisions(
     /* === store hash candidates : duplicates will be present here === */
 
     time_t const storeTBegin = time(NULL);
-    size_t const hashByteSize = (htype == ht64) ? 8 : 16; assert(htype == ht64 || (htype == ht128));
+    size_t const hashByteSize = (htype == ht128) ? 16 : 8;
     size_t const tableSize = (nbPresents+1) * hashByteSize;
     assert(tableSize > nbPresents);  /* check tableSize calculation overflow */
     DISPLAY(" store hash candidates (%i MB) \n", (int)(tableSize >> 20));
@@ -690,7 +708,7 @@ static size_t search_collisions(
     time_t const sortTBegin = time(NULL);
     DISPLAY(" sorting candidates... ");
     fflush(NULL);
-    if (htype == ht64) {
+    if ((htype == ht64) || (htype == ht32)) {
         sort64(hashCandidates, nbCandidates); /* using C++ sort, as it's faster than C stdlib's qsort,
                                                * and doesn't suffer from gnuc_libsort memory expansion */
     } else {
@@ -718,7 +736,7 @@ static size_t search_collisions(
     if (!filter /* all candidates */ && display /*single thead*/ ) {
         /* check partial bitfields (high bits) */
         DISPLAY(" \n");
-        int const hashBits = (htype == ht64) ? 64 : 128;
+        int const hashBits = getNbBits_fromHtype(htype);
         double worstRatio = 0.;
         int worstNbHBits = 0;
         for (int nbHBits = 1; nbHBits < hashBits; nbHBits++) {
@@ -809,10 +827,10 @@ void time_collisions(searchCollisions_parameters param)
     DISPLAY("------------------------------------------ \n");
 }
 
+// wrapper for pthread interface
 void MT_searchCollisions(void* payload)
 {
-    searchCollisions_parameters* const paramsPtr = (searchCollisions_parameters*) payload;
-    search_collisions(*paramsPtr);
+    search_collisions(*(searchCollisions_parameters*)payload);
 }
 
 /* ===  Command Line  === */
@@ -886,9 +904,10 @@ void help(const char* exeName)
 
     printf(" \n");
     printf("Optional parameters: \n");
-    printf("--filter : activated the filter. Reduce memory usage for same nb of hashes. Slower. \n");
-    printf("--len=#  : select length of input (%i bytes by default) \n", SAMPLE_SIZE_DEFAULT);
     printf("--nbh=#  : select nb of hashes to generate (%llu by default) \n", (unsigned long long)select_nbh(64));
+    printf("--filter : activated the filter. Reduce memory usage for same nb of hashes. Slower. \n");
+    printf("---threadlog=# : use 2^# threads \n");
+    printf("--len=#  : select length of input (%i bytes by default) \n", SAMPLE_SIZE_DEFAULT);
 }
 
 int bad_argument(const char* exeName)

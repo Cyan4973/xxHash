@@ -34,13 +34,17 @@ LDFLAGS  += -pthread
 LDFLAGS  += -maes -mavx2
 TESTHASHES = 110000000
 
+HASH_SRC := $(sort $(wildcard allcodecs/*.c allcodecs/*.cc))
+HASH_OBJ := $(patsubst %.c,%.o,$(HASH_SRC))
+
+
 .PHONY: default
 default: release
 
 .PHONY: all
 all: release
 
-collisionsTest: main.o pool.o threading.o sort.o
+collisionsTest: main.o pool.o threading.o sort.o $(HASH_OBJ)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
 
 main.o: hashes.h xxh3.h xxhash.h
@@ -68,5 +72,5 @@ test: debug
 
 .PHONY: clean
 clean:
-	$(RM) *.o
+	$(RM) *.o allcodecs/*.o
 	$(RM) collisionsTest

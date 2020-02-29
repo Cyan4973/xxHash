@@ -6,18 +6,22 @@ and comparing the result to an "ideal" target.
 
 The test requires a very large amount of memory.
 By default, it will generate 24 billion of 64-bit hashes,
-requiring 192 GB of RAM for their storage.
-The number of hashes can be modified using command `--nbh=`,
-but beware that requiring too few hashes will not provide meaningful information on the algorithm's collision performance.
+requiring __192 GB of RAM__ for their storage.
+The number of hashes can be modified using command `--nbh=`.
+be aware that testing the collision ratio of 64-bit hashes
+requires a very large amount of hashes (several billions) for meaningful measurements.
 
 To reduce RAM usage, an optional filter can be requested, with `--filter`.
 It reduces the nb of candidates to analyze, hence associated RAM budget.
-Be aware that the filter also requires RAM
+Note that the filter itself requires a lot of RAM
 (32 GB by default, can be modified using `--filterlog=`,
 a too small filter will not be efficient, aim at ~2 bytes per hash),
-and that managing the filter costs a significant CPU budget.
+and reading and writing into filter cost a significant CPU budget,
+so this method is slower.
+It also doesn't allow advanced analysis of partial bitfields,
+since most hashes will be discarded and not stored.
 
-The RAM budget will be completed by a list of candidates,
+When using the filter, the RAM budget consists of the filter and a list of candidates,
 which will be a fraction of original hash list.
 Using default settings (24 billions hashes, 32 GB filter),
 the number of potential candidates should be reduced to less than 2 billions,
@@ -27,6 +31,45 @@ The number of effective candidates is likely to be lower, at ~ 1 billion,
 but storage must allocate an upper bound.
 
 For the default test, the expected "optimal" collision rate for a 64-bit hash function is ~18 collisions.
+
+#### How to integrate any hash in the tester
+
+The build script is expecting to compile files in `./allcodecs`.
+Put the source code here.
+This also works if the hash is a single `*.h` files.
+
+The flue happens in `hashes.h`.
+In this file, there are 2 sections :
+- Add the required `#include "header.h"`, and create a wrapper,
+to respect the format expected by the function pointer.
+- Add the wrapper, along with the name and an indication of the output width,
+to the table, at the end of `hashed.h`
+
+Build with `make`. Locate your new hash with `./collisionsTest -h`,
+it should be listed.
+
+
+#### Some advises on how to setup a collisions test
+
+The test is primarily driven by the amount of RAM available.
+Here's a method to decide the size of the test.
+
+Presuming that RAM budget is not plentiful, for this example 32 GB,
+the `--filter` mode is actually compulsory to measure anything meaningful.
+Let's plan 50% of memory for the filter, that's 16 GB.
+This will be good enough to filter about 10% less hashes than this size.
+Let's round down to 14 G.
+
+By requesting 14G, the expectation is that the program will automatically
+size the filter to 16 GB, and expect to store ~1G candidates,
+leaving enough room to breeze for the system.
+
+The command line becomes :
+```
+./collisionsTest --nbh=14G --filter NameOfHash
+```
+
+#### Examples :
 
 Here are a few results produced with this tester :
 

@@ -39,6 +39,12 @@ typedef union {
     XXH128_hash_t h128;
 } UniHash;
 
+UniHash uniHash32(uint64_t v32)
+{   UniHash unih;
+    unih.h64 = v32;
+    return unih;
+}
+
 UniHash uniHash64(uint64_t v64)
 {   UniHash unih;
     unih.h64 = v64;
@@ -81,7 +87,16 @@ UniHash XXH64_wrapper (const void* data, size_t size)
 
 UniHash XXH32_wrapper (const void* data, size_t size)
 {
-    return uniHash64( XXH32(data, size, 0) );
+    return uniHash32( XXH32(data, size, 0) );
+}
+
+/* ===  Dummy integration example  === */
+
+#include "dummy.h"
+
+UniHash badsum32_wrapper (const void* data, size_t size)
+{
+    return uniHash32( badsum32(data, size, 0) );
 }
 
 
@@ -96,7 +111,7 @@ typedef struct {
     int bits;
 } hashDescription;
 
-#define HASH_FN_TOTAL 6
+#define HASH_FN_TOTAL 7
 
 hashDescription hashfnTable[HASH_FN_TOTAL] = {
     { "xxh3"  ,  XXH3_wrapper,     64 },
@@ -105,6 +120,7 @@ hashDescription hashfnTable[HASH_FN_TOTAL] = {
     { "xxh128l", XXH128l_wrapper,  64 },
     { "xxh128h", XXH128h_wrapper,  64 },
     { "xxh32" ,  XXH32_wrapper,    32 },
+    { "badsum32",badsum32_wrapper, 32 },
 };
 
 #endif   /* HASHES_H_1235465 */

@@ -728,7 +728,7 @@ static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
     BMK_checkResult64(XXH64_digest(&state), Nresult);
 }
 
-static void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
+void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     if (len>0) assert(data != NULL);
 

@@ -38,7 +38,7 @@ The build script is expecting to compile files in `./allcodecs`.
 Put the source code here.
 This also works if the hash is a single `*.h` files.
 
-The flue happens in `hashes.h`.
+The glue happens in `hashes.h`.
 In this file, there are 2 sections :
 - Add the required `#include "header.h"`, and create a wrapper,
 to respect the format expected by the function pointer.
@@ -51,7 +51,7 @@ it should be listed.
 
 #### Some advises on how to setup a collisions test
 
-The test is primarily driven by the amount of RAM available.
+Most tests are primarily driven by the amount of RAM available.
 Here's a method to decide the size of the test.
 
 Presuming that RAM budget is not plentiful, for this example 32 GB,
@@ -73,9 +73,21 @@ The command line becomes :
 
 Here are a few results produced with this tester :
 
-| Name        | nb Collisions | Notes |
-| ---         | ---           | ---   |
-| XXH3_64bits |   |   |
-| XXH64       |   |   |
-| XXH32       |   |   |
-| badsum      |   |   |
+| Algorithm | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
+| --- | --- | --- | --- | --- | --- |
+| __XXH3__ | 256 | 100 Gi | 312.5 | 326 |  |
+| __XXH64__ | 256 | 100 Gi | 312.5 | 294 |  |
+| __XXH128__ | 256 | 100 Gi | 0.0 | 0 | As a 128-bit hash, we expect XXH128 to generate 0 hash |
+| __XXH128__ low 64-bit | 512 | 100 Gi | 312.5 | 321 |  |
+| __XXH128__ high 64-bit | 512 | 100 Gi | 312.5 | 325 |  |
+
+Test on small inputs :
+
+| Algorithm | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
+| --- | --- | --- | --- | --- | --- |
+| __XXH3__ | 8 |  |  |  | To be restarted |
+| __XXH64__ | 8 | 100 Gi | 312.5 | __0__ | `XXH64` is bijective for `len==8` |
+| __XXH128__ | 16 | 25 Gi | 0.0 | 0 | test range 9-16 |
+| __XXH128__ | 32 | 25 Gi | 0.0 | 0 | test range 17-128 |
+| __XXH128__ | 100 | 13 Gi | 0.0 | 0 | test range 17-128 |
+| __XXH128__ | 200 | 13 Gi | 0.0 | 0 | test range 129-240 |

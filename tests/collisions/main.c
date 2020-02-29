@@ -888,7 +888,7 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
 /* As some hashes use different algorithms depending on input size,
  * it can be necessary to test multiple input sizes
  * to paint an accurage picture on collision performance */
-#define SAMPLE_SIZE_DEFAULT 256
+#define SAMPLE_SIZE_DEFAULT 255
 #define HASHFN_ID_DEFAULT 0
 
 void help(const char* exeName)

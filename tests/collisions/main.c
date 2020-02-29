@@ -110,42 +110,79 @@ static uint64_t avalanche64(uint64_t h64)
     return h64;
 }
 
-unsigned char randomByte(size_t n)
+static unsigned char randomByte(size_t n)
 {
     uint64_t n64 = avalanche64(n+1);
     n64 *= prime64_1;
     return (unsigned char)(n64 >> 56);
 }
 
+typedef enum { sf_slab5, sf_sparse } sf_genMode;
 
-#if 0
+
+#ifdef SLAB5
 
 /* Slab5 sample generation.
- * It is generally more friendly to hash algorithms,
- * because it flips many bits per update,
- * without fitting common per4 or per8 ingestion patterns.
+ * This algorithm generates unique inputs
+ * flipping on average 16 bits per candidate.
+ * It is generally much more friendly for most hash algorithms,
+ * especially weaker ones, as it shuffles more the input.
+ * The algorithm also avoids overfitting the per4 or per8 ingestion patterns.
  */
 
 #define SLAB_SIZE 5
-void initSample(void* buffer, size_t size, uint64_t htotal)
+
+typedef struct {
+    void* buffer;
+    size_t size;
+    sf_genMode mode;
+    size_t prngSeed;
+    uint64_t hnb;
+} sampleFactory;
+
+static void init_sampleFactory(sampleFactory* sf, uint64_t htotal)
 {
     uint64_t const minNbSlabs = ((htotal-1) >> 32) + 1;
     uint64_t const minSize = minNbSlabs * SLAB_SIZE;
-    if (size < minSize)
+    if (sf->size < minSize)
         EXIT("sample size must be >= %i bytes for this amount of hashes",
             (int)minSize);
 
-    unsigned char* const p = (unsigned char*)buffer;
-    for (size_t n=0; n<size; n++)
+    unsigned char* const p = (unsigned char*)sf->buffer;
+    for (size_t n=0; n < sf->size; n++)
         p[n] = randomByte(n);
+    sf->hnb = 0;
 }
 
-static inline void updateSample(void* buffer, size_t size, uint64_t hnb)
+static sampleFactory*
+create_sampleFactory(size_t size, uint64_t htotal, uint64_t seed)
 {
-    size_t const nbSlabs = size / SLAB_SIZE;
-    size_t const SlabNb = hnb % nbSlabs;
+    sampleFactory* const sf = malloc(sizeof(sampleFactory));
+    if (!sf) EXIT("not enough memory");
+    void* const buffer = malloc(size);
+    if (!buffer) EXIT("not enough memory");
+    sf->buffer = buffer;
+    sf->size = size;
+    sf->mode = sf_slab5;
+    sf->prngSeed = seed;
+    init_sampleFactory(sf, htotal);
+    return sf;
+}
 
-    char* const ptr = (char*)buffer;
+static void free_sampleFactory(sampleFactory* sf)
+{
+    if (!sf) return;
+    free(sf->buffer);
+    free(sf);
+}
+
+static inline void update_sampleFactory(sampleFactory* sf)
+{
+    size_t const nbSlabs = sf->size / SLAB_SIZE;
+    size_t const SlabNb = sf->hnb % nbSlabs;
+    sf->hnb++;
+
+    char* const ptr = (char*)sf->buffer;
     size_t const start = (SlabNb * SLAB_SIZE) + 1;
     uint32_t val32;
     memcpy(&val32, ptr+start, sizeof(val32));
@@ -157,10 +194,12 @@ static inline void updateSample(void* buffer, size_t size, uint64_t hnb)
 #else
 
 /* Sparse sample generation.
- * This pattern only flips one bit most of the time.
- * It's supposed to be more difficult for weak hash algorithms,
- * for both collisions rate and bias detection.
- * Note there is no bias analysis yet in this test tool.
+ * This is the default pattern generator.
+ * It only flips one bit at a time (mostly).
+ * Low hamming distance scenario is more difficult for weak hash algorithms.
+ * Note that CRC are immune to this scenario,
+ * since they are specifically designed to detect low hamming distances.
+ * Prefer the Slab5 pattern generator for collisions on CRC algorithms.
  */
 
 #define SPARSE_LEVEL_MAX 15
@@ -181,8 +220,6 @@ static int enoughCombos(size_t size, uint64_t htotal)
     }
     return 1;
 }
-
-typedef enum { sf_slab5, sf_sparse } sf_genMode;
 
 typedef struct {
     void* buffer;

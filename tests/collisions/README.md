@@ -32,6 +32,10 @@ but storage must allocate an upper bound.
 
 For the default test, the expected "optimal" collision rate for a 64-bit hash function is ~18 collisions.
 
+#### Build modifier
+
+- `SLAB5` : use alternative pattern generator, more friendly to weak algorithms
+
 #### How to integrate any hash in the tester
 
 The build script is expecting to compile files in `./allcodecs`.

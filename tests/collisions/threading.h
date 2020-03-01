@@ -29,18 +29,19 @@ extern "C" {
 #if POOL_MT && defined(_WIN32)
 
 /**
- * Windows minimalist Pthread Wrapper, based on :
- * http://www.cse.wustl.edu/~schmidt/win32-cv-1.html
+ * Define windows version before include
  */
-#undef WINVER
+#undef  WINVER
 #define WINVER       0x0600
 
-#undef _WIN32_WINNT
+#undef  _WIN32_WINNT
 #define _WIN32_WINNT 0x0600
 
 #ifndef WIN32_LEAN_AND_MEAN
 #  define WIN32_LEAN_AND_MEAN
 #endif
+
+#include "windows.h"
 
 /* mutex */
 #define ZSTD_pthread_mutex_t           CRITICAL_SECTION

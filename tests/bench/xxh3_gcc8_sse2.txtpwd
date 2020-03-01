@@ -1,3 +1,0 @@
- ===  benchmarking 1 hash functions  === 
-benchmarking large inputs : from 512 bytes (log9) to 128 MB (log27) 
-xxh3   ,  18250.9

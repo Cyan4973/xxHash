@@ -34,23 +34,17 @@ extern "C" {
  */
 #ifdef WINVER
 #  undef WINVER
+#  define WINVER       0x0600
 #endif
-#define WINVER       0x0600
 
 #ifdef _WIN32_WINNT
 #  undef _WIN32_WINNT
+#  define _WIN32_WINNT 0x0600
 #endif
-#define _WIN32_WINNT 0x0600
 
 #ifndef WIN32_LEAN_AND_MEAN
 #  define WIN32_LEAN_AND_MEAN
 #endif
-
-#undef ERROR   /* reported already defined on VS 2015 (Rich Geldreich) */
-#include <windows.h>
-#undef ERROR
-#define ERROR(name) ZSTD_ERROR(name)
-
 
 /* mutex */
 #define ZSTD_pthread_mutex_t           CRITICAL_SECTION

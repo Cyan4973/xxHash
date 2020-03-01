@@ -34,7 +34,7 @@
 
 /* Note :
    This file is separated for development purposes.
-   It will be integrated into `xxhash.c` when development phase is complete.
+   It will be integrated into `xxhash.h` when development stage is completed.
 */
 
 #ifndef XXH3_H_1397135465
@@ -83,7 +83,7 @@
 #endif
 
 /*
- * One goal of XXH3 was to make it fast on both 32-bit and 64-bit, while
+ * One goal of XXH3 is to make it fast on both 32-bit and 64-bit, while
  * remaining a true 64-bit/128-bit hash function.
  *
  * This is done by prioritizing a subset of 64-bit operations that can be

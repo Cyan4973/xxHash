@@ -62,17 +62,27 @@ thanks to [Takayuki Matsuoka](https://github.com/t-mat) contributions.
 The library files `xxhash.c` and `xxhash.h` are BSD licensed.
 The utility `xxhsum` is GPL licensed.
 
-### Building xxHash - Using vcpkg
 
-You can download and install xxHash using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+### New hash algorithms
 
-    git clone https://github.com/Microsoft/vcpkg.git
-    cd vcpkg
-    ./bootstrap-vcpkg.sh
-    ./vcpkg integrate install
-    ./vcpkg install xxhash
+Starting with `v0.7.0`, the library includes a new algorithm, named `XXH3`,
+able to generate 64 and 128-bits hashes.
 
-The xxHash port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
+The new algorithm is much faster than its predecessors,
+for both long and small inputs,
+as can be observed in following graphs :
+
+![XXH3, bargraph](https://user-images.githubusercontent.com/750081/61976096-b3a35f00-af9f-11e9-8229-e0afc506c6ec.png)
+
+![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
+
+To access these new prototypes, one needs to unlock their declaration, using build macro `XXH_STATIC_LINKING_ONLY`.
+
+The algorithm is currently in development, meaning its return values might still change in future versions.
+However, the implementation is stable, and can be used in production,
+typically for ephemeral data (produced and consumed in same session).
+`XXH3` return values will be finalized on reaching `v0.8.0`.
+
 
 ### Build modifiers
 
@@ -84,7 +94,7 @@ they modify libxxhash behavior. They are all disabled by default.
                      It's _extremely effective_ when key length is expressed as _a compile time constant_,
                      with performance improvements observed in the +200% range .
                      See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
-                     Note: there is no need for an `xxhash.o` object file in this case.
+                     Note: there is no need to compile an `xxhash.o` object file in this case.
 - `XXH_NO_INLINE_HINTS` : By default, xxHash uses tricks like `__attribute__((always_inline))` and `__forceinline` to try and improve performance at the cost of code size. Defining this to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not. This is very useful when optimizing for the smallest binary size, and it is automatically defined when compiling with `-O0`, `-Os`, `-Oz`, or `-fno-inline` on GCC and Clang. This may also increase performance depending on the compiler and the architecture.
 - `XXH_REROLL` : reduce size of generated code. Impact on performance vary, depending on platform and algorithm.
 - `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a `NULL` pointer,
@@ -110,6 +120,19 @@ they modify libxxhash behavior. They are all disabled by default.
 - `XXH_NO_LONG_LONG` : removes support for XXH64,
                        for targets without 64-bit support.
 - `XXH_IMPORT` : MSVC specific : should only be defined for dynamic linking, it prevents linkage errors.
+
+
+### Building xxHash - Using vcpkg
+
+You can download and install xxHash using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    ./vcpkg install xxhash
+
+The xxHash port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
 
 
 ### Example
@@ -164,31 +187,11 @@ XXH64_hash_t calcul_hash_streaming(FileHandler fh)
 }
 ```
 
-### New experimental hash algorithm
-
-Starting with `v0.7.0`, the library includes a new algorithm, named `XXH3`,
-able to generate 64 and 128-bits hashes.
-
-The new algorithm is much faster than its predecessors,
-for both long and small inputs,
-as can be observed in following graphs :
-
-![XXH3, bargraph](https://user-images.githubusercontent.com/750081/61976096-b3a35f00-af9f-11e9-8229-e0afc506c6ec.png)
-
-![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
-
-The algorithm is currently labeled experimental, its return values can still change in future versions.
-It can already be used for ephemeral data, and for tests, but avoid storing long-term hash values yet.
-
-To access experimental prototypes, one need to unlock their declaration using macro `XXH_STATIC_LINKING_ONLY`.
-`XXH3` will be stabilized in a future version.
-This period is used to collect users' feedback.
-
 
 ### Other programming languages
 
 Beyond the C reference version,
-xxHash is also available on many programming languages,
+xxHash is also available in many programming languages,
 thanks to great contributors.
 They are [listed here](http://www.xxhash.com/#other-languages).
 

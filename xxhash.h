@@ -3,7 +3,7 @@
  * Header File
  * Copyright (C) 2012-present, Yann Collet.
  *
- * BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
+ * BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -62,7 +62,7 @@ It depends on successfully passing SMHasher test set.
 Note: SMHasher's CRC32 implementation is not the fastest one.
 Other speed-oriented implementations can be faster,
 especially in combination with PCLMUL instruction:
-http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html?showComment=1552696407071#c3490092340461170735
+https://fastcompression.blogspot.com/2019/03/presenting-xxh3.html?showComment=1552696407071#c3490092340461170735
 
 A 64-bit version, named XXH64, is available since r35.
 It offers much better speed, but for 64-bit applications only.
@@ -425,7 +425,7 @@ struct XXH64_state_s {
  *
  * Speed analysis methodology is explained here:
  *
- *    http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
+ *    https://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
  *
  * In general, expect XXH3 to run about ~2x faster on large inputs and >3x
  * faster on small ones compared to XXH64, though exact differences depend on
@@ -719,7 +719,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  *     Byteshift. This can generate the best code on old compilers which don't
  *     inline small `memcpy()` calls, and it might also be faster on big-endian
  *     systems which lack a native byteswap instruction.
- * See http://stackoverflow.com/a/32095106/646947 for details.
+ * See https://stackoverflow.com/a/32095106/646947 for details.
  * Prefer these methods in priority order (0 > 1 > 2 > 3)
  */
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
@@ -916,7 +916,7 @@ static xxh_u32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; 
 #else
 
 /* portable and safe solution. Generally efficient.
- * see : http://stackoverflow.com/a/32095106/646947
+ * see : https://stackoverflow.com/a/32095106/646947
  */
 static xxh_u32 XXH_read32(const void* memPtr)
 {
@@ -1467,7 +1467,7 @@ static xxh_u64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64
 #else
 
 /* portable and safe solution. Generally efficient.
- * see : http://stackoverflow.com/a/32095106/646947
+ * see : https://stackoverflow.com/a/32095106/646947
  */
 
 static xxh_u64 XXH_read64(const void* memPtr)

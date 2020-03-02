@@ -3,7 +3,7 @@ xxHash - Extremely fast hash algorithm
 
 <!-- TODO: Update. -->
 xxHash is an Extremely fast Hash algorithm, running at RAM speed limits.
-It successfully completes the [SMHasher](http://code.google.com/p/smhasher/wiki/SMHasher) test suite
+It successfully completes the [SMHasher](https://code.google.com/p/smhasher/wiki/SMHasher) test suite
 which evaluates collision, dispersion and randomness qualities of hash functions.
 Code is highly portable, and hashes are identical on all platforms (little / big endian).
 

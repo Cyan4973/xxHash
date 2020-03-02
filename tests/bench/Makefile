@@ -18,8 +18,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# You can contact the author at :
-#  - xxHash source repository : http://code.google.com/p/xxhash/
+# You can contact the author at:
+#   - xxHash homepage: http://www.xxhash.com
+#   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
 # benchHash : generic benchmark for hash algorithms
 #             measuring throughput, latency and bandwidth

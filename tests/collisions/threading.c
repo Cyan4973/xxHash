@@ -28,8 +28,7 @@ int g_ZSTD_threading_useles_symbol;
 #if POOL_MT && defined(_WIN32)
 
 /**
- * Windows minimalist Pthread Wrapper, based on :
- * http://www.cse.wustl.edu/~schmidt/win32-cv-1.html
+ * Windows minimalist Pthread Wrapper
  */
 
 

@@ -9,7 +9,7 @@ By default, it will generate 24 billion of 64-bit hashes,
 requiring __192 GB of RAM__ for their storage.
 The number of hashes can be modified using command `--nbh=`.
 Be aware that testing the collision ratio of 64-bit hashes
-requires a very large amount of hashes (several billions) for meaningful measurements.
+requires a very large amount of hashes (several billion) for meaningful measurements.
 
 To reduce RAM usage, an optional filter can be requested, with `--filter`.
 It reduces the nb of candidates to analyze, hence associated RAM budget.
@@ -22,9 +22,9 @@ It also doesn't allow advanced analysis of partial bitfields,
 since most hashes will be discarded and not stored.
 
 When using the filter, the RAM budget consists of the filter and a list of candidates,
-which will be a fraction of original hash list.
-Using default settings (24 billions hashes, 32 GB filter),
-the number of potential candidates should be reduced to less than 2 billions,
+which will be a fraction of the original hash list.
+Using default settings (24 billion hashes, 32 GB filter),
+the number of potential candidates should be reduced to less than 2 billion,
 requiring ~14 GB for their storage.
 Such a result also depends on hash algorithm's efficiency.
 The number of effective candidates is likely to be lower, at ~ 1 billion,
@@ -37,26 +37,26 @@ For the default test, the expected "optimal" collision rate for a 64-bit hash fu
 make
 ```
 
-Note : the code is a mix of C99 and C++14,
+Note: the code is a mix of C99 and C++14,
 it's not compatible with a C90-only compiler.
 
 #### Build modifier
 
-- `SLAB5` : use alternative pattern generator, friendlier for weak hash algorithms
-- `POOL_MT` : if  `=0`, disable multi-treading code (enabled by default)
+- `SLAB5`: use alternative pattern generator, friendlier for weak hash algorithms
+- `POOL_MT`: if `=0`, disable multi-threading code (enabled by default)
 
 #### How to integrate any hash in the tester
 
-The build script is expecting to compile files found in `./allcodecs`.
+The build script will compile files found in `./allcodecs`.
 Put the source code here.
 This also works if the hash is a single `*.h` file.
 
 The glue happens in `hashes.h`.
-In this file, there are 2 sections :
-- Add the required `#include "header.h"`, and create a wrapper,
+In this file, there are 2 sections:
+- Adds the required `#include "header.h"`, and creates a wrapper
 to respect the format expected by the function pointer.
-- Add the wrapper, along with the name and an indication of the output width,
-to the table, at the end of `hashed.h`
+- Adds the wrapper, along with the name and an indication of the output width,
+to the table, at the end of `hashes.h`
 
 Build with `make`. Locate your new hash with `./collisionsTest -h`,
 it should be listed.
@@ -67,13 +67,13 @@ it should be listed.
 ```
 usage: ./collisionsTest [hashName] [opt]
 
-list of hashNames : (...)
+list of hashNames: (...)
 
 Optional parameters:
---nbh=#  : select nb of hashes to generate (25769803776 by default)
---filter : activated the filter. Reduce memory usage for same nb of hashes. Slower.
---threadlog=# : use 2^# threads
---len=#  : select length of input (255 bytes by default)
+  --nbh=NB       Select nb of hashes to generate (25769803776 by default)
+  --filter       Enable the filter. Slower, but reduces memory usage for same nb of hashes.
+  --threadlog=NB Use 2^NB threads
+  --len=NB       Select length of input (255 bytes by default)
 ```
 
 #### Some advises on how to setup a collisions test
@@ -91,24 +91,24 @@ By requesting 14G, the expectation is that the program will automatically
 size the filter to 16 GB, and expect to store ~1G candidates,
 leaving enough room to breeze for the system.
 
-The command line becomes :
+The command line becomes:
 ```
 ./collisionsTest --nbh=14G --filter NameOfHash
 ```
 
 #### Examples :
 
-Here are a few results produced with this tester :
+Here are a few results produced with this tester:
 
 | Algorithm | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
 | --- | --- | --- | --- | --- | --- |
 | __XXH3__ | 256 | 100 Gi | 312.5 | 326 |  |
 | __XXH64__ | 256 | 100 Gi | 312.5 | 294 |  |
-| __XXH128__ | 256 | 100 Gi | 0.0 | 0 | As a 128-bit hash, we expect XXH128 to generate 0 hash |
+| __XXH128__ | 256 | 100 Gi | 0.0 | 0 | As a 128-bit hash, we expect XXH128 to generate 0 collisions |
 | __XXH128__ low 64-bit | 512 | 100 Gi | 312.5 | 321 |  |
 | __XXH128__ high 64-bit | 512 | 100 Gi | 312.5 | 325 |  |
 
-Test on small inputs :
+Test on small inputs:
 
 | Algorithm | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
 | --- | --- | --- | --- | --- | --- |

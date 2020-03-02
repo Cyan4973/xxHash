@@ -42,9 +42,10 @@
 #include <assert.h>
 
 
-/*! readIntFromChar() :
- *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
- *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
+/*!
+ * readIntFromChar():
+ * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  */
 static int readIntFromChar(const char** stringPtr)
 {
@@ -72,25 +73,30 @@ static int readIntFromChar(const char** stringPtr)
 }
 
 
-/** longCommand() :
- *  check if string is the same as longCommand.
- *  If yes, @return 1 and advances *stringPtr to the position which immediately follows longCommand.
- * @return 0 and doesn't modify *stringPtr otherwise.
+/**
+ * longCommand():
+ * Checks if string is the same as longCommand.
+ * If yes, @return 1, otherwise @return 0
  */
-static int isCommand(const char* stringPtr, const char* longCommand)
+static int isCommand(const char* string, const char* longCommand)
 {
+    assert(string);
+    assert(longCommand);
     size_t const comSize = strlen(longCommand);
-    assert(stringPtr); assert(longCommand);
-    return !strncmp(stringPtr, longCommand, comSize);
+    return !strncmp(string, longCommand, comSize);
 }
 
-/** longCommandWArg() :
- *  check if *stringPtr is the same as longCommand.
- *  If yes, @return 1 and advances *stringPtr to the position which immediately follows longCommand.
+/*
+ * longCommandWArg():
+ * Checks if *stringPtr is the same as longCommand.
+ * If yes, @return 1 and advances *stringPtr to the position which immediately
+ * follows longCommand.
  * @return 0 and doesn't modify *stringPtr otherwise.
  */
 static int longCommandWArg(const char** stringPtr, const char* longCommand)
 {
+    assert(stringPtr);
+    assert(longCommand);
     size_t const comSize = strlen(longCommand);
     int const result = isCommand(*stringPtr, longCommand);
     if (result) *stringPtr += comSize;
@@ -142,14 +148,16 @@ static int hashID(const char* hname)
 
 static int help(const char* exename)
 {
-    printf("usage : %s [options] [hash] \n\n", exename);
+    printf("Usage: %s [options]... [hash]\n", exename);
+    printf("Runs various benchmarks at various lengths for the listed hash functions\n");
+    printf("and outputs them in a CSV format.\n\n");
     printf("Options: \n");
-    printf("--list   : name available hash algorithms and exit \n");
-    printf("--mins=# : starting length for small size bench (default:%i) \n", SMALL_SIZE_MIN_DEFAULT);
-    printf("--maxs=# : end length for small size bench (default:%i) \n", SMALL_SIZE_MAX_DEFAULT);
-    printf("--minl=# : starting log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MIN_DEFAULT);
-    printf("--maxl=# : end log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MAX_DEFAULT);
-    printf("[hash] : is optional, bench all available hashes if not provided \n");
+    printf("  --list       Name available hash algorithms and exit \n");
+    printf("  --mins=LEN   Starting length for small size bench (default: %i) \n", SMALL_SIZE_MIN_DEFAULT);
+    printf("  --maxs=LEN   End length for small size bench (default: %i) \n", SMALL_SIZE_MAX_DEFAULT);
+    printf("  --minl=LEN   Starting log2(length) for large size bench (default: %i) \n", LARGE_SIZELOG_MIN_DEFAULT);
+    printf("  --maxl=LEN   End log2(length) for large size bench (default: %i) \n", LARGE_SIZELOG_MAX_DEFAULT);
+    printf("  [hash]       Optional, bench all available hashes if not provided \n");
     return 0;
 }
 
@@ -180,17 +188,21 @@ int main(int argc, const char** argv)
         if (longCommandWArg(arg, "--maxl=")) { largeTest_log_max = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--mins=")) { smallTest_size_min = (size_t)readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--maxs=")) { smallTest_size_max = (size_t)readIntFromChar(arg); continue; }
-        /* not a command : must be a hash name */
+        /* not a command: must be a hash name */
         hashNb = hashID(*arg);
         if (hashNb >= 0) {
             nb_h_test = 1;
         } else {
-            /* not a hash name : error */
+            /* not a hash name: error */
             return badusage(exename);
         }
     }
 
-    if (hashNb + nb_h_test > NB_HASHES) { printf("wrong hash selection \n"); return 1; }  /* border case (requires (mis)using hidden command `--n=#`) */
+    /* border case (requires (mis)using hidden command `--n=#`) */
+    if (hashNb + nb_h_test > NB_HASHES) {
+        printf("wrong hash selection \n");
+        return 1;
+    }
 
     printf(" ===  benchmarking %i hash functions  === \n", nb_h_test);
     if (largeTest_log_max >= largeTest_log_min) {

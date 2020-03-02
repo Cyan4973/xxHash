@@ -1,6 +1,6 @@
 /*
 *  Hash benchmark module
-*  Part of xxHash project
+*  Part of the xxHash project
 *  Copyright (C) 2019-present, Yann Collet
 *
 *  GPL v2 License
@@ -19,9 +19,9 @@
 *  with this program; if not, write to the Free Software Foundation, Inc.,
 *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 *
-*  You can contact the author at :
-*  - xxHash homepage : http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
+*  You can contact the author at:
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
 
@@ -46,10 +46,12 @@ typedef enum { BMK_fixedSize,   /* hash always `size` bytes */
                BMK_randomSize,  /* hash a random nb of bytes, between 1 and `size` (inclusive) */
 } BMK_sizeMode;
 
-/* bench_hash() :
- * returns speed expressed as nb hashes per second.
- * total_time_ms : time spent benchmarking the hash function with given parameters
- * iter_time_ms : time spent for one round. If multiple rounds are run, bench_hash() will report the speed of best round.
+/*
+ * bench_hash():
+ * Returns speed expressed as nb hashes per second.
+ * total_time_ms: time spent benchmarking the hash function with given parameters
+ * iter_time_ms: time spent for one round. If multiple rounds are run,
+ *               bench_hash() will report the speed of best round.
  */
 double bench_hash(BMK_benchFn_t hashfn,
                   BMK_benchMode benchMode,

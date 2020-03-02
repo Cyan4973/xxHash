@@ -1,6 +1,6 @@
 /*
 *  Hash benchmark module
-*  Part of xxHash project
+*  Part of the xxHash project
 *  Copyright (C) 2019-present, Yann Collet
 *
 *  GPL v2 License
@@ -19,9 +19,9 @@
 *  with this program; if not, write to the Free Software Foundation, Inc.,
 *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 *
-*  You can contact the author at :
-*  - xxHash homepage : http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
+*  You can contact the author at:
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
 /* benchmark hash functions */
@@ -50,9 +50,10 @@ static void initBuffer(void* buffer, size_t size)
 
 typedef size_t (*sizeFunction_f)(size_t targetSize);
 
-/* bench_hash_internal() :
- * benchmark hashfn repeateadly over single input of size `size`
- * return : nb of hashes per second
+/*
+ * bench_hash_internal():
+ * Benchmarks hashfn repeateadly over single input of size `size`
+ * return: nb of hashes per second
  */
 static double
 bench_hash_internal(BMK_benchFn_t hashfn, void* payload,

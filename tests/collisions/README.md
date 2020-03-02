@@ -32,6 +32,14 @@ but storage must allocate an upper bound.
 
 For the default test, the expected "optimal" collision rate for a 64-bit hash function is ~18 collisions.
 
+#### How to build
+```
+make
+```
+
+Note : the code is a mix of C99 and C++14,
+it's not compatible with a C90-only compiler.
+
 #### Build modifier
 
 - `SLAB5` : use alternative pattern generator, friendlier for weak hash algorithms
@@ -52,6 +60,9 @@ to the table, at the end of `hashed.h`
 
 Build with `make`. Locate your new hash with `./collisionsTest -h`,
 it should be listed.
+
+
+#### Usage
 
 
 #### Some advises on how to setup a collisions test

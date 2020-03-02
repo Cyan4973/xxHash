@@ -204,19 +204,30 @@ static inline void update_sampleFactory(sampleFactory* sf)
 
 #define SPARSE_LEVEL_MAX 15
 
+/* Nb of combinations of m bits in a register of n bits */
+static double Cnm(int n, int m)
+{
+    assert(n > 0);
+    assert(m > 0);
+    assert(m <= m);
+    double acc = 1;
+    for (int i=0; i<m; i++) {
+        acc *= n - i;
+        acc /= 1 + i;
+    }
+    return acc;
+}
+
 static int enoughCombos(size_t size, uint64_t htotal)
 {
     if (size < 2) return 0;   /* ensure no multiplication by negative */
-    uint64_t possible = 0;
-    uint64_t acc = 1;
-    uint64_t const srcBits = size * 8;
-    uint64_t nbBits = 0;
-    while (possible < htotal) {
-        acc *= srcBits - nbBits;
-        acc /= nbBits + 1;
-        possible += acc;
-        nbBits++;
-        if (nbBits >= SPARSE_LEVEL_MAX) return 0;
+    uint64_t acc = 0;
+    uint64_t const srcBits = size * 8; assert(srcBits < INT_MAX);
+    int nbBitsSet = 0;
+    while (acc < htotal) {
+        nbBitsSet++;
+        if (nbBitsSet >= SPARSE_LEVEL_MAX) return 0;
+        acc += (uint64_t)Cnm((int)srcBits, nbBitsSet);
     }
     return 1;
 }

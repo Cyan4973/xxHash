@@ -71,15 +71,17 @@ build_script:
       make -v &&
       echo ----- &&
       if not [%PLATFORM%]==[clang] (
-        if [%PLATFORM%]==[mingw32] SET CPPFLAGS=-DPOOL_MT=0
+        if [%PLATFORM%]==[mingw32] ( SET CPPFLAGS=-DPOOL_MT=0 ) &&
         make -B clean test MOREFLAGS=-Werror
       ) ELSE (
+        SET CXXFLAGS=--std=c++14 &&
         make -B clean test CC=clang CXX=clang++ MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed" NO_C90_TEST=true
       ) &&
       make -C tests/bench
     )
-    # note : strict c90 tests with clang fail, due to (erroneous) presence on `inline` keyword in some included system file
-    # -Dinline= is a way to disable this keyword
+    # note 1 : strict c90 tests with clang fail, due to (erroneous) presence on `inline` keyword in some included system file
+    # note 2 : multi-threading code doesn't work with mingw32, disabled through POOL_MT=0
+    # note 3 : clang requires C++14 to compile sort because its own code contains c++14-only code
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&

@@ -70,13 +70,13 @@ able to generate 64 and 128-bits hashes.
 
 The new algorithm is much faster than its predecessors,
 for both long and small inputs,
-as can be observed in following graphs :
+which can be observed in the following graphs :
 
 ![XXH3, bargraph](https://user-images.githubusercontent.com/750081/61976096-b3a35f00-af9f-11e9-8229-e0afc506c6ec.png)
 
 ![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
 
-To access these new prototypes, one needs to unlock their declaration, using build macro `XXH_STATIC_LINKING_ONLY`.
+To access these new prototypes, one needs to unlock their declaration, using build the macro `XXH_STATIC_LINKING_ONLY`.
 
 The algorithm is currently in development, meaning its return values might still change in future versions.
 However, the implementation is stable, and can be used in production,

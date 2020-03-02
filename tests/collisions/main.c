@@ -374,7 +374,7 @@ inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
 
 /* Check if provided 64-bit hash is a collision candidate
  * Requires the slot to be occupied by at least 2 candidates.
- * return >0 if hash is collision candidate
+ * return >0 if hash is a collision candidate
  *         0 otherwise (slot unoccupied, or only one candidate)
  * note: slot unoccupied should not happen in this algorithm,
  *       since all hashes are supposed to have been inserted at least once.
@@ -935,7 +935,7 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
 
 /* As some hashes use different algorithms depending on input size,
  * it can be necessary to test multiple input sizes
- * to paint an accurage picture on collision performance */
+ * to paint an accurate picture on collision performance */
 #define SAMPLE_SIZE_DEFAULT 255
 #define HASHFN_ID_DEFAULT 0
 
@@ -954,7 +954,7 @@ void help(const char* exeName)
     printf("Optional parameters: \n");
     printf("--nbh=#  : select nb of hashes to generate (%llu by default) \n", (unsigned long long)select_nbh(64));
     printf("--filter : activated the filter. Reduce memory usage for same nb of hashes. Slower. \n");
-    printf("---threadlog=# : use 2^# threads \n");
+    printf("--threadlog=# : use 2^# threads \n");
     printf("--len=#  : select length of input (%i bytes by default) \n", SAMPLE_SIZE_DEFAULT);
 }
 

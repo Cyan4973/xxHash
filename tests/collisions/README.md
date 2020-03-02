@@ -8,7 +8,7 @@ The test requires a very large amount of memory.
 By default, it will generate 24 billion of 64-bit hashes,
 requiring __192 GB of RAM__ for their storage.
 The number of hashes can be modified using command `--nbh=`.
-be aware that testing the collision ratio of 64-bit hashes
+Be aware that testing the collision ratio of 64-bit hashes
 requires a very large amount of hashes (several billions) for meaningful measurements.
 
 To reduce RAM usage, an optional filter can be requested, with `--filter`.
@@ -47,9 +47,9 @@ it's not compatible with a C90-only compiler.
 
 #### How to integrate any hash in the tester
 
-The build script is expecting to compile files in `./allcodecs`.
+The build script is expecting to compile files found in `./allcodecs`.
 Put the source code here.
-This also works if the hash is a single `*.h` files.
+This also works if the hash is a single `*.h` file.
 
 The glue happens in `hashes.h`.
 In this file, there are 2 sections :
@@ -64,6 +64,17 @@ it should be listed.
 
 #### Usage
 
+```
+usage: ./collisionsTest [hashName] [opt]
+
+list of hashNames : (...)
+
+Optional parameters:
+--nbh=#  : select nb of hashes to generate (25769803776 by default)
+--filter : activated the filter. Reduce memory usage for same nb of hashes. Slower.
+--threadlog=# : use 2^# threads
+--len=#  : select length of input (255 bytes by default)
+```
 
 #### Some advises on how to setup a collisions test
 

@@ -1,27 +1,28 @@
-/* Brute force collision tester for 64-bit hashes
-*  Part of xxHash project
-*  Copyright (C) 2012-present, Yann Collet
-*
-*  GPL v2 License
-*
-*  This program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License along
-*  with this program; if not, write to the Free Software Foundation, Inc.,
-*  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-*
-*  You can contact the author at:
-*  - xxHash homepage: http://www.xxhash.com
-*  - xxHash source repository: https://github.com/Cyan4973/xxHash
-*/
+/*
+ * Brute force collision tester for 64-bit hashes
+ * Part of the xxHash project
+ * Copyright (C) 2019-present, Yann Collet
+ *
+ * GPL v2 License
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * You can contact the author at:
+ *   - xxHash homepage: http://www.xxhash.com
+ *   - xxHash source repository: https://github.com/Cyan4973/xxHash
+ */
 
 /*
  * The collision tester will generate 24 billion hashes (by default),
@@ -31,7 +32,7 @@
  *
  * This program requires a lot of memory:
  * - Either store hash values directly => 192 GB
- * - Either use a filter:
+ * - Or use a filter:
  *   -  32 GB (by default) for the filter itself
  *   -  + ~14 GB for the list of hashes (depending on the filter's outcome)
  * Due to these memory constraints, it requires a 64-bit system.

@@ -2,7 +2,7 @@
  * Multi-include test program
  * Validates that xxhash.h can be included multiple times and in any order
  *
- * Copyright (C) Yann Collet 2013-present
+ * Copyright (C) Yann Collet 2020-present
  *
  * GPL v2 License
  *
@@ -33,7 +33,7 @@
 /*
  * Advanced include, gives access to experimental symbols
  * This test ensure that xxhash.h can be included multiple times and in any
- * order. This order is more difficult: Without care, declaration of
+ * order. This order is more difficult: Without care, the declaration of
  * experimental symbols could be skipped.
  */
 #define XXH_STATIC_LINKING_ONLY
@@ -41,9 +41,10 @@
 
 /*
  * Inlining: Re-define all identifiers, keep them private to the unit.
- * Note: Without specific efforts, identifier names would collide
- * To be linked with and without xxhash.o,
- * to test symbol's presence and naming collisions
+ * Note: Without specific efforts, the identifier names would collide.
+ *
+ * To be linked with and without xxhash.o to test the symbol's presence and
+ * naming collisions.
  */
 #define XXH_INLINE_ALL
 #include "../xxhash.h"

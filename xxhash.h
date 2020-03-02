@@ -392,12 +392,13 @@ struct XXH64_state_s {
 
 /* *********************************************
  * XXH3 is a new hash algorithm,
- * featuring improved speed performance for both small and large inputs.
- * See full speed analysis at : http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
+ * featuring improved speed for both small and large inputs.
+ * Speed analysis methodology is explained at :
+ * http://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
  * In general, expect XXH3 to run about ~2x faster on large inputs,
  * and >3x faster on small ones, though exact differences depend on platform.
  *
- * The algorithm is portable, will generate the same hash on all platforms.
+ * The algorithm is portable, it generates the same hash on all platforms.
  * It benefits greatly from vectorization units, but does not require it.
  *
  * XXH3 offers 2 variants, _64bits and _128bits.
@@ -405,56 +406,14 @@ struct XXH64_state_s {
  * it reduces the amount of mixing, resulting in faster speed on small inputs.
  * It's also generally simpler to manipulate a scalar return type than a struct.
  *
- * The XXH3 algorithm is still considered experimental.
- * Produced results can still change between versions.
+ * The XXH3 algorithm is still in development.
+ * The results it produces may still change in future versions.
  * Results produced by v0.7.x are not comparable with results from v0.7.y .
- * It's nonetheless possible to use XXH3 for ephemeral data (local sessions),
- * but avoid storing values in long-term storage for later reads.
+ * However, the implementation is completely  stable,
+ * and can be used for ephemeral data (local sessions).
+ * Avoid storing values in long-term storage for future consultations.
  *
  * The API supports one-shot hashing, streaming mode, and custom secrets.
- *
- * There are still a number of opened questions that community can influence during the experimental period.
- * I'm trying to list a few of them below, though don't consider this list as complete.
- *
- * - 128-bits output type : currently defined as a structure of two 64-bits fields.
- *                          That's because 128-bit values do not exist in C standard.
- *                          Note that it means that, at byte level, result is not identical depending on endianess.
- *                          However, at field level, they are identical on all platforms.
- *                          The canonical representation solves the issue of identical byte-level representation across platforms,
- *                          which is necessary for serialization.
- *                          Q1 : Would there be a better representation for a 128-bit hash result ?
- *                          Q2 : Are the names of the inner 64-bit fields important ? Should they be changed ?
- *
- * - Prototype XXH128() :   XXH128() uses the same arguments as XXH64(), for consistency.
- *                          It means it maps to XXH3_128bits_withSeed().
- *                          This variant is slightly slower than XXH3_128bits(),
- *                          because the seed is now part of the algorithm, and can't be simplified.
- *                          Is that a good idea ?
- *
- * - Seed type for XXH128() : currently, it's a single 64-bit value, like the 64-bit variant.
- *                          It could be argued that it's more logical to offer a 128-bit seed input parameter for a 128-bit hash.
- *                          But 128-bit seed is more difficult to use, since it requires to pass a structure instead of a scalar value.
- *                          Such a variant could either replace current one, or become an additional one.
- *                          Farmhash, for example, offers both variants (the 128-bits seed variant is called `doubleSeed`).
- *                          Follow up question : if both 64-bit and 128-bit seeds are allowed, which variant should be called XXH128 ?
- *
- * - Result for len==0 :    Currently, the result of hashing a zero-length input is always `0`.
- *                          It seems okay as a return value when using "default" secret and seed.
- *                          But is it still fine to return `0` when secret or seed are non-default ?
- *                          Are there use cases which could depend on generating a different hash result for zero-length input when the secret is different ?
- *
- * - Consistency (1) :      Streaming XXH128 uses an XXH3 state, which is the same state as XXH3_64bits().
- *                          It means a 128bit streaming loop must invoke the following symbols :
- *                          XXH3_createState(), XXH3_128bits_reset(), XXH3_128bits_update() (loop), XXH3_128bits_digest(), XXH3_freeState().
- *                          Is that consistent enough ?
- *
- * - Consistency (2) :      The canonical representation of `XXH3_64bits` is provided by existing functions
- *                          XXH64_canonicalFromHash(), and reverse operation XXH64_hashFromCanonical().
- *                          As a mirror, canonical functions for XXH128_hash_t results generated by `XXH3_128bits`
- *                          are XXH128_canonicalFromHash() and XXH128_hashFromCanonical().
- *                          Which means, `XXH3` doesn't appear in the names, because canonical functions operate on a type,
- *                          independently of which algorithm was used to generate that type.
- *                          Is that consistent enough ?
  */
 
 #ifdef XXH_NAMESPACE
@@ -483,7 +442,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
  * This makes it more difficult for an external actor to prepare an intentional collision.
  * The secret *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
  * It should consist of random bytes.
- * Avoid repeating same character, or sequences of bytes,
+ * Avoid trivial sequences, such as repeating same character, or same number,
  * and especially avoid swathes of \0.
  * Failure to respect these conditions will result in a poor quality hash.
  */
@@ -544,7 +503,7 @@ struct XXH3_state_s {
 /* Streaming requires state maintenance.
  * This operation costs memory and cpu.
  * As a consequence, streaming is slower than one-shot hashing.
- * For better performance, prefer using one-shot functions whenever possible. */
+ * For better performance, prefer one-shot functions whenever possible. */
 
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
@@ -607,10 +566,10 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
 
 
-/* Note : for better performance, following functions can be inlined,
+/* Note : for better performance, these functions can be inlined,
  * using XXH_INLINE_ALL */
 
-/* return : 1 is equal, 0 if different */
+/* return : 1 if equal, 0 if different */
 XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
 
 /* This comparator is compatible with stdlib's qsort().
@@ -644,11 +603,11 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 *  xxHash implementation
 * -**********************************************************************
 *  Functions implementation used to be hosted within xxhash.c .
-*  However, code inlining requires to place implementation in the header file.
+*  However, code inlining requires implementations within the header file.
 *  As a consequence, xxhash.c used to be included within xxhash.h .
-*  But some build systems don't like *.c inclusions.
-*  So the implementation is now directly integrated within xxhash.h .
-*  Another small advantage is that xxhash.c is no longer required in /includes .
+*  However, some build systems don't like including *.c.
+*  Therefore, implementation is now directly integrated within xxhash.h .
+*  Another small advantage is that xxhash.c is no longer needed in /includes .
 ************************************************************************/
 
 #if ( defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API) \

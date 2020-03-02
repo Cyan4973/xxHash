@@ -1,7 +1,7 @@
-/*
-*  CSV Display module for the hash benchmark program
+/* dummy.c,
+*  a fake hash algorithm, just to test integration capabilities.
 *  Part of xxHash project
-*  Copyright (C) 2019-present, Yann Collet
+*  Copyright (C) 2012-present, Yann Collet
 *
 *  GPL v2 License
 *
@@ -24,38 +24,21 @@
 *  - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
-#ifndef BH_DISPLAY_H_192088098
-#define BH_DISPLAY_H_192088098
+#ifndef DUMMY_H_987987
+#define DUMMY_H_987987
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
 
 
-/* ===  Dependencies  === */
+#include <stddef.h> /* size_t */
 
-#include "benchfn.h"   /* BMK_benchFn_t */
-
-
-/* ===  Declarations  === */
-
-typedef struct {
-    const char* name;
-    BMK_benchFn_t hash;
-} Bench_Entry;
-
-void bench_largeInput(Bench_Entry const* hashDescTable, int nbHashes, int sizeLogMin, int sizeLogMax);
-
-void bench_throughput_smallInputs(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax);
-void bench_throughput_randomInputLength(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax);
-
-void bench_latency_smallInputs(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax);
-void bench_latency_randomInputLength(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax);
-
+unsigned badsum32(const void* input, size_t len, unsigned seed);
 
 
 #if defined (__cplusplus)
 }
 #endif
 
-#endif   /* BH_DISPLAY_H_192088098 */
+#endif  /* DUMMY_H_987987 */

@@ -298,7 +298,8 @@ test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhites
 
 .PHONY: test-tools
 test-tools:
-	MOREFLAGS=-Werror $(MAKE) -C tests/bench
+	CFLAGS=-Werror $(MAKE) -C tests/bench
+	CFLAGS=-Werror $(MAKE) -C tests/collisions
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)

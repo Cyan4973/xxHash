@@ -1,6 +1,6 @@
 /*
 *  CSV Display module for the hash benchmark program
-*  Part of xxHash project
+*  Part of the xxHash project
 *  Copyright (C) 2019-present, Yann Collet
 *
 *  GPL v2 License

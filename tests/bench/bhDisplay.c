@@ -1,6 +1,6 @@
 /*
 *  CSV Display module for the hash benchmark program
-*  Part of xxHash project
+*  Part of the xxHash project
 *  Copyright (C) 2019-present, Yann Collet
 *
 *  GPL v2 License
@@ -66,7 +66,7 @@ void bench_largeInput(Bench_Entry const* hashDescTable, int nbHashes, int minlog
 
 
 
-/* ===  benchmark small input  === */
+/* ===  Benchmark small inputs  === */
 
 #define BENCH_SMALL_ITER_MS   170
 #define BENCH_SMALL_TOTAL_MS  490

@@ -18,12 +18,13 @@
 *  with this program; if not, write to the Free Software Foundation, Inc.,
 *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 *
-*  You can contact the author at :
-*  - xxHash homepage : http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
+*  You can contact the author at:
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
-/* xxhsum :
+/*
+ * xxhsum:
  * Provides hash value of a file content, or a list of files, or stdin
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
@@ -493,11 +494,13 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 }
 
 
-/* BMK_benchMem():
- * specificTest : 0 == run all tests, 1+ run only specific test
- * buffer : is supposed 8-bytes aligned (if malloc'ed, it should be)
- * the real allocated size of buffer is supposed to be >= (bufferSize+3).
- * @return : 0 on success, 1 if error (invalid mode selected) */
+/*!
+ * BMK_benchMem():
+ * specificTest: 0 == run all tests, 1+ runs specific test
+ * buffer: Must be 8-byte aligned (if malloc'ed, it should be)
+ * The real allocated size of buffer is supposed to be >= (bufferSize+3).
+ * returns: 0 on success, 1 if error (invalid mode selected)
+ */
 static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
     assert((((size_t)buffer) & 8) == 0);  /* ensure alignment */
@@ -651,7 +654,7 @@ static void BMK_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rError: 32-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X , expected 0x%08X.\n", (unsigned)r1, (unsigned)r2);
+        DISPLAY("\rGot 0x%08X, expected 0x%08X.\n", (unsigned)r1, (unsigned)r2);
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
         exit(1);
@@ -664,7 +667,7 @@ static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
     static int nbTests = 1;
     if (r1!=r2) {
         DISPLAY("\rError: 64-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X%08XULL , expected 0x%08X%08XULL.\n",
+        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n",
                 (unsigned)(r1>>32), (unsigned)r1, (unsigned)(r2>>32), (unsigned)r2);
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
                   "or temporarily comment out the tests in BMK_sanityCheck.\n");
@@ -678,7 +681,7 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
     static int nbTests = 1;
     if ((r1.low64 != r2.low64) || (r1.high64 != r2.high64)) {
         DISPLAY("\rError: 128-bit hash test %i: Internal sanity check failed.\n", nbTests);
-        DISPLAY("\rGot { 0x%08X%08XULL , 0x%08X%08XULL }, expected { 0x%08X%08XULL, 0x%08X%08XULL } \n",
+        DISPLAY("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, 0x%08X%08XULL } \n",
                 (unsigned)(r1.low64>>32), (unsigned)r1.low64, (unsigned)(r1.high64>>32), (unsigned)r1.high64,
                 (unsigned)(r2.low64>>32), (unsigned)r2.low64, (unsigned)(r2.high64>>32), (unsigned)r2.high64 );
         DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
@@ -833,6 +836,13 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
 }
 
 #define SANITY_BUFFER_SIZE 2243
+
+/*!
+ * BMK_sanityCheck():
+ * Runs a sanity check before the benchmark.
+ *
+ * Exits on an incorrect output.
+ */
 static void BMK_sanityCheck(void)
 {
     const U32 prime = 2654435761U;
@@ -1022,10 +1032,11 @@ typedef union {
     XXH128_hash_t xxh128;
 } Multihash;
 
-/* BMK_hashStream :
- * read data from inFile,
- * generating incremental hash of type hashType,
- * using buffer of size blockSize for temporary storage. */
+/*
+ * BMK_hashStream:
+ * Reads data from `inFile`, generating an incremental hash of type hashType,
+ * using `buffer` of size `blockSize` for temporary storage.
+ */
 static Multihash
 BMK_hashStream(FILE* inFile,
                algoType hashType,
@@ -1164,8 +1175,9 @@ static int BMK_hash(const char* fileName,
 }
 
 
-/* BMK_hashFiles:
- * if fnTotal==0, read from stdin insteal
+/*
+ * BMK_hashFiles:
+ * If fnTotal==0, read from stdin instead.
  */
 static int BMK_hashFiles(char** fnList, int fnTotal,
                          algoType hashType, endianess displayEndianess)
@@ -1215,7 +1227,7 @@ typedef union {
 typedef struct {
     Canonical   canonical;
     const char* filename;
-    int         xxhBits;    /* canonical type : 32:xxh32, 64:xxh64 */
+    int         xxhBits;    /* canonical type: 32:xxh32, 64:xxh64, 128:xxh128 */
 } ParsedLine;
 
 typedef struct {
@@ -1243,11 +1255,12 @@ typedef struct {
 } ParseFileArg;
 
 
-/*  Read line from stream.
-    Returns GetLine_ok, if it reads line successfully.
-    Returns GetLine_eof, if stream reaches EOF.
-    Returns GetLine_exceedMaxLineLength, if line length is longer than MAX_LINE_LENGTH.
-    Returns GetLine_outOfMemory, if line buffer memory allocation failed.
+/*
+ * Reads a line from stream `inFile`.
+ * Returns GetLine_ok, if it reads line successfully.
+ * Returns GetLine_eof, if stream reaches EOF.
+ * Returns GetLine_exceedMaxLineLength, if line length is longer than MAX_LINE_LENGTH.
+ * Returns GetLine_outOfMemory, if line buffer memory allocation failed.
  */
 static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
 {
@@ -1297,8 +1310,9 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
 }
 
 
-/*  Converts one hexadecimal character to integer.
- *  Returns -1, if given character is not hexadecimal.
+/*
+ * Converts one hexadecimal character to integer.
+ * Returns -1 if the given character is not hexadecimal.
  */
 static int charToHex(char c)
 {
@@ -1314,9 +1328,12 @@ static int charToHex(char c)
 }
 
 
-/*  Converts XXH32 canonical hexadecimal string hashStr to big endian unsigned char array dst.
- *  Returns CANONICAL_FROM_STRING_INVALID_FORMAT, if hashStr is not well formatted.
- *  Returns CANONICAL_FROM_STRING_OK, if hashStr is parsed successfully.
+/*
+ * Converts XXH32 canonical hexadecimal string `hashStr` to the big endian unsigned
+ * char array `dst`.
+ *
+ * Returns CANONICAL_FROM_STRING_INVALID_FORMAT if hashStr is not well formatted.
+ * Returns CANONICAL_FROM_STRING_OK if hashStr is parsed successfully.
  */
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
                                                      size_t dstSize,
@@ -1338,18 +1355,19 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
 }
 
 
-/*  Parse single line of xxHash checksum file.
- *  Returns PARSE_LINE_ERROR_INVALID_FORMAT, if line is not well formatted.
- *  Returns PARSE_LINE_OK if line is parsed successfully.
- *  And members of parseLine will be filled by parsed values.
+/*
+ * Parse single line of xxHash checksum file.
+ * Returns PARSE_LINE_ERROR_INVALID_FORMAT if the line is not well formatted.
+ * Returns PARSE_LINE_OK if the line is parsed successfully.
+ * And members of parseLine will be filled by parsed values.
  *
- *  - line must be ended with '\0'.
+ *  - line must be terminated with '\0'.
  *  - Since parsedLine.filename will point within given argument `line`,
- *    users must keep `line`s content during they are using parsedLine.
+ *    users must keep `line`s content when they are using parsedLine.
  *
- *  Given xxHash checksum line should have the following format:
+ * xxHash checksum lines should have the following format:
  *
- *      <8 or 16 hexadecimal char> <space> <space> <filename...> <'\0'>
+ *      <8, 16, or 32 hexadecimal char> <space> <space> <filename...> <'\0'>
  */
 static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 {
@@ -1589,7 +1607,7 @@ static int checkFile(const char* inFileName,
         return 0;
     }
 
-    /* note : stdinName is special constant pointer.  It is not a string. */
+    /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
         /* note : Since we expect text input for xxhash -c mode,
          * Don't set binary mode for stdin */
@@ -1683,13 +1701,13 @@ static int checkFiles(char** fnList, int fnTotal,
 static int usage(const char* exename)
 {
     DISPLAY( WELCOME_MESSAGE(exename) );
-    DISPLAY( "Usage :\n");
-    DISPLAY( "      %s [arg] [filenames] \n", exename);
-    DISPLAY( "When no filename provided, or - provided : use stdin as input \n");
-    DISPLAY( "Arguments : \n");
-    DISPLAY( " -H# : hash selection : 0=32bits, 1=64bits, 2=128bits (default: %i)\n", (int)g_defaultAlgo);
-    DISPLAY( " -c  : read xxHash sums from the [filenames] and check them \n");
-    DISPLAY( " -h  : help \n");
+    DISPLAY( "Usage: %s [OPTION] [FILES]...\n", exename);
+    DISPLAY( "Print or check xxHash checksums.\n\n" );
+    DISPLAY( "When no filename provided or when '-' is provided, uses stdin as input.\n");
+    DISPLAY( "Arguments: \n");
+    DISPLAY( "  -H#                  Select hash algorithm. 0=32bits, 1=64bits, 2=128bits (default: %i)\n", (int)g_defaultAlgo);
+    DISPLAY( "  -c                   Read xxHash sums from the [filenames] and check them\n");
+    DISPLAY( "  -h                   Display long help and exit\n");
     return 0;
 }
 
@@ -1698,18 +1716,18 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
-    DISPLAY( " -V, --version   : display version \n");
-    DISPLAY( " -q, --quiet     : do not display 'Loading' messages \n");
-    DISPLAY( " --little-endian : hash printed using little endian convention (default: big endian) \n");
-    DISPLAY( " -h, --help      : display long help and exit \n");
-    DISPLAY( " -b  : benchmark mode \n");
-    DISPLAY( " -i# : number of iterations (benchmark mode; default %u) \n", (unsigned)g_nbIterations);
+    DISPLAY( "  -V, --version        Display version information\n");
+    DISPLAY( "  -q, --quiet          Do not display 'Loading' messages\n");
+    DISPLAY( "      --little-endian  Display hashes in little endian convention (default: big endian) \n");
+    DISPLAY( "  -h, --help           Display long help and exit\n");
+    DISPLAY( "  -b [N]               Run a benchmark (runs all by default, or Nth benchmark)\n");
+    DISPLAY( "  -i ITERATIONS        Number of times to run the benchmark (default: %u)\n", (unsigned)g_nbIterations);
     DISPLAY( "\n");
-    DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");
-    DISPLAY( "--strict : don't print OK for each successfully verified file \n");
-    DISPLAY( "--status : don't output anything, status code shows success \n");
-    DISPLAY( "-q, --quiet : exit non-zero for improperly formatted checksum lines \n");
-    DISPLAY( "--warn   : warn about improperly formatted checksum lines \n");
+    DISPLAY( "The following four options are useful only when verifying checksums (-c):\n");
+    DISPLAY( "  -q, --quiet          Don't print OK for each successfully verified file\n");
+    DISPLAY( "      --status         Don't output anything, status code shows success\n");
+    DISPLAY( "      --strict         Exit non-zero for improperly formatted checksum lines\n");
+    DISPLAY( "      --warn           Warn about improperly formatted checksum lines\n");
     return 0;
 }
 
@@ -1725,11 +1743,13 @@ static void errorOut(const char* msg)
     DISPLAY("%s \n", msg); exit(1);
 }
 
-/*! readU32FromCharChecked() :
+/*!
+ * readU32FromCharChecked():
  * @return 0 if success, and store the result in *value.
- *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
- *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
- * @return 1 if an overflow error occurs */
+ * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
+ * @return 1 if an overflow error occurs
+ */
 static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
 {
     static unsigned const max = (((unsigned)(-1)) / 10) - 1;
@@ -1756,11 +1776,12 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
     return 0;
 }
 
-/*! readU32FromChar() :
- * @return : unsigned integer value read from input in `char` format.
+/*!
+ * readU32FromChar():
+ * @return: unsigned integer value read from input in `char` format.
  *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
- *  Note : function will exit() program if digit sequence overflows */
+ *  Note: function will exit() program if digit sequence overflows */
 static unsigned readU32FromChar(const char** stringPtr) {
     unsigned result;
     if (readU32FromCharChecked(stringPtr, &result)) {
@@ -1846,7 +1867,7 @@ static int XXH_main(int argc, char** argv)
             case 'b':
                 argument++;
                 benchmarkMode = 1;
-                specificTest = readU32FromChar(&argument);   /* select one specific test (hidden option) */
+                specificTest = readU32FromChar(&argument); /* select one specific test */
                 break;
 
             /* Modify Nb Iterations (benchmark only) */
@@ -1933,8 +1954,8 @@ static void free_argv(int argc, char **argv)
  * However, without the -municode flag (which isn't even available on the
  * original MinGW), we will get a linker error.
  *
- * To fix this, we can combine main with GetCommandLineW and
- * CommandLineToArgvW to get the real UTF-16 arguments.
+ * To fix this, we can combine main with GetCommandLineW and CommandLineToArgvW
+ * to get the real UTF-16 arguments.
  */
 #if defined(_MSC_VER) || defined(_UNICODE) || defined(UNICODE)
 

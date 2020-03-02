@@ -18,16 +18,16 @@
 *  with this program; if not, write to the Free Software Foundation, Inc.,
 *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 *
-*  You can contact the author at :
-*  - xxHash homepage : http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
+*  You can contact the author at:
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
 #ifndef HASHES_H_1235465
 #define HASHES_H_1235465
 
-#include <stddef.h>   /* size_t */
-#include <stdint.h>   /* uint64_t */
+#include <stddef.h>      /* size_t */
+#include <stdint.h>      /* uint64_t */
 #define XXH_INLINE_ALL   /* XXH128_hash_t */
 #include "xxhash.h"
 

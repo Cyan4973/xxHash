@@ -28,8 +28,8 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-   You can contact the author at :
-   - xxHash source repository : https://github.com/Cyan4973/xxHash
+   You can contact the author at:
+   - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
 /* Note :
@@ -142,12 +142,11 @@
  *
  * Therefore, we do a quick sanity check.
  *
- * If compiling Thumb-1 for a target which supports ARM instructions, we
- * will give a warning, as it is not a "sane" platform to compile for.
+ * If compiling Thumb-1 for a target which supports ARM instructions, we will
+ * emit a warning, as it is not a "sane" platform to compile for.
  *
- * Usually, if this happens, it is because of an accident and you probably
- * need to specify -march, as you probably meant to compile for a newer
- * architecture.
+ * Usually, if this happens, it is because of an accident and you probably need
+ * to specify -march, as you likely meant to compile for a newer architecture.
  */
 #if defined(__thumb__) && !defined(__thumb2__) && defined(__ARM_ARCH_ISA_ARM)
 #   warning "XXH3 is highly inefficient without ARM or Thumb-2."
@@ -181,8 +180,10 @@
 #  endif
 #endif
 
-/* control alignment of accumulator,
- * for compatibility with fast vector loads */
+/*
+ * Controls the alignment of the accumulator.
+ * This is for compatibility with aligned vector loads, which are usually faster.
+ */
 #ifndef XXH_ACC_ALIGN
 #  if XXH_VECTOR == XXH_SCALAR  /* scalar */
 #     define XXH_ACC_ALIGN 8
@@ -199,26 +200,24 @@
 
 /*
  * UGLY HACK:
- * GCC usually generates the best code with -O3 for xxHash,
- * except for AVX2 where it is overzealous in its unrolling
- * resulting in code roughly 3/4 the speed of Clang.
+ * GCC usually generates the best code with -O3 for xxHash.
  *
- * There are other issues, such as GCC splitting _mm256_loadu_si256
- * into _mm_loadu_si128 + _mm256_inserti128_si256 which is an
- * optimization which only applies to Sandy and Ivy Bridge... which
- * don't even support AVX2.
+ * However, when targeting AVX2, it is overzealous in its unrolling resulting
+ * in code roughly 3/4 the speed of Clang.
  *
- * That is why when compiling the AVX2 version, it is recommended
- * to use either
+ * There are other issues, such as GCC splitting _mm256_loadu_si256 into
+ * _mm_loadu_si128 + _mm256_inserti128_si256. This is an optimization which
+ * only applies to Sandy and Ivy Bridge... which don't even support AVX2.
+ *
+ * That is why when compiling the AVX2 version, it is recommended to use either
  *   -O2 -mavx2 -march=haswell
  * or
  *   -O2 -mavx2 -mno-avx256-split-unaligned-load
- * for decent performance, or just use Clang instead.
+ * for decent performance, or to use Clang instead.
  *
- * Fortunately, we can control the first one with a pragma
- * that forces GCC into -O2, but the other one we can't without
- * "failed to inline always inline function due to target mismatch"
- * warnings.
+ * Fortunately, we can control the first one with a pragma that forces GCC into
+ * -O2, but the other one we can't control without "failed to inline always
+ * inline function due to target mismatch" warnings.
  */
 #if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
   && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
@@ -475,10 +474,9 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
 #endif
 
 /*
- * GCC for x86 has a tendency to use SSE in this loop. While it
- * successfully avoids swapping (as MUL overwrites EAX and EDX), it
- * slows it down because instead of free register swap shifts, it
- * must use pshufd and punpckl/hd.
+ * GCC for x86 has a tendency to use SSE in this loop. While it successfully
+ * avoids swapping (as MUL overwrites EAX and EDX), it slows it down because
+ * instead of free register swap shifts, it must use PSHUFD and PUNPCKL/HD
  *
  * To prevent this, we use this attribute to shut off SSE.
  */
@@ -497,9 +495,9 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *
      * Usually.
      *
-     * Despite being a 32-bit platform, Clang (and emscripten) define this
-     * type despite not having the arithmetic for it. This results in a
-     * laggy compiler builtin call which calculates a full 128-bit multiply.
+     * Despite being a 32-bit platform, Clang (and emscripten) define this type
+     * despite not having the arithmetic for it. This results in a laggy
+     * compiler builtin call which calculates a full 128-bit multiply.
      * In that case it is best to use the portable one.
      * https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677
      */
@@ -532,8 +530,8 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
     /*
      * Portable scalar method. Optimized for 32-bit and 64-bit ALUs.
      *
-     * This is a fast and simple grade school multiply, which is shown
-     * below with base 10 arithmetic instead of base 0x100000000.
+     * This is a fast and simple grade school multiply, which is shown below
+     * with base 10 arithmetic instead of base 0x100000000.
      *
      *           9 3 // D2 lhs = 93
      *         x 7 5 // D2 rhs = 75
@@ -550,8 +548,8 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *
      * The reasons for adding the products like this are:
      *  1. It avoids manual carry tracking. Just like how
-     *     (9 * 9) + 9 + 9 = 99, the same applies with this for
-     *     UINT64_MAX. This avoids a lot of complexity.
+     *     (9 * 9) + 9 + 9 = 99, the same applies with this for UINT64_MAX.
+     *     This avoids a lot of complexity.
      *
      *  2. It hints for, and on Clang, compiles to, the powerful UMAAL
      *     instruction available in ARM's Digital Signal Processing extension
@@ -564,12 +562,12 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *             *RdHi = (xxh_u32)(product >> 32);
      *         }
      *
-     *     This instruction was designed for efficient long multiplication,
-     *     and allows this to be calculated in only 4 instructions which
-     *     is comparable to some 64-bit ALUs.
+     *     This instruction was designed for efficient long multiplication, and
+     *     allows this to be calculated in only 4 instructions at speeds
+     *     comparable to some 64-bit ALUs.
      *
-     *  3. It isn't terrible on other platforms. Usually this will be
-     *     a couple of 32-bit ADD/ADCs.
+     *  3. It isn't terrible on other platforms. Usually this will be a couple
+     *     of 32-bit ADD/ADCs.
      */
 
     /* First calculate all of the cross products. */
@@ -589,13 +587,12 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
 }
 
 /*
- * We want to keep the attribute here because a target switch
- * disables inlining.
+ * We want to keep the attribute here because a target switch  disables inlining.
  *
  * Does a 64-bit to 128-bit multiply, then XOR folds it.
- * The reason for the separate function is to prevent passing
- * too many structs around by value. This will hopefully inline
- * the multiply, but we don't force it.
+ *
+ * The reason for the separate function is to prevent passing too many structs
+ * around by value. This will hopefully inline the multiply, but we don't force it.
  */
 #if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
 __attribute__((__target__("no-sse")))
@@ -614,7 +611,11 @@ XXH_FORCE_INLINE xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
     return v64 ^ (v64 >> shift);
 }
 
-/* We don't need to (or want to) mix as much as XXH64 - short hashes are more evenly distributed */
+/*
+ * We don't need to (or want to) mix as much as XXH64.
+ *
+ * Short hashes are more evenly distributed, so it isn't necessary.
+ */
 static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
     h64 = XXH_xorshift64(h64, 37);
@@ -627,17 +628,18 @@ static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 /* ==========================================
  * Short keys
  * ==========================================
- * One of the shortcomings of XXH32 and XXH64 was that their performance was sub-optimal on
- * short lengths. It used an iterative algorithm which strongly favored even lengths.
+ * One of the shortcomings of XXH32 and XXH64 was that their performance was
+ * sub-optimal on short lengths. It used an iterative algorithm which strongly
+ * favored lengths that were a multiple of 4 or 8.
  *
- * Instead of iterating over individual inputs, we use a set of single shot functions which
- * piece together a range of lengths and operate in constant time.
+ * Instead of iterating over individual inputs, we use a set of single shot
+ * functions which piece together a range of lengths and operate in constant time.
  *
- * Additionally, the number of multiplies has been significantly reduced. This reduces latency,
- * especially with 64-bit multiplies on 32-bit.
+ * Additionally, the number of multiplies has been significantly reduced. This
+ * reduces latency, especially when emulating 64-bit multiplies on 32-bit.
  *
- * Depending on the platform, this may or may not be faster than XXH32, but it is almost
- * guaranteed to be faster than XXH64.
+ * Depending on the platform, this may or may not be faster than XXH32, but it
+ * is almost guaranteed to be faster than XXH64.
  */
 
 XXH_FORCE_INLINE XXH64_hash_t
@@ -712,25 +714,30 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 }
 
 /*
- * DISCLAIMER: There are known *seed-dependent* multicollisions here due to multiplication
- * by zero, affecting hashes of lengths 17 to 240, however, they are very unlikely.
+ * DISCLAIMER: There are known *seed-dependent* multicollisions here due to
+ * multiplication by zero, affecting hashes of lengths 17 to 240.
  *
- * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all unseeded
- * non-cryptographic hashes, it does not attempt to defend itself against specially crafted
- * inputs, only random inputs.
+ * However, they are very unlikely.
  *
- * Compared to classic UMAC where a 1 in 2^31 chance of 4 consecutive bytes cancelling out
- * the secret is taken an arbitrary number of times (addressed in XXH3_accumulate_512), this
- * collision is very unlikely with random inputs and/or proper seeding:
+ * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all
+ * unseeded non-cryptographic hashes, it does not attempt to defend itself
+ * against specially crafted inputs, only random inputs.
  *
- * This only has a 1 in 2^63 chance of 8 consecutive bytes cancelling out, in a function
- * that is only called up to 16 times per hash with up to 240 bytes of input.
+ * Compared to classic UMAC where a 1 in 2^31 chance of 4 consecutive bytes
+ * cancelling out the secret is taken an arbitrary number of times (addressed
+ * in XXH3_accumulate_512), this collision is very unlikely with random inputs
+ * and/or proper seeding:
  *
- * This is not too bad for a non-cryptographic hash function, especially with only 64 bit
- * outputs.
+ * This only has a 1 in 2^63 chance of 8 consecutive bytes cancelling out, in a
+ * function that is only called up to 16 times per hash with up to 240 bytes of
+ * input.
  *
- * The 128-bit variant (which trades some speed for strength) is NOT affected by this,
- * although it is always a good idea to use a proper seed if you care about strength.
+ * This is not too bad for a non-cryptographic hash function, especially with
+ * only 64 bit outputs.
+ *
+ * The 128-bit variant (which trades some speed for strength) is NOT affected
+ * by this, although it is always a good idea to use a proper seed if you care
+ * about strength.
  */
 XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                                      const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
@@ -815,19 +822,20 @@ typedef enum { XXH3_acc_64bits, XXH3_acc_128bits } XXH3_accWidth_e;
  *
  * It is a hardened version of UMAC, based off of FARSH's implementation.
  *
- * This was chosen because it adapts quite well to 32-bit, 64-bit, and SIMD implementations,
- * and it is ridiculously fast.
+ * This was chosen because it adapts quite well to 32-bit, 64-bit, and SIMD
+ * implementations, and it is ridiculously fast.
  *
  * We harden it by mixing the original input to the accumulators as well as the product.
  *
- * This means that in the (relatively likely) case of a multiply by zero, the original
- * input is preserved.
+ * This means that in the (relatively likely) case of a multiply by zero, the
+ * original input is preserved.
  *
- * On 128-bit inputs, we swap 64-bit pairs when we add the input to improve cross
- * pollination, as otherwise the upper and lower halves would be essentially independent.
+ * On 128-bit inputs, we swap 64-bit pairs when we add the input to improve
+ * cross-pollination, as otherwise the upper and lower halves would be
+ * essentially independent.
  *
- * This doesn't matter on 64-bit hashes since they all get merged together in the end,
- * so we skip the extra step.
+ * This doesn't matter on 64-bit hashes since they all get merged together in
+ * the end, so we skip the extra step.
  *
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
@@ -841,11 +849,11 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
     XXH_ASSERT((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc    =       (__m256i *) acc;
-        /* Unaligned. This is mainly for pointer arithmetic, and because _mm256_loadu_si256 requires
-         * a const __m256i * pointer for some reason. */
+        /* Unaligned. This is mainly for pointer arithmetic, and because
+         * _mm256_loadu_si256 requires  a const __m256i * pointer for some reason. */
         const         __m256i* const xinput  = (const __m256i *) input;
-        /* Unaligned. This is mainly for pointer arithmetic, and because _mm256_loadu_si256 requires
-         * a const __m256i * pointer for some reason. */
+        /* Unaligned. This is mainly for pointer arithmetic, and because
+         * _mm256_loadu_si256 requires a const __m256i * pointer for some reason. */
         const         __m256i* const xsecret = (const __m256i *) secret;
 
         size_t i;
@@ -879,11 +887,11 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
     /* SSE2 is just a half-scale version of the AVX2 version. */
     XXH_ASSERT((((size_t)acc) & 15) == 0);
     {   XXH_ALIGN(16) __m128i* const xacc    =       (__m128i *) acc;
-        /* Unaligned. This is mainly for pointer arithmetic, and because _mm_loadu_si128 requires
-         * a const __m128i * pointer for some reason. */
+        /* Unaligned. This is mainly for pointer arithmetic, and because
+         * _mm_loadu_si128 requires a const __m128i * pointer for some reason. */
         const         __m128i* const xinput  = (const __m128i *) input;
-        /* Unaligned. This is mainly for pointer arithmetic, and because _mm_loadu_si128 requires
-         * a const __m128i * pointer for some reason. */
+        /* Unaligned. This is mainly for pointer arithmetic, and because
+         * _mm_loadu_si128 requires a const __m128i * pointer for some reason. */
         const         __m128i* const xsecret = (const __m128i *) secret;
 
         size_t i;
@@ -982,7 +990,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 
 #else   /* scalar variant of Accumulator - universal */
 
-    XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc;    /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
+    XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc; /* presumed aligned */
     const xxh_u8* const xinput = (const xxh_u8*) input;  /* no alignment restriction */
     const xxh_u8* const xsecret  = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
@@ -1011,12 +1019,13 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
  *  // 3 4 2 5 1 6 0 7 have quality 228 224 164 160 100 96 36 32.
  *  // As expected, the upper and lower bytes are much worse.
  *
- * Source; https://github.com/google/highwayhash/blob/0aaf66b/highwayhash/hh_avx2.h#L291
+ * Source: https://github.com/google/highwayhash/blob/0aaf66b/highwayhash/hh_avx2.h#L291
  *
- * Since our algorithm uses a pseudorandom secret to add some variance into the mix, we don't
- * need to (or want to) mix as often or as much as HighwayHash does.
+ * Since our algorithm uses a pseudorandom secret to add some variance into the
+ * mix, we don't need to (or want to) mix as often or as much as HighwayHash does.
  *
- * This isn't as tight as XXH3_accumulate, but still written in SIMD to avoid extraction.
+ * This isn't as tight as XXH3_accumulate, but still written in SIMD to avoid
+ * extraction.
  *
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
@@ -1027,8 +1036,8 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
     XXH_ASSERT((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
-        /* Unaligned. This is mainly for pointer arithmetic, and because _mm256_loadu_si256 requires
-         * a const __m256i * pointer for some reason. */
+        /* Unaligned. This is mainly for pointer arithmetic, and because
+         * _mm256_loadu_si256 requires a const __m256i * pointer for some reason. */
         const         __m256i* const xsecret = (const __m256i *) secret;
         const __m256i prime32 = _mm256_set1_epi32((int)PRIME32_1);
 
@@ -1054,8 +1063,8 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
     XXH_ASSERT((((size_t)acc) & 15) == 0);
     {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
-        /* Unaligned. This is mainly for pointer arithmetic, and because _mm_loadu_si128 requires
-         * a const __m128i * pointer for some reason. */
+        /* Unaligned. This is mainly for pointer arithmetic, and because
+         * _mm_loadu_si128 requires a const __m128i * pointer for some reason. */
         const         __m128i* const xsecret = (const __m128i *) secret;
         const __m128i prime32 = _mm_set1_epi32((int)PRIME32_1);
 
@@ -1102,20 +1111,24 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
              * data_key_hi = (uint32x2_t) (xacc[i] >> 32);
              * xacc[i] = UNDEFINED; */
             XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
-            {   /* prod_hi = (data_key >> 32) * PRIME32_1;
-                 * Avoid vmul_u32 + vshll_n_u32 since Clang 6 and 7
-                 * will incorrectly "optimize" this:
+            {   /*
+                 * prod_hi = (data_key >> 32) * PRIME32_1;
+                 *
+                 * Avoid vmul_u32 + vshll_n_u32 since Clang 6 and 7 will
+                 * incorrectly "optimize" this:
                  *   tmp     = vmul_u32(vmovn_u64(a), vmovn_u64(b));
                  *   shifted = vshll_n_u32(tmp, 32);
                  * to this:
                  *   tmp     = "vmulq_u64"(a, b); // no such thing!
                  *   shifted = vshlq_n_u64(tmp, 32);
+                 *
                  * However, unlike SSE, Clang lacks a 64-bit multiply routine
                  * for NEON, and it scalarizes two 64-bit multiplies instead.
                  *
                  * vmull_u32 has the same timing as vmul_u32, and it avoids
                  * this bug completely.
-                 * See https://bugs.llvm.org/show_bug.cgi?id=39967 */
+                 * See https://bugs.llvm.org/show_bug.cgi?id=39967
+                 */
                 uint64x2_t prod_hi = vmull_u32 (data_key_hi, prime);
                 /* xacc[i] = prod_hi << 32; */
                 xacc[i] = vshlq_n_u64(prod_hi, 32);
@@ -1154,7 +1167,7 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #else   /* scalar variant of Scrambler - universal */
 
-    XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned on 32-bytes boundaries, little hint for the auto-vectorizer */
+    XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
     const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
     XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
@@ -1229,7 +1242,8 @@ XXH3_hashLong_internal_loop( xxh_u64* XXH_RESTRICT acc,
         /* last stripe */
         if (len & (STRIPE_LEN - 1)) {
             const xxh_u8* const p = input + len - STRIPE_LEN;
-#define XXH_SECRET_LASTACC_START 7  /* do not align on 8, so that secret is different from scrambler */
+            /* Do not align on 8, so that the secret is different from the scrambler */
+#define XXH_SECRET_LASTACC_START 7
             XXH3_accumulate_512(acc, p, secret + secretSize - STRIPE_LEN - XXH_SECRET_LASTACC_START, accWidth);
     }   }
 }
@@ -1268,19 +1282,27 @@ XXH3_hashLong_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
-#define XXH_SECRET_MERGEACCS_START 11  /* do not align on 8, so that secret is different from accumulator */
+    /* do not align on 8, so that the secret is different from the accumulator */
+#define XXH_SECRET_MERGEACCS_START 11
     XXH_ASSERT(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
     return XXH3_mergeAccs(acc, secret + XXH_SECRET_MERGEACCS_START, (xxh_u64)len * PRIME64_1);
 }
 
-
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+/*
+ * It's important for performance that XXH3_hashLong is not inlined. Not sure
+ * why (uop cache maybe?), but the difference is large and easily measurable.
+ */
+XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_internal(input, len, kSecret, sizeof(kSecret));
 }
 
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+/*
+ * It's important for performance that XXH3_hashLong is not inlined. Not sure
+ * why (uop cache maybe?), but the difference is large and easily measurable.
+ */
+XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
                              const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
 {
@@ -1311,14 +1333,18 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* customSecret, xxh_u64 seed64
 }
 
 
-/* XXH3_hashLong_64b_withSeed() :
- * Generate a custom key,
- * based on alteration of default kSecret with the seed,
+/*
+ * XXH3_hashLong_64b_withSeed():
+ * Generate a custom key based on alteration of default kSecret with the seed,
  * and then use this key for long mode hashing.
+ *
  * This operation is decently fast but nonetheless costs a little bit of time.
  * Try to avoid it whenever possible (typically when seed==0).
+ *
+ * It's important for performance that XXH3_hashLong is not inlined. Not sure
+ * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH64_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
@@ -1341,14 +1367,16 @@ XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSecret(const void* input, size_t len, const void* secret, size_t secretSize)
 {
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-    /* if an action must be taken should `secret` conditions not be respected,
+    /*
+     * If an action is to be taken if `secret` conditions are not respected,
      * it should be done here.
      * For now, it's a contract pre-condition.
-     * Adding a check and a branch here would cost performance at every hash */
-     if (len <= 16) return XXH3_len_0to16_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, 0);
-     if (len <= 128) return XXH3_len_17to128_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-     if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-     return XXH3_hashLong_64b_withSecret((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
+     * Adding a check and a branch here would cost performance at every hash.
+     */
+    if (len <= 16) return XXH3_len_0to16_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, 0);
+    if (len <= 128) return XXH3_len_17to128_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
+    if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
+    return XXH3_hashLong_64b_withSecret((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -1473,12 +1501,16 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
             state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
         }
-        /* input now > XXH3_INTERNALBUFFER_SIZE */
+        /* input is now > XXH3_INTERNALBUFFER_SIZE */
 
         #define XXH3_INTERNALBUFFER_STRIPES (XXH3_INTERNALBUFFER_SIZE / STRIPE_LEN)
         XXH_STATIC_ASSERT(XXH3_INTERNALBUFFER_SIZE % STRIPE_LEN == 0);   /* clean multiple */
 
-        if (state->bufferedSize) {   /* some input within internal buffer: fill then consume it */
+        /*
+         * There is some input left inside the internal buffer.
+         * Fill it, then consume it.
+         */
+        if (state->bufferedSize) {
             size_t const loadSize = XXH3_INTERNALBUFFER_SIZE - state->bufferedSize;
             XXH_memcpy(state->buffer + state->bufferedSize, input, loadSize);
             input += loadSize;
@@ -1490,7 +1522,7 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
             state->bufferedSize = 0;
         }
 
-        /* consume input by full buffer quantities */
+        /* Consume input by full buffer quantities */
         if (input+XXH3_INTERNALBUFFER_SIZE <= bEnd) {
             const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {
@@ -1503,7 +1535,7 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
             } while (input<=limit);
         }
 
-        if (input < bEnd) { /* some remaining input input : buffer it */
+        if (input < bEnd) { /* Some remaining input: buffer it */
             XXH_memcpy(state->buffer, input, (size_t)(bEnd-input));
             state->bufferedSize = (XXH32_hash_t)(bEnd-input);
         }
@@ -1522,7 +1554,11 @@ XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
 XXH_FORCE_INLINE void
 XXH3_digest_long (XXH64_hash_t* acc, const XXH3_state_t* state, XXH3_accWidth_e accWidth)
 {
-    memcpy(acc, state->acc, sizeof(state->acc));  /* digest locally, state remains unaltered, and can continue ingesting more input afterwards */
+    /*
+     * Digest on a local copy. This way, the state remains unaltered, and it can
+     * continue ingesting more input afterwards.
+     */
+    memcpy(acc, state->acc, sizeof(state->acc));
     if (state->bufferedSize >= STRIPE_LEN) {
         size_t const totalNbStripes = state->bufferedSize / STRIPE_LEN;
         XXH32_hash_t nbStripesSoFar = state->nbStripesSoFar;
@@ -1631,8 +1667,8 @@ XXH3_len_9to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
         xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitfliph;
         XXH128_hash_t m128 = XXH_mult64to128(input_lo ^ input_hi, PRIME64_1);
         /*
-         * Put len in the middle of m128 to ensure that the length gets mixed to both the low
-         * and high bits in the 128x64 multiply below.
+         * Put len in the middle of m128 to ensure that the length gets mixed to
+         * both the low and high bits in the 128x64 multiply below.
          */
         m128.low64  += (xxh_u64)(len - 1) << 54;
         /*
@@ -1802,20 +1838,32 @@ XXH3_hashLong_128b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
     }
 }
 
-XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+/*
+ * It's important for performance that XXH3_hashLong is not inlined. Not sure
+ * why (uop cache maybe?), but the difference is large and easily measurable.
+ */
+XXH_NO_INLINE XXH128_hash_t
 XXH3_hashLong_128b_defaultSecret(const xxh_u8* input, size_t len)
 {
     return XXH3_hashLong_128b_internal(input, len, kSecret, sizeof(kSecret));
 }
 
-XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+/*
+ * It's important for performance that XXH3_hashLong is not inlined. Not sure
+ * why (uop cache maybe?), but the difference is large and easily measurable.
+ */
+XXH_NO_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSecret(const xxh_u8* input, size_t len,
                               const xxh_u8* secret, size_t secretSize)
 {
     return XXH3_hashLong_128b_internal(input, len, secret, secretSize);
 }
 
-XXH_NO_INLINE XXH128_hash_t    /* It's important for performance that XXH3_hashLong is not inlined. Not sure why (uop cache maybe ?), but difference is large and easily measurable */
+/*
+ * It's important for performance that XXH3_hashLong is not inlined. Not sure
+ * why (uop cache maybe?), but the difference is large and easily measurable.
+ */
+XXH_NO_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
@@ -1837,10 +1885,12 @@ XXH_PUBLIC_API XXH128_hash_t
 XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_t secretSize)
 {
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-    /* if an action must be taken should `secret` conditions not be respected,
+    /*
+     * If an action is to be taken if `secret` conditions are not respected,
      * it should be done here.
      * For now, it's a contract pre-condition.
-     * Adding a check and a branch here would cost performance at every hash */
+     * Adding a check and a branch here would cost performance at every hash.
+     */
      if (len <= 16) return XXH3_len_0to16_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, 0);
      if (len <= 128) return XXH3_len_17to128_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
      if (len <= XXH3_MIDSIZE_MAX) return XXH3_len_129to240_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);

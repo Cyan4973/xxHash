@@ -18,22 +18,22 @@
 *  with this program; if not, write to the Free Software Foundation, Inc.,
 *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 *
-*  You can contact the author at :
-*  - xxHash homepage : http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
+*  You can contact the author at:
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
 /*
- * The collision tester will generate 24 billions hashes (by default),
+ * The collision tester will generate 24 billion hashes (by default),
  * and count how many collisions were produced by the 64-bit hash algorithm.
  * The optimal amount of collisions for 64-bit is ~18 collisions.
  * A good hash should be close to this figure.
  *
- * This program requires a lot of memory :
+ * This program requires a lot of memory:
  * - Either store hash values directly => 192 GB
- * - Either use a filter :
+ * - Either use a filter:
  *   -  32 GB (by default) for the filter itself
- *   -  + ~14 GB for the list of hashes (depending on filter outcome)
+ *   -  + ~14 GB for the list of hashes (depending on the filter's outcome)
  * Due to these memory constraints, it requires a 64-bit system.
  */
 
@@ -88,7 +88,8 @@ static void printHash(const void* table, size_t n, Htype_e htype)
 
 /* ===  Generate Random unique Samples to hash  === */
 
-/* These functions will generate and update a sample to hash.
+/*
+ * These functions will generate and update a sample to hash.
  * initSample() will fill a buffer with random bytes,
  * updateSample() will modify one slab in the input buffer.
  * updateSample() guarantees it will produce unique samples,
@@ -122,11 +123,11 @@ typedef enum { sf_slab5, sf_sparse } sf_genMode;
 
 #ifdef SLAB5
 
-/* Slab5 sample generation.
- * This algorithm generates unique inputs
- * flipping on average 16 bits per candidate.
- * It is generally much more friendly for most hash algorithms,
- * especially weaker ones, as it shuffles more the input.
+/*
+ * Slab5 sample generation.
+ * This algorithm generates unique inputs flipping on average 16 bits per candidate.
+ * It is generally much more friendly for most hash algorithms, especially
+ * weaker ones, as it shuffles more the input.
  * The algorithm also avoids overfitting the per4 or per8 ingestion patterns.
  */
 
@@ -193,12 +194,13 @@ static inline void update_sampleFactory(sampleFactory* sf)
 
 #else
 
-/* Sparse sample generation.
+/*
+ * Sparse sample generation.
  * This is the default pattern generator.
  * It only flips one bit at a time (mostly).
  * Low hamming distance scenario is more difficult for weak hash algorithms.
- * Note that CRC are immune to this scenario,
- * since they are specifically designed to detect low hamming distances.
+ * Note that CRC is immune to this scenario, since they are specifically
+ * designed to detect low hamming distances.
  * Prefer the Slab5 pattern generator for collisions on CRC algorithms.
  */
 
@@ -297,13 +299,13 @@ static int updateBit(void* buffer, size_t* bitIdx, int level, size_t max)
 
     flipbit(buffer, bitIdx[level]); /* erase previous bits */
 
-    if (bitIdx[level] < max-1) { /* simple case : go to next bit */
+    if (bitIdx[level] < max-1) { /* simple case: go to next bit */
         bitIdx[level]++;
         flipbit(buffer, bitIdx[level]); /* set new bit */
         return 1;
     }
 
-    /* reached last bit : need to update a bit from lower level */
+    /* reached last bit: need to update a bit from lower level */
     if (!updateBit(buffer, bitIdx, level-1, max-1)) return 0;
     bitIdx[level] = bitIdx[level-1] + 1;
     flipbit(buffer, bitIdx[level]); /* set new bit */
@@ -349,11 +351,12 @@ void free_Filter(Filter* bf)
 
 #ifdef FILTER_1_PROBE
 
-/* Attach hash to a slot
- * return : Nb of potential collision candidates detected
- *          0 : position not yet occupied
- *          2 : position previously occupied by a single candidate
- *          1 : position already occupied by multiple candidates
+/*
+ * Attach hash to a slot
+ * return: Nb of potential collision candidates detected
+ *          0: position not yet occupied
+ *          2: position previously occupied by a single candidate
+ *          1: position already occupied by multiple candidates
  */
 inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
 {
@@ -372,11 +375,12 @@ inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
     return addCandidates[existingCandidates];
 }
 
-/* Check if provided 64-bit hash is a collision candidate
+/*
+ * Check if provided 64-bit hash is a collision candidate
  * Requires the slot to be occupied by at least 2 candidates.
  * return >0 if hash is a collision candidate
  *         0 otherwise (slot unoccupied, or only one candidate)
- * note: slot unoccupied should not happen in this algorithm,
+ * note: unoccupied slots should not happen in this algorithm,
  *       since all hashes are supposed to have been inserted at least once.
  */
 inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
@@ -392,19 +396,22 @@ inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
 
 #else
 
-/* 2-probes strategy,
+/*
+ * 2-probes strategy,
  * more efficient at filtering candidates,
- * requires filter size to be > nb of hashes */
+ * requires filter size to be > nb of hashes
+ */
 
 #define MIN(a,b)   ((a) < (b) ? (a) : (b))
 #define MAX(a,b)   ((a) > (b) ? (a) : (b))
 
- /* Attach hash to 2 slots
-  * return : Nb of potential candidates detected
-  *          0 : position not yet occupied
-  *          2 : position previously occupied by a single candidate (at most)
-  *          1 : position already occupied by multiple candidates
-  */
+/*
+ * Attach hash to 2 slots
+ * return: Nb of potential candidates detected
+ *          0: position not yet occupied
+ *          2: position previously occupied by a single candidate (at most)
+ *          1: position already occupied by multiple candidates
+ */
 static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
  {
      hash = avalanche64(hash);
@@ -437,13 +444,14 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
  }
 
 
- /* Check if provided 64-bit hash is a collision candidate
-  * Requires the slot to be occupied by at least 2 candidates.
-  * return >0 if hash is collision candidate
-  *         0 otherwise (slot unoccupied, or only one candidate)
-  * note: slot unoccupied should not happen in this algorithm,
-  *       since all hashes are supposed to have been inserted at least once.
-  */
+/*
+ * Check if provided 64-bit hash is a collision candidate
+ * Requires the slot to be occupied by at least 2 candidates.
+ * return >0 if hash is a collision candidate
+ *         0 otherwise (slot unoccupied, or only one candidate)
+ * note: unoccupied slots should not happen in this algorithm,
+ *       since all hashes are supposed to have been inserted at least once.
+ */
 static inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
  {
      hash = avalanche64(hash);
@@ -490,7 +498,7 @@ void update_indicator(uint64_t v, uint64_t total)
     }
 }
 
-/* note : not thread safe */
+/* note: not thread safe */
 const char* displayDelay(double delay_s)
 {
     static char delayString[50];
@@ -568,7 +576,7 @@ typedef struct {
     uint64_t maskSelector;
     size_t sampleSize;
     uint64_t prngSeed;
-    int filterLog;      /* <0 = disable filter;  0= auto-size; */
+    int filterLog;      /* <0 = disable filter;  0 = auto-size; */
     int hashID;
     int display;
     int nbThreads;
@@ -608,7 +616,7 @@ static int isHighEqual(void* hTablePtr, size_t index1, size_t index2, Htype_e ht
     return (h1 >> rShift) == (h2 >> rShift);
 }
 
-/* assumption : (htype*)hTablePtr[index] is valid */
+/* assumption: (htype*)hTablePtr[index] is valid */
 static void addHashCandidate(void* hTablePtr, UniHash h, Htype_e htype, size_t index)
 {
     if ((htype == ht64) || (htype == ht32)) {
@@ -668,12 +676,12 @@ static size_t search_collisions(
 
     if (filter) {
         time_t const filterTBegin = time(NULL);
-        DISPLAY(" create filter (%i GB) \n", (int)(bfsize >> 30));
+        DISPLAY(" Creating filter (%i GB) \n", (int)(bfsize >> 30));
         bf = create_Filter(bflog);
         if (!bf) EXIT("not enough memory for filter");
 
 
-        DISPLAY(" generate %llu hashes from samples of %u bytes \n",
+        DISPLAY(" Generate %llu hashes from samples of %u bytes \n",
                 (unsigned long long)totalH, (unsigned)sampleSize);
         nbPresents = 0;
 
@@ -689,7 +697,7 @@ static size_t search_collisions(
         }
 
         if (nbPresents==0) {
-            DISPLAY(" analysis completed : no collision detected \n");
+            DISPLAY(" Analysis completed: No collision detected \n");
             if (param.resultPtr) param.resultPtr->nbCollisions = 0;
             free_Filter(bf);
             free_sampleFactory(sf);
@@ -697,18 +705,18 @@ static size_t search_collisions(
         }
 
         {   double const filterDelay = difftime(time(NULL), filterTBegin);
-            DISPLAY(" generation and filter completed in %s, detected up to %llu candidates \n",
+            DISPLAY(" Generation and filter completed in %s, detected up to %llu candidates \n",
                     displayDelay(filterDelay), (unsigned long long) nbPresents);
     }   }
 
 
-    /* === store hash candidates : duplicates will be present here === */
+    /* === store hash candidates: duplicates will be present here === */
 
     time_t const storeTBegin = time(NULL);
     size_t const hashByteSize = (htype == ht128) ? 16 : 8;
     size_t const tableSize = (nbPresents+1) * hashByteSize;
     assert(tableSize > nbPresents);  /* check tableSize calculation overflow */
-    DISPLAY(" store hash candidates (%i MB) \n", (int)(tableSize >> 20));
+    DISPLAY(" Storing hash candidates (%i MB) \n", (int)(tableSize >> 20));
 
     /* Generate and store hashes */
     void* const hashCandidates = malloc(tableSize);
@@ -733,20 +741,20 @@ static size_t search_collisions(
         }
     }
     if (nbCandidates < nbPresents) {
-        /* try to mitigate gnuc_quicksort behavior, by reducing allocated memory,
+        /* Try to mitigate gnuc_quicksort behavior, by reducing allocated memory,
          * since gnuc_quicksort uses a lot of additional memory for mergesort */
         void* const checkPtr = realloc(hashCandidates, nbCandidates * hashByteSize);
         assert(checkPtr != NULL);
-        assert(checkPtr == hashCandidates);  /* simplification : since we are reducing size,
+        assert(checkPtr == hashCandidates);  /* simplification: since we are reducing the size,
                                               * we hope to keep the same ptr position.
-                                              * Otherwise, hashCandidates must be mutable */
-        DISPLAY(" list of hash reduced to %u MB from %u MB (saved %u MB) \n",
+                                              * Otherwise, hashCandidates must be mutable. */
+        DISPLAY(" List of hashes reduced to %u MB from %u MB (saved %u MB) \n",
                 (unsigned)((nbCandidates * hashByteSize) >> 20),
                 (unsigned)(tableSize >> 20),
                 (unsigned)((tableSize - (nbCandidates * hashByteSize)) >> 20) );
     }
     double const storeTDelay = difftime(time(NULL), storeTBegin);
-    DISPLAY(" stored %llu hash candidates in %s \n",
+    DISPLAY(" Stored %llu hash candidates in %s \n",
             (unsigned long long) nbCandidates, displayDelay(storeTDelay));
     free_Filter(bf);
     free_sampleFactory(sf);
@@ -754,7 +762,7 @@ static size_t search_collisions(
 
     /* === step 3 : look for duplicates === */
     time_t const sortTBegin = time(NULL);
-    DISPLAY(" sorting candidates... ");
+    DISPLAY(" Sorting candidates... ");
     fflush(NULL);
     if ((htype == ht64) || (htype == ht32)) {
         sort64(hashCandidates, nbCandidates); /* using C++ sort, as it's faster than C stdlib's qsort,
@@ -764,16 +772,16 @@ static size_t search_collisions(
         sort128(hashCandidates, nbCandidates); /* sort with custom comparator */
     }
     double const sortTDelay = difftime(time(NULL), sortTBegin);
-    DISPLAY(" completed in %s \n", displayDelay(sortTDelay));
+    DISPLAY(" Completed in %s \n", displayDelay(sortTDelay));
 
     /* scan and count duplicates */
     time_t const countBegin = time(NULL);
-    DISPLAY(" looking for duplicates : ");
+    DISPLAY(" Looking for duplicates: ");
     fflush(NULL);
     size_t collisions = 0;
     for (size_t n=1; n<nbCandidates; n++) {
         if (isEqual(hashCandidates, n, n-1, htype)) {
-            printf("collision : ");
+            printf("collision: ");
             printHash(hashCandidates, n, htype);
             printf(" / ");
             printHash(hashCandidates, n-1, htype);
@@ -800,17 +808,17 @@ static size_t search_collisions(
                 }   }
                 double const collisionRatio = (double)HBits_collisions / expectedCollisions;
                 if (collisionRatio > 2.0) DISPLAY("WARNING !!!  ===> ");
-                DISPLAY(" high %i bits : %zu collision (%.1f expected) : x%.2f \n",
+                DISPLAY(" high %i bits: %zu collision (%.1f expected): x%.2f \n",
                         nbHBits, HBits_collisions, expectedCollisions, collisionRatio);
                 if (collisionRatio > worstRatio) {
                     worstNbHBits = nbHBits;
                     worstRatio = collisionRatio;
         }   }   }
-        DISPLAY("Worst collision ratio at %i high bits : x%.2f \n",
+        DISPLAY("Worst collision ratio at %i high bits: x%.2f \n",
                 worstNbHBits, worstRatio);
     }
     double const countDelay = difftime(time(NULL), countBegin);
-    DISPLAY(" completed in %s \n", displayDelay(countDelay));
+    DISPLAY(" Completed in %s \n", displayDelay(countDelay));
 
     /* clean and exit */
     free (hashCandidates);
@@ -863,7 +871,7 @@ void time_collisions(searchCollisions_parameters param)
     size_t const programBytesSelf = getProcessMemUsage(0);
     size_t const programBytesChildren = getProcessMemUsage(1);
     DISPLAY("\n\n");
-    DISPLAY("===>   found  %llu collisions (x%.2f, %.1f expected) in %s\n",
+    DISPLAY("===>   Found %llu collisions (x%.2f, %.1f expected) in %s\n",
             (unsigned long long)collisions,
             (double)collisions / targetColls,
             targetColls,
@@ -883,9 +891,10 @@ void MT_searchCollisions(void* payload)
 
 /* ===  Command Line  === */
 
-/*! readU64FromChar() :
- *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
- *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
+/*!
+ * readU64FromChar():
+ * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Will also modify `*stringPtr`, advancing it to the position where it stopped reading.
  */
 static uint64_t readU64FromChar(const char** stringPtr)
 {
@@ -917,13 +926,15 @@ static uint64_t readU64FromChar(const char** stringPtr)
 }
 
 
-/** longCommandWArg() :
- *  check if *stringPtr is the same as longCommand.
- *  If yes, @return 1 and advances *stringPtr to the position which immediately follows longCommand.
+/**
+ * longCommandWArg():
+ * Checks if *stringPtr is the same as longCommand.
+ * If yes, @return 1 and advances *stringPtr to the position which immediately follows longCommand.
  * @return 0 and doesn't modify *stringPtr otherwise.
  */
 static int longCommandWArg(const char** stringPtr, const char* longCommand)
 {
+    assert(longCommand); assert(stringPtr); assert(*stringPtr);
     size_t const comSize = strlen(longCommand);
     int const result = !strncmp(*stringPtr, longCommand, comSize);
     if (result) *stringPtr += comSize;
@@ -933,34 +944,36 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
 
 #include "pool.h"
 
-/* As some hashes use different algorithms depending on input size,
+/*
+ * As some hashes use different algorithms depending on input size,
  * it can be necessary to test multiple input sizes
- * to paint an accurate picture on collision performance */
+ * to paint an accurate picture of collision performance
+ */
 #define SAMPLE_SIZE_DEFAULT 255
 #define HASHFN_ID_DEFAULT 0
 
 void help(const char* exeName)
 {
     printf("usage: %s [hashName] [opt] \n\n", exeName);
-    printf("list of hashNames : ");
+    printf("list of hashNames:");
     printf("%s ", hashfnTable[0].name);
     for (int i=1; i < HASH_FN_TOTAL; i++) {
         printf(", %s ", hashfnTable[i].name);
     }
     printf(" \n");
-    printf("default hashName is %s \n", hashfnTable[HASHFN_ID_DEFAULT].name);
+    printf("Default hashName is %s\n", hashfnTable[HASHFN_ID_DEFAULT].name);
 
     printf(" \n");
     printf("Optional parameters: \n");
-    printf("--nbh=#  : select nb of hashes to generate (%llu by default) \n", (unsigned long long)select_nbh(64));
-    printf("--filter : activated the filter. Reduce memory usage for same nb of hashes. Slower. \n");
-    printf("--threadlog=# : use 2^# threads \n");
-    printf("--len=#  : select length of input (%i bytes by default) \n", SAMPLE_SIZE_DEFAULT);
+    printf("  --nbh=NB       Select nb of hashes to generate (%llu by default) \n", (unsigned long long)select_nbh(64));
+    printf("  --filter       Activates the filter. Slower, but reduces memory usage for the same nb of hashes.\n");
+    printf("  --threadlog=NB Use 2^NB threads.\n");
+    printf("  --len=MB       Set length of the input (%i bytes by default) \n", SAMPLE_SIZE_DEFAULT);
 }
 
 int bad_argument(const char* exeName)
 {
-    printf("incorrect command : \n");
+    printf("incorrect command: \n");
     help(exeName);
     return 1;
 }
@@ -1020,7 +1033,7 @@ int main(int argc, const char** argv)
 
     printf(" *** Collision tester for 64+ bit hashes ***  \n\n");
     printf("Testing %s algorithm (%i-bit) \n", hname, hwidth);
-    printf("This program will allocate a lot of memory, \n");
+    printf("This program will allocate a lot of memory,\n");
     printf("generate %llu %i-bit hashes from samples of %u bytes, \n",
             (unsigned long long)totalH, hwidth, (unsigned)sampleSize);
     printf("and attempt to produce %.0f collisions. \n\n", targetColls);
@@ -1087,7 +1100,7 @@ int main(int argc, const char** argv)
         size_t const programBytesSelf = getProcessMemUsage(0);
         size_t const programBytesChildren = getProcessMemUsage(1);
         printf("\n\n");
-        printf("===>   found  %llu collisions (x%.2f, %.1f expected) in %s \n",
+        printf("===>   Found %llu collisions (x%.2f, %.1f expected) in %s\n",
                 (unsigned long long)nbCollisions,
                 (double)nbCollisions / targetColls,
                 targetColls,

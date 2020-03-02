@@ -34,7 +34,8 @@ For the default test, the expected "optimal" collision rate for a 64-bit hash fu
 
 #### Build modifier
 
-- `SLAB5` : use alternative pattern generator, more friendly to weak algorithms
+- `SLAB5` : use alternative pattern generator, friendlier for weak hash algorithms
+- `POOL_MT` : if  `=0`, disable multi-treading code (enabled by default)
 
 #### How to integrate any hash in the tester
 

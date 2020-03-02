@@ -76,7 +76,7 @@ int ZSTD_pthread_join(ZSTD_pthread_t thread, void **value_ptr)
     case WAIT_ABANDONED:
         return EINVAL;
     default:
-        return GetLastError();
+        return (int)GetLastError();
     }
 }
 

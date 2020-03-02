@@ -71,6 +71,7 @@ build_script:
       make -v &&
       echo ----- &&
       if not [%PLATFORM%]==[clang] (
+        if [%PLATFORM%]==[mingw32] SET CPPFLAGS=-DPOOL_MT=0
         make -B clean test MOREFLAGS=-Werror
       ) ELSE (
         make -B clean test CC=clang CXX=clang++ MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed" NO_C90_TEST=true

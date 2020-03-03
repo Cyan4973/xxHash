@@ -33,17 +33,18 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-/* Note :
-   This file is separated for development purposes.
-   It will be integrated into `xxhash.h` when development stage is completed.
-*/
+/*
+ * Note:
+ * This file is separated for development purposes.
+ * It will be integrated into `xxhash.h` when development stage is completed.
+ */
 
 #ifndef XXH3_H_1397135465
 #define XXH3_H_1397135465
 
 /* ===   Dependencies   === */
 #ifndef XXHASH_H_5627135585666179
-/* special : when including `xxh3.h` directly, turn on XXH_INLINE_ALL */
+/* special: when including `xxh3.h` directly, turn on XXH_INLINE_ALL */
 #  undef XXH_INLINE_ALL   /* avoid redefinition */
 #  define XXH_INLINE_ALL
 #endif
@@ -55,7 +56,7 @@
 #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* >= C99 */
 #  define XXH_RESTRICT   restrict
 #else
-/* note : it might be useful to define __restrict or __restrict__ for some C++ compilers */
+/* Note: it might be useful to define __restrict or __restrict__ for some C++ compilers */
 #  define XXH_RESTRICT   /* disable */
 #endif
 
@@ -466,11 +467,33 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
 
-/* xxh_u64 XXH_mult32to64(xxh_u32 a, xxh_u32 b) { return (xxh_u64)a * (xxh_u64)b; } */
+/*
+ * Does a 32-bit to 64-bit long multiply.
+ *
+ * Wraps __emulu on MSVC x86 because it tends to call __allmul when it doesn't
+ * need to (but it shouldn't need to anyways, it is about 7 instructions to do
+ * a 64x64 multiply...). Since we know that this will _always_ emit MULL, we
+ * use that instead of the normal method.
+ *
+ * If you are compiling for platforms like Thumb-1 and don't have a better option,
+ * you may also want to write your own long multiply routine here.
+ *
+ * XXH_FORCE_INLINE xxh_u64 XXH_mult32to64(xxh_u64 x, xxh_u64 y)
+ * {
+ *    return (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF);
+ * }
+ */
 #if defined(_MSC_VER) && defined(_M_IX86)
 #    include <intrin.h>
-#    define XXH_mult32to64(x, y) __emulu(x, y)
+#    define XXH_mult32to64(x, y) __emulu((unsigned)(x), (unsigned)(y))
 #else
+/*
+ * Downcast + upcast is usually better than masking on older compilers like
+ * GCC 4.2 (especially 32-bit ones), all without affecting newer compilers.
+ *
+ * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both operands
+ * and perform a full 64x64 multiply -- entirely redundant on 32-bit.
+ */
 #    define XXH_mult32to64(x, y) ((xxh_u64)(xxh_u32)(x) * (xxh_u64)(xxh_u32)(y))
 #endif
 
@@ -1186,7 +1209,11 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #define XXH_PREFETCH_DIST 384
 
-/* assumption : nbStripes will not overflow secret size */
+/*
+ * XXH3_accumulate()
+ * Loops over XXH3_accumulate_512().
+ * Assumption: nbStripes will not overflow the secret size
+ */
 XXH_FORCE_INLINE void
 XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
                 const xxh_u8* XXH_RESTRICT input,

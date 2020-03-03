@@ -98,7 +98,7 @@ The first lane is used to update accumulator 1, the second lane is used to updat
 
 Each lane read its associated 32-bit value using __little-endian__ convention.
 
-For each {lane, accumulator}, the update process is called a _round_, and applies the following formula :
+For each {lane, accumulator}, the update process is called a _round_, and applies the following formula:
 
     accN = accN + (laneN * PRIME32_2);
     accN = accN <<< 13;
@@ -207,7 +207,7 @@ The first lane is used to update accumulator 1, the second lane is used to updat
 
 Each lane read its associated 64-bit value using __little-endian__ convention.
 
-For each {lane, accumulator}, the update process is called a _round_, and applies the following formula :
+For each {lane, accumulator}, the update process is called a _round_, and applies the following formula:
 
     round(accN,laneN):
     accN = accN + (laneN * PRIME64_2);
@@ -230,7 +230,7 @@ Note that accumulator convergence is more complex than 32-bit variant, and requi
     acc  = acc * PRIME64_1
     return acc + PRIME64_4;
 
-which is then used in the convergence formula :
+which is then used in the convergence formula:
 
     acc = (acc1 <<< 1) + (acc2 <<< 7) + (acc3 <<< 12) + (acc4 <<< 18);
     acc = mergeAccumulator(acc, acc1);

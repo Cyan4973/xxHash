@@ -215,7 +215,7 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 
 static unsigned BMK_isLittleEndian(void)
 {
-    const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static: performance detrimental  */
     return one.c[0];
 }
 
@@ -247,8 +247,13 @@ static unsigned BMK_isLittleEndian(void)
 #    define VERSION "GCC " __VERSION__
 #  endif
 #elif defined(_MSC_FULL_VER) && defined(_MSC_BUILD)
-/* "For example, if the version number of the Visual C++ compiler is 15.00.20706.01, the _MSC_FULL_VER macro
- * evaluates to 150020706." https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017 */
+/*
+ * MSVC
+ *  "For example, if the version number of the Visual C++ compiler is
+ *   15.00.20706.01, the _MSC_FULL_VER macro evaluates to 150020706."
+ *
+ *   https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017
+ */
 #  define VERSION  _MSC_FULL_VER / 10000000 % 100, _MSC_FULL_VER / 100000 % 100, _MSC_FULL_VER % 100000, _MSC_BUILD
 #  define VERSION_FMT ", MSVC %02i.%02i.%05i.%02i"
 #elif defined(__TINYC__)
@@ -332,7 +337,7 @@ static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s %s)" VERSION_FMT ", by %s \n", \
+#define WELCOME_MESSAGE(exename) "%s %s (%i-bit %s %s)" VERSION_FMT ", by %s\n", \
                     exename, PROGRAM_VERSION, g_nbBits, ARCH, ENDIAN_NAME, VERSION, author
 
 #define KB *( 1<<10)
@@ -460,13 +465,33 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 
         {   clock_t const nbTicks = BMK_clockSpan(cStart);
             double const ticksPerHash = ((double)nbTicks / TIMELOOP) / nbh_perIteration;
-
+            /*
+             * clock() is the only decent portable timer, but it isn't very
+             * precise.
+             *
+             * Sometimes, this lack of precision is enough that the benchmark
+             * finishes before there are enough ticks to get a meaningful result.
+             *
+             * For example, on a Core 2 Duo (without any sort of Turbo Boost),
+             * the imprecise timer caused peculiar results like so:
+             *
+             *    XXH3_64b                   4800.0 MB/s // conveniently even
+             *    XXH3_64b unaligned         4800.0 MB/s
+             *    XXH3_64b seeded            9600.0 MB/s // magical 2x speedup?!
+             *    XXH3_64b seeded unaligned  4800.0 MB/s
+             *
+             * If we sense a suspiciously low number of ticks, we increase the
+             * iterations until we can get something meaningful.
+             */
             if (nbTicks < TIMELOOP_MIN) {
-                /* not enough time spent in benchmarking, risk of rounding bias */
+                /* Not enough time spent in benchmarking, risk of rounding bias */
                 if (nbTicks == 0) { /* faster than resolution timer */
                     nbh_perIteration *= 100;
                 } else {
-                    /* update nbh_perIteration so that next round last approximately 1 second */
+                    /*
+                     * update nbh_perIteration so that the next round lasts
+                     * approximately 1 second.
+                     */
                     double nbh_perSecond = (1 / ticksPerHash) + 1;
                     if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
                     nbh_perIteration = (U32)nbh_perSecond;
@@ -645,7 +670,7 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
 
 
 /* ************************************************
- * Self-test :
+ * Self-test:
  * ensure results consistency accross platforms
  *********************************************** */
 
@@ -1278,7 +1303,8 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
     for (;;) {
         const int c = fgetc(inFile);
         if (c == EOF) {
-            /* If we meet EOF before first character, returns GetLine_eof,
+            /*
+             * If we meet EOF before first character, returns GetLine_eof,
              * otherwise GetLine_ok.
              */
             if (len == 0) result = GetLine_eof;
@@ -1423,7 +1449,8 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 }
 
 
-/*!  Parse xxHash checksum file.
+/*!
+ * Parse xxHash checksum file.
  */
 static void parseFile1(ParseFileArg* parseFileArg)
 {
@@ -1491,7 +1518,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             report->nMixedFormatLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: Error: Multiple hash types in one file.\n",
+                DISPLAY("%s: %lu: Error: Multiple hash types in one file.\n",
                         inFileName, lineNumber);
             }
             continue;
@@ -1609,8 +1636,10 @@ static int checkFile(const char* inFileName,
 
     /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
-        /* note : Since we expect text input for xxhash -c mode,
-         * Don't set binary mode for stdin */
+        /*
+         * Note: Since we expect text input for xxhash -c mode,
+         * we don't set binary mode for stdin.
+         */
         inFileName = "stdin";
         inFile = stdin;
     } else {
@@ -1781,7 +1810,8 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
  * @return: unsigned integer value read from input in `char` format.
  *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
- *  Note: function will exit() program if digit sequence overflows */
+ *  Note: function will exit() program if digit sequence overflows
+ */
 static unsigned readU32FromChar(const char** stringPtr) {
     unsigned result;
     if (readU32FromCharChecked(stringPtr, &result)) {
@@ -1805,7 +1835,7 @@ static int XXH_main(int argc, char** argv)
     algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;
 
-    /* special case : xxhNNsum default to NN bits checksum */
+    /* special case: xxhNNsum default to NN bits checksum */
     if (strstr(exename,  "xxh32sum") != NULL) algo = algo_xxh32;
     if (strstr(exename,  "xxh64sum") != NULL) algo = algo_xxh64;
     if (strstr(exename, "xxh128sum") != NULL) algo = algo_xxh128;
@@ -1813,7 +1843,7 @@ static int XXH_main(int argc, char** argv)
     for(i=1; i<argc; i++) {
         const char* argument = argv[i];
 
-        if(!argument) continue;   /* Protection, if argument empty */
+        if(!argument) continue;   /* Protection if arguments are empty */
 
         if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
@@ -1830,7 +1860,7 @@ static int XXH_main(int argc, char** argv)
         }
 
         /* command selection */
-        argument++;   /* note : *argument=='-' */
+        argument++;   /* note: *argument=='-' */
 
         while (*argument!=0) {
             switch(*argument)
@@ -1949,7 +1979,7 @@ static void free_argv(int argc, char **argv)
  * open any files with Unicode filenames.
  *
  * On MSVC or when -municode is used in MSYS2, we can just use wmain to get
- * UTF-16 command line arguments and convert the to UTF-8.
+ * UTF-16 command line arguments and convert them to UTF-8.
  *
  * However, without the -municode flag (which isn't even available on the
  * original MinGW), we will get a linker error.

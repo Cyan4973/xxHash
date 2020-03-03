@@ -29,13 +29,13 @@ test: test_multiInclude test_unicode
 test_multiInclude:
 	@$(MAKE) clean
 	# compile without xxhash.o, ensure symbols exist within target
-	# note : built using only default rules
+	# Note: built using only default rules
 	$(MAKE) multiInclude
 	@$(MAKE) clean
 	# compile with xxhash.o, to detect duplicated symbols
 	$(MAKE) multiInclude_withxxhash
 	@$(MAKE) clean
-	# Note : XXH_INLINE_ALL with XXH_NAMESPACE is currently disabled
+	# Note: XXH_INLINE_ALL with XXH_NAMESPACE is currently disabled
 	# compile with XXH_NAMESPACE
 	# CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude_withxxhash
 	# no symbol prefixed TESTN_ should exist

@@ -249,7 +249,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 #     if ULONG_MAX == 0xFFFFFFFFUL
         typedef unsigned long XXH32_hash_t;
 #     else
-#       error "unsupported platform : need a 32-bit type"
+#       error "unsupported platform: need a 32-bit type"
 #     endif
 #   endif
 #endif
@@ -259,7 +259,7 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
  *  Calculate the 32-bit hash of sequence "length" bytes stored at memory address "input".
  *  The memory between input & input+length must be valid (allocated and read-accessible).
  *  "seed" can be used to alter the result predictably.
- *  Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
+ *  Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark): 5.4 GB/s
  */
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, XXH32_hash_t seed);
 
@@ -479,7 +479,7 @@ struct XXH64_state_s {
 #  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
 #endif
 
-/* XXH3_64bits() :
+/* XXH3_64bits():
  * default 64-bit variant, using default secret and default seed of 0.
  * It's the fastest variant. */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
@@ -864,13 +864,13 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #endif
 
 #if (DEBUGLEVEL>=1)
-#  include <assert.h>   /* note : can still be disabled with NDEBUG */
+#  include <assert.h>   /* note: can still be disabled with NDEBUG */
 #  define XXH_ASSERT(c)   assert(c)
 #else
 #  define XXH_ASSERT(c)   ((void)0)
 #endif
 
-/* note : use after variable declarations */
+/* note: use after variable declarations */
 #define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }
 
 
@@ -915,8 +915,9 @@ static xxh_u32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; 
 
 #else
 
-/* portable and safe solution. Generally efficient.
- * see : https://stackoverflow.com/a/32095106/646947
+/*
+ * Portable and safe solution. Generally efficient.
+ * see: https://stackoverflow.com/a/32095106/646947
  */
 static xxh_u32 XXH_read32(const void* memPtr)
 {
@@ -981,7 +982,7 @@ static int XXH_isLittleEndian(void)
                                && __has_builtin(__builtin_rotateleft64)
 #  define XXH_rotl32 __builtin_rotateleft32
 #  define XXH_rotl64 __builtin_rotateleft64
-/* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */
+/* Note: although _rotl exists for minGW (GCC under windows), performance seems poor */
 #elif defined(_MSC_VER)
 #  define XXH_rotl32(x,r) _rotl(x,r)
 #  define XXH_rotl64(x,r) _rotl64(x,r)
@@ -1466,8 +1467,9 @@ static xxh_u64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64
 
 #else
 
-/* portable and safe solution. Generally efficient.
- * see : https://stackoverflow.com/a/32095106/646947
+/*
+ * Portable and safe solution. Generally efficient.
+ * see: https://stackoverflow.com/a/32095106/646947
  */
 
 static xxh_u64 XXH_read64(const void* memPtr)

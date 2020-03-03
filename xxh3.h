@@ -33,9 +33,10 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-/* Note :
-   This file is separated for development purposes.
+/* This file is separated for development purposes.
    It will be integrated into `xxhash.h` when development stage is completed.
+
+   Credit : most of the work on vectorial and asm variants comes from @easyaspi314
 */
 
 #ifndef XXH3_H_1397135465

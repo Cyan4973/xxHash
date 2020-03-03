@@ -261,7 +261,7 @@ static unsigned BMK_isLittleEndian(void)
 #endif
 
 /* makes the next part easier */
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX64)
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
 #   define ARCH_X64 1
 #   define ARCH_X86 "x86_64"
 #elif defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
@@ -274,7 +274,7 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH ARCH_X86 " + AVX2"
 #  elif defined(__AVX__)
 #    define ARCH ARCH_X86 " + AVX"
-#  elif defined(_M_IX64) || defined(_M_AMD64) || defined(__x86_64__) \
+#  elif defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__) \
       || defined(__SSE2__) || (defined(_M_IX86_FP) && _M_IX86_FP == 2)
 #     define ARCH ARCH_X86 " + SSE2"
 #  else

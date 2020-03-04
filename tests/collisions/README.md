@@ -113,7 +113,7 @@ Test on small inputs:
 | Algorithm  | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
 | ---        | --- | ---    | --- | --- | --- |
 | __XXH64__  |   8 | 100 Gi | 312.5 | __0__ | `XXH64` is bijective for `len==8` |
-| __XXH3__   |   8 |  14 Gi |   6.1 | __0__ | `XXH3` is also bijective for `len==8` |
+| __XXH3__   |   8 | 100 Gi | 312.5 | __0__ | `XXH3` is also bijective for `len==8` |
 | __XXH3__   |  16 |  14 Gi |   6.1 | 6 |  |
 | __XXH3__   |  32 |  14 Gi |   6.1 | 3 |  |
 | __XXH128__ |  16 |  25 Gi |   0.0 | 0 | test range 9-16 |

@@ -165,7 +165,7 @@ static char *utf16_to_utf8(const wchar_t *str)
 }
 
 /*
- * fopen on Windows, like main's argv, is useless.
+ * fopen wrapper that supports UTF-8
  *
  * fopen will only accept ANSI filenames, which means that we can't open Unicode filenames.
  *
@@ -183,18 +183,23 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 }
 
 /*
- * fprintf on Windows is, yet again, useless.
+ * fprintf wrapper that supports UTF-8.
  *
- * If we switch the file mode to _O_U8TEXT, the console will always
- * print UTF-8. However, fprintf will crash.
+ * If we switch stdout's mode to _O_U8TEXT, the console will always print
+ * UTF-8, regardless of the console's codepage. However, fprintf will crash
+ * with an assertion if it encounters any UTF-8.
  *
- * fwprintf works, but that causes issues:
- *   - %s is handled differently on Windows and ISO C. %s expects a const char *
- *     on ISO C, but Windows expects a const wchar_t *.
- *     - Even still, %S/%hs print strings in ANSI instead of UTF-8.
+ * fwprintf properly prints in _O_U8TEXT mode, but it is not ISO C compatible.
+ * Therefore, we can't just replace fprintf with fwprintf.
  *
- * To do this, we use vsnprintf + fwprintf(L"%ls"), which actually works
- * reliably even if someone defines __USE_MINGW_ANSI_STDIO.
+ * Specifically, '%s' prints UTF-16 strings on Windows instead of UTF-8.
+ *
+ * Additionally, '%hs' prints strings in ANSI encoding.
+ *
+ * The workaround to this is to generate a UTF-8 string with snprintf (actually
+ * vsnprintf), convert it to UTF-16, and print it with fwprintf.
+ *
+ * This works reliably even if someone defines __USE_MINGW_ANSI_STDIO.
  *
  * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
  */
@@ -216,6 +221,7 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
                 if (u16_buf == NULL) {
                     result = -1;
                 } else {
+                    /* %ls: Behaves the same in ISO C and Windows */
                     result = fwprintf(stream, L"%ls", u16_buf);
                     free(u16_buf);
                 }
@@ -2040,7 +2046,7 @@ static void free_argv(int argc, char **argv)
 
 /*
  * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
- * encoding, and unknown characters will show up as mojibake.
+ * encoding, and any unknown characters will show up as mojibake.
  *
  * While this doesn't affect most programs, what does happen is that we can't
  * open any files with Unicode filenames.

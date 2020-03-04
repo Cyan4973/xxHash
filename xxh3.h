@@ -1651,7 +1651,9 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         m128.high64 += (m128.low64 << 1);
         m128.low64  ^= (m128.high64 >> 3);
 
-        m128.low64   = XXH3_avalanche(m128.low64);
+        m128.low64   = XXH_xorshift64(m128.low64, 35);
+        m128.low64  *= 0x9FB21C651E98DF25ULL;
+        m128.low64   = XXH_xorshift64(m128.low64, 28);
         m128.high64  = XXH3_avalanche(m128.high64);
         return m128;
     }

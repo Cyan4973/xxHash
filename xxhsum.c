@@ -183,6 +183,50 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 }
 
 /*
+ * fprintf on Windows is, yet again, useless.
+ *
+ * If we switch the file mode to _O_U8TEXT, the console will always
+ * print UTF-8. However, fprintf will crash.
+ *
+ * fwprintf works, but that causes issues:
+ *   - %s is handled differently on Windows and ISO C. %s expects a const char *
+ *     on ISO C, but Windows expects a const wchar_t *.
+ *     - Even still, %S/%hs print strings in ANSI instead of UTF-8.
+ *
+ * To do this, we use vsnprintf + fwprintf(L"%ls"), which actually works
+ * reliably even if someone defines __USE_MINGW_ANSI_STDIO.
+ *
+ * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
+ */
+static int fprintf_utf8(FILE *stream, const char *format, ...)
+{
+    int result;
+    va_list args;
+    va_start(args, format);
+    result = _vscprintf(format, args);
+    if (result > 0) {
+        const size_t nchar = (size_t)result + 1;
+        char* u8_str = (char*) malloc(nchar * sizeof(u8_str[0]));
+        if (u8_str == NULL) {
+            result = -1;
+        } else {
+            result = vsnprintf(u8_str, nchar, format, args);
+            if (result > 0) {
+                wchar_t *const u16_buf = utf8_to_utf16(u8_str);
+                if (u16_buf == NULL) {
+                    result = -1;
+                } else {
+                    result = fwprintf(stream, L"%ls", u16_buf);
+                    free(u16_buf);
+                }
+            }
+            free(u8_str);
+        }
+    }
+    va_end(args);
+    return result;
+}
+/*
  * Since we always use literals in the "mode" argument, it is just easier to append "L" to
  * the string to make it UTF-16 and avoid the hassle of a second manual conversion.
  */
@@ -364,8 +408,14 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 /* ************************************
  *  Display macros
  **************************************/
+#ifdef _WIN32
+#define DISPLAY(...)         fprintf_utf8(stderr, __VA_ARGS__)
+#define DISPLAYRESULT(...)   fprintf_utf8(stdout, __VA_ARGS__)
+#else
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
+#endif
+
 #define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
 static int g_displayLevel = 2;
 
@@ -1942,6 +1992,23 @@ static void free_argv(int argc, char **argv)
 }
 
 /*
+ * The original MinGW doesn't define _O_U8TEXT unless __MSVCRT_VERSION__ is
+ * defined to 0x0800 or higher, a.k.a. MSVC 2005.
+ *
+ * It is defined to 0x40000 on all Windows versions that support it, so we
+ * just define it manually.
+ *
+ * Even if you are linking to a really old MSVC runtime, the worst thing that
+ * can happen is that it silently errors and Unicode text doesn't appear in the
+ * console. ASCII text would work as expected, and that is its primary usage.
+ *
+ * However, at least on Windows 10, this seems to work with msvcrt.dll.
+ */
+#ifndef _O_U8TEXT
+#  define _O_U8TEXT 0x40000
+#endif
+
+/*
  * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
  * encoding, and unknown characters will show up as mojibake.
  *
@@ -1971,6 +2038,10 @@ int main(int argc, char **argv)
     wchar_t **utf16_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 #endif
     int ret;
+    /* Attempt to set stdin and stdout to UTF-8 mode. */
+    const int oldStdoutMode = _setmode(_fileno(stdout), _O_U8TEXT);
+    const int oldStderrMode = _setmode(_fileno(stderr), _O_U8TEXT);
+
     /* Convert the UTF-16 arguments to UTF-8. */
     argv = convert_argv(argc, utf16_argv);
 
@@ -1992,6 +2063,8 @@ int main(int argc, char **argv)
     /* CommandLineToArgvW needs to be freed with LocalFree. */
     LocalFree(utf16_argv);
 #endif
+    fflush(stdout); _setmode(_fileno(stdout), oldStdoutMode);
+    fflush(stderr); _setmode(_fileno(stderr), oldStderrMode);
     return ret;
 }
 

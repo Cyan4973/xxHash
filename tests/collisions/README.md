@@ -96,7 +96,7 @@ The command line becomes:
 ./collisionsTest --nbh=14G --filter NameOfHash
 ```
 
-#### Examples :
+#### Examples:
 
 Here are a few results produced with this tester:
 

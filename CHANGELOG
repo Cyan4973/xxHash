@@ -5,6 +5,7 @@ v0.7.3
 - API: `xxhash.h` can now be included in any order, with and without `XXH_STATIC_LINKING_ONLY` and `XXH_INLINE_ALL`
 - build: xxHash's implementation has been transferred into `xxhash.h`. There is no more need to have `xxhash.c` in the `/include` directory for `XXH_INLINE_ALL` to work
 - build: VCpkg installation instructions, by @LilyWangL
+- install: create pkg-config file, by @bket
 - doc: Highly improved code documentation, by @easyaspi314
 - misc: New test tool in `/tests/collisions`: brute force collision tester for 64-bit hashes
 

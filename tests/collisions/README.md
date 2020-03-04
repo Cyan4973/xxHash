@@ -101,20 +101,22 @@ The command line becomes:
 Here are a few results produced with this tester:
 
 | Algorithm | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
-| --- | --- | --- | --- | --- | --- |
-| __XXH3__ | 256 | 100 Gi | 312.5 | 326 |  |
-| __XXH64__ | 256 | 100 Gi | 312.5 | 294 |  |
-| __XXH128__ | 256 | 100 Gi | 0.0 | 0 | As a 128-bit hash, we expect XXH128 to generate 0 collisions |
+| ---        | --- | ---    | ---   | --- | --- |
+| __XXH3__   | 255 | 100 Gi | 312.5 | 326 |  |
+| __XXH64__  | 255 | 100 Gi | 312.5 | 294 |  |
 | __XXH128__ low 64-bit | 512 | 100 Gi | 312.5 | 321 |  |
 | __XXH128__ high 64-bit | 512 | 100 Gi | 312.5 | 325 |  |
+| __XXH128__ | 255 | 100 Gi |   0.0 |   0 | a 128-bit hash is expected to generate 0 collisions |
 
 Test on small inputs:
 
-| Algorithm | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
-| --- | --- | --- | --- | --- | --- |
-| __XXH3__ | 8 |  |  |  | To be restarted |
-| __XXH64__ | 8 | 100 Gi | 312.5 | __0__ | `XXH64` is bijective for `len==8` |
-| __XXH128__ | 16 | 25 Gi | 0.0 | 0 | test range 9-16 |
-| __XXH128__ | 32 | 25 Gi | 0.0 | 0 | test range 17-128 |
-| __XXH128__ | 100 | 13 Gi | 0.0 | 0 | test range 17-128 |
-| __XXH128__ | 200 | 13 Gi | 0.0 | 0 | test range 129-240 |
+| Algorithm  | Input Len | Nb Hashes | Expected | Nb Collisions | Notes |
+| ---        | --- | ---    | --- | --- | --- |
+| __XXH64__  |   8 | 100 Gi | 312.5 | __0__ | `XXH64` is bijective for `len==8` |
+| __XXH3__   |   8 | 100 Gi | 312.5 | __0__ | `XXH3` is also bijective for `len==8` |
+| __XXH3__   |  16 |  14 Gi |   6.1 | 6 |  |
+| __XXH3__   |  32 |  14 Gi |   6.1 | 3 |  |
+| __XXH128__ |  16 |  25 Gi |   0.0 | 0 | test range 9-16 |
+| __XXH128__ |  32 |  25 Gi |   0.0 | 0 | test range 17-128 |
+| __XXH128__ | 100 |  13 Gi |   0.0 | 0 | test range 17-128 |
+| __XXH128__ | 200 |  13 Gi |   0.0 | 0 | test range 129-240 |

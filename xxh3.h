@@ -1721,7 +1721,9 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         m128.high64 += (m128.low64 << 1);
         m128.low64  ^= (m128.high64 >> 3);
 
-        m128.low64   = XXH3_avalanche(m128.low64);
+        m128.low64   = XXH_xorshift64(m128.low64, 35);
+        m128.low64  *= 0x9FB21C651E98DF25ULL;
+        m128.low64   = XXH_xorshift64(m128.low64, 28);
         m128.high64  = XXH3_avalanche(m128.high64);
         return m128;
     }
@@ -1733,16 +1735,17 @@ XXH3_len_9to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(secret != NULL);
     XXH_ASSERT(9 <= len && len <= 16);
-    {   xxh_u64 const bitflipl = XXH_readLE64(secret+32) ^ XXH_readLE64(secret+40);
-        xxh_u64 const bitfliph = (XXH_readLE64(secret+48) ^ XXH_readLE64(secret+56)) - seed;
-        xxh_u64 const input_lo = XXH_readLE64(input)           ^ bitflipl;
-        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitfliph;
-        XXH128_hash_t m128 = XXH_mult64to128(input_lo ^ input_hi, PRIME64_1);
+    {   xxh_u64 const bitflipl = (XXH_readLE64(secret+32) ^ XXH_readLE64(secret+40)) - seed;
+        xxh_u64 const bitfliph = (XXH_readLE64(secret+48) ^ XXH_readLE64(secret+56)) + seed;
+        xxh_u64 const input_lo = XXH_readLE64(input);
+        xxh_u64       input_hi = XXH_readLE64(input + len - 8);
+        XXH128_hash_t m128 = XXH_mult64to128(input_lo ^ input_hi ^ bitflipl, PRIME64_1);
         /*
          * Put len in the middle of m128 to ensure that the length gets mixed to
          * both the low and high bits in the 128x64 multiply below.
          */
         m128.low64  += (xxh_u64)(len - 1) << 54;
+        input_hi ^= bitfliph;
         /*
          * Add the high 32 bits of input_hi to the high 32 bits of m128, then
          * add the long product of the low 32 bits of input_hi and PRIME32_2 to

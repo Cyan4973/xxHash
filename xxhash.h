@@ -314,7 +314,7 @@ XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
  * them, it's highly recommended to use the canonical representation to ensure
  * portability across a wider range of systems, present and future.
  *
- * The following functions allow transformation of hash values into and from
+ * The following functions allow transformation of hash values to and from
  * canonical format.
  */
 
@@ -379,9 +379,11 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
  * Never use them in association with dynamic linking!
  ***************************************************************************** */
 
-/* These definitions are only present to allow
- * static allocation of XXH state, on stack or in a struct for example.
- * Never **ever** use members directly. */
+/*
+ * These definitions are only present to allow static allocation of an XXH
+ * state, for example, on the stack or in a struct.
+ * Never **ever** access members directly.
+ */
 
 struct XXH32_state_s {
    XXH32_hash_t total_len_32;
@@ -560,7 +562,6 @@ struct XXH3_state_s {
  * As a consequence, streaming is slower than one-shot hashing.
  * For better performance, prefer one-shot functions whenever possible.
  */
-
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
 XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
@@ -731,11 +732,12 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 #  endif
 #endif
 
-/*!XXH_ACCEPT_NULL_INPUT_POINTER:
+/*!
+ *XXH_ACCEPT_NULL_INPUT_POINTER:
  * If the input pointer is NULL, xxHash's default behavior is to dereference it,
  * triggering a segfault.
- * When this macro is enabled, xxHash actively checks input for a null pointer.
- * It it is, result for null input pointers is the same as a zero-length input.
+ * When this macro is enabled, xxHash actively checks the input for a null pointer.
+ * If it is, the result for null input pointers is the same as a zero-length input.
  */
 #ifndef XXH_ACCEPT_NULL_INPUT_POINTER   /* can be defined externally */
 #  define XXH_ACCEPT_NULL_INPUT_POINTER 0
@@ -787,11 +789,13 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 #  endif
 #endif
 
-/*!XXH_REROLL:
+/*!
+ * XXH_REROLL:
  * Whether to reroll XXH32_finalize, and XXH64_finalize,
  * instead of using an unrolled jump table/if statement loop.
  *
- * This is automatically defined on -Os/-Oz on GCC and Clang. */
+ * This is automatically defined on -Os/-Oz on GCC and Clang.
+ */
 #ifndef XXH_REROLL
 #  if defined(__OPTIMIZE_SIZE__)
 #    define XXH_REROLL 1
@@ -907,9 +911,10 @@ static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr;
 
 /*
  * __pack instructions are safer but compiler specific, hence potentially
- * problematic for some compilers
+ * problematic for some compilers.
+ *
+ * Currently only defined for GCC and ICC.
  */
-/* currently only defined for gcc and icc */
 typedef union { xxh_u32 u32; } __attribute__((packed)) unalign;
 static xxh_u32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
 
@@ -1389,12 +1394,19 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest (const XXH32_state_t* state)
 
 /*******   Canonical representation   *******/
 
-/*! Default XXH result types are basic unsigned 32 and 64 bits.
-*   The canonical representation follows human-readable write convention, aka big-endian (large digits first).
-*   These functions allow transformation of hash result into and from its canonical format.
-*   This way, hash values can be written into a file or buffer, remaining comparable across different systems.
-*/
-
+/*
+ * The default return values from XXH functions are unsigned 32 and 64 bit
+ * integers.
+ *
+ * The canonical representation uses big endian convention, the same convention
+ * as human-readable numbers (large digits first).
+ *
+ * This way, hash values can be written into a file or buffer, remaining
+ * comparable across different systems.
+ *
+ * The following functions allow transformation of hash values to and from their
+ * canonical format.
+ */
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH32_canonical_t) == sizeof(XXH32_hash_t));
@@ -1460,8 +1472,12 @@ static xxh_u64 XXH_read64(const void* memPtr) { return *(const xxh_u64*) memPtr;
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for some compilers */
-/* currently only defined for gcc and icc */
+/*
+ * __pack instructions are safer, but compiler specific, hence potentially
+ * problematic for some compilers.
+ *
+ * Currently only defined for GCC and ICC.
+ */
 typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) unalign64;
 static xxh_u64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
 
@@ -1471,7 +1487,6 @@ static xxh_u64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64
  * Portable and safe solution. Generally efficient.
  * see: https://stackoverflow.com/a/32095106/646947
  */
-
 static xxh_u64 XXH_read64(const void* memPtr)
 {
     xxh_u64 val;
@@ -1794,7 +1809,7 @@ XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t
 
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t seed)
 {
-    XXH64_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
+    XXH64_state_t state;   /* use a local state to memcpy() in order to avoid strict-aliasing warnings */
     memset(&state, 0, sizeof(state));
     state.v1 = seed + PRIME64_1 + PRIME64_2;
     state.v2 = seed + PRIME64_2;

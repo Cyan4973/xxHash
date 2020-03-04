@@ -499,15 +499,10 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
 #endif
 
 /*
- * GCC for x86 has a tendency to use SSE in this loop. While it successfully
- * avoids swapping (as MUL overwrites EAX and EDX), it slows it down because
- * instead of free register swap shifts, it must use PSHUFD and PUNPCKL/HD
+ * Calculates a 64->128-bit long multiply.
  *
- * To prevent this, we use this attribute to shut off SSE.
+ * Uses __uint128_t and _umul128 if available, otherwise uses a scalar version.
  */
-#if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
-__attribute__((__target__("no-sse")))
-#endif
 static XXH128_hash_t
 XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
 {
@@ -612,16 +607,11 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
 }
 
 /*
- * We want to keep the attribute here because a target switch  disables inlining.
- *
  * Does a 64-bit to 128-bit multiply, then XOR folds it.
  *
  * The reason for the separate function is to prevent passing too many structs
  * around by value. This will hopefully inline the multiply, but we don't force it.
  */
-#if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
-__attribute__((__target__("no-sse")))
-#endif
 static xxh_u64
 XXH3_mul128_fold64(xxh_u64 lhs, xxh_u64 rhs)
 {
@@ -783,11 +773,33 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                                      const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
 {
-    xxh_u64 const input_lo = XXH_readLE64(input);
-    xxh_u64 const input_hi = XXH_readLE64(input+8);
-    return XXH3_mul128_fold64(
-               input_lo ^ (XXH_readLE64(secret)   + seed64),
-               input_hi ^ (XXH_readLE64(secret+8) - seed64) );
+#if defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__i386__) && defined(__SSE2__)  /* x86 + SSE2 */ \
+  && !defined(XXH_ENABLE_AUTOVECTORIZE)      /* Define to disable like XXH32 hack */
+    /*
+     * UGLY HACK:
+     * GCC for x86 tends to autovectorize the 128-bit multiply, resulting in
+     * slower code.
+     *
+     * By forcing seed64 into a register, we disrupt the cost model and
+     * cause it to scalarize. See `XXH32_round()`
+     *
+     * FIXME: Clang's output is still _much_ faster -- On an AMD Ryzen 3600,
+     * XXH3_64bits @ len=240 runs at 4.6 GB/s with Clang 9, but 3.3 GB/s on
+     * GCC 9.2, despite both emitting scalar code.
+     *
+     * GCC generates much better scalar code than Clang for the rest of XXH3,
+     * which is why finding a more optimal codepath is an interest.
+     */
+    __asm__ ("" : "+r" (seed64));
+#endif
+    {   xxh_u64 const input_lo = XXH_readLE64(input);
+        xxh_u64 const input_hi = XXH_readLE64(input+8);
+        return XXH3_mul128_fold64(
+            input_lo ^ (XXH_readLE64(secret)   + seed64),
+            input_hi ^ (XXH_readLE64(secret+8) - seed64)
+        );
+    }
 }
 
 /* For mid range keys, XXH3 uses a Mum-hash variant. */
@@ -840,6 +852,31 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         }
         acc = XXH3_avalanche(acc);
         XXH_ASSERT(nbRounds >= 8);
+#if defined(__clang__)                                /* Clang */ \
+    && (defined(__ARM_NEON) || defined(__ARM_NEON__)) /* NEON */ \
+    && !defined(XXH_ENABLE_AUTOVECTORIZE)             /* Define to disable */
+        /*
+         * UGLY HACK:
+         * Clang for ARMv7-A tries to vectorize this loop, similar to GCC x86.
+         * In everywhere else, it uses scalar code.
+         *
+         * For 64->128-bit multiplies, even if the NEON was 100% optimal, it
+         * would still be slower than UMAAL (see XXH_mult64to128).
+         *
+         * Unfortunately, Clang doesn't handle the long multiplies properly and
+         * converts them to the nonexistent "vmulq_u64" intrinsic, which is then
+         * scalarized into an ugly mess of VMOV.32 instructions.
+         *
+         * This mess is difficult to avoid without turning autovectorization
+         * off completely, but they are usually relatively minor and/or not
+         * worth it to fix.
+         *
+         * This loop is the easiest to fix, as unlike XXH32, this pragma
+         * _actually works_ because it is a loop vectorization instead of an
+         * SLP vectorization.
+         */
+        #pragma clang loop vectorize(disable)
+#endif
         for (i=8 ; i < nbRounds; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
         }
@@ -1249,17 +1286,7 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     }
 }
 
-/* note : clang auto-vectorizes well in SS2 mode _if_ this function is `static`,
- *        and doesn't auto-vectorize it at all if it is `FORCE_INLINE`.
- *        However, it auto-vectorizes better AVX2 if it is `FORCE_INLINE`
- *        Pretty much every other modes and compilers prefer `FORCE_INLINE`.
- */
-
-#if defined(__clang__) && (XXH_VECTOR==0) && !defined(__AVX2__) && !defined(__arm__) && !defined(__thumb__)
-static void
-#else
 XXH_FORCE_INLINE void
-#endif
 XXH3_hashLong_internal_loop( xxh_u64* XXH_RESTRICT acc,
                       const xxh_u8* XXH_RESTRICT input, size_t len,
                       const xxh_u8* XXH_RESTRICT secret, size_t secretSize,

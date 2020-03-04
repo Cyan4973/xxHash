@@ -905,8 +905,8 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(NULL,           0, prime64, 0x6AFCE90814C488CBULL);
     BMK_testXXH3(sanityBuffer,   1, 0,       0xB936EBAE24CB01C5ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   1, prime64, 0xF541B1905037FC39ULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   6, 0,       0x5AD7EA2EF78ED766ULL);  /*  4 -  8 */
-    BMK_testXXH3(sanityBuffer,   6, prime64, 0x006191EDA5230C98ULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,   6, 0,       0x27B56A84CD2D7325ULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,   6, prime64, 0x84589C116AB59AB9ULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,  12, 0,       0xA713DAF0DFBB77E7ULL);  /*  9 - 16 */
     BMK_testXXH3(sanityBuffer,  12, prime64, 0xE7303E1B2336DE0EULL);  /*  9 - 16 */
     BMK_testXXH3(sanityBuffer,  24, 0,       0xA3FE70BF9D3510EBULL);  /* 17 - 32 */
@@ -934,7 +934,7 @@ static void BMK_sanityCheck(void)
         assert(sizeof(sanityBuffer) >= XXH3_SECRET_SIZE_MIN + 7 + 11);
         BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0x6775FD10343C92C3ULL);  /* empty string */
         BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0xC3382C326E24E3CDULL);  /*  1 -  3 */
-        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0x6726BBF76FB142FAULL);  /*  4 -  8 */
+        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0x82C90AB0519369ADULL);  /*  4 -  8 */
         BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x14631E773B78EC57ULL);  /*  9 - 16 */
         BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize, 0xCDD5542E4A9D9FE8ULL);  /* 17 - 32 */
         BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize, 0x33ABD54D094B2534ULL);  /* 33 - 64 */

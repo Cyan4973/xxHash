@@ -34,9 +34,10 @@
  */
 
 /*
- * Note:
- * This file is separated for development purposes.
+ * Note: This file is separated for development purposes.
  * It will be integrated into `xxhash.h` when development stage is completed.
+ *
+ * Credit: most of the work on vectorial and asm variants comes from @easyaspi314
  */
 
 #ifndef XXH3_H_1397135465
@@ -713,15 +714,15 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
     seed ^= (xxh_u64)XXH_swap32((xxh_u32)seed) << 32;
     {   xxh_u32 const input1 = XXH_readLE32(input);
         xxh_u32 const input2 = XXH_readLE32(input + len - 4);
-        xxh_u32 const bitflip1 = (XXH_readLE32(secret+8) ^ XXH_readLE32(secret+12)) + (xxh_u32)(seed >> 32);
-        xxh_u32 const bitflip2 = (XXH_readLE32(secret+16) ^ XXH_readLE32(secret+20)) - (xxh_u32)seed;
-        xxh_u32 const key1 = XXH_swap32(input1) ^ bitflip1;
-        xxh_u32 const key2 = input2 ^ bitflip2;
-        xxh_u64 const mix = XXH_mult32to64(key1, key2)
-                          + ((xxh_u64)input1 << 32)
-                          + ((xxh_u64)(XXH_rotl32(input2,23)) << 32)
-                          + len;
-        return XXH3_avalanche(XXH_xorshift64(mix, 59));
+        xxh_u64 const bitflip = (XXH_readLE64(secret+8) ^ XXH_readLE64(secret+16)) - seed;
+        xxh_u64 const input64 = input2 + (((xxh_u64)input1) << 32);
+        xxh_u64 x = input64 ^ bitflip;
+        /* this mix is inspired by Pelle Evensen's rrmxmx */
+        x ^= XXH_rotl64(x, 49) ^ XXH_rotl64(x, 24);
+        x *= 0x9FB21C651E98DF25ULL;
+        x ^= (x >> 35) + len ;
+        x *= 0x9FB21C651E98DF25ULL;
+        return XXH_xorshift64(x, 28);
     }
 }
 

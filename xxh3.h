@@ -666,6 +666,22 @@ static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
  * is almost guaranteed to be faster than XXH64.
  */
 
+/*
+ * At very short lengths, there isn't enough input to fully hide secrets, or use
+ * the entire secret.
+ *
+ * There is also only a limited amount of mixing we can do before significantly
+ * impacting performance.
+ *
+ * Therefore, we use different sections of the secret and always mix two secret
+ * samples with an XOR. This should have no effect on performance on the
+ * seedless or withSeed variants because everything _should_ be constant folded
+ * by modern compilers.
+ *
+ * The XOR mixing hides individual parts of the secret and increases entropy.
+ *
+ * This adds an extra layer of strength for custom secrets.
+ */
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {

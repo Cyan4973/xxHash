@@ -12,10 +12,10 @@ Build xxHash targets:
     cmake --build . --target install #optional
 
 Where possible options are:
-- `-DXXHASH_BUILD_ENABLE_INLINE_API=<ON|OFF>` : adds xxhash.c for the `-DXXH_INLINE_ALL` api. ON by default.
-- `-DXXHASH_BUILD_XXHSUM=<ON|OFF>` : build the command line binary. ON by default
-- `-DBUILD_SHARED_LIBS=<ON|OFF>` : build dynamic library. ON by default.
-- `-DCMAKE_INSTALL_PREFIX=<path>` : use custom install prefix path.
+- `-DXXHASH_BUILD_ENABLE_INLINE_API=<ON|OFF>`: adds xxhash.c for the `-DXXH_INLINE_ALL` api. ON by default.
+- `-DXXHASH_BUILD_XXHSUM=<ON|OFF>`: build the command line binary. ON by default
+- `-DBUILD_SHARED_LIBS=<ON|OFF>`: build dynamic library. ON by default.
+- `-DCMAKE_INSTALL_PREFIX=<path>`: use custom install prefix path.
 
 Add lines into downstream CMakeLists.txt:
 

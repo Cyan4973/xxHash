@@ -22,7 +22,7 @@
 #   - xxHash homepage: http://www.xxhash.com
 #   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
-# xxhsum : provides 32/64 bits hash of one or multiple files, or stdin
+# xxhsum: provides 32/64 bits hash of one or multiple files, or stdin
 # ################################################################
 
 # Version numbers
@@ -52,7 +52,7 @@ EXT =
 endif
 
 # OS X linker doesn't support -soname, and use different extension
-# see : https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
+# see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
 ifeq ($(shell uname), Darwin)
 	SHARED_EXT = dylib
 	SHARED_EXT_MAJOR = $(LIBVER_MAJOR).$(SHARED_EXT)
@@ -303,7 +303,7 @@ test-tools:
 	CFLAGS=-Werror $(MAKE) -C tests/collisions
 
 .PHONY: listL120
-listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
+listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note: $$, for Makefile compatibility)
 	find . -type f -name '*.c' -o -name '*.h' | while read -r filename; do awk 'length > 120 {print FILENAME "(" FNR "): " $$0}' $$filename; done
 
 .PHONY: trailingWhitespace
@@ -317,7 +317,7 @@ trailingWhitespace:
 ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
 
 DESTDIR     ?=
-# directory variables : GNU conventions prefer lowercase
+# directory variables: GNU conventions prefer lowercase
 # see https://www.gnu.org/prep/standards/html_node/Makefile-Conventions.html
 # support both lower and uppercase (BSD), use uppercase in script
 prefix      ?= /usr/local

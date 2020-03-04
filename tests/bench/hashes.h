@@ -19,9 +19,9 @@
 *  with this program; if not, write to the Free Software Foundation, Inc.,
 *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 *
-*  You can contact the author at :
-*  - xxHash homepage : http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
+*  You can contact the author at:
+*  - xxHash homepage: http://www.xxhash.com
+*  - xxHash source repository: https://github.com/Cyan4973/xxHash
 */
 
 
@@ -37,8 +37,9 @@
 
 #ifdef HARDWARE_SUPPORT
 
-/* list here hash algorithms depending on specific hardware support,
- * including for example :
+/*
+ * List any hash algorithms that depend on specific hardware support,
+ * including for example:
  * - Hardware crc32c
  * - Hardware AES support
  * - Carryless Multipliers (clmul)
@@ -51,11 +52,10 @@
 
 /* ==================================================
  * List of hashes
- * =============================================== */
-
-/* Each hash must be wrapped in a thin redirector conformant with the BMK_benchfn_t.
+ * ==================================================
+ * Each hash must be wrapped in a thin redirector conformant with the BMK_benchfn_t.
  * BMK_benchfn_t is generic, not specifically designed for hashes.
- * For hashes, the following parameters are expected to be useless :
+ * For hashes, the following parameters are expected to be useless:
  * dst, dstCapacity, customPayload.
  *
  * The result of each hash is assumed to be provided as function return value.

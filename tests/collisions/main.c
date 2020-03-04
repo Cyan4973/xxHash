@@ -761,13 +761,16 @@ static size_t search_collisions(
     free_sampleFactory(sf);
 
 
-    /* === step 3 : look for duplicates === */
+    /* === step 3: look for duplicates === */
     time_t const sortTBegin = time(NULL);
     DISPLAY(" Sorting candidates... ");
     fflush(NULL);
     if ((htype == ht64) || (htype == ht32)) {
-        sort64(hashCandidates, nbCandidates); /* using C++ sort, as it's faster than C stdlib's qsort,
-                                               * and doesn't suffer from gnuc_libsort memory expansion */
+        /*
+         * Use C++'s std::sort, as it's faster than C stdlib's qsort, and
+         * doesn't suffer from gnuc_libsort's memory expansion
+         */
+        sort64(hashCandidates, nbCandidates);
     } else {
         assert(htype == ht128);
         sort128(hashCandidates, nbCandidates); /* sort with custom comparator */

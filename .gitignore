@@ -5,6 +5,7 @@
 
 # libraries
 libxxhash.*
+!libxxhash.pc.in
 
 # Executables
 *.exe

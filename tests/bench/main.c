@@ -1,37 +1,27 @@
 /*
-*  Main program to benchmark hash functions
-*  Part of xxHash project
-*  Copyright (C) 2019-present, Yann Collet
-*
-*  BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions are
-*  met:
-*
-*  * Redistributions of source code must retain the above copyright
-*  notice, this list of conditions and the following disclaimer.
-*  * Redistributions in binary form must reproduce the above
-*  copyright notice, this list of conditions and the following disclaimer
-*  in the documentation and/or other materials provided with the
-*  distribution.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-*  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-*  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-*  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-*  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-*  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-*  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-*  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-*  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*
-*  You can contact the author at :
-*  - xxHash homepage: http://www.xxhash.com
-*  - xxHash source repository : https://github.com/Cyan4973/xxHash
-*/
+ * Main program to benchmark hash functions
+ * Part of the xxHash project
+ * Copyright (C) 2019-present, Yann Collet
+ * GPL v2 License
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * You can contact the author at:
+ * - xxHash homepage: http://www.xxhash.com
+ * - xxHash source repository: https://github.com/Cyan4973/xxHash
+ */
 
 
 /* ===  dependencies  === */
@@ -52,9 +42,10 @@
 #include <assert.h>
 
 
-/*! readIntFromChar() :
- *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
- *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
+/*!
+ * readIntFromChar():
+ * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  */
 static int readIntFromChar(const char** stringPtr)
 {
@@ -82,25 +73,30 @@ static int readIntFromChar(const char** stringPtr)
 }
 
 
-/** longCommand() :
- *  check if string is the same as longCommand.
- *  If yes, @return 1 and advances *stringPtr to the position which immediately follows longCommand.
- * @return 0 and doesn't modify *stringPtr otherwise.
+/**
+ * longCommand():
+ * Checks if string is the same as longCommand.
+ * If yes, @return 1, otherwise @return 0
  */
-static int isCommand(const char* stringPtr, const char* longCommand)
+static int isCommand(const char* string, const char* longCommand)
 {
+    assert(string);
+    assert(longCommand);
     size_t const comSize = strlen(longCommand);
-    assert(stringPtr); assert(longCommand);
-    return !strncmp(stringPtr, longCommand, comSize);
+    return !strncmp(string, longCommand, comSize);
 }
 
-/** longCommandWArg() :
- *  check if *stringPtr is the same as longCommand.
- *  If yes, @return 1 and advances *stringPtr to the position which immediately follows longCommand.
+/*
+ * longCommandWArg():
+ * Checks if *stringPtr is the same as longCommand.
+ * If yes, @return 1 and advances *stringPtr to the position which immediately
+ * follows longCommand.
  * @return 0 and doesn't modify *stringPtr otherwise.
  */
 static int longCommandWArg(const char** stringPtr, const char* longCommand)
 {
+    assert(stringPtr);
+    assert(longCommand);
     size_t const comSize = strlen(longCommand);
     int const result = isCommand(*stringPtr, longCommand);
     if (result) *stringPtr += comSize;
@@ -135,7 +131,8 @@ static int display_hash_names(void)
     return 0;
 }
 
-/* @return : hashID (necessarily between 0 and NB_HASHES) if present
+/*
+ * @return: hashID (necessarily between 0 and NB_HASHES) if present
  *          -1 on error (hname not present)
  */
 static int hashID(const char* hname)
@@ -152,14 +149,16 @@ static int hashID(const char* hname)
 
 static int help(const char* exename)
 {
-    printf("usage : %s [options] [hash] \n\n", exename);
+    printf("Usage: %s [options]... [hash]\n", exename);
+    printf("Runs various benchmarks at various lengths for the listed hash functions\n");
+    printf("and outputs them in a CSV format.\n\n");
     printf("Options: \n");
-    printf("--list   : name available hash algorithms and exit \n");
-    printf("--mins=# : starting length for small size bench (default:%i) \n", SMALL_SIZE_MIN_DEFAULT);
-    printf("--maxs=# : end length for small size bench (default:%i) \n", SMALL_SIZE_MAX_DEFAULT);
-    printf("--minl=# : starting log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MIN_DEFAULT);
-    printf("--maxl=# : end log2(length) for large size bench (default:%i) \n", LARGE_SIZELOG_MAX_DEFAULT);
-    printf("[hash] : is optional, bench all available hashes if not provided \n");
+    printf("  --list       Name available hash algorithms and exit \n");
+    printf("  --mins=LEN   Starting length for small size bench (default: %i) \n", SMALL_SIZE_MIN_DEFAULT);
+    printf("  --maxs=LEN   End length for small size bench (default: %i) \n", SMALL_SIZE_MAX_DEFAULT);
+    printf("  --minl=LEN   Starting log2(length) for large size bench (default: %i) \n", LARGE_SIZELOG_MIN_DEFAULT);
+    printf("  --maxl=LEN   End log2(length) for large size bench (default: %i) \n", LARGE_SIZELOG_MAX_DEFAULT);
+    printf("  [hash]       Optional, bench all available hashes if not provided \n");
     return 0;
 }
 
@@ -190,17 +189,21 @@ int main(int argc, const char** argv)
         if (longCommandWArg(arg, "--maxl=")) { largeTest_log_max = readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--mins=")) { smallTest_size_min = (size_t)readIntFromChar(arg); continue; }
         if (longCommandWArg(arg, "--maxs=")) { smallTest_size_max = (size_t)readIntFromChar(arg); continue; }
-        /* not a command : must be a hash name */
+        /* not a command: must be a hash name */
         hashNb = hashID(*arg);
         if (hashNb >= 0) {
             nb_h_test = 1;
         } else {
-            /* not a hash name : error */
+            /* not a hash name: error */
             return badusage(exename);
         }
     }
 
-    if (hashNb + nb_h_test > NB_HASHES) { printf("wrong hash selection \n"); return 1; }  /* border case (requires (mis)using hidden command `--n=#`) */
+    /* border case (requires (mis)using hidden command `--n=#`) */
+    if (hashNb + nb_h_test > NB_HASHES) {
+        printf("wrong hash selection \n");
+        return 1;
+    }
 
     printf(" ===  benchmarking %i hash functions  === \n", nb_h_test);
     if (largeTest_log_max >= largeTest_log_min) {

@@ -3,7 +3,7 @@
 # the public domain worldwide. This software is distributed without
 # any warranty.
 #
-# For details, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+# For details, see <https://creativecommons.org/publicdomain/zero/1.0/>.
 
 cmake_minimum_required (VERSION 2.8.12 FATAL_ERROR)
 
@@ -44,7 +44,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)
-set(XXHASH_BUILD_ENABLE_INLINE_API ON CACHE BOOL "add xxhash.c to includes for -DXXH_INLINE_ALL")
 set(XXHASH_BUILD_XXHSUM ON CACHE BOOL "Build the xxhsum binary")
 
 # If XXHASH is being bundled in another project, we don't want to
@@ -123,10 +122,8 @@ if(NOT XXHASH_BUNDLED_MODE)
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
   install(FILES "${XXHASH_DIR}/xxhash.h"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-  if(XXHASH_BUILD_ENABLE_INLINE_API)
-    install(FILES "${XXHASH_DIR}/xxhash.c"
-      DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-  endif()
+  install(FILES "${XXHASH_DIR}/xxh3.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
   if(XXHASH_BUILD_XXHSUM)
     install(TARGETS xxhsum
       EXPORT xxHashTargets

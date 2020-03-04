@@ -1,0 +1,30 @@
+v0.7.3
+- Perf: improved speed for large inputs (~+20%)
+- Perf: improved latency for small inputs (~10%)
+- Perf: s390x Vectorial code, by @easyaspi314
+- API: `xxhash.h` can now be included in any order, with and without `XXH_STATIC_LINKING_ONLY` and `XXH_INLINE_ALL`
+- build: xxHash's implementation has been transferred into `xxhash.h`. There is no more need to have `xxhash.c` in the `/include` directory for `XXH_INLINE_ALL` to work
+- build: VCpkg installation instructions, by @LilyWangL
+- install: create pkg-config file, by @bket
+- doc: Highly improved code documentation, by @easyaspi314
+- misc: New test tool in `/tests/collisions`: brute force collision tester for 64-bit hashes
+
+v0.7.2
+- Fixed collision ratio of `XXH128` for some specific input lengths, reported by @svpv
+- Improved `VSX` and `NEON` variants, by @easyaspi314
+- Improved performance of scalar code path (`XXH_VECTOR=0`), by @easyaspi314
+- `xxhsum`: can generate 128-bit hashes with the `-H2` option (note: for experimental purposes only! `XXH128` is not yet frozen)
+- `xxhsum`: option `-q` removes status notifications
+
+v0.7.1
+- Secret first: the algorithm computation can be altered by providing a "secret", which is any blob of bytes, of size >= `XXH3_SECRET_SIZE_MIN`.
+- `seed` is still available, and acts as a secret generator
+- updated `ARM NEON` variant by @easyaspi314
+- Streaming implementation is available
+- Improve compatibility and performance with Visual Studio, with help from @aras-p
+- Better integration when using `XXH_INLINE_ALL`: do not pollute host namespace, use its own macros, such as `XXH_ASSERT()`, `XXH_ALIGN`, etc.
+- 128-bit variant provides helper functions for comparison of hashes.
+- Better `clang` generation of `rotl` instruction, thanks to @easyaspi314
+- `XXH_REROLL` build macro to reduce binary size, by @easyaspi314
+- Improved `cmake` script, by @Mezozoysky
+- Full benchmark program provided in `/tests/bench`

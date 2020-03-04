@@ -29,7 +29,7 @@ environment:
   - COMPILER: "visual"
     ARCH: "ARM64"
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    # note : ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
+    # note: ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
   - COMPILER: "gcc"
     PLATFORM: "mingw64"
   - COMPILER: "gcc"
@@ -71,14 +71,17 @@ build_script:
       make -v &&
       echo ----- &&
       if not [%PLATFORM%]==[clang] (
+        if [%PLATFORM%]==[mingw32] ( SET CPPFLAGS=-DPOOL_MT=0 ) &&
         make -B clean test MOREFLAGS=-Werror
       ) ELSE (
-        make -B clean test CC=clang MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed -Dinline="
+        SET CXXFLAGS=--std=c++14 &&
+        make -B clean test CC=clang CXX=clang++ MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed" NO_C90_TEST=true
       ) &&
       make -C tests/bench
     )
-    # note : strict c90 tests with clang fail, due to (erroneous) presence on `inline` keyword in some included system file
-    # -Dinline= is a way to disable this keyword
+    # note 1: strict c90 tests with clang fail, due to (erroneous) presence on `inline` keyword in some included system file
+    # note 2: multi-threading code doesn't work with mingw32, disabled through POOL_MT=0
+    # note 3: clang requires C++14 to compile sort because its own code contains c++14-only code
 
   - if [%COMPILER%]==[visual] (
       cd cmake_unofficial &&
@@ -90,8 +93,8 @@ build_script:
 #       tests configuration       #
 #---------------------------------#
 test_script:
-  # note : can only run x86 and x64 binaries on Appveyor
-  # note : if %COMPILER%==gcc, xxhsum was already tested within `make test`
+  # note: can only run x86 and x64 binaries on Appveyor
+  # note: if %COMPILER%==gcc, xxhsum was already tested within `make test`
   - if [%TEST_XXHSUM%]==[true] (
       ECHO ***  &&
       ECHO Testing %COMPILER% %PLATFORM% %ARCH%  &&

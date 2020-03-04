@@ -1,6 +1,6 @@
 # ################################################################
 # xxHash Makefile
-# Copyright (C) Yann Collet 2012-2015
+# Copyright (C) Yann Collet 2012-present
 #
 # GPL v2 License
 #
@@ -18,10 +18,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# You can contact the author at :
-#  - xxHash source repository : http://code.google.com/p/xxhash/
+# You can contact the author at:
+#   - xxHash homepage: http://www.xxhash.com
+#   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
-# xxhsum : provides 32/64 bits hash of one or multiple files, or stdin
+# xxhsum: provides 32/64 bits hash of one or multiple files, or stdin
 # ################################################################
 
 # Version numbers
@@ -51,7 +52,7 @@ EXT =
 endif
 
 # OS X linker doesn't support -soname, and use different extension
-# see : https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
+# see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
 ifeq ($(shell uname), Darwin)
 	SHARED_EXT = dylib
 	SHARED_EXT_MAJOR = $(LIBVER_MAJOR).$(SHARED_EXT)
@@ -76,20 +77,22 @@ default: lib xxhsum_and_links
 all: lib xxhsum xxhsum_inlinedXXH
 
 xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
-
-xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.h xxh3.h
+xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
+xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhsum.o: xxhash.h
+xxhash.o: xxhash.c xxhash.h xxh3.h
+	$(CC) $(FLAGS) -c $< -o $@
+xxhsum.o: xxhsum.c xxhash.h
+	$(CC) $(FLAGS) -c $< -o $@
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum xxh32sum xxh64sum
+xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
 
-xxh32sum xxh64sum: xxhsum
-	ln -sf $^ $@
+xxh32sum xxh64sum xxh128sum: xxhsum
+	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
 xxhsum_inlinedXXH: xxhsum.c
@@ -119,6 +122,10 @@ libxxhash: $(LIBXXH)
 lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
 
+pkgconfig:
+	@sed -e 's|@PREFIX@|$(PREFIX)|' \
+		-e 's|@VERSION@|$(LIBVER)|' \
+		libxxhash.pc.in >libxxhash.pc
 
 # helper targets
 
@@ -139,8 +146,9 @@ help:  ## list documented targets
 .PHONY: clean
 clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
-	@$(RM) core *.o libxxhash.*
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) xxh32sum xxh64sum
+	@$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
+	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
 
 
@@ -153,20 +161,23 @@ clean:  ## remove all build artifacts
 .PHONY: check
 check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
 	# stdin
-	$(RUN_ENV) ./xxhsum < xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
-	$(RUN_ENV) ./xxhsum xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
 	# internal bench
-	$(RUN_ENV) ./xxhsum -bi1
+	$(RUN_ENV) ./xxhsum$(EXT) -bi1
 	# file bench
-	$(RUN_ENV) ./xxhsum -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -bi1 xxhash.c
 	# 32-bit
-	$(RUN_ENV) ./xxhsum -H0 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -H0 xxhash.c
 	# 128-bit
-	$(RUN_ENV) ./xxhsum -H2 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -H2 xxhash.c
 	# request incorrect variant
-	$(RUN_ENV) ./xxhsum -H9 xxhash.c ; test $$? -eq 1
+	$(RUN_ENV) ./xxhsum$(EXT) -H9 xxhash.c ; test $$? -eq 1
 
+.PHONY: test-unicode
+test-unicode:
+	$(MAKE) -C tests test_unicode
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
@@ -192,18 +203,19 @@ test-xxhsum-c: xxhsum
 	./xxhsum -c .test.xxh64
 	./xxhsum -c .test.xxh32
 	./xxhsum -c .test.xxh128
+	# read list of files from stdin
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
 	# xxhsum -c warns improperly format lines.
-	cat .test.xxh64 .test.xxh32 | ./xxhsum -c -
-	cat .test.xxh32 .test.xxh64 | ./xxhsum -c -
+	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
+	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly
 	# Expects "FAILED"
 	echo "0000000000000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-	@$(RM) -f .test.xxh32 .test.xxh64 .test.xxh128
+	@$(RM) .test.xxh32 .test.xxh64 .test.xxh128
 
 .PHONY: armtest
 armtest: clean
@@ -221,6 +233,10 @@ cxxtest: clean
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
 .PHONY: c90test
+ifeq ($(NO_C90_TEST),true)
+c90test:
+	@echo no c90 compatibility test
+else
 c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
 c90test: CFLAGS += -std=c90 -Werror -pedantic
 c90test: xxhash.c
@@ -228,12 +244,15 @@ c90test: xxhash.c
 	$(RM) xxhash.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
 	$(RM) xxhash.o
+endif
 
+.PHONY: usan
 usan: CC=clang
+usan: CXX=clang++
 usan:  ## check CLI runtime for undefined behavior, using clang's sanitizer
 	@echo ---- check undefined behavior - sanitize ----
 	$(MAKE) clean
-	$(MAKE) test CC=$(CC) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
+	$(MAKE) test CC=$(CC) CXX=$(CXX) MOREFLAGS="-g -fsanitize=undefined -fno-sanitize-recover=all"
 
 .PHONY: staticAnalyze
 SCANBUILD ?= scan-build
@@ -272,14 +291,23 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DDEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test
+test: all namespaceTest check test-xxhsum-c c90test test-tools
+
+.PHONY: test-inline
+test-inline:
+	$(MAKE) -C tests test_multiInclude
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan listL120 trailingWhitespace staticAnalyze
+test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze test-unicode
+
+.PHONY: test-tools
+test-tools:
+	CFLAGS=-Werror $(MAKE) -C tests/bench
+	CFLAGS=-Werror $(MAKE) -C tests/collisions
 
 .PHONY: listL120
-listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
+listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note: $$, for Makefile compatibility)
 	find . -type f -name '*.c' -o -name '*.h' | while read -r filename; do awk 'length > 120 {print FILENAME "(" FNR "): " $$0}' $$filename; done
 
 .PHONY: trailingWhitespace
@@ -293,7 +321,7 @@ trailingWhitespace:
 ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
 
 DESTDIR     ?=
-# directory variables : GNU conventions prefer lowercase
+# directory variables: GNU conventions prefer lowercase
 # see https://www.gnu.org/prep/standards/html_node/Makefile-Conventions.html
 # support both lower and uppercase (BSD), use uppercase in script
 prefix      ?= /usr/local
@@ -308,6 +336,12 @@ BINDIR      ?= $(bindir)
 datarootdir ?= $(PREFIX)/share
 mandir      ?= $(datarootdir)/man
 man1dir     ?= $(mandir)/man1
+
+ifneq (,$(filter $(shell uname),FreeBSD NetBSD DragonFly))
+PKGCONFIGDIR ?= $(PREFIX)/libdata/pkgconfig
+else
+PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
+endif
 
 ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
 MANDIR  ?= $(PREFIX)/man/man1
@@ -326,7 +360,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 
 
 .PHONY: install
-install: lib xxhsum  ## install libraries, CLI, links and man page
+install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@echo Installing libxxhash
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
 	@$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
@@ -335,6 +369,10 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
+	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+	@echo Installing pkgconfig
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
+	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
 	@echo Installing xxhsum
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
@@ -355,6 +393,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
+	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh128sum

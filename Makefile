@@ -122,6 +122,10 @@ libxxhash: $(LIBXXH)
 lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
 
+pkgconfig:
+	@sed -e 's|@PREFIX@|$(PREFIX)|' \
+		-e 's|@VERSION@|$(LIBVER)|' \
+		libxxhash.pc.in >libxxhash.pc
 
 # helper targets
 
@@ -142,7 +146,7 @@ help:  ## list documented targets
 .PHONY: clean
 clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
-	@$(RM) core *.o libxxhash.*
+	@$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
 	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
@@ -333,6 +337,12 @@ datarootdir ?= $(PREFIX)/share
 mandir      ?= $(datarootdir)/man
 man1dir     ?= $(mandir)/man1
 
+ifneq (,$(filter $(shell uname),FreeBSD NetBSD DragonFly))
+PKGCONFIGDIR ?= $(PREFIX)/libdata/pkgconfig
+else
+PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
+endif
+
 ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
 MANDIR  ?= $(PREFIX)/man/man1
 else
@@ -350,7 +360,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 
 
 .PHONY: install
-install: lib xxhsum  ## install libraries, CLI, links and man page
+install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@echo Installing libxxhash
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
 	@$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
@@ -360,6 +370,9 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
 	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+	@echo Installing pkgconfig
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
+	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
 	@echo Installing xxhsum
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
@@ -380,6 +393,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
+	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh128sum

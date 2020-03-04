@@ -22,7 +22,7 @@
 #   - xxHash homepage: http://www.xxhash.com
 #   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
-# xxhsum : provides 32/64 bits hash of one or multiple files, or stdin
+# xxhsum: provides 32/64 bits hash of one or multiple files, or stdin
 # ################################################################
 
 # Version numbers
@@ -52,7 +52,7 @@ EXT =
 endif
 
 # OS X linker doesn't support -soname, and use different extension
-# see : https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
+# see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
 ifeq ($(shell uname), Darwin)
 	SHARED_EXT = dylib
 	SHARED_EXT_MAJOR = $(LIBVER_MAJOR).$(SHARED_EXT)
@@ -122,6 +122,10 @@ libxxhash: $(LIBXXH)
 lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
 
+pkgconfig:
+	@sed -e 's|@PREFIX@|$(PREFIX)|' \
+		-e 's|@VERSION@|$(LIBVER)|' \
+		libxxhash.pc.in >libxxhash.pc
 
 # helper targets
 
@@ -142,7 +146,7 @@ help:  ## list documented targets
 .PHONY: clean
 clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
-	@$(RM) core *.o libxxhash.*
+	@$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
 	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
@@ -303,7 +307,7 @@ test-tools:
 	CFLAGS=-Werror $(MAKE) -C tests/collisions
 
 .PHONY: listL120
-listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note : $$, for Makefile compatibility)
+listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note: $$, for Makefile compatibility)
 	find . -type f -name '*.c' -o -name '*.h' | while read -r filename; do awk 'length > 120 {print FILENAME "(" FNR "): " $$0}' $$filename; done
 
 .PHONY: trailingWhitespace
@@ -317,7 +321,7 @@ trailingWhitespace:
 ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
 
 DESTDIR     ?=
-# directory variables : GNU conventions prefer lowercase
+# directory variables: GNU conventions prefer lowercase
 # see https://www.gnu.org/prep/standards/html_node/Makefile-Conventions.html
 # support both lower and uppercase (BSD), use uppercase in script
 prefix      ?= /usr/local
@@ -332,6 +336,12 @@ BINDIR      ?= $(bindir)
 datarootdir ?= $(PREFIX)/share
 mandir      ?= $(datarootdir)/man
 man1dir     ?= $(mandir)/man1
+
+ifneq (,$(filter $(shell uname),FreeBSD NetBSD DragonFly))
+PKGCONFIGDIR ?= $(PREFIX)/libdata/pkgconfig
+else
+PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
+endif
 
 ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
 MANDIR  ?= $(PREFIX)/man/man1
@@ -350,7 +360,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 
 
 .PHONY: install
-install: lib xxhsum  ## install libraries, CLI, links and man page
+install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@echo Installing libxxhash
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
 	@$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
@@ -360,6 +370,9 @@ install: lib xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
 	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+	@echo Installing pkgconfig
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
+	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
 	@echo Installing xxhsum
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
 	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
@@ -380,6 +393,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
+	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh128sum

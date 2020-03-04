@@ -165,7 +165,7 @@ static char *utf16_to_utf8(const wchar_t *str)
 }
 
 /*
- * fopen on Windows, like main's argv, is useless.
+ * fopen wrapper that supports UTF-8
  *
  * fopen will only accept ANSI filenames, which means that we can't open Unicode filenames.
  *
@@ -182,6 +182,56 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
     return f;
 }
 
+/*
+ * fprintf wrapper that supports UTF-8.
+ *
+ * If we switch stdout's mode to _O_U8TEXT, the console will always print
+ * UTF-8, regardless of the console's codepage. However, fprintf will crash
+ * with an assertion if it encounters any UTF-8.
+ *
+ * fwprintf properly prints in _O_U8TEXT mode, but it is not ISO C compatible.
+ * Therefore, we can't just replace fprintf with fwprintf.
+ *
+ * Specifically, '%s' prints UTF-16 strings on Windows instead of UTF-8.
+ *
+ * Additionally, '%hs' prints strings in ANSI encoding.
+ *
+ * The workaround to this is to generate a UTF-8 string with snprintf (actually
+ * vsnprintf), convert it to UTF-16, and print it with fwprintf.
+ *
+ * This works reliably even if someone defines __USE_MINGW_ANSI_STDIO.
+ *
+ * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
+ */
+static int fprintf_utf8(FILE *stream, const char *format, ...)
+{
+    int result;
+    va_list args;
+    va_start(args, format);
+    result = _vscprintf(format, args);
+    if (result > 0) {
+        const size_t nchar = (size_t)result + 1;
+        char* u8_str = (char*) malloc(nchar * sizeof(u8_str[0]));
+        if (u8_str == NULL) {
+            result = -1;
+        } else {
+            result = vsnprintf(u8_str, nchar, format, args);
+            if (result > 0) {
+                wchar_t *const u16_buf = utf8_to_utf16(u8_str);
+                if (u16_buf == NULL) {
+                    result = -1;
+                } else {
+                    /* %ls: Behaves the same in ISO C and Windows */
+                    result = fwprintf(stream, L"%ls", u16_buf);
+                    free(u16_buf);
+                }
+            }
+            free(u8_str);
+        }
+    }
+    va_end(args);
+    return result;
+}
 /*
  * Since we always use literals in the "mode" argument, it is just easier to append "L" to
  * the string to make it UTF-16 and avoid the hassle of a second manual conversion.
@@ -215,7 +265,7 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 
 static unsigned BMK_isLittleEndian(void)
 {
-    const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static : performance detrimental  */
+    const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static: performance detrimental  */
     return one.c[0];
 }
 
@@ -247,8 +297,13 @@ static unsigned BMK_isLittleEndian(void)
 #    define VERSION "GCC " __VERSION__
 #  endif
 #elif defined(_MSC_FULL_VER) && defined(_MSC_BUILD)
-/* "For example, if the version number of the Visual C++ compiler is 15.00.20706.01, the _MSC_FULL_VER macro
- * evaluates to 150020706." https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017 */
+/*
+ * MSVC
+ *  "For example, if the version number of the Visual C++ compiler is
+ *   15.00.20706.01, the _MSC_FULL_VER macro evaluates to 150020706."
+ *
+ *   https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017
+ */
 #  define VERSION  _MSC_FULL_VER / 10000000 % 100, _MSC_FULL_VER / 100000 % 100, _MSC_FULL_VER % 100000, _MSC_BUILD
 #  define VERSION_FMT ", MSVC %02i.%02i.%05i.%02i"
 #elif defined(__TINYC__)
@@ -261,7 +316,7 @@ static unsigned BMK_isLittleEndian(void)
 #endif
 
 /* makes the next part easier */
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX64)
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
 #   define ARCH_X64 1
 #   define ARCH_X86 "x86_64"
 #elif defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
@@ -274,7 +329,7 @@ static unsigned BMK_isLittleEndian(void)
 #    define ARCH ARCH_X86 " + AVX2"
 #  elif defined(__AVX__)
 #    define ARCH ARCH_X86 " + AVX"
-#  elif defined(_M_IX64) || defined(_M_AMD64) || defined(__x86_64__) \
+#  elif defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__) \
       || defined(__SSE2__) || (defined(_M_IX86_FP) && _M_IX86_FP == 2)
 #     define ARCH ARCH_X86 " + SSE2"
 #  else
@@ -332,7 +387,7 @@ static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s (%i-bits %s %s)" VERSION_FMT ", by %s \n", \
+#define WELCOME_MESSAGE(exename) "%s %s (%i-bit %s %s)" VERSION_FMT ", by %s\n", \
                     exename, PROGRAM_VERSION, g_nbBits, ARCH, ENDIAN_NAME, VERSION, author
 
 #define KB *( 1<<10)
@@ -364,8 +419,14 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 /* ************************************
  *  Display macros
  **************************************/
+#ifdef _WIN32
+#define DISPLAY(...)         fprintf_utf8(stderr, __VA_ARGS__)
+#define DISPLAYRESULT(...)   fprintf_utf8(stdout, __VA_ARGS__)
+#else
 #define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
+#endif
+
 #define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
 static int g_displayLevel = 2;
 
@@ -460,13 +521,33 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 
         {   clock_t const nbTicks = BMK_clockSpan(cStart);
             double const ticksPerHash = ((double)nbTicks / TIMELOOP) / nbh_perIteration;
-
+            /*
+             * clock() is the only decent portable timer, but it isn't very
+             * precise.
+             *
+             * Sometimes, this lack of precision is enough that the benchmark
+             * finishes before there are enough ticks to get a meaningful result.
+             *
+             * For example, on a Core 2 Duo (without any sort of Turbo Boost),
+             * the imprecise timer caused peculiar results like so:
+             *
+             *    XXH3_64b                   4800.0 MB/s // conveniently even
+             *    XXH3_64b unaligned         4800.0 MB/s
+             *    XXH3_64b seeded            9600.0 MB/s // magical 2x speedup?!
+             *    XXH3_64b seeded unaligned  4800.0 MB/s
+             *
+             * If we sense a suspiciously low number of ticks, we increase the
+             * iterations until we can get something meaningful.
+             */
             if (nbTicks < TIMELOOP_MIN) {
-                /* not enough time spent in benchmarking, risk of rounding bias */
+                /* Not enough time spent in benchmarking, risk of rounding bias */
                 if (nbTicks == 0) { /* faster than resolution timer */
                     nbh_perIteration *= 100;
                 } else {
-                    /* update nbh_perIteration so that next round last approximately 1 second */
+                    /*
+                     * update nbh_perIteration so that the next round lasts
+                     * approximately 1 second.
+                     */
                     double nbh_perSecond = (1 / ticksPerHash) + 1;
                     if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
                     nbh_perIteration = (U32)nbh_perSecond;
@@ -645,7 +726,7 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
 
 
 /* ************************************************
- * Self-test :
+ * Self-test:
  * ensure results consistency accross platforms
  *********************************************** */
 
@@ -1278,7 +1359,8 @@ static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
     for (;;) {
         const int c = fgetc(inFile);
         if (c == EOF) {
-            /* If we meet EOF before first character, returns GetLine_eof,
+            /*
+             * If we meet EOF before first character, returns GetLine_eof,
              * otherwise GetLine_ok.
              */
             if (len == 0) result = GetLine_eof;
@@ -1423,7 +1505,8 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 }
 
 
-/*!  Parse xxHash checksum file.
+/*!
+ * Parse xxHash checksum file.
  */
 static void parseFile1(ParseFileArg* parseFileArg)
 {
@@ -1491,7 +1574,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             report->nImproperlyFormattedLines++;
             report->nMixedFormatLines++;
             if (parseFileArg->warn) {
-                DISPLAY("%s : %lu: Error: Multiple hash types in one file.\n",
+                DISPLAY("%s: %lu: Error: Multiple hash types in one file.\n",
                         inFileName, lineNumber);
             }
             continue;
@@ -1609,8 +1692,10 @@ static int checkFile(const char* inFileName,
 
     /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
-        /* note : Since we expect text input for xxhash -c mode,
-         * Don't set binary mode for stdin */
+        /*
+         * Note: Since we expect text input for xxhash -c mode,
+         * we don't set binary mode for stdin.
+         */
         inFileName = "stdin";
         inFile = stdin;
     } else {
@@ -1781,7 +1866,8 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
  * @return: unsigned integer value read from input in `char` format.
  *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
- *  Note: function will exit() program if digit sequence overflows */
+ *  Note: function will exit() program if digit sequence overflows
+ */
 static unsigned readU32FromChar(const char** stringPtr) {
     unsigned result;
     if (readU32FromCharChecked(stringPtr, &result)) {
@@ -1805,7 +1891,7 @@ static int XXH_main(int argc, char** argv)
     algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;
 
-    /* special case : xxhNNsum default to NN bits checksum */
+    /* special case: xxhNNsum default to NN bits checksum */
     if (strstr(exename,  "xxh32sum") != NULL) algo = algo_xxh32;
     if (strstr(exename,  "xxh64sum") != NULL) algo = algo_xxh64;
     if (strstr(exename, "xxh128sum") != NULL) algo = algo_xxh128;
@@ -1813,7 +1899,7 @@ static int XXH_main(int argc, char** argv)
     for(i=1; i<argc; i++) {
         const char* argument = argv[i];
 
-        if(!argument) continue;   /* Protection, if argument empty */
+        if(!argument) continue;   /* Protection if arguments are empty */
 
         if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
@@ -1830,7 +1916,7 @@ static int XXH_main(int argc, char** argv)
         }
 
         /* command selection */
-        argument++;   /* note : *argument=='-' */
+        argument++;   /* note: *argument=='-' */
 
         while (*argument!=0) {
             switch(*argument)
@@ -1942,14 +2028,31 @@ static void free_argv(int argc, char **argv)
 }
 
 /*
+ * The original MinGW doesn't define _O_U8TEXT unless __MSVCRT_VERSION__ is
+ * defined to 0x0800 or higher, a.k.a. MSVC 2005.
+ *
+ * It is defined to 0x40000 on all Windows versions that support it, so we
+ * just define it manually.
+ *
+ * Even if you are linking to a really old MSVC runtime, the worst thing that
+ * can happen is that it silently errors and Unicode text doesn't appear in the
+ * console. ASCII text would work as expected, and that is its primary usage.
+ *
+ * However, at least on Windows 10, this seems to work with msvcrt.dll.
+ */
+#ifndef _O_U8TEXT
+#  define _O_U8TEXT 0x40000
+#endif
+
+/*
  * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
- * encoding, and unknown characters will show up as mojibake.
+ * encoding, and any unknown characters will show up as mojibake.
  *
  * While this doesn't affect most programs, what does happen is that we can't
  * open any files with Unicode filenames.
  *
  * On MSVC or when -municode is used in MSYS2, we can just use wmain to get
- * UTF-16 command line arguments and convert the to UTF-8.
+ * UTF-16 command line arguments and convert them to UTF-8.
  *
  * However, without the -municode flag (which isn't even available on the
  * original MinGW), we will get a linker error.
@@ -1971,6 +2074,10 @@ int main(int argc, char **argv)
     wchar_t **utf16_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 #endif
     int ret;
+    /* Attempt to set stdin and stdout to UTF-8 mode. */
+    const int oldStdoutMode = _setmode(_fileno(stdout), _O_U8TEXT);
+    const int oldStderrMode = _setmode(_fileno(stderr), _O_U8TEXT);
+
     /* Convert the UTF-16 arguments to UTF-8. */
     argv = convert_argv(argc, utf16_argv);
 
@@ -1992,6 +2099,8 @@ int main(int argc, char **argv)
     /* CommandLineToArgvW needs to be freed with LocalFree. */
     LocalFree(utf16_argv);
 #endif
+    fflush(stdout); _setmode(_fileno(stdout), oldStdoutMode);
+    fflush(stderr); _setmode(_fileno(stderr), oldStderrMode);
     return ret;
 }
 

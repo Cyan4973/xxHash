@@ -89,22 +89,22 @@ data (produced and consumed in same session).
 
 The following macros can be set at compilation time to modify libxxhash's behavior. They are all disabled by default.
 
-- `XXH_INLINE_ALL` : Make all functions `inline`, with implementations being directly included within `xxhash.h`.
-                     Inlining functions is beneficial for speed on small keys.
-                     It's _extremely effective_ when key length is expressed as _a compile time constant_,
-                     with performance improvements being observed in the +200% range .
-                     See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
-                     Note: there is no need to compile an `xxhash.o` object file in this case.
+- `XXH_INLINE_ALL`: Make all functions `inline`, with implementations being directly included within `xxhash.h`.
+                    Inlining functions is beneficial for speed on small keys.
+                    It's _extremely effective_ when key length is expressed as _a compile time constant_,
+                    with performance improvements being observed in the +200% range .
+                    See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
+                    Note: there is no need to compile an `xxhash.o` object file in this case.
 - `XXH_NO_INLINE_HINTS`: By default, xxHash uses tricks like `__attribute__((always_inline))` and `__forceinline` to try and improve performance at the cost of code size. Defining this to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not. This is very useful when optimizing for the smallest binary size, and it is automatically defined when compiling with `-O0`, `-Os`, `-Oz`, or `-fno-inline` on GCC and Clang. This may also increase performance depending on the compiler and the architecture.
 - `XXH_REROLL`: Reduces the size of the generated code by not unrolling some loops. Impact on performance may vary, depending on the platform and the algorithm.
-- `XXH_ACCEPT_NULL_INPUT_POINTER` : if set to `1`, when input is a `NULL` pointer,
-                                    xxHash'd result is the same as a zero-length input
-                                    (instead of a dereference segfault).
-                                    Adds one branch at the beginning of the hash.
-- `XXH_FORCE_MEMORY_ACCESS` : The default method `0` uses a portable `memcpy()` notation.
-                              Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
-                              Method `2` forces unaligned reads, which is not standards compliant, but might sometimes be the only way to extract better read performance.
-                              Method `3` uses a byteshift operation, which is best for old compilers which don't inline `memcpy()` or big-endian systems without a byteswap instruction
+- `XXH_ACCEPT_NULL_INPUT_POINTER`: if set to `1`, when input is a `NULL` pointer,
+                                   xxHash'd result is the same as a zero-length input
+                                   (instead of a dereference segfault).
+                                   Adds one branch at the beginning of the hash.
+- `XXH_FORCE_MEMORY_ACCESS`: The default method `0` uses a portable `memcpy()` notation.
+                             Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
+                             Method `2` forces unaligned reads, which is not standards compliant, but might sometimes be the only way to extract better read performance.
+                             Method `3` uses a byteshift operation, which is best for old compilers which don't inline `memcpy()` or big-endian systems without a byteswap instruction
 - `XXH_CPU_LITTLE_ENDIAN`: By default, endianess is determined at compile time.
                            It's possible to skip auto-detection and force format to little-endian, by setting this macro to 1.
                             Setting it to 0 forces big-endian.

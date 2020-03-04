@@ -22,8 +22,8 @@
 #   - xxHash homepage: http://www.xxhash.com
 #   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
-# benchHash : generic benchmark for hash algorithms
-#             measuring throughput, latency and bandwidth
+# benchHash: A generic benchmark for hash algorithms
+#            measuring throughput, latency and bandwidth
 # ################################################################
 
 

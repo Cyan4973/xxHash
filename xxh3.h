@@ -33,18 +33,19 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-/* This file is separated for development purposes.
-   It will be integrated into `xxhash.h` when development stage is completed.
-
-   Credit : most of the work on vectorial and asm variants comes from @easyaspi314
-*/
+/*
+ * Note: This file is separated for development purposes.
+ * It will be integrated into `xxhash.h` when development stage is completed.
+ *
+ * Credit: most of the work on vectorial and asm variants comes from @easyaspi314
+ */
 
 #ifndef XXH3_H_1397135465
 #define XXH3_H_1397135465
 
 /* ===   Dependencies   === */
 #ifndef XXHASH_H_5627135585666179
-/* special : when including `xxh3.h` directly, turn on XXH_INLINE_ALL */
+/* special: when including `xxh3.h` directly, turn on XXH_INLINE_ALL */
 #  undef XXH_INLINE_ALL   /* avoid redefinition */
 #  define XXH_INLINE_ALL
 #endif
@@ -56,7 +57,7 @@
 #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* >= C99 */
 #  define XXH_RESTRICT   restrict
 #else
-/* note : it might be useful to define __restrict or __restrict__ for some C++ compilers */
+/* Note: it might be useful to define __restrict or __restrict__ for some C++ compilers */
 #  define XXH_RESTRICT   /* disable */
 #endif
 
@@ -467,24 +468,41 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
 
-/* xxh_u64 XXH_mult32to64(xxh_u32 a, xxh_u32 b) { return (xxh_u64)a * (xxh_u64)b; } */
+/*
+ * Does a 32-bit to 64-bit long multiply.
+ *
+ * Wraps __emulu on MSVC x86 because it tends to call __allmul when it doesn't
+ * need to (but it shouldn't need to anyways, it is about 7 instructions to do
+ * a 64x64 multiply...). Since we know that this will _always_ emit MULL, we
+ * use that instead of the normal method.
+ *
+ * If you are compiling for platforms like Thumb-1 and don't have a better option,
+ * you may also want to write your own long multiply routine here.
+ *
+ * XXH_FORCE_INLINE xxh_u64 XXH_mult32to64(xxh_u64 x, xxh_u64 y)
+ * {
+ *    return (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF);
+ * }
+ */
 #if defined(_MSC_VER) && defined(_M_IX86)
 #    include <intrin.h>
-#    define XXH_mult32to64(x, y) __emulu(x, y)
+#    define XXH_mult32to64(x, y) __emulu((unsigned)(x), (unsigned)(y))
 #else
+/*
+ * Downcast + upcast is usually better than masking on older compilers like
+ * GCC 4.2 (especially 32-bit ones), all without affecting newer compilers.
+ *
+ * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both operands
+ * and perform a full 64x64 multiply -- entirely redundant on 32-bit.
+ */
 #    define XXH_mult32to64(x, y) ((xxh_u64)(xxh_u32)(x) * (xxh_u64)(xxh_u32)(y))
 #endif
 
 /*
- * GCC for x86 has a tendency to use SSE in this loop. While it successfully
- * avoids swapping (as MUL overwrites EAX and EDX), it slows it down because
- * instead of free register swap shifts, it must use PSHUFD and PUNPCKL/HD
+ * Calculates a 64->128-bit long multiply.
  *
- * To prevent this, we use this attribute to shut off SSE.
+ * Uses __uint128_t and _umul128 if available, otherwise uses a scalar version.
  */
-#if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
-__attribute__((__target__("no-sse")))
-#endif
 static XXH128_hash_t
 XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
 {
@@ -589,16 +607,11 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
 }
 
 /*
- * We want to keep the attribute here because a target switch  disables inlining.
- *
  * Does a 64-bit to 128-bit multiply, then XOR folds it.
  *
  * The reason for the separate function is to prevent passing too many structs
  * around by value. This will hopefully inline the multiply, but we don't force it.
  */
-#if defined(__GNUC__) && !defined(__clang__) && defined(__i386__)
-__attribute__((__target__("no-sse")))
-#endif
 static xxh_u64
 XXH3_mul128_fold64(xxh_u64 lhs, xxh_u64 rhs)
 {
@@ -644,6 +657,22 @@ static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
  * is almost guaranteed to be faster than XXH64.
  */
 
+/*
+ * At very short lengths, there isn't enough input to fully hide secrets, or use
+ * the entire secret.
+ *
+ * There is also only a limited amount of mixing we can do before significantly
+ * impacting performance.
+ *
+ * Therefore, we use different sections of the secret and always mix two secret
+ * samples with an XOR. This should have no effect on performance on the
+ * seedless or withSeed variants because everything _should_ be constant folded
+ * by modern compilers.
+ *
+ * The XOR mixing hides individual parts of the secret and increases entropy.
+ *
+ * This adds an extra layer of strength for custom secrets.
+ */
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {
@@ -744,11 +773,33 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                                      const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
 {
-    xxh_u64 const input_lo = XXH_readLE64(input);
-    xxh_u64 const input_hi = XXH_readLE64(input+8);
-    return XXH3_mul128_fold64(
-               input_lo ^ (XXH_readLE64(secret)   + seed64),
-               input_hi ^ (XXH_readLE64(secret+8) - seed64) );
+#if defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__i386__) && defined(__SSE2__)  /* x86 + SSE2 */ \
+  && !defined(XXH_ENABLE_AUTOVECTORIZE)      /* Define to disable like XXH32 hack */
+    /*
+     * UGLY HACK:
+     * GCC for x86 tends to autovectorize the 128-bit multiply, resulting in
+     * slower code.
+     *
+     * By forcing seed64 into a register, we disrupt the cost model and
+     * cause it to scalarize. See `XXH32_round()`
+     *
+     * FIXME: Clang's output is still _much_ faster -- On an AMD Ryzen 3600,
+     * XXH3_64bits @ len=240 runs at 4.6 GB/s with Clang 9, but 3.3 GB/s on
+     * GCC 9.2, despite both emitting scalar code.
+     *
+     * GCC generates much better scalar code than Clang for the rest of XXH3,
+     * which is why finding a more optimal codepath is an interest.
+     */
+    __asm__ ("" : "+r" (seed64));
+#endif
+    {   xxh_u64 const input_lo = XXH_readLE64(input);
+        xxh_u64 const input_hi = XXH_readLE64(input+8);
+        return XXH3_mul128_fold64(
+            input_lo ^ (XXH_readLE64(secret)   + seed64),
+            input_hi ^ (XXH_readLE64(secret+8) - seed64)
+        );
+    }
 }
 
 /* For mid range keys, XXH3 uses a Mum-hash variant. */
@@ -801,6 +852,31 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         }
         acc = XXH3_avalanche(acc);
         XXH_ASSERT(nbRounds >= 8);
+#if defined(__clang__)                                /* Clang */ \
+    && (defined(__ARM_NEON) || defined(__ARM_NEON__)) /* NEON */ \
+    && !defined(XXH_ENABLE_AUTOVECTORIZE)             /* Define to disable */
+        /*
+         * UGLY HACK:
+         * Clang for ARMv7-A tries to vectorize this loop, similar to GCC x86.
+         * In everywhere else, it uses scalar code.
+         *
+         * For 64->128-bit multiplies, even if the NEON was 100% optimal, it
+         * would still be slower than UMAAL (see XXH_mult64to128).
+         *
+         * Unfortunately, Clang doesn't handle the long multiplies properly and
+         * converts them to the nonexistent "vmulq_u64" intrinsic, which is then
+         * scalarized into an ugly mess of VMOV.32 instructions.
+         *
+         * This mess is difficult to avoid without turning autovectorization
+         * off completely, but they are usually relatively minor and/or not
+         * worth it to fix.
+         *
+         * This loop is the easiest to fix, as unlike XXH32, this pragma
+         * _actually works_ because it is a loop vectorization instead of an
+         * SLP vectorization.
+         */
+        #pragma clang loop vectorize(disable)
+#endif
         for (i=8 ; i < nbRounds; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
         }
@@ -1187,7 +1263,11 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #define XXH_PREFETCH_DIST 384
 
-/* assumption : nbStripes will not overflow secret size */
+/*
+ * XXH3_accumulate()
+ * Loops over XXH3_accumulate_512().
+ * Assumption: nbStripes will not overflow the secret size
+ */
 XXH_FORCE_INLINE void
 XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
                 const xxh_u8* XXH_RESTRICT input,
@@ -1206,17 +1286,7 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     }
 }
 
-/* note : clang auto-vectorizes well in SS2 mode _if_ this function is `static`,
- *        and doesn't auto-vectorize it at all if it is `FORCE_INLINE`.
- *        However, it auto-vectorizes better AVX2 if it is `FORCE_INLINE`
- *        Pretty much every other modes and compilers prefer `FORCE_INLINE`.
- */
-
-#if defined(__clang__) && (XXH_VECTOR==0) && !defined(__AVX2__) && !defined(__arm__) && !defined(__thumb__)
-static void
-#else
 XXH_FORCE_INLINE void
-#endif
 XXH3_hashLong_internal_loop( xxh_u64* XXH_RESTRICT acc,
                       const xxh_u8* XXH_RESTRICT input, size_t len,
                       const xxh_u8* XXH_RESTRICT secret, size_t secretSize,

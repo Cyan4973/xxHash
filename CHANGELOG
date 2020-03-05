@@ -1,11 +1,12 @@
 v0.7.3
-- Perf: improved speed for large inputs (~+20%)
-- Perf: improved latency for small inputs (~10%)
-- Perf: s390x Vectorial code, by @easyaspi314
-- API: `xxhash.h` can now be included in any order, with and without `XXH_STATIC_LINKING_ONLY` and `XXH_INLINE_ALL`
-- build: xxHash's implementation has been transferred into `xxhash.h`. There is no more need to have `xxhash.c` in the `/include` directory for `XXH_INLINE_ALL` to work
-- build: VCpkg installation instructions, by @LilyWangL
-- install: create pkg-config file, by @bket
+- perf: improved speed for large inputs (~+20%)
+- perf: improved latency for small inputs (~10%)
+- perf: s390x Vectorial code, by @easyaspi314
+- cli: improved support for Unicode filenames on Windows, thanks to @easyaspi314 and @t-mat
+- api: `xxhash.h` can now be included in any order, with and without `XXH_STATIC_LINKING_ONLY` and `XXH_INLINE_ALL`
+- build: xxHash's implementation transferred into `xxhash.h`. No more need to have `xxhash.c` in the `/include` directory for `XXH_INLINE_ALL` to work
+- install: created pkg-config file, by @bket
+- install: VCpkg installation instructions, by @LilyWangL
 - doc: Highly improved code documentation, by @easyaspi314
 - misc: New test tool in `/tests/collisions`: brute force collision tester for 64-bit hashes
 

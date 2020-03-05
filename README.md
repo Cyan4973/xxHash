@@ -33,7 +33,7 @@ The reference system uses a Core 2 Duo @3GHz
 | MD5-32        | 0.33 GB/s          |   10    | Ronald L.Rivest   |
 | SHA1-32       | 0.28 GB/s          |   10    |                   |
 
-[xxHash]: http://www.xxhash.com
+[xxHash]: https://www.xxhash.com
 
 Note &dagger;: SMHasher's CRC32 implementation is known to be slow. Faster implementations exist.
 
@@ -192,7 +192,7 @@ XXH64_hash_t calcul_hash_streaming(FileHandler fh)
 Aside from the C reference version,
 xxHash is also available in many different programming languages,
 thanks to many great contributors.
-They are [listed here](http://www.xxhash.com/#other-languages).
+They are [listed here](https://www.xxhash.com/#other-languages).
 
 
 ### Branch Policy

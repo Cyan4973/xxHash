@@ -305,7 +305,7 @@ On 32-bit systems though, positions are reversed: `XXH64` performance is reduced
 Reference Implementation
 ----------------------------------------
 
-A reference library written in C is available at http://www.xxhash.com.
+A reference library written in C is available at https://www.xxhash.com.
 The web page also links to multiple other implementations written in many different languages.
 It links to the [github project page](https://github.com/Cyan4973/xxHash) where an [issue board](https://github.com/Cyan4973/xxHash/issues) can be used for further public discussions on the topic.
 

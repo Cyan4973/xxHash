@@ -19,7 +19,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # You can contact the author at:
-#   - xxHash homepage: http://www.xxhash.com
+#   - xxHash homepage: https://www.xxhash.com
 #   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
 # xxhsum: provides 32/64 bits hash of one or multiple files, or stdin

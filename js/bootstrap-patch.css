@@ -10,4 +10,19 @@
 .tab-content > .active,
 .pill-content > .active {
     height: auto;              /* let the content decide it  */
-} /* bootstrap hack end */
+}
+
+/* Fix navbar padding on mobile, which bootstrap messes up for some reason */
+body, html {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+/* mobile navbar mode is < 768px */
+@media screen and not (min-width: 768px) {
+    /* Sandstone theme disables padding here for some reason */
+    .container-fluid {
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+    }
+}
+/* bootstrap hack end */

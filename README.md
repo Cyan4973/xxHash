@@ -82,7 +82,10 @@ The algorithm is currently in development, meaning its return values might still
 However, the API is stable, and can be used in production, typically for ephemeral
 data (produced and consumed in same session).
 
-`XXH3`'s return values will be finalized upon reaching `v0.8.0`.
+Since `v0.7.3`, `XXH3` has reached "release candidate" status,
+meaning that, if everything remains fine, its current format will be "frozen" and become the final one.
+After which, return values of `XXH3` and `XXH128` will no longer change in future versions.
+`XXH3`'s return values will be officially finalized upon reaching `v0.8.0`.
 
 
 ### Build modifiers

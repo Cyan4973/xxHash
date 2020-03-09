@@ -813,8 +813,10 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  * routines for malloc() and free()
  */
 #include <stdlib.h>
+
 static void* XXH_malloc(size_t s) { return malloc(s); }
-static void  XXH_free  (void* p)  { free(p); }
+static void XXH_free(void* p) { free(p); }
+
 /*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size)

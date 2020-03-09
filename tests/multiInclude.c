@@ -2,7 +2,7 @@
  * Multi-include test program
  * Validates that xxhash.h can be included multiple times and in any order
  *
- * Copyright (C) Yann Collet 2020-present
+ * Copyright (C) 2020 Yann Collet
  *
  * GPL v2 License
  *

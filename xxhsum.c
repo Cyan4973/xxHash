@@ -1,6 +1,6 @@
 /*
  * xxhsum - Command line interface for xxhash algorithms
- * Copyright (C) Yann Collet 2013-present
+ * Copyright (C) 2013-2020 Yann Collet
  *
  * GPL v2 License
  *

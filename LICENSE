@@ -1,5 +1,5 @@
 xxHash Library
-Copyright (c) 2012-present, Yann Collet
+Copyright (c) 2012-2020 Yann Collet
 All rights reserved.
 
 BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ----------------------------------------------------
 
 xxhsum command line interface
-Copyright (c) 2013-present, Yann Collet
+Copyright (c) 2013-2020 Yann Collet
 All rights reserved.
 
 GPL v2 License

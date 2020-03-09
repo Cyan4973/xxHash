@@ -1,6 +1,6 @@
 # ################################################################
-# xxHash Makefile
-# Copyright (C) Yann Collet 2012-present
+# xxHash benchHash Makefile
+# Copyright (C) 2019-2020 Yann Collet
 #
 # GPL v2 License
 #

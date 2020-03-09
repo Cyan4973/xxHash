@@ -813,8 +813,50 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  * routines for malloc() and free()
  */
 #include <stdlib.h>
-static void* XXH_malloc(size_t s) { return malloc(s); }
-static void  XXH_free  (void* p)  { free(p); }
+
+/*
+ * Malloc's a pointer that is always 64 byte aligned.
+ *
+ * This must be freed with `XXH_free()`.
+ *
+ * Functions like posix_memalign or _mm_malloc are avoided: To maintain
+ * compatibility, we would have to write a fallback like this anyways.
+ */
+static void* XXH_malloc(size_t s)
+{
+    /* Overallocate to make room for manual realignment and an offset byte */
+    unsigned char* base = (unsigned char*)malloc(s + 64);
+    if (base != NULL) {
+        /*
+         * Get the offset needed to align this pointer to 64 bytes.
+         *
+         * Even if the returned pointer is 64-byte aligned, there will always
+         * be room for our offset byte.
+         */
+        unsigned char offset = 64 - ((size_t)base % 64);
+        /* Get an aligned pointer with room for the offset byte. */
+        unsigned char* ptr = base + offset;
+        /* Store the offset immediately before the returned pointer. */
+        ptr[-1] = offset;
+        return ptr;
+    }
+    return NULL;
+}
+/*
+ * Frees an aligned pointer allocated by XXH_malloc().
+ */
+static void XXH_free(void* p)
+{
+    if (p != NULL) {
+        unsigned char* ptr = (unsigned char*)p;
+        /* Get the offset byte we added in XXH_malloc. */
+        unsigned char offset = ptr[-1];
+        /* Free the original malloc'd pointer */
+        unsigned char* base = ptr - offset;
+        free(base);
+    }
+}
+
 /*! and for memcpy() */
 #include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size)

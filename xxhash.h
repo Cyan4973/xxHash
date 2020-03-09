@@ -836,11 +836,11 @@ static void* XXH_malloc(size_t s)
          * Even if the returned pointer is 64-byte aligned, there will always
          * be at least one byte to store the offset to the original pointer.
          */
-        unsigned char offset = 64 - ((size_t)base % 64);
+        size_t offset = 64 - ((size_t)base % 64);
         /* Add the offset for the now-aligned pointer */
         unsigned char* ptr = base + offset;
         /* Store the offset immediately before the returned pointer. */
-        ptr[-1] = offset;
+        ptr[-1] = (unsigned char)offset;
         return ptr;
     }
     return NULL;

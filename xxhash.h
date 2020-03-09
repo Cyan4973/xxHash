@@ -814,63 +814,8 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  */
 #include <stdlib.h>
 
-/*
- * Malloc's a pointer that is always 64 byte aligned, to match the alignment
- * of XXH3_state_t.
- *
- * This must be freed with `XXH_free()`.
- *
- * malloc typically guarantees 16 byte alignment on 64-bit systems and 8 byte
- * alignment on 32-bit. This isn't enough for the 32 byte aligned loads in AVX2
- * or on 32-bit, the 16 byte aligned loads in SSE2 and NEON.
- *
- * This underalignment previously caused a rather obvious crash which went
- * completely unnoticed due to XXH3_createState() not actually being tested.
- * Credit to RedSpah for noticing this bug.
- *
- * The alignment is done manually: Functions like posix_memalign or _mm_malloc
- * are avoided: To maintain portability, we would have to write a fallback
- * like this anyways, and besides, testing for the existence of library
- * functions without relying on external build tools is impossible.
- *
- * The method is simple: Overallocate, manually align, and store the offset
- * to the original behind the returned pointer.
- */
-static void* XXH_malloc(size_t s)
-{
-    /* Overallocate to make room for manual realignment and an offset byte */
-    unsigned char* base = (unsigned char*)malloc(s + 64);
-    if (base != NULL) {
-        /*
-         * Get the offset needed to align this pointer to 64 bytes.
-         *
-         * Even if the returned pointer is 64-byte aligned, there will always
-         * be at least one byte to store the offset to the original pointer.
-         */
-        size_t offset = 64 - ((size_t)base % 64);
-        /* Add the offset for the now-aligned pointer */
-        unsigned char* ptr = base + offset;
-        /* Store the offset immediately before the returned pointer. */
-        ptr[-1] = (unsigned char)offset;
-        return ptr;
-    }
-    return NULL;
-}
-/*
- * Frees an aligned pointer allocated by XXH_malloc(). Don't pass normal malloc'd
- * pointers, XXH_malloc has a specific data layout.
- */
-static void XXH_free(void* p)
-{
-    if (p != NULL) {
-        unsigned char* ptr = (unsigned char*)p;
-        /* Get the offset byte we added in XXH_malloc. */
-        unsigned char offset = ptr[-1];
-        /* Free the original malloc'd pointer */
-        unsigned char* base = ptr - offset;
-        free(base);
-    }
-}
+static void* XXH_malloc(size_t s) { return malloc(s); }
+static void XXH_free(void* p) { free(p); }
 
 /*! and for memcpy() */
 #include <string.h>

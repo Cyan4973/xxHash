@@ -821,6 +821,9 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  *
  * Functions like posix_memalign or _mm_malloc are avoided: To maintain
  * compatibility, we would have to write a fallback like this anyways.
+ *
+ * The method is simple: Overallocate, manually align, and store the offset
+ * to the original behind the returned pointer.
  */
 static void* XXH_malloc(size_t s)
 {
@@ -831,10 +834,10 @@ static void* XXH_malloc(size_t s)
          * Get the offset needed to align this pointer to 64 bytes.
          *
          * Even if the returned pointer is 64-byte aligned, there will always
-         * be room for our offset byte.
+         * be at least one byte to store the offset to the original pointer.
          */
         unsigned char offset = 64 - ((size_t)base % 64);
-        /* Get an aligned pointer with room for the offset byte. */
+        /* Get an ali*/
         unsigned char* ptr = base + offset;
         /* Store the offset immediately before the returned pointer. */
         ptr[-1] = offset;

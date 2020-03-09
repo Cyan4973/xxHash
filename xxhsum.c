@@ -775,40 +775,44 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 
 static void BMK_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
 {
-    XXH32_state_t state;
+    XXH32_state_t *state = XXH32_createState();
     size_t pos;
 
+    assert(state != NULL);
     if (len>0) assert(data != NULL);
 
     BMK_checkResult32(XXH32(data, len, seed), Nresult);
 
-    (void)XXH32_reset(&state, seed);
-    (void)XXH32_update(&state, data, len);
-    BMK_checkResult32(XXH32_digest(&state), Nresult);
+    (void)XXH32_reset(state, seed);
+    (void)XXH32_update(state, data, len);
+    BMK_checkResult32(XXH32_digest(state), Nresult);
 
-    (void)XXH32_reset(&state, seed);
+    (void)XXH32_reset(state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH32_update(&state, ((const char*)data)+pos, 1);
-    BMK_checkResult32(XXH32_digest(&state), Nresult);
+        (void)XXH32_update(state, ((const char*)data)+pos, 1);
+    BMK_checkResult32(XXH32_digest(state), Nresult);
+    XXH32_freeState(state);
 }
 
 static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 {
-    XXH64_state_t state;
+    XXH64_state_t *state = XXH64_createState();
     size_t pos;
 
+    assert(state != NULL);
     if (len>0) assert(data != NULL);
 
     BMK_checkResult64(XXH64(data, len, seed), Nresult);
 
-    (void)XXH64_reset(&state, seed);
-    (void)XXH64_update(&state, data, len);
-    BMK_checkResult64(XXH64_digest(&state), Nresult);
+    (void)XXH64_reset(state, seed);
+    (void)XXH64_update(state, data, len);
+    BMK_checkResult64(XXH64_digest(state), Nresult);
 
-    (void)XXH64_reset(&state, seed);
+    (void)XXH64_reset(state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH64_update(&state, ((const char*)data)+pos, 1);
-    BMK_checkResult64(XXH64_digest(&state), Nresult);
+        (void)XXH64_update(state, ((const char*)data)+pos, 1);
+    BMK_checkResult64(XXH64_digest(state), Nresult);
+    XXH64_freeState(state);
 }
 
 void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
@@ -826,28 +830,30 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     }
 
     /* streaming API test */
-    {   XXH3_state_t state;
-
+    {   XXH3_state_t *state = XXH3_createState();
+        assert(state != NULL);
         /* single ingestion */
-        (void)XXH3_64bits_reset_withSeed(&state, seed);
-        (void)XXH3_64bits_update(&state, data, len);
-        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+        (void)XXH3_64bits_reset_withSeed(state, seed);
+        (void)XXH3_64bits_update(state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         if (len > 3) {
             /* 2 ingestions */
-            (void)XXH3_64bits_reset_withSeed(&state, seed);
-            (void)XXH3_64bits_update(&state, data, 3);
-            (void)XXH3_64bits_update(&state, (const char*)data+3, len-3);
-            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+            (void)XXH3_64bits_reset_withSeed(state, seed);
+            (void)XXH3_64bits_update(state, data, 3);
+            (void)XXH3_64bits_update(state, (const char*)data+3, len-3);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_64bits_reset_withSeed(&state, seed);
+            (void)XXH3_64bits_reset_withSeed(state, seed);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
-    }   }
+                (void)XXH3_64bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
 }
 
 void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
@@ -859,18 +865,21 @@ void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, s
     }
 
     /* streaming API test */
-    {   XXH3_state_t state;
-        (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
-        (void)XXH3_64bits_update(&state, data, len);
-        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+    {   XXH3_state_t *state = XXH3_createState();
+        assert(state != NULL);
+        (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
+        (void)XXH3_64bits_update(state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
+            (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
-    }   }
+                (void)XXH3_64bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
 }
 
 void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
@@ -891,29 +900,31 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
     }
 
     /* streaming API test */
-    {   XXH3_state_t state;
+    {   XXH3_state_t *state = XXH3_createState();
+        assert(state != NULL);
 
         /* single ingestion */
-        (void)XXH3_128bits_reset_withSeed(&state, seed);
-        (void)XXH3_128bits_update(&state, data, len);
-        BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+        (void)XXH3_128bits_reset_withSeed(state, seed);
+        (void)XXH3_128bits_update(state, data, len);
+        BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
 
         if (len > 3) {
             /* 2 ingestions */
-            (void)XXH3_128bits_reset_withSeed(&state, seed);
-            (void)XXH3_128bits_update(&state, data, 3);
-            (void)XXH3_128bits_update(&state, (const char*)data+3, len-3);
-            BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+            (void)XXH3_128bits_reset_withSeed(state, seed);
+            (void)XXH3_128bits_update(state, data, 3);
+            (void)XXH3_128bits_update(state, (const char*)data+3, len-3);
+            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_128bits_reset_withSeed(&state, seed);
+            (void)XXH3_128bits_reset_withSeed(state, seed);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_128bits_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
-    }   }
-
+                (void)XXH3_128bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
 }
 
 #define SANITY_BUFFER_SIZE 2243

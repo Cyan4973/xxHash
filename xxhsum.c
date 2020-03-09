@@ -484,31 +484,93 @@ static U64 BMK_GetFileSize(const char* infilename)
     return (U64)statbuf.st_size;
 }
 
+/*
+ * Allocates a string containing s1 and s2 concatenated. Acts like strdup.
+ * The result must be freed.
+ */
+static char* XXH_strcatDup(const char* s1, const char* s2)
+{
+    assert(s1 != NULL);
+    assert(s2 != NULL);
+    {   size_t len1 = strlen(s1);
+        size_t len2 = strlen(s2);
+        char* buf = (char*)malloc(len1 + len2 + 1);
+        if (buf != NULL) {
+            /* strcpy(buf, s1) */
+            memcpy(buf, s1, len1);
+            /* strcat(buf, s2) */
+            memcpy(buf + len1, s2, len2 + 1);
+        }
+        return buf;
+    }
+}
+/*
+ * Wrappers for the benchmark.
+ *
+ * If you would like to add other hashes to the bench, create a wrapper and add
+ * it to the g_hashesToBench table. It will automatically be added.
+ */
 typedef U32 (*hashFunction)(const void* buffer, size_t bufferSize, U32 seed);
 
-static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return XXH32(buffer, bufferSize, seed); }
+static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return XXH32(buffer, bufferSize, seed);
+}
+static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return (U32)XXH64(buffer, bufferSize, seed);
+}
+static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)XXH3_64bits(buffer, bufferSize);
+}
+static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed);
+}
+static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)(XXH3_128bits(buffer, bufferSize).low64);
+}
+static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64);
+}
 
-static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
+typedef struct {
+    const char*  name;
+    hashFunction func;
+} hashInfo;
 
-static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64bits(buffer, bufferSize); }
-static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed); }
+static const hashInfo g_hashesToBench[] = {
+    { "XXH32",            &localXXH32 },
+    { "XXH64",            &localXXH64 },
+    { "XXH3_64b",         &localXXH3_64b },
+    { "XXH3_64b seeded",  &localXXH3_64b_seeded },
+    { "XXH128",           &localXXH3_128b },
+    { "XXH128 seeded",    &localXXH3_128b_seeded }
+};
 
-static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)(XXH3_128bits(buffer, bufferSize).low64); }
-static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64); }
+#define HASHNAME_MAX 28
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
     U32 iterationNb;
     double fastestH = 100000000.;
-
-    DISPLAYLEVEL(2, "\r%70s\r", "");       /* Clean display line */
+    assert(HASHNAME_MAX > 2);
+    DISPLAYLEVEL(2, "\r%80s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", (unsigned)iterationNb, hName, (unsigned)bufferSize);
+        DISPLAYLEVEL(2, "%1u-%-*.*s : %10u ->\r",
+                        (unsigned)iterationNb,
+                        HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+                        (unsigned)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
@@ -556,20 +618,23 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                 continue;
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
-            DISPLAYLEVEL(2, "%1u-%-22.22s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
-                            (unsigned)iterationNb, hName, (unsigned)bufferSize,
+            DISPLAYLEVEL(2, "%1u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+                            (unsigned)iterationNb,
+                            HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+                            (unsigned)bufferSize,
                             (double)1 / fastestH,
-                            ((double)bufferSize / (1 MB)) / fastestH );
+                            ((double)bufferSize / (1 MB)) / fastestH);
         }
         {   double nbh_perSecond = (1 / fastestH) + 1;
             if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
-                    hName, (unsigned)bufferSize,
+    DISPLAYLEVEL(1, "%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+                    HASHNAME_MAX, HASHNAME_MAX, hName,
+                    (unsigned)bufferSize,
                     (double)1 / fastestH,
-                    ((double)bufferSize / (1 MB)) / fastestH );
+                    ((double)bufferSize / (1 MB)) / fastestH);
     if (g_displayLevel<1)
         DISPLAYLEVEL(0, "%u, ", (unsigned)((double)1 / fastestH));
 }
@@ -578,69 +643,48 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 /*!
  * BMK_benchMem():
  * specificTest: 0 == run all tests, 1+ runs specific test
- * buffer: Must be 8-byte aligned (if malloc'ed, it should be)
+ * buffer: Must be 16-byte aligned.
  * The real allocated size of buffer is supposed to be >= (bufferSize+3).
  * returns: 0 on success, 1 if error (invalid mode selected)
  */
 static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
-    assert((((size_t)buffer) & 8) == 0);  /* ensure alignment */
+    assert((((size_t)buffer) & 15) == 0);  /* ensure alignment */
+    {   const size_t NUM_HASHES = sizeof(g_hashesToBench) / sizeof(g_hashesToBench[0]);
+        size_t i;
+        assert(NUM_HASHES > 0);
 
-    /* XXH32 bench */
-    if ((specificTest==0) | (specificTest==1))
-        BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
+        /*
+         * specificTest == 0: all hashes
+         * Otherwise, it is the hashes in order, starting at 1.
+         * There are two entries per hash, with the first one (2 * i + 1) testing
+         * an aligned buffer and the second one (2 * i + 2) testing an unaligned
+         * buffer.
+         * For example, specificTest == 2 tests XXH32 with an unaligned buffer
+         * in the default setup.
+         */
+        if (specificTest > 2 * NUM_HASHES) {
+            DISPLAY("Benchmark mode invalid.\n");
+            return 1;
+        }
+        for (i = 0; i < NUM_HASHES; i++) {
+            assert(g_hashesToBench[i].name != NULL);
+            /* aligned */
+            if (specificTest == 0 || specificTest == 2 * i + 1) {
+                BMK_benchHash(g_hashesToBench[i].func, g_hashesToBench[i].name, buffer, bufferSize);
+            }
+            /* unaligned */
+            if (specificTest == 0 || specificTest == 2 * i + 2) {
+                /* Append "unaligned". */
+                char* hashNameBuf = XXH_strcatDup(g_hashesToBench[i].name, " unaligned");
+                assert(hashNameBuf != NULL);
+                BMK_benchHash(g_hashesToBench[i].func, hashNameBuf, ((const char*)buffer)+3, bufferSize);
+                free(hashNameBuf);
+            }
+    }  }
 
-    /* Bench XXH32 on Unaligned input */
-    if ((specificTest==0) | (specificTest==2))
-        BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
-
-    /* Bench XXH64 */
-    if ((specificTest==0) | (specificTest==3))
-        BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
-
-    /* Bench XXH64 on Unaligned input */
-    if ((specificTest==0) | (specificTest==4))
-        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==5))
-        BMK_benchHash(localXXH3_64b, "XXH3_64b", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==6))
-        BMK_benchHash(localXXH3_64b, "XXH3_64b unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==7))
-        BMK_benchHash(localXXH3_64b_seeded, "XXH3_64b seeded", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==8))
-        BMK_benchHash(localXXH3_64b_seeded, "XXH3_64b seeded unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==9))
-        BMK_benchHash(localXXH3_128b, "XXH128", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==10))
-        BMK_benchHash(localXXH3_128b, "XXH128 unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==11))
-        BMK_benchHash(localXXH3_128b_seeded, "XXH128 seeded", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==12))
-        BMK_benchHash(localXXH3_128b_seeded, "XXH128 seeded unaligned", ((const char*)buffer)+3, bufferSize);
-
-    if (specificTest > 12) {
-        DISPLAY("Benchmark mode invalid.\n");
-        return 1;
-    }
     return 0;
 }
-
 
 static size_t BMK_selectBenchedSize(const char* fileName)
 {   U64 const inFileSize = BMK_GetFileSize(fileName);

@@ -469,7 +469,7 @@ XXH_ALIGN(64) static const xxh_u8 kSecret[XXH_SECRET_DEFAULT_SIZE] = {
 };
 
 /*
- * Does a 32-bit to 64-bit long multiply.
+ * Calculates a 32-bit to 64-bit long multiply.
  *
  * Wraps __emulu on MSVC x86 because it tends to call __allmul when it doesn't
  * need to (but it shouldn't need to anyways, it is about 7 instructions to do
@@ -1069,8 +1069,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 #else   /* scalar variant of Accumulator - universal */
 
     XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc; /* presumed aligned */
-    const xxh_u8* const xinput = (const xxh_u8*) input;  /* no alignment restriction */
-    const xxh_u8* const xsecret  = (const xxh_u8*) secret;   /* no alignment restriction */
+    const xxh_u8* const xinput  = (const xxh_u8*) input;  /* no alignment restriction */
+    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
     XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
     for (i=0; i < ACC_NB; i++) {
@@ -1665,19 +1665,33 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
         XXH3_digest_long(acc, state, XXH3_acc_64bits);
         return XXH3_mergeAccs(acc, state->secret + XXH_SECRET_MERGEACCS_START, (xxh_u64)state->totalLen * PRIME64_1);
     }
-    /* len <= XXH3_MIDSIZE_MAX : short code */
+    /* len <= XXH3_MIDSIZE_MAX: short code */
     if (state->seed)
         return XXH3_64bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
     return XXH3_64bits_withSecret(state->buffer, (size_t)(state->totalLen), state->secret, state->secretLimit + STRIPE_LEN);
 }
 
 /* ==========================================
- * XXH3 128 bits (=> XXH128)
- * ========================================== */
+ * XXH3 128 bits (a.k.a XXH128)
+ * ==========================================
+ * XXH3's 128-bit variant has better mixing and strength than the 64-bit variant,
+ * even without counting the significantly larger output size.
+ *
+ * For example, extra steps are taken to avoid the seed-dependent collisions
+ * in 17-240 byte inputs (See XXH3_mix16B and XXH128_mix32B).
+ *
+ * This strength naturally comes at the cost of some speed, especially on short
+ * lengths. Note that longer hashes are about as fast as the 64-bit version
+ * due to it using only a slight modification of the 64-bit loop.
+ *
+ * XXH128 is also more oriented towards 64-bit machines. It is still extremely
+ * fast for a _128-bit_ hash on 32-bit (it usually clears XXH64).
+ */
 
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {
+    /* A doubled version of 1to3_64b with different constants. */
     XXH_ASSERT(input != NULL);
     XXH_ASSERT(1 <= len && len <= 3);
     XXH_ASSERT(secret != NULL);
@@ -1744,8 +1758,8 @@ XXH3_len_9to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
          * Put len in the middle of m128 to ensure that the length gets mixed to
          * both the low and high bits in the 128x64 multiply below.
          */
-        m128.low64  += (xxh_u64)(len - 1) << 54;
-        input_hi ^= bitfliph;
+        m128.low64 += (xxh_u64)(len - 1) << 54;
+        input_hi   ^= bitfliph;
         /*
          * Add the high 32 bits of input_hi to the high 32 bits of m128, then
          * add the long product of the low 32 bits of input_hi and PRIME32_2 to
@@ -1801,8 +1815,9 @@ XXH3_len_9to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
     }   }
 }
 
-/* Assumption : `secret` size is >= 16
- * Note : it should be >= XXH3_SECRET_SIZE_MIN anyway */
+/*
+ * Assumption: `secret` size is >= XXH3_SECRET_SIZE_MIN
+ */
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_len_0to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
 {

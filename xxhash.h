@@ -462,6 +462,15 @@ struct XXH64_state_s {
  *
  * Avoid storing values in long-term storage until the algorithm is finalized.
  *
+ * Since v0.7.3, XXH3 has reached "release candidate" status, meaning that, if
+ * everything remains fine, its current format will be "frozen" and become the
+ * final one.
+ *
+ * After which, return values of XXH3 and XXH128 will no longer change in
+ * future versions.
+ *
+ * XXH3's return values will be officially finalized upon reaching v0.8.0.
+ *
  * The API supports one-shot hashing, streaming mode, and custom secrets.
  */
 

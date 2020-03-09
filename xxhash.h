@@ -837,7 +837,7 @@ static void* XXH_malloc(size_t s)
          * be at least one byte to store the offset to the original pointer.
          */
         unsigned char offset = 64 - ((size_t)base % 64);
-        /* Get an ali*/
+        /* Add the offset for the now-aligned pointer */
         unsigned char* ptr = base + offset;
         /* Store the offset immediately before the returned pointer. */
         ptr[-1] = offset;

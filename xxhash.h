@@ -815,12 +815,23 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 #include <stdlib.h>
 
 /*
- * Malloc's a pointer that is always 64 byte aligned.
+ * Malloc's a pointer that is always 64 byte aligned, to match the alignment
+ * of XXH3_state_t.
  *
  * This must be freed with `XXH_free()`.
  *
- * Functions like posix_memalign or _mm_malloc are avoided: To maintain
- * compatibility, we would have to write a fallback like this anyways.
+ * malloc typically guarantees 16 byte alignment on 64-bit systems and 8 byte
+ * alignment on 32-bit. This isn't enough for the 32 byte aligned loads in AVX2
+ * or on 32-bit, the 16 byte aligned loads in SSE2 and NEON.
+ *
+ * This underalignment previously caused a rather obvious crash which went
+ * completely unnoticed due to XXH3_createState() not actually being tested.
+ * Credit to RedSpah for noticing this bug.
+ *
+ * The alignment is done manually: Functions like posix_memalign or _mm_malloc
+ * are avoided: To maintain portability, we would have to write a fallback
+ * like this anyways, and besides, testing for the existence of library
+ * functions without relying on external build tools is impossible.
  *
  * The method is simple: Overallocate, manually align, and store the offset
  * to the original behind the returned pointer.
@@ -846,7 +857,8 @@ static void* XXH_malloc(size_t s)
     return NULL;
 }
 /*
- * Frees an aligned pointer allocated by XXH_malloc().
+ * Frees an aligned pointer allocated by XXH_malloc(). Don't pass normal malloc'd
+ * pointers, XXH_malloc has a specific data layout.
  */
 static void XXH_free(void* p)
 {

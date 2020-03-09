@@ -2046,10 +2046,11 @@ static void free_argv(int argc, char **argv)
  * just define it manually.
  *
  * Even if you are linking to a really old MSVC runtime, the worst thing that
- * can happen is that it silently errors and Unicode text doesn't appear in the
- * console. ASCII text would work as expected, and that is its primary usage.
+ * seems to happen is that Unicode crashes the program. That leaves it in the
+ * same state that it was before the patch: ASCII works, Unicode does not.
  *
- * However, at least on Windows 10, this seems to work with msvcrt.dll.
+ * At least on Windows 7, this seems to fix Unicode with msvcrt.dll, and it
+ * should work with on older versions with the right runtime.
  */
 #ifndef _O_U8TEXT
 #  define _O_U8TEXT 0x40000
@@ -2063,7 +2064,7 @@ static void free_argv(int argc, char **argv)
  * open any files with Unicode filenames.
  *
  * On MSVC or when -municode is used in MSYS2, we can just use wmain to get
- * UTF-16 command line arguments and convert them to UTF-8.
+ * UTF-16 command line arguments and convert them to UTF-8. This is preferred.
  *
  * However, without the -municode flag (which isn't even available on the
  * original MinGW), we will get a linker error.

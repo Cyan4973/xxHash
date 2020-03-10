@@ -214,11 +214,10 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
  *
  * fprintf doesn't properly handle Unicode on Windows.
  *
- * Additionally, it is codepage sensitive on console
- * and may crash the program.
+ * Additionally, it is codepage sensitive on console and may crash the program.
  *
- * Instead, we use vsnprintf, and either print with
- * fwrite or convert to UTF-16 for console output.
+ * Instead, we use vsnprintf, and either print with fwrite or convert to UTF-16
+ * for console output and use the codepage-independent WriteConsoleW.
  *
  * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
  */
@@ -254,9 +253,8 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
             u8_str[nchar - 1] = '\0';
             if (result > 0) {
                 /*
-                 * Check if we are outputting to a console. Don't
-                 * use IS_CONSOLE directly -- we don't need to
-                 * call _get_osfhandle twice.
+                 * Check if we are outputting to a console. Don't use IS_CONSOLE
+                 * directly -- we don't need to call _get_osfhandle twice.
                  */
                 int fileNb = _fileno(stream);
                 intptr_t handle_raw = _get_osfhandle(fileNb);
@@ -269,8 +267,8 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
                     /*
                      * Convert to UTF-16 and output with WriteConsoleW.
                      *
-                     * This is codepage independent and works on
-                     * Windows XP's default msvcrt.dll.
+                     * This is codepage independent and works on Windows XP's
+                     * default msvcrt.dll.
                      */
                     int len;
                     wchar_t *const u16_buf = utf8_to_utf16_len(u8_str, &len);

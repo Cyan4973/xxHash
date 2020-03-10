@@ -583,17 +583,17 @@ typedef struct {
 } hashInfo;
 
 static const hashInfo g_hashesToBench[] = {
-    { "XXH32",            &localXXH32 },
-    { "XXH64",            &localXXH64 },
-    { "XXH3_64b",         &localXXH3_64b },
-    { "XXH3_64b seeded",  &localXXH3_64b_seeded },
-    { "XXH3_64b secret",  &localXXH3_64b_secret },
-    { "XXH128",           &localXXH3_128b },
-    { "XXH128 seeded",    &localXXH3_128b_seeded },
-    { "XXH128 secret",    &localXXH3_128b_secret }
+    { "XXH32",             &localXXH32 },
+    { "XXH64",             &localXXH64 },
+    { "XXH3_64b",          &localXXH3_64b },
+    { "XXH3_64b w/seed",   &localXXH3_64b_seeded },
+    { "XXH3_64b w/secret", &localXXH3_64b_secret },
+    { "XXH128",            &localXXH3_128b },
+    { "XXH128 w/seed",     &localXXH3_128b_seeded },
+    { "XXH128 w/secret",   &localXXH3_128b_secret }
 };
 
-#define HASHNAME_MAX 28
+#define HASHNAME_MAX 29
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {

@@ -113,14 +113,11 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 #    include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
 #    include <winioctl.h> /* FSCTL_SET_SPARSE */
 #    define SET_BINARY_MODE(file) { int const unused=_setmode(_fileno(file), _O_BINARY); (void)unused; }
-#    define SET_SPARSE_FILE_MODE(file) { DWORD dw; DeviceIoControl((HANDLE) _get_osfhandle(_fileno(file)), FSCTL_SET_SPARSE, 0, 0, 0, 0, &dw, 0); }
 #  else
 #    define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
-#    define SET_SPARSE_FILE_MODE(file)
 #  endif
 #else
 #  define SET_BINARY_MODE(file)
-#  define SET_SPARSE_FILE_MODE(file)
 #endif
 
 #if !defined(S_ISREG)
@@ -244,14 +241,13 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
 /* ************************************
 *  Basic Types
 **************************************/
-#ifndef MEM_MODULE
-# define MEM_MODULE
-# if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
-#   include <stdint.h>
+#if defined(__cplusplus) /* C++ */ \
+ || (defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)  /* C99 */
+#  include <stdint.h>
     typedef uint8_t  U8;
     typedef uint32_t U32;
     typedef uint64_t U64;
-#  else
+# else
 #   include <limits.h>
     typedef unsigned char      U8;
 #   if UINT_MAX == 0xFFFFFFFFUL
@@ -260,8 +256,7 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
       typedef unsigned long    U32;
 #   endif
     typedef unsigned long long U64;
-#  endif
-#endif
+#endif /* not C++/C99 */
 
 static unsigned BMK_isLittleEndian(void)
 {
@@ -1927,18 +1922,18 @@ static void errorOut(const char* msg)
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  * @return 1 if an overflow error occurs
  */
-static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
+static int readU32FromCharChecked(const char** stringPtr, U32* value)
 {
-    static unsigned const max = (((unsigned)(-1)) / 10) - 1;
-    unsigned result = 0;
+    static const U32 max = (((U32)(-1)) / 10) - 1;
+    U32 result = 0;
     while ((**stringPtr >='0') && (**stringPtr <='9')) {
         if (result > max) return 1; /* overflow error */
         result *= 10;
-        result += (unsigned)(**stringPtr - '0');
+        result += (U32)(**stringPtr - '0');
         (*stringPtr)++ ;
     }
     if ((**stringPtr=='K') || (**stringPtr=='M')) {
-        unsigned const maxK = ((unsigned)(-1)) >> 10;
+        U32 const maxK = ((U32)(-1)) >> 10;
         if (result > maxK) return 1; /* overflow error */
         result <<= 10;
         if (**stringPtr=='M') {
@@ -1960,8 +1955,8 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  *  Note: function will exit() program if digit sequence overflows
  */
-static unsigned readU32FromChar(const char** stringPtr) {
-    unsigned result;
+static U32 readU32FromChar(const char** stringPtr) {
+    U32 result;
     if (readU32FromCharChecked(stringPtr, &result)) {
         static const char errorMsg[] = "Error: numeric value too large";
         errorOut(errorMsg);

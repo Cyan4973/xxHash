@@ -28,10 +28,8 @@ VPATH = $(SRC_DIRS)
 CPPFLAGS += $(addprefix -I ,$(SRC_DIRS))
 CFLAGS   ?= -std=c99 \
             -Wall -Wextra -Wconversion
-CFLAGS   += -maes -mavx2
 CXXFLAGS ?= -Wall -Wextra -Wconversion --std=c++11
 LDFLAGS  += -pthread
-LDFLAGS  += -maes -mavx2
 TESTHASHES = 110000000
 
 HASH_SRC := $(sort $(wildcard allcodecs/*.c allcodecs/*.cc))

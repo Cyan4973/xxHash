@@ -1014,8 +1014,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             uint8x16_t data_vec    = vld1q_u8(xinput  + (i * 16));
             /* key_vec  = xsecret[i];  */
             uint8x16_t key_vec     = vld1q_u8(xsecret + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint64x2_t data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
+            uint64x2_t data_key;
             uint32x2_t data_key_lo, data_key_hi;
             if (accWidth == XXH3_acc_64bits) {
                 /* xacc[i] += data_vec; */
@@ -1026,6 +1025,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                 uint64x2_t const swapped = vextq_u64(data64, data64, 1);
                 xacc[i] = vaddq_u64 (xacc[i], swapped);
             }
+            /* data_key = data_vec ^ key_vec; */
+            data_key = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
             /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF);
              * data_key_hi = (uint32x2_t) (data_key >> 32);
              * data_key = UNDEFINED; */

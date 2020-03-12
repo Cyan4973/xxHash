@@ -1371,16 +1371,65 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 /* XXH3_initCustomSecret() :
  * destination `customSecret` is presumed allocated and same size as `kSecret`.
  */
-XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* customSecret, xxh_u64 seed64)
+XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, xxh_u64 seed64)
 {
     int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
     int i;
+    /*
+     * We need a separate pointer for the hack below.
+     * Any decent compiler will optimize this out otherwise.
+     */
+    const xxh_u8 *kSecretPtr = kSecret;
 
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
 
+#if defined(__clang__) && defined(__aarch64__)
+    /*
+     * UGLY HACK:
+     * Clang generates a bunch of MOV/MOVK pairs for aarch64, and they are
+     * placed sequentially, in order, at the top of the unrolled loop.
+     *
+     * While MOVK is great for generating constants (2 cycles for a 64-bit
+     * constant compared to 4 cycles for LDR), long MOVK chains stall the
+     * integer pipelines:
+     *   I   L   S
+     * MOVK
+     * MOVK
+     * MOVK
+     * MOVK
+     * ADD
+     * SUB      STR
+     *          STR
+     * By forcing loads from memory (as the asm line causes Clang to assume
+     * that kSecretPtr has been changed), the pipelines are used more efficiently:
+     *   I   L   S
+     *      LDR
+     *  ADD LDR
+     *  SUB     STR
+     *          STR
+     * XXH3_64bits_withSeed, len == 256, Snapdragon 835
+     *   without hack: 2654.4 MB/s
+     *   with hack:    3202.9 MB/s
+     */
+    __asm__("" : "+r" (kSecretPtr));
+#endif
+    /*
+     * Note: in debug mode, this overrides the asm optimization
+     * and Clang will emit MOVK chains again.
+     */
+    XXH_ASSERT(kSecretPtr == kSecret);
+
     for (i=0; i < nbRounds; i++) {
-        XXH_writeLE64(customSecret + 16*i,     XXH_readLE64(kSecret + 16*i)     + seed64);
-        XXH_writeLE64(customSecret + 16*i + 8, XXH_readLE64(kSecret + 16*i + 8) - seed64);
+        /*
+         * The asm hack causes Clang to assume that kSecretPtr aliases with
+         * customSecret, and on aarch64, this prevented LDP from merging two
+         * loads together for free. Putting the loads together before the stores
+         * properly generates LDP.
+         */
+        xxh_u64 lo = XXH_readLE64(kSecretPtr + 16*i)     + seed64;
+        xxh_u64 hi = XXH_readLE64(kSecretPtr + 16*i + 8) - seed64;
+        XXH_writeLE64(customSecret + 16*i,     lo);
+        XXH_writeLE64(customSecret + 16*i + 8, hi);
     }
 }
 

@@ -1,6 +1,6 @@
 #  Brute force collision tester for 64-bit hashes
 #  Part of xxHash project
-#  Copyright (C) 2012-present, Yann Collet
+#  Copyright (C) 2019-2020 Yann Collet
 #
 # GPL v2 License
 #
@@ -18,9 +18,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-#  You can contact the author at :
+#  You can contact the author at:
 #  - xxHash homepage: https://www.xxhash.com
-#  - xxHash source repository : https://github.com/Cyan4973/xxHash
+#  - xxHash source repository: https://github.com/Cyan4973/xxHash
 #
 
 SRC_DIRS = ./ ../../ allcodecs/
@@ -28,10 +28,8 @@ VPATH = $(SRC_DIRS)
 CPPFLAGS += $(addprefix -I ,$(SRC_DIRS))
 CFLAGS   ?= -std=c99 \
             -Wall -Wextra -Wconversion
-CFLAGS   += -maes -mavx2
-CXXFLAGS ?= -Wall -Wextra -Wconversion --std=c++11
+CXXFLAGS ?= -Wall -Wextra -Wconversion -std=c++11
 LDFLAGS  += -pthread
-LDFLAGS  += -maes -mavx2
 TESTHASHES = 110000000
 
 HASH_SRC := $(sort $(wildcard allcodecs/*.c allcodecs/*.cc))

@@ -1,6 +1,6 @@
 /*
  * xxhsum - Command line interface for xxhash algorithms
- * Copyright (C) Yann Collet 2013-present
+ * Copyright (C) 2013-2020 Yann Collet
  *
  * GPL v2 License
  *
@@ -113,14 +113,11 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 #    include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
 #    include <winioctl.h> /* FSCTL_SET_SPARSE */
 #    define SET_BINARY_MODE(file) { int const unused=_setmode(_fileno(file), _O_BINARY); (void)unused; }
-#    define SET_SPARSE_FILE_MODE(file) { DWORD dw; DeviceIoControl((HANDLE) _get_osfhandle(_fileno(file)), FSCTL_SET_SPARSE, 0, 0, 0, 0, &dw, 0); }
 #  else
 #    define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
-#    define SET_SPARSE_FILE_MODE(file)
 #  endif
 #else
 #  define SET_BINARY_MODE(file)
-#  define SET_SPARSE_FILE_MODE(file)
 #endif
 
 #if !defined(S_ISREG)
@@ -244,14 +241,13 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
 /* ************************************
 *  Basic Types
 **************************************/
-#ifndef MEM_MODULE
-# define MEM_MODULE
-# if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* C99 */
-#   include <stdint.h>
+#if defined(__cplusplus) /* C++ */ \
+ || (defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)  /* C99 */
+#  include <stdint.h>
     typedef uint8_t  U8;
     typedef uint32_t U32;
     typedef uint64_t U64;
-#  else
+# else
 #   include <limits.h>
     typedef unsigned char      U8;
 #   if UINT_MAX == 0xFFFFFFFFUL
@@ -260,8 +256,7 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
       typedef unsigned long    U32;
 #   endif
     typedef unsigned long long U64;
-#  endif
-#endif
+#endif /* not C++/C99 */
 
 static unsigned BMK_isLittleEndian(void)
 {
@@ -484,31 +479,138 @@ static U64 BMK_GetFileSize(const char* infilename)
     return (U64)statbuf.st_size;
 }
 
+/*
+ * Allocates a string containing s1 and s2 concatenated. Acts like strdup.
+ * The result must be freed.
+ */
+static char* XXH_strcatDup(const char* s1, const char* s2)
+{
+    assert(s1 != NULL);
+    assert(s2 != NULL);
+    {   size_t len1 = strlen(s1);
+        size_t len2 = strlen(s2);
+        char* buf = (char*)malloc(len1 + len2 + 1);
+        if (buf != NULL) {
+            /* strcpy(buf, s1) */
+            memcpy(buf, s1, len1);
+            /* strcat(buf, s2) */
+            memcpy(buf + len1, s2, len2 + 1);
+        }
+        return buf;
+    }
+}
+
+
+static const U32 PRIME32 = 2654435761U;
+static const U64 PRIME64 = 11400714785074694797ULL;
+/*
+ * Fills a test buffer with pseudorandom data.
+ *
+ * This is used in the sanity check - its values must not be changed.
+ */
+static void BMK_fillTestBuffer(U8* buffer, size_t len)
+{
+    U64 byteGen = PRIME32;
+    size_t i;
+
+    assert(buffer != NULL);
+
+    for (i=0; i<len; i++) {
+        buffer[i] = (U8)(byteGen>>56);
+        byteGen *= PRIME64;
+    }
+}
+
+/*
+ * A secret buffer used for benchmarking XXH3's withSecret variants.
+ *
+ * In order for the bench to be realistic, the secret buffer would need to be
+ * pre-generated.
+ *
+ * Adding a pointer to the parameter list would be messy.
+ */
+static U8 g_benchSecretBuf[XXH3_SECRET_SIZE_MIN];
+
+/*
+ * Wrappers for the benchmark.
+ *
+ * If you would like to add other hashes to the bench, create a wrapper and add
+ * it to the g_hashesToBench table. It will automatically be added.
+ */
 typedef U32 (*hashFunction)(const void* buffer, size_t bufferSize, U32 seed);
 
-static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed) { return XXH32(buffer, bufferSize, seed); }
+static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return XXH32(buffer, bufferSize, seed);
+}
+static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return (U32)XXH64(buffer, bufferSize, seed);
+}
+static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)XXH3_64bits(buffer, bufferSize);
+}
+static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed);
+}
+static U32 localXXH3_64b_secret(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)XXH3_64bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf));
+}
+static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)(XXH3_128bits(buffer, bufferSize).low64);
+}
+static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64);
+}
+static U32 localXXH3_128b_secret(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)(XXH3_128bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf)).low64);
+}
 
-static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH64(buffer, bufferSize, seed); }
 
-static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)XXH3_64bits(buffer, bufferSize); }
-static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed); }
+typedef struct {
+    const char*  name;
+    hashFunction func;
+} hashInfo;
 
-static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed) { (void)seed; return (U32)(XXH3_128bits(buffer, bufferSize).low64); }
-static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed) { return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64); }
+static const hashInfo g_hashesToBench[] = {
+    { "XXH32",             &localXXH32 },
+    { "XXH64",             &localXXH64 },
+    { "XXH3_64b",          &localXXH3_64b },
+    { "XXH3_64b w/seed",   &localXXH3_64b_seeded },
+    { "XXH3_64b w/secret", &localXXH3_64b_secret },
+    { "XXH128",            &localXXH3_128b },
+    { "XXH128 w/seed",     &localXXH3_128b_seeded },
+    { "XXH128 w/secret",   &localXXH3_128b_secret }
+};
+
+#define HASHNAME_MAX 29
 
 static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
     U32 iterationNb;
     double fastestH = 100000000.;
-
-    DISPLAYLEVEL(2, "\r%70s\r", "");       /* Clean display line */
+    assert(HASHNAME_MAX > 2);
+    DISPLAYLEVEL(2, "\r%80s\r", "");       /* Clean display line */
     if (g_nbIterations<1) g_nbIterations=1;
     for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-22.22s : %10u ->\r", (unsigned)iterationNb, hName, (unsigned)bufferSize);
+        DISPLAYLEVEL(2, "%1u-%-*.*s : %10u ->\r",
+                        (unsigned)iterationNb,
+                        HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+                        (unsigned)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
@@ -556,20 +658,23 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                 continue;
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
-            DISPLAYLEVEL(2, "%1u-%-22.22s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
-                            (unsigned)iterationNb, hName, (unsigned)bufferSize,
+            DISPLAYLEVEL(2, "%1u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+                            (unsigned)iterationNb,
+                            HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+                            (unsigned)bufferSize,
                             (double)1 / fastestH,
-                            ((double)bufferSize / (1 MB)) / fastestH );
+                            ((double)bufferSize / (1 MB)) / fastestH);
         }
         {   double nbh_perSecond = (1 / fastestH) + 1;
             if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-24.24s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
-                    hName, (unsigned)bufferSize,
+    DISPLAYLEVEL(1, "%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+                    HASHNAME_MAX, HASHNAME_MAX, hName,
+                    (unsigned)bufferSize,
                     (double)1 / fastestH,
-                    ((double)bufferSize / (1 MB)) / fastestH );
+                    ((double)bufferSize / (1 MB)) / fastestH);
     if (g_displayLevel<1)
         DISPLAYLEVEL(0, "%u, ", (unsigned)((double)1 / fastestH));
 }
@@ -578,69 +683,49 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 /*!
  * BMK_benchMem():
  * specificTest: 0 == run all tests, 1+ runs specific test
- * buffer: Must be 8-byte aligned (if malloc'ed, it should be)
+ * buffer: Must be 16-byte aligned.
  * The real allocated size of buffer is supposed to be >= (bufferSize+3).
  * returns: 0 on success, 1 if error (invalid mode selected)
  */
 static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
 {
-    assert((((size_t)buffer) & 8) == 0);  /* ensure alignment */
+    BMK_fillTestBuffer(g_benchSecretBuf, sizeof(g_benchSecretBuf));
+    assert((((size_t)buffer) & 15) == 0);  /* ensure alignment */
+    {   const size_t NUM_HASHES = sizeof(g_hashesToBench) / sizeof(g_hashesToBench[0]);
+        size_t i;
+        assert(NUM_HASHES > 0);
 
-    /* XXH32 bench */
-    if ((specificTest==0) | (specificTest==1))
-        BMK_benchHash(localXXH32, "XXH32", buffer, bufferSize);
+        /*
+         * specificTest == 0: all hashes
+         * Otherwise, it is the hashes in order, starting at 1.
+         * There are two entries per hash, with the first one (2 * i + 1) testing
+         * an aligned buffer and the second one (2 * i + 2) testing an unaligned
+         * buffer.
+         * For example, specificTest == 2 tests XXH32 with an unaligned buffer
+         * in the default setup.
+         */
+        if (specificTest > 2 * NUM_HASHES) {
+            DISPLAY("Benchmark mode invalid.\n");
+            return 1;
+        }
+        for (i = 0; i < NUM_HASHES; i++) {
+            assert(g_hashesToBench[i].name != NULL);
+            /* aligned */
+            if (specificTest == 0 || specificTest == 2 * i + 1) {
+                BMK_benchHash(g_hashesToBench[i].func, g_hashesToBench[i].name, buffer, bufferSize);
+            }
+            /* unaligned */
+            if (specificTest == 0 || specificTest == 2 * i + 2) {
+                /* Append "unaligned". */
+                char* hashNameBuf = XXH_strcatDup(g_hashesToBench[i].name, " unaligned");
+                assert(hashNameBuf != NULL);
+                BMK_benchHash(g_hashesToBench[i].func, hashNameBuf, ((const char*)buffer)+3, bufferSize);
+                free(hashNameBuf);
+            }
+    }  }
 
-    /* Bench XXH32 on Unaligned input */
-    if ((specificTest==0) | (specificTest==2))
-        BMK_benchHash(localXXH32, "XXH32 unaligned", ((const char*)buffer)+1, bufferSize);
-
-    /* Bench XXH64 */
-    if ((specificTest==0) | (specificTest==3))
-        BMK_benchHash(localXXH64, "XXH64", buffer, bufferSize);
-
-    /* Bench XXH64 on Unaligned input */
-    if ((specificTest==0) | (specificTest==4))
-        BMK_benchHash(localXXH64, "XXH64 unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==5))
-        BMK_benchHash(localXXH3_64b, "XXH3_64b", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==6))
-        BMK_benchHash(localXXH3_64b, "XXH3_64b unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==7))
-        BMK_benchHash(localXXH3_64b_seeded, "XXH3_64b seeded", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==8))
-        BMK_benchHash(localXXH3_64b_seeded, "XXH3_64b seeded unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==9))
-        BMK_benchHash(localXXH3_128b, "XXH128", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==10))
-        BMK_benchHash(localXXH3_128b, "XXH128 unaligned", ((const char*)buffer)+3, bufferSize);
-
-    /* Bench XXH3 */
-    if ((specificTest==0) | (specificTest==11))
-        BMK_benchHash(localXXH3_128b_seeded, "XXH128 seeded", buffer, bufferSize);
-
-    /* Bench XXH3 on Unaligned input */
-    if ((specificTest==0) | (specificTest==12))
-        BMK_benchHash(localXXH3_128b_seeded, "XXH128 seeded unaligned", ((const char*)buffer)+3, bufferSize);
-
-    if (specificTest > 12) {
-        DISPLAY("Benchmark mode invalid.\n");
-        return 1;
-    }
     return 0;
 }
-
 
 static size_t BMK_selectBenchedSize(const char* fileName)
 {   U64 const inFileSize = BMK_GetFileSize(fileName);
@@ -775,40 +860,44 @@ static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 
 static void BMK_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
 {
-    XXH32_state_t state;
+    XXH32_state_t *state = XXH32_createState();
     size_t pos;
 
+    assert(state != NULL);
     if (len>0) assert(data != NULL);
 
     BMK_checkResult32(XXH32(data, len, seed), Nresult);
 
-    (void)XXH32_reset(&state, seed);
-    (void)XXH32_update(&state, data, len);
-    BMK_checkResult32(XXH32_digest(&state), Nresult);
+    (void)XXH32_reset(state, seed);
+    (void)XXH32_update(state, data, len);
+    BMK_checkResult32(XXH32_digest(state), Nresult);
 
-    (void)XXH32_reset(&state, seed);
+    (void)XXH32_reset(state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH32_update(&state, ((const char*)data)+pos, 1);
-    BMK_checkResult32(XXH32_digest(&state), Nresult);
+        (void)XXH32_update(state, ((const char*)data)+pos, 1);
+    BMK_checkResult32(XXH32_digest(state), Nresult);
+    XXH32_freeState(state);
 }
 
 static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 {
-    XXH64_state_t state;
+    XXH64_state_t *state = XXH64_createState();
     size_t pos;
 
+    assert(state != NULL);
     if (len>0) assert(data != NULL);
 
     BMK_checkResult64(XXH64(data, len, seed), Nresult);
 
-    (void)XXH64_reset(&state, seed);
-    (void)XXH64_update(&state, data, len);
-    BMK_checkResult64(XXH64_digest(&state), Nresult);
+    (void)XXH64_reset(state, seed);
+    (void)XXH64_update(state, data, len);
+    BMK_checkResult64(XXH64_digest(state), Nresult);
 
-    (void)XXH64_reset(&state, seed);
+    (void)XXH64_reset(state, seed);
     for (pos=0; pos<len; pos++)
-        (void)XXH64_update(&state, ((const char*)data)+pos, 1);
-    BMK_checkResult64(XXH64_digest(&state), Nresult);
+        (void)XXH64_update(state, ((const char*)data)+pos, 1);
+    BMK_checkResult64(XXH64_digest(state), Nresult);
+    XXH64_freeState(state);
 }
 
 void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
@@ -826,28 +915,30 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     }
 
     /* streaming API test */
-    {   XXH3_state_t state;
-
+    {   XXH3_state_t *state = XXH3_createState();
+        assert(state != NULL);
         /* single ingestion */
-        (void)XXH3_64bits_reset_withSeed(&state, seed);
-        (void)XXH3_64bits_update(&state, data, len);
-        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+        (void)XXH3_64bits_reset_withSeed(state, seed);
+        (void)XXH3_64bits_update(state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         if (len > 3) {
             /* 2 ingestions */
-            (void)XXH3_64bits_reset_withSeed(&state, seed);
-            (void)XXH3_64bits_update(&state, data, 3);
-            (void)XXH3_64bits_update(&state, (const char*)data+3, len-3);
-            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+            (void)XXH3_64bits_reset_withSeed(state, seed);
+            (void)XXH3_64bits_update(state, data, 3);
+            (void)XXH3_64bits_update(state, (const char*)data+3, len-3);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_64bits_reset_withSeed(&state, seed);
+            (void)XXH3_64bits_reset_withSeed(state, seed);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
-    }   }
+                (void)XXH3_64bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
 }
 
 void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
@@ -859,18 +950,21 @@ void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, s
     }
 
     /* streaming API test */
-    {   XXH3_state_t state;
-        (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
-        (void)XXH3_64bits_update(&state, data, len);
-        BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
+    {   XXH3_state_t *state = XXH3_createState();
+        assert(state != NULL);
+        (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
+        (void)XXH3_64bits_update(state, data, len);
+        BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_64bits_reset_withSecret(&state, secret, secretSize);
+            (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_64bits_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_64bits_digest(&state), Nresult);
-    }   }
+                (void)XXH3_64bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
 }
 
 void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
@@ -891,29 +985,31 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
     }
 
     /* streaming API test */
-    {   XXH3_state_t state;
+    {   XXH3_state_t *state = XXH3_createState();
+        assert(state != NULL);
 
         /* single ingestion */
-        (void)XXH3_128bits_reset_withSeed(&state, seed);
-        (void)XXH3_128bits_update(&state, data, len);
-        BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+        (void)XXH3_128bits_reset_withSeed(state, seed);
+        (void)XXH3_128bits_update(state, data, len);
+        BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
 
         if (len > 3) {
             /* 2 ingestions */
-            (void)XXH3_128bits_reset_withSeed(&state, seed);
-            (void)XXH3_128bits_update(&state, data, 3);
-            (void)XXH3_128bits_update(&state, (const char*)data+3, len-3);
-            BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
+            (void)XXH3_128bits_reset_withSeed(state, seed);
+            (void)XXH3_128bits_update(state, data, 3);
+            (void)XXH3_128bits_update(state, (const char*)data+3, len-3);
+            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
         {   size_t pos;
-            (void)XXH3_128bits_reset_withSeed(&state, seed);
+            (void)XXH3_128bits_reset_withSeed(state, seed);
             for (pos=0; pos<len; pos++)
-                (void)XXH3_128bits_update(&state, ((const char*)data)+pos, 1);
-            BMK_checkResult128(XXH3_128bits_digest(&state), Nresult);
-    }   }
-
+                (void)XXH3_128bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
 }
 
 #define SANITY_BUFFER_SIZE 2243
@@ -926,64 +1022,55 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
  */
 static void BMK_sanityCheck(void)
 {
-    const U32 prime = 2654435761U;
-    const U64 prime64 = 11400714785074694797ULL;
     U8 sanityBuffer[SANITY_BUFFER_SIZE];
-    U64 byteGen = prime;
+    BMK_fillTestBuffer(sanityBuffer, sizeof(sanityBuffer));
 
-    int i;
-    for (i=0; i<SANITY_BUFFER_SIZE; i++) {
-        sanityBuffer[i] = (U8)(byteGen>>56);
-        byteGen *= prime64;
-    }
+    BMK_testXXH32(NULL,          0, 0,       0x02CC5D05);
+    BMK_testXXH32(NULL,          0, PRIME32, 0x36B78AE7);
+    BMK_testXXH32(sanityBuffer,  1, 0,       0xCF65B03E);
+    BMK_testXXH32(sanityBuffer,  1, PRIME32, 0xB4545AA4);
+    BMK_testXXH32(sanityBuffer, 14, 0,       0x1208E7E2);
+    BMK_testXXH32(sanityBuffer, 14, PRIME32, 0x6AF1D1FE);
+    BMK_testXXH32(sanityBuffer,222, 0,       0x5BD11DBD);
+    BMK_testXXH32(sanityBuffer,222, PRIME32, 0x58803C5F);
 
-
-    BMK_testXXH32(NULL,          0, 0,     0x02CC5D05);
-    BMK_testXXH32(NULL,          0, prime, 0x36B78AE7);
-    BMK_testXXH32(sanityBuffer,  1, 0,     0xCF65B03E);
-    BMK_testXXH32(sanityBuffer,  1, prime, 0xB4545AA4);
-    BMK_testXXH32(sanityBuffer, 14, 0,     0x1208E7E2);
-    BMK_testXXH32(sanityBuffer, 14, prime, 0x6AF1D1FE);
-    BMK_testXXH32(sanityBuffer,222, 0,     0x5BD11DBD);
-    BMK_testXXH32(sanityBuffer,222, prime, 0x58803C5F);
-
-    BMK_testXXH64(NULL        ,  0, 0,     0xEF46DB3751D8E999ULL);
-    BMK_testXXH64(NULL        ,  0, prime, 0xAC75FDA2929B17EFULL);
-    BMK_testXXH64(sanityBuffer,  1, 0,     0xE934A84ADB052768ULL);
-    BMK_testXXH64(sanityBuffer,  1, prime, 0x5014607643A9B4C3ULL);
-    BMK_testXXH64(sanityBuffer,  4, 0,     0x9136A0DCA57457EEULL);
-    BMK_testXXH64(sanityBuffer, 14, 0,     0x8282DCC4994E35C8ULL);
-    BMK_testXXH64(sanityBuffer, 14, prime, 0xC3BD6BF63DEB6DF0ULL);
-    BMK_testXXH64(sanityBuffer,222, 0,     0xB641AE8CB691C174ULL);
-    BMK_testXXH64(sanityBuffer,222, prime, 0x20CB8AB7AE10C14AULL);
+    BMK_testXXH64(NULL        ,  0, 0,       0xEF46DB3751D8E999ULL);
+    BMK_testXXH64(NULL        ,  0, PRIME32, 0xAC75FDA2929B17EFULL);
+    BMK_testXXH64(sanityBuffer,  1, 0,       0xE934A84ADB052768ULL);
+    BMK_testXXH64(sanityBuffer,  1, PRIME32, 0x5014607643A9B4C3ULL);
+    BMK_testXXH64(sanityBuffer,  4, 0,       0x9136A0DCA57457EEULL);
+    BMK_testXXH64(sanityBuffer, 14, 0,       0x8282DCC4994E35C8ULL);
+    BMK_testXXH64(sanityBuffer, 14, PRIME32, 0xC3BD6BF63DEB6DF0ULL);
+    BMK_testXXH64(sanityBuffer,222, 0,       0xB641AE8CB691C174ULL);
+    BMK_testXXH64(sanityBuffer,222, PRIME32, 0x20CB8AB7AE10C14AULL);
 
     BMK_testXXH3(NULL,           0, 0,       0x776EDDFB6BFD9195ULL);  /* empty string */
-    BMK_testXXH3(NULL,           0, prime64, 0x6AFCE90814C488CBULL);
+    BMK_testXXH3(NULL,           0, PRIME64, 0x6AFCE90814C488CBULL);
     BMK_testXXH3(sanityBuffer,   1, 0,       0xB936EBAE24CB01C5ULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   1, prime64, 0xF541B1905037FC39ULL);  /*  1 -  3 */
+    BMK_testXXH3(sanityBuffer,   1, PRIME64, 0xF541B1905037FC39ULL);  /*  1 -  3 */
     BMK_testXXH3(sanityBuffer,   6, 0,       0x27B56A84CD2D7325ULL);  /*  4 -  8 */
-    BMK_testXXH3(sanityBuffer,   6, prime64, 0x84589C116AB59AB9ULL);  /*  4 -  8 */
+    BMK_testXXH3(sanityBuffer,   6, PRIME64, 0x84589C116AB59AB9ULL);  /*  4 -  8 */
     BMK_testXXH3(sanityBuffer,  12, 0,       0xA713DAF0DFBB77E7ULL);  /*  9 - 16 */
-    BMK_testXXH3(sanityBuffer,  12, prime64, 0xE7303E1B2336DE0EULL);  /*  9 - 16 */
+    BMK_testXXH3(sanityBuffer,  12, PRIME64, 0xE7303E1B2336DE0EULL);  /*  9 - 16 */
     BMK_testXXH3(sanityBuffer,  24, 0,       0xA3FE70BF9D3510EBULL);  /* 17 - 32 */
-    BMK_testXXH3(sanityBuffer,  24, prime64, 0x850E80FC35BDD690ULL);  /* 17 - 32 */
+    BMK_testXXH3(sanityBuffer,  24, PRIME64, 0x850E80FC35BDD690ULL);  /* 17 - 32 */
     BMK_testXXH3(sanityBuffer,  48, 0,       0x397DA259ECBA1F11ULL);  /* 33 - 64 */
-    BMK_testXXH3(sanityBuffer,  48, prime64, 0xADC2CBAA44ACC616ULL);  /* 33 - 64 */
+    BMK_testXXH3(sanityBuffer,  48, PRIME64, 0xADC2CBAA44ACC616ULL);  /* 33 - 64 */
     BMK_testXXH3(sanityBuffer,  80, 0,       0xBCDEFBBB2C47C90AULL);  /* 65 - 96 */
-    BMK_testXXH3(sanityBuffer,  80, prime64, 0xC6DD0CB699532E73ULL);  /* 65 - 96 */
+    BMK_testXXH3(sanityBuffer,  80, PRIME64, 0xC6DD0CB699532E73ULL);  /* 65 - 96 */
     BMK_testXXH3(sanityBuffer, 195, 0,       0xCD94217EE362EC3AULL);  /* 129-240 */
-    BMK_testXXH3(sanityBuffer, 195, prime64, 0xBA68003D370CB3D9ULL);  /* 129-240 */
+    BMK_testXXH3(sanityBuffer, 195, PRIME64, 0xBA68003D370CB3D9ULL);  /* 129-240 */
 
     BMK_testXXH3(sanityBuffer, 403, 0,       0x1B2AFF3B46C74648ULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 403, prime64, 0xB654F6FFF42AD787ULL);  /* one block, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer, 403, PRIME64, 0xB654F6FFF42AD787ULL);  /* one block, last stripe is overlapping */
     BMK_testXXH3(sanityBuffer, 512, 0,       0x43E368661808A9E8ULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer, 512, prime64, 0x3A865148E584E5B9ULL);  /* one block, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer, 512, PRIME64, 0x3A865148E584E5B9ULL);  /* one block, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer,2048, 0,       0xC7169244BBDA8BD4ULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2048, prime64, 0x74BF9A802BBDFBAEULL);  /* 2 blocks, finishing at block boundary */
+    BMK_testXXH3(sanityBuffer,2048, PRIME64, 0x74BF9A802BBDFBAEULL);  /* 2 blocks, finishing at block boundary */
     BMK_testXXH3(sanityBuffer,2240, 0,       0x30FEB637E114C0C7ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2240, prime64, 0xEEF78A36185EB61FULL);  /* 3 blocks, finishing at stripe boundary */
+    BMK_testXXH3(sanityBuffer,2240, PRIME64, 0xEEF78A36185EB61FULL);  /* 3 blocks, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer,2243, 0,       0x62C631454648A193ULL);  /* 3 blocks, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2243, prime64, 0x6CF80A4BADEA4428ULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2243, PRIME64, 0x6CF80A4BADEA4428ULL);  /* 3 blocks, last stripe is overlapping */
 
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
@@ -1007,79 +1094,79 @@ static void BMK_sanityCheck(void)
         BMK_testXXH128(NULL,           0, 0,     expected);         /* empty string */
     }
     {   XXH128_hash_t const expected = { 0x7282E631387D51ACULL, 0x8743B0A8131AB9E6ULL };
-        BMK_testXXH128(NULL,           0, prime, expected);
+        BMK_testXXH128(NULL,           0, PRIME32, expected);
     }
     {   XXH128_hash_t const expected = { 0xB936EBAE24CB01C5ULL, 0x2554B05763A71A05ULL };
-        BMK_testXXH128(sanityBuffer,   1, 0,     expected);         /* 1-3 */
+        BMK_testXXH128(sanityBuffer,   1, 0,       expected);       /* 1-3 */
     }
     {   XXH128_hash_t const expected = { 0xCA57C628C04B45B8ULL, 0x916831F4DCD21CF9ULL };
-        BMK_testXXH128(sanityBuffer,   1, prime, expected);         /* 1-3 */
+        BMK_testXXH128(sanityBuffer,   1, PRIME32, expected);       /* 1-3 */
     }
     {   XXH128_hash_t const expected = { 0x3E7039BDDA43CFC6ULL, 0x082AFE0B8162D12AULL };
-        BMK_testXXH128(sanityBuffer,   6, 0,     expected);         /* 4-8 */
+        BMK_testXXH128(sanityBuffer,   6, 0,       expected);       /* 4-8 */
     }
     {   XXH128_hash_t const expected = { 0x269D8F70BE98856EULL, 0x5A865B5389ABD2B1ULL };
-        BMK_testXXH128(sanityBuffer,   6, prime, expected);         /* 4-8 */
+        BMK_testXXH128(sanityBuffer,   6, PRIME32, expected);       /* 4-8 */
     }
     {   XXH128_hash_t const expected = { 0x061A192713F69AD9ULL, 0x6E3EFD8FC7802B18ULL };
-        BMK_testXXH128(sanityBuffer,  12, 0,     expected);         /* 9-16 */
+        BMK_testXXH128(sanityBuffer,  12, 0,       expected);       /* 9-16 */
     }
     {   XXH128_hash_t const expected = { 0x9BE9F9A67F3C7DFBULL, 0xD7E09D518A3405D3ULL };
-        BMK_testXXH128(sanityBuffer,  12, prime, expected);         /* 9-16 */
+        BMK_testXXH128(sanityBuffer,  12, PRIME32, expected);       /* 9-16 */
     }
     {   XXH128_hash_t const expected = { 0x1E7044D28B1B901DULL, 0x0CE966E4678D3761ULL };
-        BMK_testXXH128(sanityBuffer,  24, 0,     expected);         /* 17-32 */
+        BMK_testXXH128(sanityBuffer,  24, 0,       expected);       /* 17-32 */
     }
     {   XXH128_hash_t const expected = { 0xD7304C54EBAD40A9ULL, 0x3162026714A6A243ULL };
-        BMK_testXXH128(sanityBuffer,  24, prime, expected);         /* 17-32 */
+        BMK_testXXH128(sanityBuffer,  24, PRIME32, expected);       /* 17-32 */
     }
     {   XXH128_hash_t const expected = { 0xF942219AED80F67BULL, 0xA002AC4E5478227EULL };
-        BMK_testXXH128(sanityBuffer,  48, 0,     expected);         /* 33-64 */
+        BMK_testXXH128(sanityBuffer,  48, 0,       expected);       /* 33-64 */
     }
     {   XXH128_hash_t const expected = { 0x7BA3C3E453A1934EULL, 0x163ADDE36C072295ULL };
-        BMK_testXXH128(sanityBuffer,  48, prime, expected);         /* 33-64 */
+        BMK_testXXH128(sanityBuffer,  48, PRIME32, expected);       /* 33-64 */
     }
     {   XXH128_hash_t const expected = { 0x5E8BAFB9F95FB803ULL, 0x4952F58181AB0042ULL };
-        BMK_testXXH128(sanityBuffer,  81, 0,     expected);         /* 65-96 */
+        BMK_testXXH128(sanityBuffer,  81, 0,       expected);       /* 65-96 */
     }
     {   XXH128_hash_t const expected = { 0x703FBB3D7A5F755CULL, 0x2724EC7ADC750FB6ULL };
-        BMK_testXXH128(sanityBuffer,  81, prime, expected);         /* 65-96 */
+        BMK_testXXH128(sanityBuffer,  81, PRIME32, expected);       /* 65-96 */
     }
     {   XXH128_hash_t const expected = { 0xF1AEBD597CEC6B3AULL, 0x337E09641B948717ULL };
-        BMK_testXXH128(sanityBuffer, 222, 0,     expected);         /* 129-240 */
+        BMK_testXXH128(sanityBuffer, 222, 0,       expected);       /* 129-240 */
     }
     {   XXH128_hash_t const expected = { 0xAE995BB8AF917A8DULL, 0x91820016621E97F1ULL };
-        BMK_testXXH128(sanityBuffer, 222, prime, expected);         /* 129-240 */
+        BMK_testXXH128(sanityBuffer, 222, PRIME32, expected);       /* 129-240 */
     }
     {   XXH128_hash_t const expected = { 0xCDEB804D65C6DEA4ULL, 0x1B6DE21E332DD73DULL };
-        BMK_testXXH128(sanityBuffer, 403, 0,     expected);         /* one block, last stripe is overlapping */
+        BMK_testXXH128(sanityBuffer, 403, 0,       expected);       /* one block, last stripe is overlapping */
     }
     {   XXH128_hash_t const expected = { 0x6259F6ECFD6443FDULL, 0xBED311971E0BE8F2ULL };
-        BMK_testXXH128(sanityBuffer, 403, prime64, expected);       /* one block, last stripe is overlapping */
+        BMK_testXXH128(sanityBuffer, 403, PRIME64, expected);       /* one block, last stripe is overlapping */
     }
     {   XXH128_hash_t const expected = { 0x1443B8153EBEE367ULL, 0x98EC7E48CD872997ULL };
-        BMK_testXXH128(sanityBuffer, 512, 0,     expected);         /* one block, finishing at stripe boundary */
+        BMK_testXXH128(sanityBuffer, 512, 0,       expected);       /* one block, finishing at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0x43FDC6823A52F1F2ULL, 0x2F748A4F194E1EF0ULL };
-        BMK_testXXH128(sanityBuffer, 512, prime64, expected);       /* one block, finishing at stripe boundary */
+        BMK_testXXH128(sanityBuffer, 512, PRIME64, expected);       /* one block, finishing at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0xF4258501BE8E0623ULL, 0x6930A2267A755B20ULL };
-        BMK_testXXH128(sanityBuffer,2048, 0,     expected);         /* two blocks, finishing at block boundary */
+        BMK_testXXH128(sanityBuffer,2048, 0,       expected);       /* two blocks, finishing at block boundary */
     }
     {   XXH128_hash_t const expected = { 0x10CC56C2FA0AD9ACULL, 0xD0D7A3C2EEF2D892ULL };
-        BMK_testXXH128(sanityBuffer,2048, prime, expected);         /* two blocks, finishing at block boundary */
+        BMK_testXXH128(sanityBuffer,2048, PRIME32, expected);       /* two blocks, finishing at block boundary */
     }
     {   XXH128_hash_t const expected = { 0x5890AE7ACBB84A7EULL, 0x85C327B377AA7E62ULL };
-        BMK_testXXH128(sanityBuffer,2240, 0,     expected);         /* two blocks, ends at stripe boundary */
+        BMK_testXXH128(sanityBuffer,2240, 0,       expected);      /* two blocks, ends at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0x205E6D72DCCBD2AAULL, 0x62B70214DB075235ULL };
-        BMK_testXXH128(sanityBuffer,2240, prime, expected);         /* two blocks, ends at stripe boundary */
+        BMK_testXXH128(sanityBuffer,2240, PRIME32, expected);       /* two blocks, ends at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0xF403CEA1763CD9CCULL, 0x0CDABF3F3C98B371ULL };
-        BMK_testXXH128(sanityBuffer,2237, 0,     expected);         /* two blocks, last stripe is overlapping */
+        BMK_testXXH128(sanityBuffer,2237, 0,       expected);       /* two blocks, last stripe is overlapping */
     }
     {   XXH128_hash_t const expected = { 0xF3824EE446018851ULL, 0xC81B751764BD53C5ULL };
-        BMK_testXXH128(sanityBuffer,2237, prime, expected);         /* two blocks, last stripe is overlapping */
+        BMK_testXXH128(sanityBuffer,2237, PRIME32, expected);       /* two blocks, last stripe is overlapping */
     }
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
@@ -1835,18 +1922,18 @@ static void errorOut(const char* msg)
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  * @return 1 if an overflow error occurs
  */
-static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
+static int readU32FromCharChecked(const char** stringPtr, U32* value)
 {
-    static unsigned const max = (((unsigned)(-1)) / 10) - 1;
-    unsigned result = 0;
+    static const U32 max = (((U32)(-1)) / 10) - 1;
+    U32 result = 0;
     while ((**stringPtr >='0') && (**stringPtr <='9')) {
         if (result > max) return 1; /* overflow error */
         result *= 10;
-        result += (unsigned)(**stringPtr - '0');
+        result += (U32)(**stringPtr - '0');
         (*stringPtr)++ ;
     }
     if ((**stringPtr=='K') || (**stringPtr=='M')) {
-        unsigned const maxK = ((unsigned)(-1)) >> 10;
+        U32 const maxK = ((U32)(-1)) >> 10;
         if (result > maxK) return 1; /* overflow error */
         result <<= 10;
         if (**stringPtr=='M') {
@@ -1868,8 +1955,8 @@ static int readU32FromCharChecked(const char** stringPtr, unsigned* value)
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  *  Note: function will exit() program if digit sequence overflows
  */
-static unsigned readU32FromChar(const char** stringPtr) {
-    unsigned result;
+static U32 readU32FromChar(const char** stringPtr) {
+    U32 result;
     if (readU32FromCharChecked(stringPtr, &result)) {
         static const char errorMsg[] = "Error: numeric value too large";
         errorOut(errorMsg);
@@ -2035,10 +2122,11 @@ static void free_argv(int argc, char **argv)
  * just define it manually.
  *
  * Even if you are linking to a really old MSVC runtime, the worst thing that
- * can happen is that it silently errors and Unicode text doesn't appear in the
- * console. ASCII text would work as expected, and that is its primary usage.
+ * seems to happen is that Unicode crashes the program. That leaves it in the
+ * same state that it was before the patch: ASCII works, Unicode does not.
  *
- * However, at least on Windows 10, this seems to work with msvcrt.dll.
+ * At least on Windows 7, this seems to fix Unicode with msvcrt.dll, and it
+ * should work with on older versions with the right runtime.
  */
 #ifndef _O_U8TEXT
 #  define _O_U8TEXT 0x40000
@@ -2052,7 +2140,7 @@ static void free_argv(int argc, char **argv)
  * open any files with Unicode filenames.
  *
  * On MSVC or when -municode is used in MSYS2, we can just use wmain to get
- * UTF-16 command line arguments and convert them to UTF-8.
+ * UTF-16 command line arguments and convert them to UTF-8. This is preferred.
  *
  * However, without the -municode flag (which isn't even available on the
  * original MinGW), we will get a linker error.

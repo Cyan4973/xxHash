@@ -2,7 +2,7 @@
  * dummy.c,
  * A fake hash algorithm, just to test integration capabilities.
  * Part of the xxHash project
- * Copyright (C) 2012-present, Yann Collet
+ * Copyright (C) 2020 Yann Collet
  *
  * GPL v2 License
  *

@@ -1,7 +1,7 @@
 /*
  * Brute force collision tester for 64-bit hashes
  * Part of the xxHash project
- * Copyright (C) 2019-present, Yann Collet
+ * Copyright (C) 2019-2020 Yann Collet
  *
  * GPL v2 License
  *
@@ -953,7 +953,7 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
  * it can be necessary to test multiple input sizes
  * to paint an accurate picture of collision performance
  */
-#define SAMPLE_SIZE_DEFAULT 255
+#define SAMPLE_SIZE_DEFAULT 256
 #define HASHFN_ID_DEFAULT 0
 
 void help(const char* exeName)

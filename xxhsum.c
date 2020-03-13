@@ -126,10 +126,15 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 
 /* Unicode helpers for Windows */
 #if defined(_WIN32)
-/* Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards. */
-static wchar_t *utf8_to_utf16(const char *str)
+/*
+ * Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards.
+ * This version allows keeping the output length.
+ */
+static wchar_t *utf8_to_utf16_len(const char *str, int *lenOut)
 {
     int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    if (lenOut != NULL)
+        *lenOut = len;
     if (len == 0) {
         return NULL;
     }
@@ -143,10 +148,22 @@ static wchar_t *utf8_to_utf16(const char *str)
        return buf;
     }
 }
-/* Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards. */
-static char *utf16_to_utf8(const wchar_t *str)
+
+/* Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards. */
+static wchar_t *utf8_to_utf16(const char *str)
+{
+    return utf8_to_utf16_len(str, NULL);
+}
+
+/*
+ * Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards.
+ * This version allows keeping the output length.
+ */
+static char *utf16_to_utf8_len(const wchar_t *str, int *lenOut)
 {
     int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
+    if (lenOut != NULL)
+        *lenOut = len;
     if (len == 0) {
         return NULL;
     }
@@ -159,6 +176,12 @@ static char *utf16_to_utf8(const wchar_t *str)
        }
        return buf;
     }
+}
+
+/* Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards. */
+static char *utf16_to_utf8(const wchar_t *str)
+{
+    return utf16_to_utf8_len(str, NULL);
 }
 
 /*
@@ -180,23 +203,21 @@ static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 }
 
 /*
+ * In case it isn't available, this is what MSVC 2019 defines in stdarg.h.
+ */
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(va_copy)
+#  define va_copy(destination, source) ((destination) = (source))
+#endif
+
+/*
  * fprintf wrapper that supports UTF-8.
  *
- * If we switch stdout's mode to _O_U8TEXT, the console will always print
- * UTF-8, regardless of the console's codepage. However, fprintf will crash
- * with an assertion if it encounters any UTF-8.
+ * fprintf doesn't properly handle Unicode on Windows.
  *
- * fwprintf properly prints in _O_U8TEXT mode, but it is not ISO C compatible.
- * Therefore, we can't just replace fprintf with fwprintf.
+ * Additionally, it is codepage sensitive on console and may crash the program.
  *
- * Specifically, '%s' prints UTF-16 strings on Windows instead of UTF-8.
- *
- * Additionally, '%hs' prints strings in ANSI encoding.
- *
- * The workaround to this is to generate a UTF-8 string with snprintf (actually
- * vsnprintf), convert it to UTF-16, and print it with fwprintf.
- *
- * This works reliably even if someone defines __USE_MINGW_ANSI_STDIO.
+ * Instead, we use vsnprintf, and either print with fwrite or convert to UTF-16
+ * for console output and use the codepage-independent WriteConsoleW.
  *
  * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
  */
@@ -204,23 +225,69 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
 {
     int result;
     va_list args;
+    va_list copy;
+
     va_start(args, format);
-    result = _vscprintf(format, args);
+
+    /*
+     * To be safe, make a va_copy.
+     *
+     * Note that Microsoft doesn't use va_copy in its sample code:
+     *   https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/vsprintf-vsprintf-l-vswprintf-vswprintf-l-vswprintf-l?view=vs-2019
+     */
+    va_copy(copy, args);
+    /* Counts the number of characters needed for vsnprintf. */
+    result = _vscprintf(format, copy);
+    va_end(copy);
+
     if (result > 0) {
+        /* Create a buffer for vsnprintf */
         const size_t nchar = (size_t)result + 1;
-        char* u8_str = (char*) malloc(nchar * sizeof(u8_str[0]));
+        char* u8_str = (char*)malloc(nchar * sizeof(u8_str[0]));
+
         if (u8_str == NULL) {
             result = -1;
         } else {
-            result = vsnprintf(u8_str, nchar, format, args);
+            /* Generate the UTF-8 string with vsnprintf. */
+            result = _vsnprintf(u8_str, nchar - 1, format, args);
+            u8_str[nchar - 1] = '\0';
             if (result > 0) {
-                wchar_t *const u16_buf = utf8_to_utf16(u8_str);
-                if (u16_buf == NULL) {
-                    result = -1;
+                /*
+                 * Check if we are outputting to a console. Don't use IS_CONSOLE
+                 * directly -- we don't need to call _get_osfhandle twice.
+                 */
+                int fileNb = _fileno(stream);
+                intptr_t handle_raw = _get_osfhandle(fileNb);
+                HANDLE handle = (HANDLE)handle_raw;
+                DWORD dwTemp;
+
+                if (handle_raw < 0) {
+                     result = -1;
+                } else if (_isatty(fileNb) && GetConsoleMode(handle, &dwTemp)) {
+                    /*
+                     * Convert to UTF-16 and output with WriteConsoleW.
+                     *
+                     * This is codepage independent and works on Windows XP's
+                     * default msvcrt.dll.
+                     */
+                    int len;
+                    wchar_t *const u16_buf = utf8_to_utf16_len(u8_str, &len);
+                    if (u16_buf == NULL) {
+                        result = -1;
+                    } else {
+                        if (WriteConsoleW(handle, u16_buf, (DWORD)len - 1, &dwTemp, NULL)) {
+                            result = (int)dwTemp;
+                        } else {
+                            result = -1;
+                        }
+                        free(u16_buf);
+                    }
                 } else {
-                    /* %ls: Behaves the same in ISO C and Windows */
-                    result = fwprintf(stream, L"%ls", u16_buf);
-                    free(u16_buf);
+                    /* fwrite the UTF-8 string if we are printing to a file */
+                    result = (int)fwrite(u8_str, 1, nchar - 1, stream);
+                    if (result == 0) {
+                        result = -1;
+                    }
                 }
             }
             free(u8_str);
@@ -2087,19 +2154,20 @@ static int XXH_main(int argc, char** argv)
     }
 }
 
+/* Windows main wrapper which properly handles UTF-8 command line arguments. */
 #if defined(_WIN32)
 /* Converts a UTF-16 argv to UTF-8. */
-static char **convert_argv(int argc, wchar_t **argv)
+static char **convert_argv(int argc, wchar_t **utf16_argv)
 {
-    char **buf = (char **)malloc((size_t)(argc + 1) * sizeof(char *));
-    if (buf != NULL) {
+    char **utf8_argv = (char **)malloc((size_t)(argc + 1) * sizeof(char *));
+    if (utf8_argv != NULL) {
         int i;
         for (i = 0; i < argc; i++) {
-            buf[i] = utf16_to_utf8(argv[i]);
+            utf8_argv[i] = utf16_to_utf8(utf16_argv[i]);
         }
-        buf[argc] = NULL;
+        utf8_argv[argc] = NULL;
     }
-    return buf;
+    return utf8_argv;
 }
 /* Frees arguments returned by convert_argv */
 static void free_argv(int argc, char **argv)
@@ -2113,24 +2181,6 @@ static void free_argv(int argc, char **argv)
     }
     free(argv);
 }
-
-/*
- * The original MinGW doesn't define _O_U8TEXT unless __MSVCRT_VERSION__ is
- * defined to 0x0800 or higher, a.k.a. MSVC 2005.
- *
- * It is defined to 0x40000 on all Windows versions that support it, so we
- * just define it manually.
- *
- * Even if you are linking to a really old MSVC runtime, the worst thing that
- * seems to happen is that Unicode crashes the program. That leaves it in the
- * same state that it was before the patch: ASCII works, Unicode does not.
- *
- * At least on Windows 7, this seems to fix Unicode with msvcrt.dll, and it
- * should work with on older versions with the right runtime.
- */
-#ifndef _O_U8TEXT
-#  define _O_U8TEXT 0x40000
-#endif
 
 /*
  * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
@@ -2155,19 +2205,16 @@ extern "C"
 #endif
 int wmain(int argc, wchar_t **utf16_argv)
 {
-    char **argv;
 #else
-int main(int argc, char **argv)
+int main(void)
 {
+    int argc;
     wchar_t **utf16_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 #endif
     int ret;
-    /* Attempt to set stdin and stdout to UTF-8 mode. */
-    const int oldStdoutMode = _setmode(_fileno(stdout), _O_U8TEXT);
-    const int oldStderrMode = _setmode(_fileno(stderr), _O_U8TEXT);
 
     /* Convert the UTF-16 arguments to UTF-8. */
-    argv = convert_argv(argc, utf16_argv);
+    char **argv = convert_argv(argc, utf16_argv);
 
     if (argv == NULL) {
         fprintf(stderr, "Error converting command line arguments!\n");
@@ -2187,12 +2234,11 @@ int main(int argc, char **argv)
     /* CommandLineToArgvW needs to be freed with LocalFree. */
     LocalFree(utf16_argv);
 #endif
-    fflush(stdout); _setmode(_fileno(stdout), oldStdoutMode);
-    fflush(stderr); _setmode(_fileno(stderr), oldStderrMode);
     return ret;
 }
 
 #else
+/* Wrap main normally on non-Windows platforms. */
 int main(int argc, char **argv)
 {
     return XXH_main(argc, argv);

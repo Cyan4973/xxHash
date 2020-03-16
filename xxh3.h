@@ -594,16 +594,32 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *     of 32-bit ADD/ADCs.
      */
 
-    /* First calculate all of the cross products. */
-    xxh_u64 const lo_lo = XXH_mult32to64(lhs & 0xFFFFFFFF, rhs & 0xFFFFFFFF);
-    xxh_u64 const hi_lo = XXH_mult32to64(lhs >> 32,        rhs & 0xFFFFFFFF);
-    xxh_u64 const lo_hi = XXH_mult32to64(lhs & 0xFFFFFFFF, rhs >> 32);
-    xxh_u64 const hi_hi = XXH_mult32to64(lhs >> 32,        rhs >> 32);
+    xxh_u64 const lhs_lo32 = (xxh_u32)lhs;
+    xxh_u64 const lhs_hi32 = lhs >> 32;
+    xxh_u64 const lhs_fold33 = lhs_lo32 + lhs_hi32;
+    xxh_u64 const lhs_fold_lo32 = (xxh_u32)lhs_fold33;
+    xxh_u64 const lhs_fold_hi1 = lhs_fold33 >> 32;
 
-    /* Now add the products together. These will never overflow. */
-    xxh_u64 const cross = (lo_lo >> 32) + (hi_lo & 0xFFFFFFFF) + lo_hi;
-    xxh_u64 const upper = (hi_lo >> 32) + (cross >> 32)        + hi_hi;
-    xxh_u64 const lower = (cross << 32) | (lo_lo & 0xFFFFFFFF);
+    xxh_u64 const rhs_lo32 = (xxh_u32)rhs;
+    xxh_u64 const rhs_hi32 = rhs >> 32;
+    xxh_u64 const rhs_fold33 = rhs_lo32 + rhs_hi32;
+    xxh_u64 const rhs_fold_lo32 = (xxh_u32)rhs_fold33;
+    xxh_u64 const rhs_fold_hi1 = rhs_fold33 >> 32;
+
+    xxh_u64 const L   = XXH_mult32to64(lhs_lo32, rhs_lo32);
+    xxh_u64 const H   = XXH_mult32to64(lhs_hi32, rhs_hi32);
+    xxh_u64 const C_L = XXH_mult32to64(lhs_fold_lo32, rhs_fold_lo32);
+    xxh_u64 const C_K = ((0-lhs_fold_hi1) & rhs_fold_lo32) + ((0-rhs_fold_hi1) & lhs_fold_lo32);
+    xxh_u64 const C_H = lhs_fold_hi1 & rhs_fold_hi1;
+
+    // C = C_H * 2^64 + C_K * 2^32 + C_L
+    // K = C - H - L
+    xxh_u64 const K_lo33 = (xxh_u64)(xxh_u32)C_L + 0x200000000ULL - (xxh_u32)H - (xxh_u32)L;
+    xxh_u64 const K_hi33 = (C_L >> 32) + C_K + (C_H << 32) - 2 - (H >> 32) - (L >> 32);
+
+    // lhs * rhs = (H + K_hi33) * 2^64 + (K_lo33) * 2^32 + L
+    xxh_u64 const lower = (K_lo33 << 32) + L;
+    xxh_u64 const upper = (((L>>32) + K_lo33)>>32) + K_hi33 + H;
 
     XXH128_hash_t r128;
     r128.low64  = lower;

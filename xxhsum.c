@@ -1434,23 +1434,23 @@ typedef enum {
     GetLine_ok,
     GetLine_eof,
     GetLine_exceedMaxLineLength,
-    GetLine_outOfMemory,
+    GetLine_outOfMemory
 } GetLineResult;
 
 typedef enum {
     CanonicalFromString_ok,
-    CanonicalFromString_invalidFormat,
+    CanonicalFromString_invalidFormat
 } CanonicalFromStringResult;
 
 typedef enum {
     ParseLine_ok,
-    ParseLine_invalidFormat,
+    ParseLine_invalidFormat
 } ParseLineResult;
 
 typedef enum {
     LineStatus_hashOk,
     LineStatus_hashFailed,
-    LineStatus_failedToOpen,
+    LineStatus_failedToOpen
 } LineStatus;
 
 typedef union {

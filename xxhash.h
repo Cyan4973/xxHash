@@ -895,7 +895,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #endif
 
 /* note: use after variable declarations */
-#define XXH_STATIC_ASSERT(c)  { enum { XXH_sa = 1/(int)(!!(c)) }; }
+#define XXH_STATIC_ASSERT(c)  do { enum { XXH_sa = 1/(int)(!!(c)) }; } while (0)
 
 
 /* *************************************
@@ -1171,14 +1171,16 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32)
 static xxh_u32
 XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
-#define PROCESS1               \
-    h32 += (*ptr++) * PRIME32_5; \
-    h32 = XXH_rotl32(h32, 11) * PRIME32_1 ;
+#define PROCESS1 do {                           \
+    h32 += (*ptr++) * PRIME32_5;                \
+    h32 = XXH_rotl32(h32, 11) * PRIME32_1;      \
+} while (0)
 
-#define PROCESS4                         \
-    h32 += XXH_get32bits(ptr) * PRIME32_3; \
-    ptr+=4;                                \
-    h32  = XXH_rotl32(h32, 17) * PRIME32_4 ;
+#define PROCESS4 do {                           \
+    h32 += XXH_get32bits(ptr) * PRIME32_3;      \
+    ptr += 4;                                   \
+    h32  = XXH_rotl32(h32, 17) * PRIME32_4;     \
+} while (0)
 
     /* Compact rerolled version */
     if (XXH_REROLL) {
@@ -1626,21 +1628,23 @@ static xxh_u64 XXH64_avalanche(xxh_u64 h64)
 static xxh_u64
 XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
-#define PROCESS1_64            \
-    h64 ^= (*ptr++) * PRIME64_5; \
-    h64 = XXH_rotl64(h64, 11) * PRIME64_1;
+#define PROCESS1_64 do {                                   \
+    h64 ^= (*ptr++) * PRIME64_5;                           \
+    h64 = XXH_rotl64(h64, 11) * PRIME64_1;                 \
+} while (0)
 
-#define PROCESS4_64          \
-    h64 ^= (xxh_u64)(XXH_get32bits(ptr)) * PRIME64_1; \
-    ptr+=4;                    \
-    h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;
+#define PROCESS4_64 do {                                   \
+    h64 ^= (xxh_u64)(XXH_get32bits(ptr)) * PRIME64_1;      \
+    ptr += 4;                                              \
+    h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;     \
+} while (0)
 
-#define PROCESS8_64 {        \
+#define PROCESS8_64 do {                                   \
     xxh_u64 const k1 = XXH64_round(0, XXH_get64bits(ptr)); \
-    ptr+=8;                    \
-    h64 ^= k1;               \
-    h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4; \
-}
+    ptr += 8;                                              \
+    h64 ^= k1;                                             \
+    h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;     \
+} while (0)
 
     /* Rerolled version for 32-bit targets is faster and much smaller. */
     if (XXH_REROLL || XXH_REROLL_XXH64) {

@@ -1020,8 +1020,7 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
             uint8x16_t data_vec    = vld1q_u8(xinput  + (i * 16));
             /* key_vec  = xsecret[i];  */
             uint8x16_t key_vec     = vld1q_u8(xsecret + (i * 16));
-            /* data_key = data_vec ^ key_vec; */
-            uint64x2_t data_key    = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
+            uint64x2_t data_key;
             uint32x2_t data_key_lo, data_key_hi;
             if (accWidth == XXH3_acc_64bits) {
                 /* xacc[i] += data_vec; */
@@ -1032,6 +1031,8 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                 uint64x2_t const swapped = vextq_u64(data64, data64, 1);
                 xacc[i] = vaddq_u64 (xacc[i], swapped);
             }
+            /* data_key = data_vec ^ key_vec; */
+            data_key = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
             /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF);
              * data_key_hi = (uint32x2_t) (data_key >> 32);
              * data_key = UNDEFINED; */
@@ -1339,11 +1340,25 @@ static XXH64_hash_t
 XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, xxh_u64 start)
 {
     xxh_u64 result64 = start;
+    size_t i = 0;
 
-    result64 += XXH3_mix2Accs(acc+0, secret +  0);
-    result64 += XXH3_mix2Accs(acc+2, secret + 16);
-    result64 += XXH3_mix2Accs(acc+4, secret + 32);
-    result64 += XXH3_mix2Accs(acc+6, secret + 48);
+    for (i = 0; i < 4; i++) {
+        result64 += XXH3_mix2Accs(acc+2*i, secret + 16*i);
+#if defined(__clang__)                                /* Clang */ \
+    && (defined(__arm__) || defined(__thumb__))       /* ARMv7 */ \
+    && (defined(__ARM_NEON) || defined(__ARM_NEON__)) /* NEON */  \
+    && !defined(XXH_ENABLE_AUTOVECTORIZE)             /* Define to disable */
+        /*
+         * UGLY HACK:
+         * Prevent autovectorization on Clang ARMv7-a. Exact same problem as
+         * the one in XXH3_len_129to240_64b. Speeds up shorter keys > 240b.
+         * XXH3_64bits, len == 256, Snapdragon 835:
+         *   without hack: 2063.7 MB/s
+         *   with hack:    2560.7 MB/s
+         */
+        __asm__("" : "+r" (result64));
+#endif
+    }
 
     return XXH3_avalanche(result64);
 }
@@ -1376,16 +1391,65 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 /* XXH3_initCustomSecret() :
  * destination `customSecret` is presumed allocated and same size as `kSecret`.
  */
-XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* customSecret, xxh_u64 seed64)
+XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, xxh_u64 seed64)
 {
     int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
     int i;
+    /*
+     * We need a separate pointer for the hack below.
+     * Any decent compiler will optimize this out otherwise.
+     */
+    const xxh_u8 *kSecretPtr = kSecret;
 
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
 
+#if defined(__clang__) && defined(__aarch64__)
+    /*
+     * UGLY HACK:
+     * Clang generates a bunch of MOV/MOVK pairs for aarch64, and they are
+     * placed sequentially, in order, at the top of the unrolled loop.
+     *
+     * While MOVK is great for generating constants (2 cycles for a 64-bit
+     * constant compared to 4 cycles for LDR), long MOVK chains stall the
+     * integer pipelines:
+     *   I   L   S
+     * MOVK
+     * MOVK
+     * MOVK
+     * MOVK
+     * ADD
+     * SUB      STR
+     *          STR
+     * By forcing loads from memory (as the asm line causes Clang to assume
+     * that kSecretPtr has been changed), the pipelines are used more efficiently:
+     *   I   L   S
+     *      LDR
+     *  ADD LDR
+     *  SUB     STR
+     *          STR
+     * XXH3_64bits_withSeed, len == 256, Snapdragon 835
+     *   without hack: 2654.4 MB/s
+     *   with hack:    3202.9 MB/s
+     */
+    __asm__("" : "+r" (kSecretPtr));
+#endif
+    /*
+     * Note: in debug mode, this overrides the asm optimization
+     * and Clang will emit MOVK chains again.
+     */
+    XXH_ASSERT(kSecretPtr == kSecret);
+
     for (i=0; i < nbRounds; i++) {
-        XXH_writeLE64(customSecret + 16*i,     XXH_readLE64(kSecret + 16*i)     + seed64);
-        XXH_writeLE64(customSecret + 16*i + 8, XXH_readLE64(kSecret + 16*i + 8) - seed64);
+        /*
+         * The asm hack causes Clang to assume that kSecretPtr aliases with
+         * customSecret, and on aarch64, this prevented LDP from merging two
+         * loads together for free. Putting the loads together before the stores
+         * properly generates LDP.
+         */
+        xxh_u64 lo = XXH_readLE64(kSecretPtr + 16*i)     + seed64;
+        xxh_u64 hi = XXH_readLE64(kSecretPtr + 16*i + 8) - seed64;
+        XXH_writeLE64(customSecret + 16*i,     lo);
+        XXH_writeLE64(customSecret + 16*i + 8, hi);
     }
 }
 

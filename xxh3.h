@@ -1302,7 +1302,7 @@ XXH3_hashLong_internal_loop( xxh_u64* XXH_RESTRICT acc,
 {
     size_t const nb_rounds = (secretSize - STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
     size_t const block_len = STRIPE_LEN * nb_rounds;
-    size_t const nb_blocks = len / block_len;
+    size_t const nb_blocks = (len - 1) / block_len;
 
     size_t n;
 

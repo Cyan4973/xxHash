@@ -1315,14 +1315,13 @@ XXH3_hashLong_internal_loop( xxh_u64* XXH_RESTRICT acc,
 
     /* last partial block */
     XXH_ASSERT(len > STRIPE_LEN);
-    {   size_t const nbStripes = (len - (block_len * nb_blocks)) / STRIPE_LEN;
+    {   size_t const nbStripes = (len - (block_len * nb_blocks) - 1) / STRIPE_LEN;
         XXH_ASSERT(nbStripes <= (secretSize / XXH_SECRET_CONSUME_RATE));
         XXH3_accumulate(acc, input + nb_blocks*block_len, secret, nbStripes, accWidth);
 
         /* last stripe */
-        if (len & (STRIPE_LEN - 1)) {
-            const xxh_u8* const p = input + len - STRIPE_LEN;
-            /* Do not align on 8, so that the secret is different from the scrambler */
+        {   const xxh_u8* const p = input + len - STRIPE_LEN;
+            /* May not align on 8, so that the secret is different from the scrambler */
 #define XXH_SECRET_LASTACC_START 7
             XXH3_accumulate_512(acc, p, secret + secretSize - STRIPE_LEN - XXH_SECRET_LASTACC_START, accWidth);
     }   }

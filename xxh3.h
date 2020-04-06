@@ -163,9 +163,12 @@
 #define XXH_AVX2   2 /* AVX2 for Haswell and Bulldozer */
 #define XXH_NEON   3 /* NEON for most ARMv7-A and all AArch64 */
 #define XXH_VSX    4 /* VSX and ZVector for POWER8/z13 */
+#define XXH_AVX512 5 /* AVX512 for Skylake and Icelake */
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
-#  if defined(__AVX2__)
+#  if defined(__AVX512F__)
+#    define XXH_VECTOR XXH_AVX512
+#  elif defined(__AVX2__)
 #    define XXH_VECTOR XXH_AVX2
 #  elif defined(__SSE2__) || defined(_M_AMD64) || defined(_M_X64) || (defined(_M_IX86_FP) && (_M_IX86_FP == 2))
 #    define XXH_VECTOR XXH_SSE2
@@ -198,6 +201,8 @@
 #     define XXH_ACC_ALIGN 16
 #  elif XXH_VECTOR == XXH_VSX   /* vsx */
 #     define XXH_ACC_ALIGN 16
+#  elif XXH_VECTOR == XXH_AVX512 /* avx512 */
+#     define XXH_ACC_ALIGN 64
 #  endif
 #endif
 
@@ -930,7 +935,37 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT secret,
                     XXH3_accWidth_e accWidth)
 {
-#if (XXH_VECTOR == XXH_AVX2)
+#if (XXH_VECTOR == XXH_AVX512)
+
+    XXH_ASSERT((((size_t)acc) & 63) == 0);
+    XXH_STATIC_ASSERT(STRIPE_LEN == sizeof(__m512i));
+    {   XXH_ALIGN(64) __m512i* const xacc    =       (__m512i *) acc;
+
+        /* data_vec    = input[0]; */
+        __m512i const data_vec    = _mm512_loadu_si512   (input);
+        /* key_vec     = secret[0]; */
+        __m512i const key_vec     = _mm512_loadu_si512   (secret);
+        /* data_key    = data_vec ^ key_vec; */
+        __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
+        /* data_key_lo = data_key >> 32; */
+        __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+        /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
+        __m512i const product     = _mm512_mul_epu32     (data_key, data_key_lo);
+        if (accWidth == XXH3_acc_128bits) {
+            /* xacc[0] += swap(data_vec); */
+            __m512i const data_swap = _mm512_shuffle_epi32(data_vec, _MM_SHUFFLE(1, 0, 3, 2));
+            __m512i const sum       = _mm512_add_epi64(*xacc, data_swap);
+            /* xacc[0] += product; */
+            *xacc = _mm512_add_epi64(product, sum);
+        } else {  /* XXH3_acc_64bits */
+            /* xacc[0] += data_vec; */
+            __m512i const sum = _mm512_add_epi64(*xacc, data_vec);
+            /* xacc[0] += product; */
+            *xacc = _mm512_add_epi64(product, sum);
+        }
+    }
+
+#elif (XXH_VECTOR == XXH_AVX2)
 
     XXH_ASSERT((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc    =       (__m256i *) acc;
@@ -1118,7 +1153,29 @@ XXH3_accumulate_512(      void* XXH_RESTRICT acc,
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
-#if (XXH_VECTOR == XXH_AVX2)
+#if (XXH_VECTOR == XXH_AVX512)
+
+    XXH_ASSERT((((size_t)acc) & 63) == 0);
+    XXH_STATIC_ASSERT(STRIPE_LEN == sizeof(__m512i));
+    {   XXH_ALIGN(64) __m512i* const xacc = (__m512i*) acc;
+        const __m512i prime32 = _mm512_set1_epi32((int)PRIME32_1);
+
+        /* xacc[0] ^= (xacc[0] >> 47) */
+        __m512i const acc_vec     = *xacc;
+        __m512i const shifted     = _mm512_srli_epi64    (acc_vec, 47);
+        __m512i const data_vec    = _mm512_xor_si512     (acc_vec, shifted);
+        /* xacc[0] ^= secret; */
+        __m512i const key_vec     = _mm512_loadu_si512   (secret);
+        __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
+
+        /* xacc[0] *= PRIME32_1; */
+        __m512i const data_key_hi = _mm512_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const prod_lo     = _mm512_mul_epu32     (data_key, prime32);
+        __m512i const prod_hi     = _mm512_mul_epu32     (data_key_hi, prime32);
+        *xacc = _mm512_add_epi64(prod_lo, _mm512_slli_epi64(prod_hi, 32));
+    }
+
+#elif (XXH_VECTOR == XXH_AVX2)
 
     XXH_ASSERT((((size_t)acc) & 31) == 0);
     {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
@@ -1270,6 +1327,8 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 }
 
 #define XXH_PREFETCH_DIST 384
+#define XXH_PREFETCH_DIST_AVX512_64  496
+#define XXH_PREFETCH_DIST_AVX512_128 384
 
 /*
  * XXH3_accumulate()
@@ -1286,7 +1345,12 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     size_t n;
     for (n = 0; n < nbStripes; n++ ) {
         const xxh_u8* const in = input + n*STRIPE_LEN;
+#if (XXH_VECTOR == XXH_AVX512)
+	if (accWidth == XXH3_acc_64bits) XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_64);
+        else                             XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_128);
+#else
         XXH_PREFETCH(in + XXH_PREFETCH_DIST);
+#endif
         XXH3_accumulate_512(acc,
                             in,
                             secret + n*XXH_SECRET_CONSUME_RATE,

@@ -1346,7 +1346,7 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     for (n = 0; n < nbStripes; n++ ) {
         const xxh_u8* const in = input + n*STRIPE_LEN;
 #if (XXH_VECTOR == XXH_AVX512)
-	if (accWidth == XXH3_acc_64bits) XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_64);
+        if (accWidth == XXH3_acc_64bits) XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_64);
         else                             XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_128);
 #else
         XXH_PREFETCH(in + XXH_PREFETCH_DIST);

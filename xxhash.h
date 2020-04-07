@@ -451,8 +451,8 @@ struct XXH64_state_s {
  * XXH3 at competitive speeds, even if XXH64 runs slowly. Further details are
  * explained in the implementation.
  *
- * Optimized implementations are provided for AVX2, SSE2, NEON, POWER8, ZVector,
- * and scalar targets. This can be controlled with the XXH_VECTOR macro.
+ * Optimized implementations are provided for AVX512, AVX2, SSE2, NEON, POWER8,
+ * ZVector and scalar targets. This can be controlled with the XXH_VECTOR macro.
  *
  * XXH3 offers 2 variants, _64bits and _128bits.
  * When only 64 bits are needed, prefer calling the _64bits variant, as it

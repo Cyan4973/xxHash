@@ -1327,8 +1327,14 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 }
 
 #define XXH_PREFETCH_DIST 384
-#define XXH_PREFETCH_DIST_AVX512_64  496
-#define XXH_PREFETCH_DIST_AVX512_128 384
+
+#ifdef __clang__ // for clang
+#  define XXH_PREFETCH_DIST_AVX512_64  320
+#  define XXH_PREFETCH_DIST_AVX512_128 320
+#else // for gcc
+#  define XXH_PREFETCH_DIST_AVX512_64  640
+#  define XXH_PREFETCH_DIST_AVX512_128 512
+#endif
 
 /*
  * XXH3_accumulate()

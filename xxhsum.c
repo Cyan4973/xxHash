@@ -340,23 +340,23 @@ static unsigned BMK_isLittleEndian(void)
 #define EXPAND_AND_QUOTE(str) QUOTE(str)
 #define PROGRAM_VERSION EXPAND_AND_QUOTE(LIB_VERSION)
 
-/* Show compiler versions in WELCOME_MESSAGE. VERSION_FMT will return the printf specifiers,
- * and VERSION will contain the comma separated list of arguments to the VERSION_FMT string. */
+/* Show compiler versions in WELCOME_MESSAGE. CC_VERSION_FMT will return the printf specifiers,
+ * and VERSION will contain the comma separated list of arguments to the CC_VERSION_FMT string. */
 #if defined(__clang_version__)
 /* Clang does its own thing. */
 #  ifdef __apple_build_version__
-#    define VERSION_FMT ", Apple Clang %s"
+#    define CC_VERSION_FMT "Apple Clang %s"
 #  else
-#    define VERSION_FMT ", Clang %s"
+#    define CC_VERSION_FMT "Clang %s"
 #  endif
-#  define VERSION  __clang_version__
+#  define CC_VERSION  __clang_version__
 #elif defined(__VERSION__)
 /* GCC and ICC */
-#  define VERSION_FMT ", %s"
+#  define CC_VERSION_FMT "%s"
 #  ifdef __INTEL_COMPILER /* icc adds its prefix */
-#    define VERSION_STRING __VERSION__
+#    define CC_VERSION __VERSION__
 #  else /* assume GCC */
-#    define VERSION "GCC " __VERSION__
+#    define CC_VERSION "GCC " __VERSION__
 #  endif
 #elif defined(_MSC_FULL_VER) && defined(_MSC_BUILD)
 /*
@@ -366,15 +366,15 @@ static unsigned BMK_isLittleEndian(void)
  *
  *   https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017
  */
-#  define VERSION  _MSC_FULL_VER / 10000000 % 100, _MSC_FULL_VER / 100000 % 100, _MSC_FULL_VER % 100000, _MSC_BUILD
-#  define VERSION_FMT ", MSVC %02i.%02i.%05i.%02i"
+#  define CC_VERSION_FMT "MSVC %02i.%02i.%05i.%02i"
+#  define CC_VERSION  _MSC_FULL_VER / 10000000 % 100, _MSC_FULL_VER / 100000 % 100, _MSC_FULL_VER % 100000, _MSC_BUILD
 #elif defined(__TINYC__)
 /* tcc stores its version in the __TINYC__ macro. */
-#  define VERSION_FMT ", tcc %i.%i.%i"
-#  define VERSION __TINYC__ / 10000 % 100, __TINYC__ / 100 % 100, __TINYC__ % 100
+#  define CC_VERSION_FMT "tcc %i.%i.%i"
+#  define CC_VERSION __TINYC__ / 10000 % 100, __TINYC__ / 100 % 100, __TINYC__ % 100
 #else
-#  define VERSION_FMT "%s"
-#  define VERSION ""
+#  define CC_VERSION_FMT "%s"
+#  define CC_VERSION "unknown compiler"
 #endif
 
 /* makes the next part easier */
@@ -451,8 +451,8 @@ static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s (%i-bit %s %s)" VERSION_FMT ", by %s\n", \
-                    exename, PROGRAM_VERSION, g_nbBits, ARCH, ENDIAN_NAME, VERSION, author
+#define WELCOME_MESSAGE(exename) "%s %s by %s, compiled as %i-bit %s %s with " CC_VERSION_FMT " \n", \
+                    exename, PROGRAM_VERSION, author, g_nbBits, ARCH, ENDIAN_NAME, CC_VERSION
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)
@@ -1942,13 +1942,13 @@ static int checkFiles(char** fnList, int fnTotal,
 static int usage(const char* exename)
 {
     DISPLAY( WELCOME_MESSAGE(exename) );
-    DISPLAY( "Usage: %s [OPTION] [FILES]...\n", exename);
-    DISPLAY( "Print or check xxHash checksums.\n\n" );
-    DISPLAY( "When no filename provided or when '-' is provided, uses stdin as input.\n");
-    DISPLAY( "Arguments: \n");
-    DISPLAY( "  -H#                  Select hash algorithm. 0=32bits, 1=64bits, 2=128bits (default: %i)\n", (int)g_defaultAlgo);
-    DISPLAY( "  -c                   Read xxHash sums from the [filenames] and check them\n");
-    DISPLAY( "  -h                   Display long help and exit\n");
+    DISPLAY( "Print or verify checksums using fast non-cryptographic algorithm xxHash \n\n" );
+    DISPLAY( "Usage: %s [options] [files] \n\n", exename);
+    DISPLAY( "When no filename provided or when '-' is provided, uses stdin as input. \n");
+    DISPLAY( "Options: \n");
+    DISPLAY( "  -H#         algorithm strength: 0=32bits, 1=64bits, 2=128bits (default: %i) \n", (int)g_defaultAlgo);
+    DISPLAY( "  -c          read xxHash sums from [files] and check them \n");
+    DISPLAY( "  -h, --help  display a long help page about advanced options \n");
     return 0;
 }
 
@@ -1957,24 +1957,24 @@ static int usage_advanced(const char* exename)
 {
     usage(exename);
     DISPLAY( "Advanced :\n");
-    DISPLAY( "  -V, --version        Display version information\n");
-    DISPLAY( "  -q, --quiet          Do not display 'Loading' messages\n");
+    DISPLAY( "  -V, --version        Display version information \n");
+    DISPLAY( "  -q, --quiet          Do not display 'Loading' messages \n");
     DISPLAY( "      --little-endian  Display hashes in little endian convention (default: big endian) \n");
-    DISPLAY( "  -h, --help           Display long help and exit\n");
-    DISPLAY( "  -b [N]               Run a benchmark (runs all by default, or Nth benchmark)\n");
-    DISPLAY( "  -i ITERATIONS        Number of times to run the benchmark (default: %u)\n", (unsigned)g_nbIterations);
+    DISPLAY( "  -b                   Run benchmark (all variants, default) \n");
+    DISPLAY( "  -b#                  Bench only variant # \n");
+    DISPLAY( "  -i ITERATIONS        Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
     DISPLAY( "\n");
-    DISPLAY( "The following four options are useful only when verifying checksums (-c):\n");
-    DISPLAY( "  -q, --quiet          Don't print OK for each successfully verified file\n");
-    DISPLAY( "      --status         Don't output anything, status code shows success\n");
-    DISPLAY( "      --strict         Exit non-zero for improperly formatted checksum lines\n");
-    DISPLAY( "      --warn           Warn about improperly formatted checksum lines\n");
+    DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");
+    DISPLAY( "  -q, --quiet          Don't print OK for each successfully verified file \n");
+    DISPLAY( "      --status         Don't output anything, status code shows success \n");
+    DISPLAY( "      --strict         Exit non-zero for improperly formatted checksum lines \n");
+    DISPLAY( "      --warn           Warn about improperly formatted checksum lines \n");
     return 0;
 }
 
 static int badusage(const char* exename)
 {
-    DISPLAY("Wrong parameters\n");
+    DISPLAY("Wrong parameters\n\n");
     usage(exename);
     return 1;
 }

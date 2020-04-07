@@ -124,8 +124,8 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
 #  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
-/* Unicode helpers for Windows */
-#if defined(_WIN32)
+/* Unicode helpers for Windows to make UTF-8 act as it should. */
+#ifdef _WIN32
 /*
  * Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
@@ -2157,11 +2157,11 @@ static int XXH_main(int argc, char** argv)
 }
 
 /* Windows main wrapper which properly handles UTF-8 command line arguments. */
-#if defined(_WIN32)
+#ifdef _WIN32
 /* Converts a UTF-16 argv to UTF-8. */
-static char **convert_argv(int argc, wchar_t **utf16_argv)
+static char** convert_argv(int argc, wchar_t** utf16_argv)
 {
-    char **utf8_argv = (char **)malloc((size_t)(argc + 1) * sizeof(char *));
+    char** utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
     if (utf8_argv != NULL) {
         int i;
         for (i = 0; i < argc; i++) {
@@ -2172,7 +2172,7 @@ static char **convert_argv(int argc, wchar_t **utf16_argv)
     return utf8_argv;
 }
 /* Frees arguments returned by convert_argv */
-static void free_argv(int argc, char **argv)
+static void free_argv(int argc, char** argv)
 {
     int i;
     if (argv == NULL) {
@@ -2184,6 +2184,7 @@ static void free_argv(int argc, char **argv)
     free(argv);
 }
 
+
 /*
  * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
  * encoding, and any unknown characters will show up as mojibake.
@@ -2191,58 +2192,112 @@ static void free_argv(int argc, char **argv)
  * While this doesn't affect most programs, what does happen is that we can't
  * open any files with Unicode filenames.
  *
- * On MSVC or when -municode is used in MSYS2, we can just use wmain to get
- * UTF-16 command line arguments and convert them to UTF-8. This is preferred.
+ * We instead convert wmain's arguments to UTF-8, preserving Unicode arguments.
  *
- * However, without the -municode flag (which isn't even available on the
- * original MinGW), we will get a linker error.
- *
- * To fix this, we can combine main with GetCommandLineW and CommandLineToArgvW
- * to get the real UTF-16 arguments.
+ * This function is wrapped by `__wgetmainargs()` and `main()` below on MinGW
+ * with Unicode disabled, but if possible, we try to use `wmain()`.
  */
-#if defined(_MSC_VER) || defined(_UNICODE) || defined(UNICODE)
-
-#if defined(__cplusplus)
-extern "C"
-#endif
-int wmain(int argc, wchar_t **utf16_argv)
+static int XXH_wmain(int argc, wchar_t** utf16_argv)
 {
-#else
-int main(void)
-{
-    int argc;
-    wchar_t **utf16_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-#endif
-    int ret;
-
     /* Convert the UTF-16 arguments to UTF-8. */
-    char **argv = convert_argv(argc, utf16_argv);
+    char** utf8_argv = convert_argv(argc, utf16_argv);
 
-    if (argv == NULL) {
+    if (utf8_argv == NULL) {
+        /* An unfortunate but incredibly unlikely error, */
         fprintf(stderr, "Error converting command line arguments!\n");
-        /* return 1; */
-        ret = 1;
+        return 1;
     } else {
-        /* While we're here, we will set stderr to unbuffered mode to make text
-         * display instantly on MinGW. */
+        int ret;
+
+        /*
+         * MinGW's terminal uses full block buffering for stderr.
+         *
+         * This is nonstandard behavior and causes text to not display until
+         * the buffer fills.
+         *
+         * `setvbuf()` can easily correct this to make text display instantly.
+         */
         setvbuf(stderr, NULL, _IONBF, 0);
 
         /* Call our real main function */
-        ret = XXH_main(argc, argv);
+        ret = XXH_main(argc, utf8_argv);
 
-        free_argv(argc, argv);
+        /* Cleanup */
+        free_argv(argc, utf8_argv);
+        return ret;
     }
-#if !(defined(_MSC_VER) || defined(_UNICODE) || defined(UNICODE))
-    /* CommandLineToArgvW needs to be freed with LocalFree. */
-    LocalFree(utf16_argv);
-#endif
-    return ret;
 }
 
-#else
+#if defined(_MSC_VER)                     /* MSVC always accepts wmain */ \
+ || defined(_UNICODE) || defined(UNICODE) /* defined with -municode on MinGW-w64 */
+
+/* Preferred: Use the real `wmain()`. */
+#if defined(__cplusplus)
+extern "C"
+#endif
+int wmain(int argc, wchar_t** utf16_argv)
+{
+    return XXH_wmain(argc, utf16_argv);
+}
+
+#else /* Non-Unicode MinGW */
+
+/*
+ * Wrap `XXH_wmain()` using `main()` and `__wgetmainargs()` on MinGW without
+ * Unicode support.
+ *
+ * `__wgetmainargs()` is used in the CRT startup to retrieve the arguments for
+ * `wmain()`, so we use it on MinGW to emulate `wmain()`.
+ *
+ * It is an internal function and not declared in any public headers, so we
+ * have to declare it manually.
+ *
+ * An alternative that doesn't mess with internal APIs is `GetCommandLineW()`
+ * with `CommandLineToArgvW()`, but the former doesn't expand wildcards and the
+ * latter requires linking to Shell32.dll and its numerous dependencies.
+ *
+ * This method keeps our dependencies to kernel32.dll and the CRT.
+ *
+ * https://docs.microsoft.com/en-us/cpp/c-runtime-library/getmainargs-wgetmainargs?view=vs-2019
+ */
+typedef struct {
+    int newmode;
+} _startupinfo;
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int __cdecl __wgetmainargs(
+    int*          Argc,
+    wchar_t***    Argv,
+    wchar_t***    Env,
+    int           DoWildCard,
+    _startupinfo* StartInfo
+);
+
+int main(int ansi_argc, char** ansi_argv)
+{
+    int       utf16_argc;
+    wchar_t** utf16_argv;
+    wchar_t** utf16_envp;         /* Unused but required */
+    _startupinfo startinfo = {0}; /* 0 == don't change new mode */
+
+    /* Get wmain's UTF-16 arguments. Make sure we expand wildcards. */
+    if (__wgetmainargs(&utf16_argc, &utf16_argv, &utf16_envp, 1, &startinfo) < 0)
+        /* In the very unlikely case of an error, use the ANSI arguments. */
+        return XXH_main(ansi_argc, ansi_argv);
+
+    /* Call XXH_wmain with our UTF-16 arguments */
+    return XXH_wmain(utf16_argc, utf16_argv);
+}
+
+#endif /* Non-Unicode MinGW */
+
+#else /* Not Windows */
+
 /* Wrap main normally on non-Windows platforms. */
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     return XXH_main(argc, argv);
 }
-#endif
+#endif /* !Windows */

@@ -1336,6 +1336,54 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #  define XXH_PREFETCH_DIST_AVX512_128 512
 #endif
 
+/* The prefetch feature will be affected my many factors. For internal loop, we control it by three
+ * macros:
+ *   - XXH_PREFETCH
+ *   - XXH_PREFETCH_DIST_64
+ *   - XXH_PREFETCH_DIST_128
+ *
+ * Given XXH_PREFETCH is enabled, here we can select proper prefetch distances at compile time over
+ * (compiler, vector modes, target hardwares). Each group distances should be selected over
+ * profiling experiments. And we still have some principles:
+ *   - the base line comes from disabling prefetch
+ *   - since the internal loop step is forward, the distances should be non-negative
+ *   - distances shoule be aligned to the common cache line size of the target hardwares
+ *   - lean towards smaller distances, and basically stop early, as soon as benefits from larger
+ *     prefetching distances start to become "small". That's because it preserves a general resource
+ *     (memory bandwidth) for the benefit of the larger system, be it other parts of the application
+ *     or other concurrent applications.
+ */
+#if defined(_MSC_VER) // MSVC
+// use common settings
+#  define XXH_PREFETCH_DIST_64  384
+#  define XXH_PREFETCH_DIST_128 384
+#elif defined(__clang__) // clang
+#  if (XXH_VECTOR == XXH_AVX512) // avx implies x86
+#    define XXH_PREFETCH_DIST_64  320
+#    define XXH_PREFETCH_DIST_128 320
+#  elif defined(__aarch64__)
+#    undef XXH_PREFETCH_DIST_64
+#    undef XXH_PREFETCH_DIST_128
+#  else
+#    define XXH_PREFETCH_DIST_64  384
+#    define XXH_PREFETCH_DIST_128 384
+#  endif
+#elif defined(__GNUC__) && ! defined(__clang__) // GCC
+#  if (XXH_VECTOR == XXH_AVX512) // avx implies x86
+#    define XXH_PREFETCH_DIST_64  640
+#    define XXH_PREFETCH_DIST_128 512
+#  elif defined(__aarch64__)
+#    undef XXH_PREFETCH_DIST_64
+#    undef XXH_PREFETCH_DIST_128
+#  else
+#    define XXH_PREFETCH_DIST_64  384
+#    define XXH_PREFETCH_DIST_128 384
+#  endif
+#else // disable prefetch for unknown compilers
+#  undef XXH_PREFETCH_DIST_64
+#  undef XXH_PREFETCH_DIST_128
+#endif
+
 /*
  * XXH3_accumulate()
  * Loops over XXH3_accumulate_512().
@@ -1351,12 +1399,12 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     size_t n;
     for (n = 0; n < nbStripes; n++ ) {
         const xxh_u8* const in = input + n*STRIPE_LEN;
-#if (XXH_VECTOR == XXH_AVX512)
-        if (accWidth == XXH3_acc_64bits) XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_64);
-        else                             XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_128);
-#else
-        XXH_PREFETCH(in + XXH_PREFETCH_DIST);
-#endif
+#       if defined(XXH_PREFETCH_DIST_64)
+            if (accWidth == XXH3_acc_64bits)  XXH_PREFETCH(in + XXH_PREFETCH_DIST_64);  else {}
+#       endif
+#       if defined(XXH_PREFETCH_DIST_128)
+            if (accWidth == XXH3_acc_128bits) XXH_PREFETCH(in + XXH_PREFETCH_DIST_128); else {}
+#       endif
         XXH3_accumulate_512(acc,
                             in,
                             secret + n*XXH_SECRET_CONSUME_RATE,

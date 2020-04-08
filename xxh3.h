@@ -432,7 +432,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
 
 /* prefetch
  * can be disabled, by declaring XXH_NO_PREFETCH build macro */
-#if defined(XXH_NO_PREFETCH)
+#if defined(XXH_NO_PREFETCH) || defined(__aarch64__) /* aarch64 doesn't benefit that much */
 #  define XXH_PREFETCH(ptr)  (void)(ptr)  /* disabled */
 #else
 #  if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_I86))  /* _mm_prefetch() is not defined outside of x86/x64 */
@@ -1361,9 +1361,6 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #  if (XXH_VECTOR == XXH_AVX512) // avx implies x86
 #    define XXH_PREFETCH_DIST_64  320
 #    define XXH_PREFETCH_DIST_128 320
-#  elif defined(__aarch64__)
-#    undef XXH_PREFETCH_DIST_64
-#    undef XXH_PREFETCH_DIST_128
 #  else
 #    define XXH_PREFETCH_DIST_64  384
 #    define XXH_PREFETCH_DIST_128 384
@@ -1372,9 +1369,6 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #  if (XXH_VECTOR == XXH_AVX512) // avx implies x86
 #    define XXH_PREFETCH_DIST_64  640
 #    define XXH_PREFETCH_DIST_128 512
-#  elif defined(__aarch64__)
-#    undef XXH_PREFETCH_DIST_64
-#    undef XXH_PREFETCH_DIST_128
 #  else
 #    define XXH_PREFETCH_DIST_64  384
 #    define XXH_PREFETCH_DIST_128 384

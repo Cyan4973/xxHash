@@ -1463,15 +1463,12 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
  */
 XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, xxh_u64 seed64)
 {
-    int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
     int i;
     /*
      * We need a separate pointer for the hack below.
      * Any decent compiler will optimize this out otherwise.
      */
     const xxh_u8 *kSecretPtr = kSecret;
-
-    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
 
 #if defined(__clang__) && defined(__aarch64__)
     /*
@@ -1509,18 +1506,47 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, x
      */
     XXH_ASSERT(kSecretPtr == kSecret);
 
-    for (i=0; i < nbRounds; i++) {
-        /*
-         * The asm hack causes Clang to assume that kSecretPtr aliases with
-         * customSecret, and on aarch64, this prevented LDP from merging two
-         * loads together for free. Putting the loads together before the stores
-         * properly generates LDP.
-         */
-        xxh_u64 lo = XXH_readLE64(kSecretPtr + 16*i)     + seed64;
-        xxh_u64 hi = XXH_readLE64(kSecretPtr + 16*i + 8) - seed64;
-        XXH_writeLE64(customSecret + 16*i,     lo);
-        XXH_writeLE64(customSecret + 16*i + 8, hi);
+#if (XXH_VECTOR == XXH_AVX512)
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 63) == 0);
+    {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
+        XXH_ALIGN(64) const __m512i* const src  = (const __m512i*) kSecret;
+        XXH_ALIGN(64)       __m512i* const dest = (      __m512i*) customSecret;
+                            __m512i  const seed = { (long)seed64, -(long)seed64, (long)seed64, -(long)seed64,
+                                                    (long)seed64, -(long)seed64, (long)seed64, -(long)seed64 };
+        for (i=0; i < nbRounds; ++i) dest[i] = _mm512_add_epi64(src[i], seed);
     }
+#elif (XXH_VECTOR == XXH_AVX2)
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 31) == 0);
+    {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m256i);
+        XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) kSecret;
+        XXH_ALIGN(64)       __m256i* const dest = (      __m256i*) customSecret;
+                            __m256i  const seed = { (long)seed64, -(long)seed64, (long)seed64, -(long)seed64 };
+        for (i=0; i < nbRounds; ++i) dest[i] = _mm256_add_epi64(src[i], seed);
+    }
+#elif (XXH_VECTOR == XXH_SSE2)
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
+    {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m128i);
+        XXH_ALIGN(64) const __m128i* const src  = (const __m128i*) kSecret;
+        XXH_ALIGN(64)       __m128i* const dest = (      __m128i*) customSecret;
+                            __m128i  const seed = { (long)seed64, -(long)seed64 };
+        for (i=0; i < nbRounds; ++i) dest[i] = _mm_add_epi64(src[i], seed);
+    }
+#else
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
+    {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
+        for (i=0; i < nbRounds; i++) {
+            /*
+             * The asm hack causes Clang to assume that kSecretPtr aliases with
+             * customSecret, and on aarch64, this prevented LDP from merging two
+             * loads together for free. Putting the loads together before the stores
+             * properly generates LDP.
+             */
+            xxh_u64 lo = XXH_readLE64(kSecretPtr + 16*i)     + seed64;
+            xxh_u64 hi = XXH_readLE64(kSecretPtr + 16*i + 8) - seed64;
+            XXH_writeLE64(customSecret + 16*i,     lo);
+            XXH_writeLE64(customSecret + 16*i + 8, hi);
+    }   }
+#endif
 }
 
 
@@ -1559,7 +1585,7 @@ XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
-    XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
+    XXH_ALIGN(64) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
     if (seed==0) return XXH3_hashLong_64b_defaultSecret(input, len);
     XXH3_initCustomSecret(secret, seed);
     return XXH3_hashLong_64b_internal(input, len, secret, sizeof(secret));
@@ -2203,7 +2229,7 @@ XXH3_hashLong_128b_withSecret(const xxh_u8* input, size_t len,
 XXH_NO_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
-    XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
+    XXH_ALIGN(64) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
     if (seed == 0) return XXH3_hashLong_128b_defaultSecret(input, len);
     XXH3_initCustomSecret(secret, seed);
     return XXH3_hashLong_128b_internal(input, len, secret, sizeof(secret));

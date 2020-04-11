@@ -1509,6 +1509,7 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
 #if (XXH_VECTOR == XXH_AVX512)
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 63) == 0);
     (void)kSecretPtr;
+    (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
         __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, -(xxh_i64)seed64);
 
@@ -1528,6 +1529,7 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 31) == 0);
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE / sizeof(__m256i)) == 6);
     (void)kSecretPtr;
+    (void)(&XXH_writeLE64);
     (void)i;
     {   __m256i const seed = { (xxh_i64)seed64, -(xxh_i64)seed64, (xxh_i64)seed64, -(xxh_i64)seed64};
 
@@ -1545,6 +1547,7 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
 #elif (XXH_VECTOR == XXH_SSE2)
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
     (void)kSecretPtr;
+    (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m128i);
         __m128i const seed = { (xxh_i64)seed64, -(xxh_i64)seed64 };
 

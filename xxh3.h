@@ -1461,7 +1461,7 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 /* XXH3_initCustomSecret() :
  * destination `customSecret` is presumed allocated and same size as `kSecret`.
  */
-XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, xxh_u64 seed64)
+XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 {
     int i;
     /*
@@ -1508,28 +1508,52 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, x
 
 #if (XXH_VECTOR == XXH_AVX512)
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 63) == 0);
+    (void)kSecretPtr;
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
+        __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, -(xxh_i64)seed64);
+
         XXH_ALIGN(64) const __m512i* const src  = (const __m512i*) kSecret;
         XXH_ALIGN(64)       __m512i* const dest = (      __m512i*) customSecret;
-                            __m512i  const seed = { (long)seed64, -(long)seed64, (long)seed64, -(long)seed64,
-                                                    (long)seed64, -(long)seed64, (long)seed64, -(long)seed64 };
-        for (i=0; i < nbRounds; ++i) dest[i] = _mm512_add_epi64(src[i], seed);
+        for (i=0; i < nbRounds; ++i) {
+            // GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
+            // this will warn "discards ‘const’ qualifier".
+            union {
+                XXH_ALIGN(64) const __m512i* const cp;
+                XXH_ALIGN(64) void* const p;
+            } const remote_const_void = { .cp = src + i };
+            dest[i] = _mm512_add_epi64(_mm512_stream_load_si512(remote_const_void.p), seed);
+        }
     }
 #elif (XXH_VECTOR == XXH_AVX2)
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 31) == 0);
-    {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m256i);
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE / sizeof(__m256i)) == 6);
+    (void)kSecretPtr;
+    (void)i;
+    {   __m256i const seed = { (xxh_i64)seed64, -(xxh_i64)seed64, (xxh_i64)seed64, -(xxh_i64)seed64};
+
         XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) kSecret;
         XXH_ALIGN(64)       __m256i* const dest = (      __m256i*) customSecret;
-                            __m256i  const seed = { (long)seed64, -(long)seed64, (long)seed64, -(long)seed64 };
-        for (i=0; i < nbRounds; ++i) dest[i] = _mm256_add_epi64(src[i], seed);
+
+        // GCC -O2 need unroll loop manually
+        dest[0] = _mm256_add_epi64(_mm256_stream_load_si256(src+0), seed);
+        dest[1] = _mm256_add_epi64(_mm256_stream_load_si256(src+1), seed);
+        dest[2] = _mm256_add_epi64(_mm256_stream_load_si256(src+2), seed);
+        dest[3] = _mm256_add_epi64(_mm256_stream_load_si256(src+3), seed);
+        dest[4] = _mm256_add_epi64(_mm256_stream_load_si256(src+4), seed);
+        dest[5] = _mm256_add_epi64(_mm256_stream_load_si256(src+5), seed);
     }
 #elif (XXH_VECTOR == XXH_SSE2)
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
+    (void)kSecretPtr;
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m128i);
-        XXH_ALIGN(64) const __m128i* const src  = (const __m128i*) kSecret;
-        XXH_ALIGN(64)       __m128i* const dest = (      __m128i*) customSecret;
-                            __m128i  const seed = { (long)seed64, -(long)seed64 };
-        for (i=0; i < nbRounds; ++i) dest[i] = _mm_add_epi64(src[i], seed);
+        __m128i const seed = { (xxh_i64)seed64, -(xxh_i64)seed64 };
+
+        XXH_ALIGN(64) const float* const src  = (float const*) kSecret;
+        XXH_ALIGN(64)     __m128i* const dest = (__m128i*) customSecret;
+
+        for (i=0; i < nbRounds; ++i) {
+            dest[i] = _mm_add_epi64(_mm_castps_si128(_mm_load_ps(src+i*4)), seed);
+        }
     }
 #else
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
@@ -1543,8 +1567,8 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, x
              */
             xxh_u64 lo = XXH_readLE64(kSecretPtr + 16*i)     + seed64;
             xxh_u64 hi = XXH_readLE64(kSecretPtr + 16*i + 8) - seed64;
-            XXH_writeLE64(customSecret + 16*i,     lo);
-            XXH_writeLE64(customSecret + 16*i + 8, hi);
+            XXH_writeLE64((xxh_u8*)customSecret + 16*i,     lo);
+            XXH_writeLE64((xxh_u8*)customSecret + 16*i + 8, hi);
     }   }
 #endif
 }

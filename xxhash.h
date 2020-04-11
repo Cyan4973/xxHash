@@ -1452,6 +1452,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 typedef XXH64_hash_t xxh_u64;
 
+#if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+    typedef int64_t xxh_i64;
+#else
+    /* the following type must have a width of 64-bit */
+    typedef long long xxh_i64;
+#endif
 
 /*!
  * XXH_REROLL_XXH64:

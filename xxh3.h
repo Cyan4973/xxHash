@@ -206,6 +206,12 @@
 #  endif
 #endif
 
+#if XXH_VECTOR == XXH_SSE2 || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
+#  define XXH_SEC_ALIGN XXH_ACC_ALIGN
+#else
+#  define XXH_SEC_ALIGN 8
+#endif
+
 /*
  * UGLY HACK:
  * GCC usually generates the best code with -O3 for xxHash.
@@ -1513,8 +1519,8 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
         __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, -(xxh_i64)seed64);
 
-        XXH_ALIGN(64) const __m512i* const src  = (const __m512i*) kSecret;
-        XXH_ALIGN(64)       __m512i* const dest = (      __m512i*) customSecret;
+        XXH_ALIGN(64)      const __m512i* const src  = (const __m512i*) kSecret;
+        XXH_ALIGN(XXH_SEC_ALIGN) __m512i* const dest = (      __m512i*) customSecret;
         for (i=0; i < nbRounds; ++i) {
             // GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
             // this will warn "discards ‘const’ qualifier".
@@ -1533,8 +1539,8 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
     (void)i;
     {   __m256i const seed = _mm256_set_epi64x(-(xxh_i64)seed64, (xxh_i64)seed64, -(xxh_i64)seed64, (xxh_i64)seed64);
 
-        XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) kSecret;
-        XXH_ALIGN(64)       __m256i* const dest = (      __m256i*) customSecret;
+        XXH_ALIGN(64)      const __m256i* const src  = (const __m256i*) kSecret;
+        XXH_ALIGN(XXH_SEC_ALIGN) __m256i* const dest = (      __m256i*) customSecret;
 
         // GCC -O2 need unroll loop manually
         dest[0] = _mm256_add_epi64(_mm256_stream_load_si256(src+0), seed);
@@ -1557,8 +1563,8 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
         __m128i const seed = _mm_set_epi64x(-(xxh_i64)seed64, (xxh_i64)seed64);
 #       endif
 
-        XXH_ALIGN(64) const float* const src  = (float const*) kSecret;
-        XXH_ALIGN(64)     __m128i* const dest = (__m128i*) customSecret;
+        XXH_ALIGN(64)        const float* const src  = (float const*) kSecret;
+        XXH_ALIGN(XXH_SEC_ALIGN) __m128i* const dest = (__m128i*) customSecret;
 
         for (i=0; i < nbRounds; ++i) {
             dest[i] = _mm_add_epi64(_mm_castps_si128(_mm_load_ps(src+i*4)), seed);
@@ -1618,7 +1624,7 @@ XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
-    XXH_ALIGN(64) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
+    XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
     if (seed==0) return XXH3_hashLong_64b_defaultSecret(input, len);
     XXH3_initCustomSecret(secret, seed);
     return XXH3_hashLong_64b_internal(input, len, secret, sizeof(secret));
@@ -2262,7 +2268,7 @@ XXH3_hashLong_128b_withSecret(const xxh_u8* input, size_t len,
 XXH_NO_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
-    XXH_ALIGN(64) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
+    XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
     if (seed == 0) return XXH3_hashLong_128b_defaultSecret(input, len);
     XXH3_initCustomSecret(secret, seed);
     return XXH3_hashLong_128b_internal(input, len, secret, sizeof(secret));

@@ -1549,9 +1549,8 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
     (void)kSecretPtr;
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m128i);
-#       if defined(_MSC_VER) && defined(_M_IX86) \
-          && (_MSC_VER < 1800 || (_MSC_VER == 1800 && _MSC_FULL_VER < 180030501))
-        // MSVC 32bit mode does not support _mm_set_epi64x before 2013 Update 2
+#       if defined(_MSC_VER) && defined(_M_IX86) && _MSC_VER < 1900
+        // MSVC 32bit mode does not support _mm_set_epi64x before 2015
         xxh_i64 const sp =  (xxh_i64)seed64;
         xxh_i64 const sn = -(xxh_i64)seed64;
         __m128i const seed = _mm_set_epi32((int)(sn >> 32), (int)sn, (int)(sp >> 32), (int)sp);

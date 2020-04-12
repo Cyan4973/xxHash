@@ -1531,7 +1531,7 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
     (void)kSecretPtr;
     (void)(&XXH_writeLE64);
     (void)i;
-    {   __m256i const seed = { (xxh_i64)seed64, -(xxh_i64)seed64, (xxh_i64)seed64, -(xxh_i64)seed64};
+    {   __m256i const seed = _mm256_set_epi64x(-(xxh_i64)seed64, (xxh_i64)seed64, -(xxh_i64)seed64, (xxh_i64)seed64);
 
         XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) kSecret;
         XXH_ALIGN(64)       __m256i* const dest = (      __m256i*) customSecret;
@@ -1549,7 +1549,7 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
     (void)kSecretPtr;
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m128i);
-        __m128i const seed = { (xxh_i64)seed64, -(xxh_i64)seed64 };
+        __m128i const seed = _mm_set_epi64x(-(xxh_i64)seed64, (xxh_i64)seed64);
 
         XXH_ALIGN(64) const float* const src  = (float const*) kSecret;
         XXH_ALIGN(64)     __m128i* const dest = (__m128i*) customSecret;

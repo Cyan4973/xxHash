@@ -207,6 +207,38 @@
 #endif
 
 /*
+ * Dispatcher macros
+ */
+#define XXH3_DISPATCH_FUNC /* nop for self documentation */
+
+#ifdef XXH3_DISPATCH
+/* These function names must match. */
+typedef struct XXH3_dispatch_table_s {
+    XXH64_hash_t  (*hashLong_64b_defaultSecret)(const xxh_u8 *, size_t);
+    XXH64_hash_t  (*hashLong_64b_withSeed)(const xxh_u8 *, size_t, XXH64_hash_t);
+    XXH64_hash_t  (*hashLong_64b_withSecret)(const xxh_u8 *, size_t, const xxh_u8 *, size_t);
+    XXH_errorcode (*update_64bits_internal)(XXH3_state_t* state, const xxh_u8* input, size_t len);
+    XXH128_hash_t (*hashLong_128b_defaultSecret)(const xxh_u8 *, size_t);
+    XXH128_hash_t (*hashLong_128b_withSeed)(const xxh_u8 *, size_t, XXH64_hash_t);
+    XXH128_hash_t (*hashLong_128b_withSecret)(const xxh_u8 *, size_t, const xxh_u8 *, size_t);
+    XXH_errorcode (*update_128bits_internal)(XXH3_state_t* state, const xxh_u8* input, size_t len);
+} XXH3_dispatch_table_t;
+#ifdef __cplusplus
+extern "C"
+#else
+extern
+#endif
+const XXH3_dispatch_table_t *XXH3_dispatch_table;
+#  define XXH3_DISPATCH_MANGLE2(x, y) x ## y
+#  define XXH3_DISPATCH_MANGLE(target) XXH3_DISPATCH_MANGLE2(XXH3_dispatch_table_, target)
+#endif
+
+#ifdef XXH3_DISPATCH_HOST
+#  define XXH3_DISPATCH_CALL(x) XXH3_dispatch_table->x
+#else
+#  define XXH3_DISPATCH_CALL(x) XXH3_ ## x
+#endif
+/*
  * UGLY HACK:
  * GCC usually generates the best code with -O3 for xxHash.
  *
@@ -1528,7 +1560,7 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(xxh_u8* XXH_RESTRICT customSecret, x
  * It's important for performance that XXH3_hashLong is not inlined. Not sure
  * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH64_hash_t
+XXH_NO_INLINE XXH3_DISPATCH_FUNC XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_64b_internal(input, len, kSecret, sizeof(kSecret));
@@ -1538,7 +1570,7 @@ XXH3_hashLong_64b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len)
  * It's important for performance that XXH3_hashLong is not inlined. Not sure
  * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH64_hash_t
+XXH_NO_INLINE XXH3_DISPATCH_FUNC XXH64_hash_t
 XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
                              const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
 {
@@ -1556,7 +1588,7 @@ XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined. Not sure
  * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH64_hash_t
+XXH_NO_INLINE XXH3_DISPATCH_FUNC XXH64_hash_t
 XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
@@ -1575,7 +1607,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t len)
         return XXH3_len_17to128_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
     if (len <= XXH3_MIDSIZE_MAX)
          return XXH3_len_129to240_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
-    return XXH3_hashLong_64b_defaultSecret((const xxh_u8*)input, len);
+    return XXH3_DISPATCH_CALL(hashLong_64b_defaultSecret)((const xxh_u8*)input, len);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -1594,7 +1626,7 @@ XXH3_64bits_withSecret(const void* input, size_t len, const void* secret, size_t
         return XXH3_len_17to128_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    return XXH3_hashLong_64b_withSecret((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
+    return XXH3_DISPATCH_CALL(hashLong_64b_withSecret)((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -1606,7 +1638,7 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
         return XXH3_len_17to128_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), seed);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), seed);
-    return XXH3_hashLong_64b_withSeed((const xxh_u8*)input, len, seed);
+    return XXH3_DISPATCH_CALL(hashLong_64b_withSeed)((const xxh_u8*)input, len, seed);
 }
 
 /* ===   XXH3 streaming   === */
@@ -1831,10 +1863,21 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
     return XXH_OK;
 }
 
+#ifdef XXH3_DISPATCH
+XXH_NO_INLINE XXH3_DISPATCH_FUNC
+#else
+XXH_FORCE_INLINE XXH3_DISPATCH_FUNC
+#endif
+XXH_errorcode
+XXH3_update_64bits_internal(XXH3_state_t* state, const xxh_u8* input, size_t len)
+{
+    return XXH3_update(state, input, len, XXH3_acc_64bits);
+}
+
 XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
 {
-    return XXH3_update(state, (const xxh_u8*)input, len, XXH3_acc_64bits);
+    return XXH3_DISPATCH_CALL(update_64bits_internal)(state, (const xxh_u8*)input, len);
 }
 
 
@@ -2179,7 +2222,7 @@ XXH3_hashLong_128b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined. Not sure
  * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH128_hash_t
+XXH_NO_INLINE XXH3_DISPATCH_FUNC XXH128_hash_t
 XXH3_hashLong_128b_defaultSecret(const xxh_u8* input, size_t len)
 {
     return XXH3_hashLong_128b_internal(input, len, kSecret, sizeof(kSecret));
@@ -2189,7 +2232,7 @@ XXH3_hashLong_128b_defaultSecret(const xxh_u8* input, size_t len)
  * It's important for performance that XXH3_hashLong is not inlined. Not sure
  * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH128_hash_t
+XXH_NO_INLINE XXH3_DISPATCH_FUNC XXH128_hash_t
 XXH3_hashLong_128b_withSecret(const xxh_u8* input, size_t len,
                               const xxh_u8* secret, size_t secretSize)
 {
@@ -2200,7 +2243,7 @@ XXH3_hashLong_128b_withSecret(const xxh_u8* input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined. Not sure
  * why (uop cache maybe?), but the difference is large and easily measurable.
  */
-XXH_NO_INLINE XXH128_hash_t
+XXH_NO_INLINE XXH3_DISPATCH_FUNC XXH128_hash_t
 XXH3_hashLong_128b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
     XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
@@ -2218,7 +2261,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
         return XXH3_len_17to128_128b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_128b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
-    return XXH3_hashLong_128b_defaultSecret((const xxh_u8*)input, len);
+    return XXH3_DISPATCH_CALL(hashLong_128b_defaultSecret)((const xxh_u8*)input, len);
 }
 
 XXH_PUBLIC_API XXH128_hash_t
@@ -2301,11 +2344,21 @@ XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
     statePtr->secret = statePtr->customSecret;
     return XXH_OK;
 }
+#ifdef XXH3_DISPATCH
+XXH_NO_INLINE XXH3_DISPATCH_FUNC
+#else
+XXH_FORCE_INLINE XXH3_DISPATCH_FUNC
+#endif
+XXH_errorcode
+XXH3_update_128bits_internal(XXH3_state_t* state, const xxh_u8* input, size_t len)
+{
+    return XXH3_update(state, input, len, XXH3_acc_128bits);
+}
 
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_update(XXH3_state_t* state, const void* input, size_t len)
 {
-    return XXH3_update(state, (const xxh_u8*)input, len, XXH3_acc_128bits);
+    return XXH3_DISPATCH_CALL(update_128bits_internal)(state, (const xxh_u8*)input, len);
 }
 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
@@ -2331,6 +2384,25 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
     return XXH3_128bits_withSecret(state->buffer, (size_t)(state->totalLen),
                                    state->secret, state->secretLimit + STRIPE_LEN);
 }
+
+#ifdef XXH3_DISPATCH_TARGET
+
+static const XXH3_dispatch_table_t kDispatchTable = {
+    &XXH3_hashLong_64b_defaultSecret,
+    &XXH3_hashLong_64b_withSeed,
+    &XXH3_hashLong_64b_withSecret,
+    &XXH3_update_64bits_internal,
+    &XXH3_hashLong_128b_defaultSecret,
+    &XXH3_hashLong_128b_withSeed,
+    &XXH3_hashLong_128b_withSecret,
+    &XXH3_update_128bits_internal
+};
+#ifdef __cplusplus
+extern "C"
+#endif
+const XXH3_dispatch_table_t *XXH3_DISPATCH_MANGLE(XXH_TARGET) = &kDispatchTable;
+
+#endif
 
 /* 128-bit utility functions */
 

@@ -38,6 +38,23 @@
  */
 
 #define XXH_STATIC_LINKING_ONLY   /* access advanced declarations */
-#define XXH_IMPLEMENTATION   /* access definitions */
-
+#if defined(XXH3_DISPATCH)
+#  if !(defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64))
+#    error "Currently, dispatching is only supported on x86 and x86_64."
+#  endif
+#  ifdef XXH_TARGET
+//#    define XXH_INLINE_ALL
+#    undef XXH3_DISPATCH_HOST
+#    define XXH3_DISPATCH_TARGET
+#  else
+#    define XXH_TARGET XXH_SCALAR
+#    undef XXH3_DISPATCH_TARGET
+#    define XXH3_DISPATCH_HOST
+#  endif
+#endif
+#ifdef XXH3_DISPATCH_TARGET
+#  define XXH_INLINE_ALL
+#else
+#  define XXH_IMPLEMENTATION   /* access definitions */
+#endif
 #include "xxhash.h"

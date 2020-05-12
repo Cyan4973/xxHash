@@ -44,6 +44,64 @@ CFLAGS += $(DEBUGFLAGS)
 FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
 XXHSUM_VERSION = $(LIBVER)
 
+ifneq (1,$(DISPATCH))
+  XXHASH_SRCS := xxhash.c
+else
+  test_macros = $(shell $(CC) $(FLAGS) $(1) -E -dM -xc /dev/null 2>/dev/null || echo error)
+  DEFAULT_MACROS = $(call test_macros)
+  MOREFLAGS += -DXXH_DISPATCH
+  # Figure out whether we are compiling for x86 or x86_64, and use the correct
+  # -march flag
+  ifneq (,$(filter __amd64__ _M_X64 __x86_64__,$(DEFAULT_MACROS)))
+    MOREFLAGS += -march=x86-64
+  else
+    ifeq (,$(filter _M_IX86 __i686__ __i386__,$(DEFAULT_MACROS)))
+      # Dispatching is currently only supported on x86-based targets.
+      $(error Dispatching is not supported on this target!)
+      ERROR_DISPATCHING_NOT_SUPPORTED
+    else # i386
+      MOREFLAGS += -march=i386
+      # Try to add a sane -mtune flag to prevent GCC from making aggressive
+      # shift+add optimizations.
+      ifneq (error,$(call test_macros,-Werror -mtune=core2))
+        MOREFLAGS += -mtune=core2
+      else
+        ifneq (error,$(call test_macros,-Werror -mtune=opteron))
+          MOREFLAGS += -mtune=opteron
+        endif # -mtune=opteron
+      endif # -mtune=haswell
+    endif # i386
+  endif # x86_64
+
+  XXHASH_SRCS := xxhash-dispatch.c xxhash-sse2.c xxhash-scalar.c
+  xxhash-sse2.o: MOREFLAGS += -msse2
+
+  ifneq (0,$(DISPATCH_AVX2))
+    # Check for AVX2 support
+    ifneq (,$(filter __AVX2__,$(call test_macros,-mavx2)))
+      XXHASH_SRCS += xxhash-avx2.c
+      AVX2_FLAG = -mavx2
+      # Try to add the -mno-avx256-split-unaligned-load flag on GCC to prevent load
+      # splitting, an optimization for Ivy/Sandy which don't even support AVX2.
+      ifneq (error,$(call test_macros,-mavx2 -mno-avx256-split-unaligned-load))
+        AVX2_FLAG += -mno-avx256-split-unaligned-load
+      endif
+      xxhash-avx2.o: MOREFLAGS += $(AVX2_FLAG)
+      CPPFLAGS += -DXXH_DISPATCH_AVX2
+    endif # avx2
+  endif # override flag
+
+  ifneq (0,$(DISPATCH_AVX512))
+    ifneq (,$(filter __AVX512F__,$(call test_macros,-mavx512f)))
+      XXHASH_SRCS += xxhash-avx512.c
+      xxhash-avx512.o: MOREFLAGS += -mavx512f
+      CPPFLAGS += -DXXH_DISPATCH_AVX512
+    endif # avx512
+  endif # override flag
+endif # DISPATCH=1
+
+XXHASH_OBJS := $(XXHASH_SRCS:.c=.o)
+
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
 EXT =.exe
@@ -76,16 +134,18 @@ default: lib xxhsum_and_links
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
-xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
+.PHONY: dispatch
+dispatch: ## enable dispatching code for x86/x86_64. (same as make DISPATCH=1)
+	@$(MAKE) $(MAKEFLAGS) DISPATCH=1
+
+xxhsum: $(XXHASH_OBJS) xxhsum.o  ## generate command line interface (CLI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
 xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.c xxhash.h xxh3.h
-	$(CC) $(FLAGS) -c $< -o $@
-xxhsum.o: xxhsum.c xxhash.h
+%.o: %.c xxhash.h xxh3.h
 	$(CC) $(FLAGS) -c $< -o $@
 
 .PHONY: xxhsum_and_links
@@ -102,14 +162,14 @@ xxhsum_inlinedXXH: xxhsum.c
 # library
 
 libxxhash.a: ARFLAGS = rcs
-libxxhash.a: xxhash.o
+libxxhash.a: $(XXHASH_OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
-$(LIBXXH): CFLAGS += -fPIC
+CFLAGS += -fPIC
 endif
-$(LIBXXH): xxhash.c
+$(LIBXXH): $(XXHASH_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
 	ln -sf $@ libxxhash.$(SHARED_EXT)

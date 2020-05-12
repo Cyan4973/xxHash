@@ -1,6 +1,6 @@
 /*
  * xxHash - Extremely Fast Hash algorithm
- * Copyright (C) 2012-2020 Yann Collet
+ * Copyright (C) 2020 Yann Collet
  *
  * BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
  *
@@ -34,11 +34,19 @@
 
 
 /*
- * xxhash.c instantiates functions defined in xxhash.h
+ * A dummy file to make dispatching easier for the build system.
  */
 
 #define XXH_STATIC_LINKING_ONLY   /* access advanced declarations */
-#define XXH_IMPLEMENTATION   /* access definitions */
-#define XXHASH_C
+#define XXH_IMPLEMENTATION        /* access definitions */
+#ifndef XXH_DISPATCH
+#  define XXH_DISPATCH            /* Enable dispatcher code */
+#endif
+#define XXH_DISPATCH_TARGET       /* Mark a dispatcher target */
+#define XXH_VECTOR XXH_AVX512     /* Set target */
+#ifndef XXH_PRIVATE_API
+#  define XXH_PRIVATE_API         /* Disable other symbols, only emit a table */
+#endif
 
 #include "xxhash.h"
+

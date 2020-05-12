@@ -2129,6 +2129,19 @@ static int XXH_main(int argc, char** argv)
                 argument++;
                 g_displayLevel--;
                 break;
+#if defined(XXH_DISPATCH) && defined(XXH_DISPATCH_DEBUG)
+            /* With dispatch debug mode enabled, use -DN to overrude the
+             * dispatch table (hidden option, see xxhash-dispatch.c) */
+            case 'D': {
+#  ifdef __cplusplus
+                extern "C"
+#  endif
+                const void *XXH3_setDispatchTable(int dispatch_table_id);
+                argument++;
+                XXH3_setDispatchTable(readU32FromChar(&argument));
+                break;
+            }
+#endif
 
             default:
                 return badusage(exename);

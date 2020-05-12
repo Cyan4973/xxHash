@@ -156,8 +156,131 @@
 #endif
 
 /* ==========================================
+ * Dispatcher macros
+ * ========================================== */
+
+/*
+ * xxHash now provides an optional dispatcher, currently only for the x86 family.
+ *
+ * The actual dispatching code is found in xxhash-dispatch.c.
+ *
+ * While it is possible to build the dispatcher manually, it is easier to use
+ * the xxHash build system which automatically handles everything.
+ */
+#ifdef XXH_DISPATCH
+#  ifdef __GNUC__
+#    define XXH3_DISPATCH_FUNC __attribute__((unused)) /* silence -Wunused */
+#  else
+#    define XXH3_DISPATCH_FUNC
+#  endif
+
+  /*
+   * Dispatching is avoided whenever possible, as there is some overhead that
+   * will have a measurable effect on short hashes from CPUID calls and PIC
+   * lookups, if applicable.
+   *
+   * We only dispatch on hashLong for single shot hashes,
+   *
+   * This uses a few techniques.
+   *  - Each target clone emits a constant table of function pointers, similar
+   *    to a C++ vtable.
+   *  - A pointer to the correct table is returned in XXH3_getDispatchTable().
+   *    A function is used because it is compact and encapsulates better than a
+   *    global variable (which can be tampered with easily).
+   *  - Each dispatch host has a cache in a function pointer as a static
+   *    variable. This is disabled in debug mode or with XXH3_NO_DISPATCH_CACHE.
+   *
+   * This is thread safe by the fact that all platforms that are a target of
+   * dispatching have atomic aligned loads/stores by default, and because the
+   * feature check is deterministic on any sane system.
+   *
+   * The names of these typedefs, members, etc. are important, as token pasting
+   * is used to make wrapping the calls easier.
+   */
+  typedef XXH64_hash_t
+  (*xxh3_funcptr_hashLong_64b_defaultSecret)(const xxh_u8 *, size_t);
+  typedef XXH64_hash_t
+  (*xxh3_funcptr_hashLong_64b_withSeed)(const xxh_u8 *, size_t, XXH64_hash_t);
+  typedef XXH64_hash_t
+  (*xxh3_funcptr_hashLong_64b_withSecret)(const xxh_u8 *, size_t, const xxh_u8 *, size_t);
+  typedef XXH_errorcode
+  (*xxh3_funcptr_update_64bits_internal)(XXH3_state_t* state, const xxh_u8* input, size_t len);
+  typedef XXH128_hash_t
+  (*xxh3_funcptr_hashLong_128b_defaultSecret)(const xxh_u8 *, size_t);
+  typedef XXH128_hash_t
+  (*xxh3_funcptr_hashLong_128b_withSeed)(const xxh_u8 *, size_t, XXH64_hash_t);
+  typedef XXH128_hash_t
+  (*xxh3_funcptr_hashLong_128b_withSecret)(const xxh_u8 *, size_t, const xxh_u8 *, size_t);
+  typedef XXH_errorcode
+  (*xxh3_funcptr_update_128bits_internal)(XXH3_state_t* state, const xxh_u8* input, size_t len);
+
+  /*
+   * This struct contains all the function pointers we need for our dispatch
+   * table.
+   */
+  typedef struct XXH3_dispatch_table_s {
+#  define XXH3_DISPATCH_MEM(name) xxh3_funcptr_##name name
+      XXH3_DISPATCH_MEM(hashLong_64b_defaultSecret);
+      XXH3_DISPATCH_MEM(hashLong_64b_withSeed);
+      XXH3_DISPATCH_MEM(hashLong_64b_withSecret);
+      XXH3_DISPATCH_MEM(update_64bits_internal);
+      XXH3_DISPATCH_MEM(hashLong_128b_defaultSecret);
+      XXH3_DISPATCH_MEM(hashLong_128b_withSeed);
+      XXH3_DISPATCH_MEM(hashLong_128b_withSecret);
+      XXH3_DISPATCH_MEM(update_128bits_internal);
+#  undef XXH3_DISPATCH_MEM
+  } XXH3_dispatch_table_t;
+
+#  ifdef __cplusplus
+   extern "C"
+#  endif
+   const XXH3_dispatch_table_t *XXH3_getDispatchTable(void);
+   /* Disable caching in debug mode, as debug mode allows changing the table
+    * at runtime. */
+#  if defined(XXH_DISPATCH_DEBUG) || defined(XXH3_NO_DISPATCH_CACHE)
+#    define XXH3_DISPATCH_RETURN(name, arglist)                               \
+      return XXH3_getDispatchTable()->name arglist;
+#  else
+#    define XXH3_DISPATCH_RETURN(name, arglist)                               \
+      do {                                                                    \
+          /* Function-static cache for the function pointer */                \
+          static xxh3_funcptr_##name _dispatch_cache = NULL;                  \
+          /* NULL = default value, we need to set it */                       \
+          if (XXH_unlikely(_dispatch_cache == NULL)) {                        \
+              /* Obtain the desired function pointer and cache it */          \
+              /* Use a temp to avoid double reads or jumping back */          \
+              xxh3_funcptr_##name _dispatch = XXH3_getDispatchTable()->name;  \
+              _dispatch_cache = _dispatch;                                    \
+              return _dispatch arglist;                                       \
+          }                                                                   \
+          /* Call the cached function pointer */                              \
+          return _dispatch_cache arglist;                                     \
+      } while (0)
+#  endif
+   /* Double expansion is necessary here. */
+#  define XXH3_DISPATCH_MANGLE3(x, y) x ## y
+#  define XXH3_DISPATCH_MANGLE2(x, y) XXH3_DISPATCH_MANGLE3(x,y)
+#  define XXH3_DISPATCH_MANGLE(target) XXH3_DISPATCH_MANGLE2(XXH3_dispatch_table_, target)
+   /*
+    * We occasionally call XXH3_accumulate_512() and XXH3_scrambleAcc() directly
+    * in the base implementation (specifically for XXH3_digest_long(), where it
+    * isn't really worth dispatching), so make sure we are using the scalar path
+    * if we aren't compiling a target clone.
+    */
+#  ifndef XXH_DISPATCH_TARGET
+#    undef XXH_VECTOR
+#    define XXH_VECTOR XXH_SCALAR
+#  endif
+#else /* !defined(XXH_DISPATCH): Normal non-dispatching code */
+#  define XXH3_DISPATCH_FUNC
+#  define XXH3_DISPATCH_RETURN(name, args) return XXH3_##name args
+#endif /* XXH_DISPATCH */
+
+/* ==========================================
  * Vectorization detection
  * ========================================== */
+
+
 #define XXH_SCALAR 0 /* Portable scalar version */
 #define XXH_SSE2   1 /* SSE2 for Pentium 4 and all x86_64 */
 #define XXH_AVX2   2 /* AVX2 for Haswell and Bulldozer */
@@ -206,38 +329,6 @@
 #  endif
 #endif
 
-/*
- * Dispatcher macros
- */
-#define XXH3_DISPATCH_FUNC /* nop for self documentation */
-
-#ifdef XXH3_DISPATCH
-/* These function names must match. */
-typedef struct XXH3_dispatch_table_s {
-    XXH64_hash_t  (*hashLong_64b_defaultSecret)(const xxh_u8 *, size_t);
-    XXH64_hash_t  (*hashLong_64b_withSeed)(const xxh_u8 *, size_t, XXH64_hash_t);
-    XXH64_hash_t  (*hashLong_64b_withSecret)(const xxh_u8 *, size_t, const xxh_u8 *, size_t);
-    XXH_errorcode (*update_64bits_internal)(XXH3_state_t* state, const xxh_u8* input, size_t len);
-    XXH128_hash_t (*hashLong_128b_defaultSecret)(const xxh_u8 *, size_t);
-    XXH128_hash_t (*hashLong_128b_withSeed)(const xxh_u8 *, size_t, XXH64_hash_t);
-    XXH128_hash_t (*hashLong_128b_withSecret)(const xxh_u8 *, size_t, const xxh_u8 *, size_t);
-    XXH_errorcode (*update_128bits_internal)(XXH3_state_t* state, const xxh_u8* input, size_t len);
-} XXH3_dispatch_table_t;
-#ifdef __cplusplus
-extern "C"
-#else
-extern
-#endif
-const XXH3_dispatch_table_t *XXH3_dispatch_table;
-#  define XXH3_DISPATCH_MANGLE2(x, y) x ## y
-#  define XXH3_DISPATCH_MANGLE(target) XXH3_DISPATCH_MANGLE2(XXH3_dispatch_table_, target)
-#endif
-
-#ifdef XXH3_DISPATCH_HOST
-#  define XXH3_DISPATCH_CALL(x) XXH3_dispatch_table->x
-#else
-#  define XXH3_DISPATCH_CALL(x) XXH3_ ## x
-#endif
 /*
  * UGLY HACK:
  * GCC usually generates the best code with -O3 for xxHash.
@@ -1607,7 +1698,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t len)
         return XXH3_len_17to128_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
     if (len <= XXH3_MIDSIZE_MAX)
          return XXH3_len_129to240_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
-    return XXH3_DISPATCH_CALL(hashLong_64b_defaultSecret)((const xxh_u8*)input, len);
+    XXH3_DISPATCH_RETURN(hashLong_64b_defaultSecret, ((const xxh_u8*)input, len));
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -1626,7 +1717,7 @@ XXH3_64bits_withSecret(const void* input, size_t len, const void* secret, size_t
         return XXH3_len_17to128_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    return XXH3_DISPATCH_CALL(hashLong_64b_withSecret)((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
+    XXH3_DISPATCH_RETURN(hashLong_64b_withSecret, ((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize));
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -1638,7 +1729,7 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
         return XXH3_len_17to128_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), seed);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_64b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), seed);
-    return XXH3_DISPATCH_CALL(hashLong_64b_withSeed)((const xxh_u8*)input, len, seed);
+    XXH3_DISPATCH_RETURN(hashLong_64b_withSeed, ((const xxh_u8*)input, len, seed));
 }
 
 /* ===   XXH3 streaming   === */
@@ -1788,12 +1879,12 @@ XXH3_consumeStripes( xxh_u64* acc,
     if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
         /* need a scrambling operation */
         size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth);
+        XXH3_accumulate(acc, input, secret + *nbStripesSoFarPtr * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth);
         XXH3_scrambleAcc(acc, secret + secretLimit);
         XXH3_accumulate(acc, input + nbStripes * STRIPE_LEN, secret, totalStripes - nbStripes, accWidth);
         *nbStripesSoFarPtr = (XXH32_hash_t)(totalStripes - nbStripes);
     } else {
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth);
+        XXH3_accumulate(acc, input, secret + *nbStripesSoFarPtr * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth);
         *nbStripesSoFarPtr += (XXH32_hash_t)totalStripes;
     }
 }
@@ -1863,10 +1954,10 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
     return XXH_OK;
 }
 
-#ifdef XXH3_DISPATCH
+#ifdef XXH_DISPATCH
 XXH_NO_INLINE XXH3_DISPATCH_FUNC
 #else
-XXH_FORCE_INLINE XXH3_DISPATCH_FUNC
+XXH_FORCE_INLINE
 #endif
 XXH_errorcode
 XXH3_update_64bits_internal(XXH3_state_t* state, const xxh_u8* input, size_t len)
@@ -1877,7 +1968,7 @@ XXH3_update_64bits_internal(XXH3_state_t* state, const xxh_u8* input, size_t len
 XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
 {
-    return XXH3_DISPATCH_CALL(update_64bits_internal)(state, (const xxh_u8*)input, len);
+    XXH3_DISPATCH_RETURN(update_64bits_internal, (state, (const xxh_u8*)input, len));
 }
 
 
@@ -2038,7 +2129,7 @@ XXH3_len_9to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
              * On 32-bit, it removes an ADC and delays a dependency between the two
              * halves of m128.high64, but it generates an extra mask on 64-bit.
              */
-            m128.high64 += (input_hi & 0xFFFFFFFF00000000) + XXH_mult32to64((xxh_u32)input_hi, PRIME32_2);
+            m128.high64 += (input_hi & 0xFFFFFFFF00000000ULL) + XXH_mult32to64((xxh_u32)input_hi, PRIME32_2);
         } else {
             /*
              * 64-bit optimized (albeit more confusing) version.
@@ -2261,7 +2352,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
         return XXH3_len_17to128_128b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_128b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), 0);
-    return XXH3_DISPATCH_CALL(hashLong_128b_defaultSecret)((const xxh_u8*)input, len);
+    XXH3_DISPATCH_RETURN(hashLong_128b_defaultSecret, ((const xxh_u8*)input, len));
 }
 
 XXH_PUBLIC_API XXH128_hash_t
@@ -2280,7 +2371,7 @@ XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_
         return XXH3_len_17to128_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_len_129to240_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    return XXH3_hashLong_128b_withSecret((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
+    XXH3_DISPATCH_RETURN(hashLong_128b_withSecret, ((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize));
 }
 
 XXH_PUBLIC_API XXH128_hash_t
@@ -2292,7 +2383,7 @@ XXH3_128bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
          return XXH3_len_17to128_128b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), seed);
     if (len <= XXH3_MIDSIZE_MAX)
          return XXH3_len_129to240_128b((const xxh_u8*)input, len, kSecret, sizeof(kSecret), seed);
-    return XXH3_hashLong_128b_withSeed((const xxh_u8*)input, len, seed);
+    XXH3_DISPATCH_RETURN(hashLong_128b_withSeed, ((const xxh_u8*)input, len, seed));
 }
 
 XXH_PUBLIC_API XXH128_hash_t
@@ -2344,10 +2435,10 @@ XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
     statePtr->secret = statePtr->customSecret;
     return XXH_OK;
 }
-#ifdef XXH3_DISPATCH
+#ifdef XXH_DISPATCH
 XXH_NO_INLINE XXH3_DISPATCH_FUNC
 #else
-XXH_FORCE_INLINE XXH3_DISPATCH_FUNC
+XXH_FORCE_INLINE
 #endif
 XXH_errorcode
 XXH3_update_128bits_internal(XXH3_state_t* state, const xxh_u8* input, size_t len)
@@ -2358,7 +2449,7 @@ XXH3_update_128bits_internal(XXH3_state_t* state, const xxh_u8* input, size_t le
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_update(XXH3_state_t* state, const void* input, size_t len)
 {
-    return XXH3_DISPATCH_CALL(update_128bits_internal)(state, (const xxh_u8*)input, len);
+    XXH3_DISPATCH_RETURN(update_128bits_internal, (state, (const xxh_u8*)input, len));
 }
 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
@@ -2385,22 +2476,31 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
                                    state->secret, state->secretLimit + STRIPE_LEN);
 }
 
-#ifdef XXH3_DISPATCH_TARGET
-
+/* Don't emit a symbol if we are inlining, aside from when compiling clones. */
+#if defined(XXH_DISPATCH) && !defined(XXHASH_DISPATCH_C) \
+    && (!defined(XXH_INLINE_ALL) || defined(XXH_DISPATCH_TARGET))
+/* Create our dispatcher table. */
 static const XXH3_dispatch_table_t kDispatchTable = {
-    &XXH3_hashLong_64b_defaultSecret,
-    &XXH3_hashLong_64b_withSeed,
-    &XXH3_hashLong_64b_withSecret,
-    &XXH3_update_64bits_internal,
-    &XXH3_hashLong_128b_defaultSecret,
-    &XXH3_hashLong_128b_withSeed,
-    &XXH3_hashLong_128b_withSecret,
-    &XXH3_update_128bits_internal
+    /* .hashLong_64b_defaultSecret  = */ &XXH3_hashLong_64b_defaultSecret,
+    /* .hashLong_64b_withSeed       = */ &XXH3_hashLong_64b_withSeed,
+    /* .hashLong_64b_withSecret     = */ &XXH3_hashLong_64b_withSecret,
+    /* .update_64bits_internal      = */ &XXH3_update_64bits_internal,
+    /* .hashLong_128b_defaultSecret = */ &XXH3_hashLong_128b_defaultSecret,
+    /* .hashLong_128b_withSeed      = */ &XXH3_hashLong_128b_withSeed,
+    /* .hashLong_128b_withSecret    = */ &XXH3_hashLong_128b_withSecret,
+    /* .update_128bits_internal     = */ &XXH3_update_128bits_internal
 };
+/*
+ * GLOBAL CONSTANT
+ *
+ * Create our public dispatcher symbol pointer. It will be, for example,
+ * XXH3_dispatch_table_0 for XXH_SCALAR, XXH3_dispatch_table_1 for XXH_SSE2,
+ * etc. This cannot be modified.
+ */
 #ifdef __cplusplus
 extern "C"
 #endif
-const XXH3_dispatch_table_t *XXH3_DISPATCH_MANGLE(XXH_TARGET) = &kDispatchTable;
+const XXH3_dispatch_table_t *const XXH3_DISPATCH_MANGLE(XXH_VECTOR) = &kDispatchTable;
 
 #endif
 
@@ -2457,6 +2557,15 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
   && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
   && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
 #  pragma GCC pop_options
+#endif
+
+/* Undef some extra macros, unless compiling xxhash-dispatch.c */
+#ifndef XXHASH_DISPATCH_C
+#  undef XXH3_DISPATCH_FUNC
+#  undef XXH3_DISPATCH_RETURN
+#  undef XXH3_DISPATCH_MANGLE
+#  undef XXH3_DISPATCH_MANGLE2
+#  undef XXH3_DISPATCH_MANGLE3
 #endif
 
 #endif  /* XXH3_H_1397135465 */

@@ -2130,18 +2130,26 @@ static int XXH_main(int argc, char** argv)
                 g_displayLevel--;
                 break;
 #if defined(XXH_DISPATCH) && defined(XXH_DISPATCH_DEBUG)
-            /* With dispatch debug mode enabled, use -DN to overrude the
-             * dispatch table (hidden option, see xxhash-dispatch.c) */
+            /*
+             * With dispatch debug mode enabled, use -DN to override the
+             * dispatch table (hidden option, see xxhash-dispatch.c).
+             *
+             * Note that using an incompatible implementation can, and will,
+             * crash the program.
+             */
             case 'D': {
+                /* declare the hidden prototype */
 #  ifdef __cplusplus
                 extern "C"
 #  endif
-                const void *XXH3_setDispatchTable(int dispatch_table_id);
+                const struct XXH3_dispatch_table_s*
+                XXH3_setDispatchTable(U32 dispatch_table_id);
+
                 argument++;
                 XXH3_setDispatchTable(readU32FromChar(&argument));
                 break;
             }
-#endif
+#endif /* XXH_DISPATCH && XXH_DISPATCH_DEBUG */
 
             default:
                 return badusage(exename);

@@ -47,20 +47,31 @@ XXHSUM_VERSION = $(LIBVER)
 ifneq (1,$(DISPATCH))
   XXHASH_SRCS := xxhash.c
 else
+  # Feature tests for dispatch code.
+
+  # test_macros: A Makefile function which prints the defined macros (dM) while
+  # testing the given command line flag(s).
+  # Testing whether the compiler accepts a flag is not enough, for example,
+  # Clang will say sonething like this:
+  #   warning: argument unused during compilation: '-mavx2'
+  # if the target doesn't support it, so we also look to see if it also defines
+  # __AVX2__.
   test_macros = $(shell $(CC) $(FLAGS) $(1) -E -dM -xc /dev/null 2>/dev/null || echo error)
   DEFAULT_MACROS = $(call test_macros)
+  # enable dispatch code
   MOREFLAGS += -DXXH_DISPATCH
+
   # Figure out whether we are compiling for x86 or x86_64, and use the correct
   # -march flag
   ifneq (,$(filter __amd64__ _M_X64 __x86_64__,$(DEFAULT_MACROS)))
-    MOREFLAGS += -march=x86-64
+    MOREFLAGS += -march=x86-64 -mno-sse3
   else
     ifeq (,$(filter _M_IX86 __i686__ __i386__,$(DEFAULT_MACROS)))
       # Dispatching is currently only supported on x86-based targets.
       $(error Dispatching is not supported on this target!)
-      ERROR_DISPATCHING_NOT_SUPPORTED
     else # i386
-      MOREFLAGS += -march=i386
+      # xxHash  doesn't need SSE or MMX for its base implementation.
+      MOREFLAGS += -march=i386 -mno-sse -mno-mmx
       # Try to add a sane -mtune flag to prevent GCC from making aggressive
       # shift+add optimizations.
       ifneq (error,$(call test_macros,-Werror -mtune=core2))
@@ -74,8 +85,12 @@ else
   endif # x86_64
 
   XXHASH_SRCS := xxhash-dispatch.c xxhash-sse2.c xxhash-scalar.c
-  xxhash-sse2.o: MOREFLAGS += -msse2
+  # Shut off SSE even on x86_64. This is just for fallback.A
+  xxhash-dispatch.o xxhash-scalar.o: MOREFLAGS += -mno-sse
 
+  xxhash-sse2.o: MOREFLAGS += -msse2 -mno-sse3
+
+  # Define these flags to 0 to disable.
   ifneq (0,$(DISPATCH_AVX2))
     # Check for AVX2 support
     ifneq (,$(filter __AVX2__,$(call test_macros,-mavx2)))

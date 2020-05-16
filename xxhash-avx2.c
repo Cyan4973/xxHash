@@ -48,6 +48,5 @@
 #  define XXH_PRIVATE_API         /* Disable other symbols, only emit a table */
 #endif
 
-
 #include "xxhash.h"
 

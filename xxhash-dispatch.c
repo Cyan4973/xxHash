@@ -68,6 +68,11 @@
 #endif
 #define XXH_VECTOR XXH_SCALAR
 #define XXHASH_DISPATCH_C
+
+/*
+ * This will, by default, be the host for xxHash's symbols. XXH_INLINE_ALL will
+ * override this.
+ */
 #include "xxhash.h"
 
 #ifdef XXH_DISPATCH_DEBUG
@@ -82,16 +87,22 @@
 extern "C" {
 #endif
 
+/*
+ * Declare the tables.
+ *
+ * Note that there is no harm in declaring a nonexistent table, so we declare
+ * them all.
+ */
 extern const XXH3_dispatch_table_t *const XXH3_DISPATCH_MANGLE(XXH_SCALAR),
-                                   *const XXH3_DISPATCH_MANGLE(XXH_AVX2),
                                    *const XXH3_DISPATCH_MANGLE(XXH_SSE2),
+                                   *const XXH3_DISPATCH_MANGLE(XXH_AVX2),
                                    *const XXH3_DISPATCH_MANGLE(XXH_AVX512);
 
 const XXH3_dispatch_table_t* XXH3_getDispatchTable(void);
 
 #ifdef XXH_DISPATCH_DEBUG
 /* Public function on debug mode (needs a manually declared prototype) */
-const XXH3_dispatch_table_t* XXH3_setDispatchTable(int dispatch_table_id);
+const XXH3_dispatch_table_t* XXH3_setDispatchTable(xxh_u32 dispatch_table_id);
 #endif
 
 #ifdef __cplusplus
@@ -115,6 +126,8 @@ const XXH3_dispatch_table_t* XXH3_setDispatchTable(int dispatch_table_id);
  *
  * Clang's integrated assembler automatically converts AT&T syntax to Intel if
  * needed, making the dialect switching useless (it isn't even supported).
+ *
+ * Note: Comments are written in the inline assembly itself.
  */
 #ifdef __clang__
 #  define I_ATT(intel, att) att "\n\t"
@@ -194,14 +207,14 @@ static xxh_u64 XXH_xgetbv(void)
 #define AVX512F_XGETBV_MASK ((7 << 5) | (1 << 2) | (1 << 1))
 
 /* Returns the best XXH3 implementation */
-static int XXH_featureTest(void)
+static xxh_u32 XXH_featureTest(void)
 {
     xxh_u32 abcd[4];
+    xxh_u32 max_leaves;
+    xxh_u32 best = XXH_SCALAR;
 #if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
     xxh_u64 xgetbv_val;
 #endif
-    xxh_u32 max_leaves;
-    int best = XXH_SCALAR;
 #if defined(__GNUC__) && defined(__i386__)
     xxh_u32 cpuid_supported;
     __asm__(
@@ -246,7 +259,7 @@ static int XXH_featureTest(void)
     XXH_cpuid(0, 0, abcd);
     max_leaves = abcd[0];
 
-    /* Sanity check: this shouldn't happen on any hardware. */
+    /* Shouldn't happen on hardware, but happens on some QEMU configs. */
     if (XXH_unlikely(max_leaves == 0)) {
         XXH_debugPrint("Max CPUID leaves == 0!");
         return best;
@@ -256,10 +269,7 @@ static int XXH_featureTest(void)
     XXH_cpuid(1, 0, abcd);
 
     /*
-     * Test for SSE2. Even on x86_64, where SSE2 is mandatory, there are some
-     * emulator setups, such as QEMU's portable TCG, which don't support it.
-     *
-     * The check itself is very quick since we already need to check CPUID[1].
+     * Test for SSE2. The check is redundant on x86_64, but it doesn't hurt.
      */
     if (XXH_unlikely((abcd[3] & SSE2_CPUID_MASK) != SSE2_CPUID_MASK))
         return best;
@@ -281,25 +291,31 @@ static int XXH_featureTest(void)
 
     xgetbv_val = XXH_xgetbv();
 #if defined(XXH_DISPATCH_AVX2)
-    /* Validate that the OS supports YMM registers */
-    if ((xgetbv_val & AVX2_XGETBV_MASK) != AVX2_XGETBV_MASK)
-        return best;
-
     /* Validate that AVX2 is supported by the CPU */
     if ((abcd[1] & AVX2_CPUID_MASK) != AVX2_CPUID_MASK)
         return best;
+
+    /* Validate that the OS supports YMM registers */
+    if ((xgetbv_val & AVX2_XGETBV_MASK) != AVX2_XGETBV_MASK) {
+        XXH_debugPrint("AVX2 supported by the CPU, but not the OS.");
+        return best;
+    }
+
     /* AVX2 supported */
     XXH_debugPrint("AVX2 support detected.");
     best = XXH_AVX2;
 #endif
 #if defined(XXH_DISPATCH_AVX512)
-    /* Validate that the OS supports ZMM registers */
-    if ((xgetbv_val & AVX512F_XGETBV_MASK) != AVX512F_XGETBV_MASK)
-        return best;
-
     /* Validate that AVX512F is supported by the CPU */
     if ((abcd[1] & AVX512F_CPUID_MASK) != AVX512F_CPUID_MASK)
         return best;
+
+    /* Validate that the OS supports ZMM registers */
+    if ((xgetbv_val & AVX512F_XGETBV_MASK) != AVX512F_XGETBV_MASK) {
+        XXH_debugPrint("AVX512F supported by the CPU, but not the OS.");
+        return best;
+    }
+
     /* AVX512F supported */
     XXH_debugPrint("AVX512F support detected.");
     best = XXH_AVX512;
@@ -321,24 +337,26 @@ static const XXH3_dispatch_table_t *s_xxh3_dispatch_table_cache = NULL;
 static
 #endif
 const XXH3_dispatch_table_t*
-XXH3_setDispatchTable(int dispatch_table_id)
+XXH3_setDispatchTable(xxh_u32 dispatch_table_id)
 {
     switch (dispatch_table_id) {
-#define XXH_DISPATCH_CASE(id) \
-    case id: \
-        XXH_debugPrint("Setting dispatch table to " #id "."); \
-        return (s_xxh3_dispatch_table_cache = XXH3_DISPATCH_MANGLE(id));
-    XXH_DISPATCH_CASE(XXH_SSE2)
+#define XXH_DISPATCH_CASE(id)                                                 \
+    case id:                                                                  \
+        XXH_debugPrint("Setting dispatch table to " #id ".");                 \
+        /* Assign and return in one line, avoid reloads */                    \
+        return (s_xxh3_dispatch_table_cache = XXH3_DISPATCH_MANGLE(id))
+
+    XXH_DISPATCH_CASE(XXH_SSE2);
 #if defined(XXH_DISPATCH_AVX2)
-    XXH_DISPATCH_CASE(XXH_AVX2)
+    XXH_DISPATCH_CASE(XXH_AVX2);
 #endif
 #if defined(XXH_DISPATCH_AVX512)
-    XXH_DISPATCH_CASE(XXH_AVX512)
+    XXH_DISPATCH_CASE(XXH_AVX512);
 #endif
     default:
         XXH_debugPrint("Unknown dispatch ID!");
         /* FALLTHROUGH */
-    XXH_DISPATCH_CASE(XXH_SCALAR)
+    XXH_DISPATCH_CASE(XXH_SCALAR);
 #undef XXH_DISPATCH_CASE
     }
 }

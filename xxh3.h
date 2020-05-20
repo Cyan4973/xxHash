@@ -407,7 +407,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr)
  /* s390x is always big endian, no issue on this platform */
 #  define XXH_vec_mulo vec_mulo
 #  define XXH_vec_mule vec_mule
-# elif defined(__clang__) && __has_builtin(__builtin_altivec_vmuleuw)
+# elif defined(__clang__) && XXH_HAS_BUILTIN(__builtin_altivec_vmuleuw)
 /* Clang has a better way to control this, we can just use the builtin which doesn't swap. */
 #  define XXH_vec_mulo __builtin_altivec_vmulouw
 #  define XXH_vec_mule __builtin_altivec_vmuleuw

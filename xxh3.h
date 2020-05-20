@@ -1780,7 +1780,7 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
 #endif
 
     {   const xxh_u8* const bEnd = input + len;
-        const void* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
+        const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
 
         state->totalLen += len;
 

@@ -290,7 +290,7 @@ preview-man: man
 	man ./xxhsum.1
 
 .PHONY: test
-test: DEBUGFLAGS += -DDEBUGLEVEL=1
+test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
 test: all namespaceTest check test-xxhsum-c c90test test-tools
 
 .PHONY: test-inline

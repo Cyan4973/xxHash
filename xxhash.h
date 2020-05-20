@@ -880,14 +880,18 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 *  Debug
 ***************************************/
 /*
- * DEBUGLEVEL is expected to be defined externally, typically via the compiler's
- * command line options. The value must be a number.
+ * XXH_DEBUGLEVEL is expected to be defined externally, typically via the
+ * compiler's command line options. The value must be a number.
  */
-#ifndef DEBUGLEVEL
-#  define DEBUGLEVEL 0
+#ifndef XXH_DEBUGLEVEL
+#  ifdef DEBUGLEVEL /* backwards compat */
+#    define XXH_DEBUGLEVEL DEBUGLEVEL
+#  else
+#    define XXH_DEBUGLEVEL 0
+#  endif
 #endif
 
-#if (DEBUGLEVEL>=1)
+#if (XXH_DEBUGLEVEL>=1)
 #  include <assert.h>   /* note: can still be disabled with NDEBUG */
 #  define XXH_ASSERT(c)   assert(c)
 #else
@@ -905,12 +909,17 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
  && (defined (__cplusplus) \
  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 # include <stdint.h>
-  typedef uint8_t  xxh_u8;
+  typedef uint8_t xxh_u8;
 #else
-  typedef unsigned char      xxh_u8;
+  typedef unsigned char xxh_u8;
 #endif
 typedef XXH32_hash_t xxh_u32;
 
+#ifdef XXH_OLD_NAMES
+#  define BYTE xxh_u8
+#  define U8   xxh_u8
+#  define U32  xxh_u32
+#endif
 
 /* ***   Memory access   *** */
 
@@ -935,8 +944,13 @@ static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr;
  *
  * Currently only defined for GCC and ICC.
  */
+#ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; } __attribute__((packed)) unalign;
-static xxh_u32 XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
+#endif
+static xxh_u32 XXH_read32(const void* ptr)
+{
+    typedef union { xxh_u32 u32; } __attribute__((packed)) xxh_unalign;
+    return ((const xxh_unalign*)ptr)->u32; }
 
 #else
 
@@ -999,12 +1013,14 @@ static int XXH_isLittleEndian(void)
 ******************************************/
 #define XXH_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
 
-#ifndef __has_builtin
-#  define __has_builtin(x) 0
+#ifdef __has_builtin
+#  define XXH_HAS_BUILTIN(x) __has_builtin(x)
+#else
+#  define XXH_HAS_BUILTIN(x) 0
 #endif
 
-#if !defined(NO_CLANG_BUILTIN) && __has_builtin(__builtin_rotateleft32) \
-                               && __has_builtin(__builtin_rotateleft64)
+#if !defined(NO_CLANG_BUILTIN) && XXH_HAS_BUILTIN(__builtin_rotateleft32) \
+                               && XXH_HAS_BUILTIN(__builtin_rotateleft64)
 #  define XXH_rotl32 __builtin_rotateleft32
 #  define XXH_rotl64 __builtin_rotateleft64
 /* Note: although _rotl exists for minGW (GCC under windows), performance seems poor */
@@ -1093,17 +1109,25 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 /* *******************************************************************
 *  32-bit hash functions
 *********************************************************************/
-static const xxh_u32 PRIME32_1 = 0x9E3779B1U;   /* 0b10011110001101110111100110110001 */
-static const xxh_u32 PRIME32_2 = 0x85EBCA77U;   /* 0b10000101111010111100101001110111 */
-static const xxh_u32 PRIME32_3 = 0xC2B2AE3DU;   /* 0b11000010101100101010111000111101 */
-static const xxh_u32 PRIME32_4 = 0x27D4EB2FU;   /* 0b00100111110101001110101100101111 */
-static const xxh_u32 PRIME32_5 = 0x165667B1U;   /* 0b00010110010101100110011110110001 */
+static const xxh_u32 XXH_PRIME32_1 = 0x9E3779B1U;   /* 0b10011110001101110111100110110001 */
+static const xxh_u32 XXH_PRIME32_2 = 0x85EBCA77U;   /* 0b10000101111010111100101001110111 */
+static const xxh_u32 XXH_PRIME32_3 = 0xC2B2AE3DU;   /* 0b11000010101100101010111000111101 */
+static const xxh_u32 XXH_PRIME32_4 = 0x27D4EB2FU;   /* 0b00100111110101001110101100101111 */
+static const xxh_u32 XXH_PRIME32_5 = 0x165667B1U;   /* 0b00010110010101100110011110110001 */
+
+#ifdef XXH_OLD_NAMES
+#  define PRIME32_1 XXH_PRIME32_1
+#  define PRIME32_2 XXH_PRIME32_2
+#  define PRIME32_3 XXH_PRIME32_3
+#  define PRIME32_4 XXH_PRIME32_4
+#  define PRIME32_5 XXH_PRIME32_5
+#endif
 
 static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
 {
-    acc += input * PRIME32_2;
+    acc += input * XXH_PRIME32_2;
     acc  = XXH_rotl32(acc, 13);
-    acc *= PRIME32_1;
+    acc *= XXH_PRIME32_1;
 #if defined(__GNUC__) && defined(__SSE4_1__) && !defined(XXH_ENABLE_AUTOVECTORIZE)
     /*
      * UGLY HACK:
@@ -1159,9 +1183,9 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
 static xxh_u32 XXH32_avalanche(xxh_u32 h32)
 {
     h32 ^= h32 >> 15;
-    h32 *= PRIME32_2;
+    h32 *= XXH_PRIME32_2;
     h32 ^= h32 >> 13;
-    h32 *= PRIME32_3;
+    h32 *= XXH_PRIME32_3;
     h32 ^= h32 >> 16;
     return(h32);
 }
@@ -1171,66 +1195,66 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32)
 static xxh_u32
 XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
-#define PROCESS1 do {                           \
-    h32 += (*ptr++) * PRIME32_5;                \
-    h32 = XXH_rotl32(h32, 11) * PRIME32_1;      \
+#define XXH_PROCESS1 do {                           \
+    h32 += (*ptr++) * XXH_PRIME32_5;                \
+    h32 = XXH_rotl32(h32, 11) * XXH_PRIME32_1;      \
 } while (0)
 
-#define PROCESS4 do {                           \
-    h32 += XXH_get32bits(ptr) * PRIME32_3;      \
+#define XXH_PROCESS4 do {                           \
+    h32 += XXH_get32bits(ptr) * XXH_PRIME32_3;      \
     ptr += 4;                                   \
-    h32  = XXH_rotl32(h32, 17) * PRIME32_4;     \
+    h32  = XXH_rotl32(h32, 17) * XXH_PRIME32_4;     \
 } while (0)
 
     /* Compact rerolled version */
     if (XXH_REROLL) {
         len &= 15;
         while (len >= 4) {
-            PROCESS4;
+            XXH_PROCESS4;
             len -= 4;
         }
         while (len > 0) {
-            PROCESS1;
+            XXH_PROCESS1;
             --len;
         }
         return XXH32_avalanche(h32);
     } else {
          switch(len&15) /* or switch(bEnd - p) */ {
-           case 12:      PROCESS4;
+           case 12:      XXH_PROCESS4;
                          /* fallthrough */
-           case 8:       PROCESS4;
+           case 8:       XXH_PROCESS4;
                          /* fallthrough */
-           case 4:       PROCESS4;
+           case 4:       XXH_PROCESS4;
                          return XXH32_avalanche(h32);
 
-           case 13:      PROCESS4;
+           case 13:      XXH_PROCESS4;
                          /* fallthrough */
-           case 9:       PROCESS4;
+           case 9:       XXH_PROCESS4;
                          /* fallthrough */
-           case 5:       PROCESS4;
-                         PROCESS1;
+           case 5:       XXH_PROCESS4;
+                         XXH_PROCESS1;
                          return XXH32_avalanche(h32);
 
-           case 14:      PROCESS4;
+           case 14:      XXH_PROCESS4;
                          /* fallthrough */
-           case 10:      PROCESS4;
+           case 10:      XXH_PROCESS4;
                          /* fallthrough */
-           case 6:       PROCESS4;
-                         PROCESS1;
-                         PROCESS1;
+           case 6:       XXH_PROCESS4;
+                         XXH_PROCESS1;
+                         XXH_PROCESS1;
                          return XXH32_avalanche(h32);
 
-           case 15:      PROCESS4;
+           case 15:      XXH_PROCESS4;
                          /* fallthrough */
-           case 11:      PROCESS4;
+           case 11:      XXH_PROCESS4;
                          /* fallthrough */
-           case 7:       PROCESS4;
+           case 7:       XXH_PROCESS4;
                          /* fallthrough */
-           case 3:       PROCESS1;
+           case 3:       XXH_PROCESS1;
                          /* fallthrough */
-           case 2:       PROCESS1;
+           case 2:       XXH_PROCESS1;
                          /* fallthrough */
-           case 1:       PROCESS1;
+           case 1:       XXH_PROCESS1;
                          /* fallthrough */
            case 0:       return XXH32_avalanche(h32);
         }
@@ -1238,6 +1262,14 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
         return h32;   /* reaching this point is deemed impossible */
     }
 }
+
+#ifdef XXH_OLD_NAMES
+#  define PROCESS1 XXH_PROCESS1
+#  define PROCESS4 XXH_PROCESS4
+#else
+#  undef XXH_PROCESS1
+#  undef XXH_PROCESS4
+#endif
 
 XXH_FORCE_INLINE xxh_u32
 XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment align)
@@ -1254,10 +1286,10 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
 
     if (len>=16) {
         const xxh_u8* const limit = bEnd - 15;
-        xxh_u32 v1 = seed + PRIME32_1 + PRIME32_2;
-        xxh_u32 v2 = seed + PRIME32_2;
+        xxh_u32 v1 = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+        xxh_u32 v2 = seed + XXH_PRIME32_2;
         xxh_u32 v3 = seed + 0;
-        xxh_u32 v4 = seed - PRIME32_1;
+        xxh_u32 v4 = seed - XXH_PRIME32_1;
 
         do {
             v1 = XXH32_round(v1, XXH_get32bits(input)); input += 4;
@@ -1269,7 +1301,7 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
         h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
             + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
     } else {
-        h32  = seed + PRIME32_5;
+        h32  = seed + XXH_PRIME32_5;
     }
 
     h32 += (xxh_u32)len;
@@ -1321,10 +1353,10 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t s
 {
     XXH32_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
     memset(&state, 0, sizeof(state));
-    state.v1 = seed + PRIME32_1 + PRIME32_2;
-    state.v2 = seed + PRIME32_2;
+    state.v1 = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+    state.v2 = seed + XXH_PRIME32_2;
     state.v3 = seed + 0;
-    state.v4 = seed - PRIME32_1;
+    state.v4 = seed - XXH_PRIME32_1;
     /* do not write into reserved, planned to be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
@@ -1405,7 +1437,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest (const XXH32_state_t* state)
             + XXH_rotl32(state->v3, 12)
             + XXH_rotl32(state->v4, 18);
     } else {
-        h32 = state->v3 /* == seed */ + PRIME32_5;
+        h32 = state->v3 /* == seed */ + XXH_PRIME32_5;
     }
 
     h32 += state->total_len_32;
@@ -1452,6 +1484,9 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 typedef XXH64_hash_t xxh_u64;
 
+#ifdef XXH_OLD_NAMES
+#  define U64 xxh_u64
+#endif
 
 /*!
  * XXH_REROLL_XXH64:
@@ -1500,8 +1535,12 @@ static xxh_u64 XXH_read64(const void* memPtr) { return *(const xxh_u64*) memPtr;
  *
  * Currently only defined for GCC and ICC.
  */
+#ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) unalign64;
-static xxh_u64 XXH_read64(const void* ptr) { return ((const unalign64*)ptr)->u64; }
+#endif
+static xxh_u64 XXH_read64(const void* ptr) {
+    typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) xxh_unalign64;
+    return ((const xxh_unalign64*)ptr)->u64; }
 
 #else
 
@@ -1590,17 +1629,25 @@ XXH_readLE64_align(const void* ptr, XXH_alignment align)
 
 /*******   xxh64   *******/
 
-static const xxh_u64 PRIME64_1 = 0x9E3779B185EBCA87ULL;   /* 0b1001111000110111011110011011000110000101111010111100101010000111 */
-static const xxh_u64 PRIME64_2 = 0xC2B2AE3D27D4EB4FULL;   /* 0b1100001010110010101011100011110100100111110101001110101101001111 */
-static const xxh_u64 PRIME64_3 = 0x165667B19E3779F9ULL;   /* 0b0001011001010110011001111011000110011110001101110111100111111001 */
-static const xxh_u64 PRIME64_4 = 0x85EBCA77C2B2AE63ULL;   /* 0b1000010111101011110010100111011111000010101100101010111001100011 */
-static const xxh_u64 PRIME64_5 = 0x27D4EB2F165667C5ULL;   /* 0b0010011111010100111010110010111100010110010101100110011111000101 */
+static const xxh_u64 XXH_PRIME64_1 = 0x9E3779B185EBCA87ULL;   /* 0b1001111000110111011110011011000110000101111010111100101010000111 */
+static const xxh_u64 XXH_PRIME64_2 = 0xC2B2AE3D27D4EB4FULL;   /* 0b1100001010110010101011100011110100100111110101001110101101001111 */
+static const xxh_u64 XXH_PRIME64_3 = 0x165667B19E3779F9ULL;   /* 0b0001011001010110011001111011000110011110001101110111100111111001 */
+static const xxh_u64 XXH_PRIME64_4 = 0x85EBCA77C2B2AE63ULL;   /* 0b1000010111101011110010100111011111000010101100101010111001100011 */
+static const xxh_u64 XXH_PRIME64_5 = 0x27D4EB2F165667C5ULL;   /* 0b0010011111010100111010110010111100010110010101100110011111000101 */
+
+#ifdef XXH_OLD_NAMES
+#  define PRIME64_1 XXH_PRIME64_1
+#  define PRIME64_2 XXH_PRIME64_2
+#  define PRIME64_3 XXH_PRIME64_3
+#  define PRIME64_4 XXH_PRIME64_4
+#  define PRIME64_5 XXH_PRIME64_5
+#endif
 
 static xxh_u64 XXH64_round(xxh_u64 acc, xxh_u64 input)
 {
-    acc += input * PRIME64_2;
+    acc += input * XXH_PRIME64_2;
     acc  = XXH_rotl64(acc, 31);
-    acc *= PRIME64_1;
+    acc *= XXH_PRIME64_1;
     return acc;
 }
 
@@ -1608,16 +1655,16 @@ static xxh_u64 XXH64_mergeRound(xxh_u64 acc, xxh_u64 val)
 {
     val  = XXH64_round(0, val);
     acc ^= val;
-    acc  = acc * PRIME64_1 + PRIME64_4;
+    acc  = acc * XXH_PRIME64_1 + XXH_PRIME64_4;
     return acc;
 }
 
 static xxh_u64 XXH64_avalanche(xxh_u64 h64)
 {
     h64 ^= h64 >> 33;
-    h64 *= PRIME64_2;
+    h64 *= XXH_PRIME64_2;
     h64 ^= h64 >> 29;
-    h64 *= PRIME64_3;
+    h64 *= XXH_PRIME64_3;
     h64 ^= h64 >> 32;
     return h64;
 }
@@ -1628,119 +1675,119 @@ static xxh_u64 XXH64_avalanche(xxh_u64 h64)
 static xxh_u64
 XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
-#define PROCESS1_64 do {                                   \
-    h64 ^= (*ptr++) * PRIME64_5;                           \
-    h64 = XXH_rotl64(h64, 11) * PRIME64_1;                 \
+#define XXH_PROCESS1_64 do {                                   \
+    h64 ^= (*ptr++) * XXH_PRIME64_5;                           \
+    h64 = XXH_rotl64(h64, 11) * XXH_PRIME64_1;                 \
 } while (0)
 
-#define PROCESS4_64 do {                                   \
-    h64 ^= (xxh_u64)(XXH_get32bits(ptr)) * PRIME64_1;      \
+#define XXH_PROCESS4_64 do {                                   \
+    h64 ^= (xxh_u64)(XXH_get32bits(ptr)) * XXH_PRIME64_1;      \
     ptr += 4;                                              \
-    h64 = XXH_rotl64(h64, 23) * PRIME64_2 + PRIME64_3;     \
+    h64 = XXH_rotl64(h64, 23) * XXH_PRIME64_2 + XXH_PRIME64_3;     \
 } while (0)
 
-#define PROCESS8_64 do {                                   \
+#define XXH_PROCESS8_64 do {                                   \
     xxh_u64 const k1 = XXH64_round(0, XXH_get64bits(ptr)); \
     ptr += 8;                                              \
     h64 ^= k1;                                             \
-    h64  = XXH_rotl64(h64,27) * PRIME64_1 + PRIME64_4;     \
+    h64  = XXH_rotl64(h64,27) * XXH_PRIME64_1 + XXH_PRIME64_4;     \
 } while (0)
 
     /* Rerolled version for 32-bit targets is faster and much smaller. */
     if (XXH_REROLL || XXH_REROLL_XXH64) {
         len &= 31;
         while (len >= 8) {
-            PROCESS8_64;
+            XXH_PROCESS8_64;
             len -= 8;
         }
         if (len >= 4) {
-            PROCESS4_64;
+            XXH_PROCESS4_64;
             len -= 4;
         }
         while (len > 0) {
-            PROCESS1_64;
+            XXH_PROCESS1_64;
             --len;
         }
          return  XXH64_avalanche(h64);
     } else {
         switch(len & 31) {
-           case 24: PROCESS8_64;
+           case 24: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 16: PROCESS8_64;
+           case 16: XXH_PROCESS8_64;
                          /* fallthrough */
-           case  8: PROCESS8_64;
+           case  8: XXH_PROCESS8_64;
                     return XXH64_avalanche(h64);
 
-           case 28: PROCESS8_64;
+           case 28: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 20: PROCESS8_64;
+           case 20: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 12: PROCESS8_64;
+           case 12: XXH_PROCESS8_64;
                          /* fallthrough */
-           case  4: PROCESS4_64;
+           case  4: XXH_PROCESS4_64;
                     return XXH64_avalanche(h64);
 
-           case 25: PROCESS8_64;
+           case 25: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 17: PROCESS8_64;
+           case 17: XXH_PROCESS8_64;
                          /* fallthrough */
-           case  9: PROCESS8_64;
-                    PROCESS1_64;
+           case  9: XXH_PROCESS8_64;
+                    XXH_PROCESS1_64;
                     return XXH64_avalanche(h64);
 
-           case 29: PROCESS8_64;
+           case 29: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 21: PROCESS8_64;
+           case 21: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 13: PROCESS8_64;
+           case 13: XXH_PROCESS8_64;
                          /* fallthrough */
-           case  5: PROCESS4_64;
-                    PROCESS1_64;
+           case  5: XXH_PROCESS4_64;
+                    XXH_PROCESS1_64;
                     return XXH64_avalanche(h64);
 
-           case 26: PROCESS8_64;
+           case 26: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 18: PROCESS8_64;
+           case 18: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 10: PROCESS8_64;
-                    PROCESS1_64;
-                    PROCESS1_64;
+           case 10: XXH_PROCESS8_64;
+                    XXH_PROCESS1_64;
+                    XXH_PROCESS1_64;
                     return XXH64_avalanche(h64);
 
-           case 30: PROCESS8_64;
+           case 30: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 22: PROCESS8_64;
+           case 22: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 14: PROCESS8_64;
+           case 14: XXH_PROCESS8_64;
                          /* fallthrough */
-           case  6: PROCESS4_64;
-                    PROCESS1_64;
-                    PROCESS1_64;
+           case  6: XXH_PROCESS4_64;
+                    XXH_PROCESS1_64;
+                    XXH_PROCESS1_64;
                     return XXH64_avalanche(h64);
 
-           case 27: PROCESS8_64;
+           case 27: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 19: PROCESS8_64;
+           case 19: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 11: PROCESS8_64;
-                    PROCESS1_64;
-                    PROCESS1_64;
-                    PROCESS1_64;
+           case 11: XXH_PROCESS8_64;
+                    XXH_PROCESS1_64;
+                    XXH_PROCESS1_64;
+                    XXH_PROCESS1_64;
                     return XXH64_avalanche(h64);
 
-           case 31: PROCESS8_64;
+           case 31: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 23: PROCESS8_64;
+           case 23: XXH_PROCESS8_64;
                          /* fallthrough */
-           case 15: PROCESS8_64;
+           case 15: XXH_PROCESS8_64;
                          /* fallthrough */
-           case  7: PROCESS4_64;
+           case  7: XXH_PROCESS4_64;
                          /* fallthrough */
-           case  3: PROCESS1_64;
+           case  3: XXH_PROCESS1_64;
                          /* fallthrough */
-           case  2: PROCESS1_64;
+           case  2: XXH_PROCESS1_64;
                          /* fallthrough */
-           case  1: PROCESS1_64;
+           case  1: XXH_PROCESS1_64;
                          /* fallthrough */
            case  0: return XXH64_avalanche(h64);
         }
@@ -1749,6 +1796,16 @@ XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
     XXH_ASSERT(0);
     return 0;  /* unreachable, but some compilers complain without it */
 }
+
+#ifdef XXH_OLD_NAMES
+#  define PROCESS1_64 XXH_PROCESS1_64
+#  define PROCESS4_64 XXH_PROCESS4_64
+#  define PROCESS8_64 XXH_PROCESS8_64
+#else
+#  undef XXH_PROCESS1_64
+#  undef XXH_PROCESS4_64
+#  undef XXH_PROCESS8_64
+#endif
 
 XXH_FORCE_INLINE xxh_u64
 XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment align)
@@ -1765,10 +1822,10 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
 
     if (len>=32) {
         const xxh_u8* const limit = bEnd - 32;
-        xxh_u64 v1 = seed + PRIME64_1 + PRIME64_2;
-        xxh_u64 v2 = seed + PRIME64_2;
+        xxh_u64 v1 = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
+        xxh_u64 v2 = seed + XXH_PRIME64_2;
         xxh_u64 v3 = seed + 0;
-        xxh_u64 v4 = seed - PRIME64_1;
+        xxh_u64 v4 = seed - XXH_PRIME64_1;
 
         do {
             v1 = XXH64_round(v1, XXH_get64bits(input)); input+=8;
@@ -1784,7 +1841,7 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
         h64 = XXH64_mergeRound(h64, v4);
 
     } else {
-        h64  = seed + PRIME64_5;
+        h64  = seed + XXH_PRIME64_5;
     }
 
     h64 += (xxh_u64) len;
@@ -1835,10 +1892,10 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t s
 {
     XXH64_state_t state;   /* use a local state to memcpy() in order to avoid strict-aliasing warnings */
     memset(&state, 0, sizeof(state));
-    state.v1 = seed + PRIME64_1 + PRIME64_2;
-    state.v2 = seed + PRIME64_2;
+    state.v1 = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
+    state.v2 = seed + XXH_PRIME64_2;
     state.v3 = seed + 0;
-    state.v4 = seed - PRIME64_1;
+    state.v4 = seed - XXH_PRIME64_1;
      /* do not write into reserved64, might be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
     return XXH_OK;
@@ -1921,7 +1978,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest (const XXH64_state_t* state)
         h64 = XXH64_mergeRound(h64, v3);
         h64 = XXH64_mergeRound(h64, v4);
     } else {
-        h64  = state->v3 /*seed*/ + PRIME64_5;
+        h64  = state->v3 /*seed*/ + XXH_PRIME64_5;
     }
 
     h64 += (xxh_u64) state->total_len;

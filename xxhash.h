@@ -950,7 +950,8 @@ typedef union { xxh_u32 u32; } __attribute__((packed)) unalign;
 static xxh_u32 XXH_read32(const void* ptr)
 {
     typedef union { xxh_u32 u32; } __attribute__((packed)) xxh_unalign;
-    return ((const xxh_unalign*)ptr)->u32; }
+    return ((const xxh_unalign*)ptr)->u32;
+}
 
 #else
 
@@ -1538,9 +1539,11 @@ static xxh_u64 XXH_read64(const void* memPtr) { return *(const xxh_u64*) memPtr;
 #ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) unalign64;
 #endif
-static xxh_u64 XXH_read64(const void* ptr) {
+static xxh_u64 XXH_read64(const void* ptr)
+{
     typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) xxh_unalign64;
-    return ((const xxh_unalign64*)ptr)->u64; }
+    return ((const xxh_unalign64*)ptr)->u64;
+}
 
 #else
 

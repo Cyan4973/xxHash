@@ -1723,7 +1723,7 @@ XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
     XXH_ASSERT(secret != NULL);
     statePtr->extSecret = secret;
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-    statePtr->secretLimit = (XXH32_hash_t)(secretSize - XXH_STRIPE_LEN);
+    statePtr->secretLimit = secretSize - XXH_STRIPE_LEN;
     statePtr->nbStripesPerBlock = statePtr->secretLimit / XXH_SECRET_CONSUME_RATE;
 }
 
@@ -1757,7 +1757,7 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 
 XXH_FORCE_INLINE void
 XXH3_consumeStripes( xxh_u64* acc,
-                    XXH32_hash_t* nbStripesSoFarPtr, XXH32_hash_t nbStripesPerBlock,
+                    size_t* nbStripesSoFarPtr, size_t nbStripesPerBlock,
                     const xxh_u8* input, size_t totalStripes,
                     const xxh_u8* secret, size_t secretLimit,
                     XXH3_accWidth_e accWidth)
@@ -1862,7 +1862,7 @@ XXH3_digest_long (XXH64_hash_t* acc,
     memcpy(acc, state->acc, sizeof(state->acc));
     if (state->bufferedSize >= XXH_STRIPE_LEN) {
         size_t const totalNbStripes = state->bufferedSize / XXH_STRIPE_LEN;
-        XXH32_hash_t nbStripesSoFar = state->nbStripesSoFar;
+        size_t nbStripesSoFar = state->nbStripesSoFar;
         XXH3_consumeStripes(acc,
                            &nbStripesSoFar, state->nbStripesPerBlock,
                             state->buffer, totalNbStripes,

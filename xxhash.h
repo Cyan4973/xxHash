@@ -559,17 +559,16 @@ struct XXH3_state_s {
    XXH_ALIGN_MEMBER(64, unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE]);
    XXH_ALIGN_MEMBER(64, unsigned char buffer[XXH3_INTERNALBUFFER_SIZE]);
    XXH32_hash_t bufferedSize;
-   XXH32_hash_t nbStripesPerBlock;
-   XXH32_hash_t nbStripesSoFar;
-   XXH32_hash_t secretLimit;
    XXH32_hash_t reserved32;
-   XXH32_hash_t reserved32_2;
+   size_t nbStripesPerBlock;
+   size_t nbStripesSoFar;
+   size_t secretLimit;
    XXH64_hash_t totalLen;
    XXH64_hash_t seed;
    XXH64_hash_t reserved64;
    const unsigned char* extSecret;  /* reference to external secret;
-                                     * if == NULL, use customSecret instead */
-   /* note: there is some padding at the end due to alignment on 64 bytes */
+                                     * if == NULL, use .customSecret instead */
+   /* note: there may be some padding at the end due to alignment on 64 bytes */
 }; /* typedef'd to XXH3_state_t */
 
 #undef XXH_ALIGN_MEMBER

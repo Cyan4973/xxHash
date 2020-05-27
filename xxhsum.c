@@ -1359,24 +1359,11 @@ static int BMK_hash(const char* fileName,
         return 1;
     }
 
-    /* loading notification */
-    {   const size_t fileNameSize = strlen(fileName);
-        const char* const fileNameEnd = fileName + fileNameSize;
-        const int maxInfoFilenameSize = (int)(fileNameSize > 30 ? 30 : fileNameSize);
-        int infoFilenameSize = 1;
-        while ((infoFilenameSize < maxInfoFilenameSize)
-            && (fileNameEnd[-1-infoFilenameSize] != '/')
-            && (fileNameEnd[-1-infoFilenameSize] != '\\') )
-              infoFilenameSize++;
-        DISPLAYLEVEL(2, "\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
+    /* Load file & update hash */
+    hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
 
-        /* Load file & update hash */
-        hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
-
-        fclose(inFile);
-        free(buffer);
-        DISPLAYLEVEL(2, "%*s             \r", infoFilenameSize, "");  /* erase line */
-    }
+    fclose(inFile);
+    free(buffer);
 
     /* display Hash value followed by file name */
     switch(hashType)

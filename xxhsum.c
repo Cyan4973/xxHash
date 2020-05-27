@@ -834,7 +834,6 @@ static int BMK_benchFiles(char** fileNamesTable, int nbFiles, U32 specificTest)
             }
 
             /* Fill input buffer */
-            DISPLAYLEVEL(2, "\rLoading %s...        \n", inFileName);
             {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
                 fclose(inFile);
                 if(readSize != benchedSize) {
@@ -1360,24 +1359,11 @@ static int BMK_hash(const char* fileName,
         return 1;
     }
 
-    /* loading notification */
-    {   const size_t fileNameSize = strlen(fileName);
-        const char* const fileNameEnd = fileName + fileNameSize;
-        const int maxInfoFilenameSize = (int)(fileNameSize > 30 ? 30 : fileNameSize);
-        int infoFilenameSize = 1;
-        while ((infoFilenameSize < maxInfoFilenameSize)
-            && (fileNameEnd[-1-infoFilenameSize] != '/')
-            && (fileNameEnd[-1-infoFilenameSize] != '\\') )
-              infoFilenameSize++;
-        DISPLAYLEVEL(2, "\rLoading %s...  \r", fileNameEnd - infoFilenameSize);
+    /* Load file & update hash */
+    hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
 
-        /* Load file & update hash */
-        hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
-
-        fclose(inFile);
-        free(buffer);
-        DISPLAYLEVEL(2, "%*s             \r", infoFilenameSize, "");  /* erase line */
-    }
+    fclose(inFile);
+    free(buffer);
 
     /* display Hash value followed by file name */
     switch(hashType)
@@ -1958,11 +1944,11 @@ static int usage_advanced(const char* exename)
     usage(exename);
     DISPLAY( "Advanced :\n");
     DISPLAY( "  -V, --version        Display version information \n");
-    DISPLAY( "  -q, --quiet          Do not display 'Loading' messages \n");
     DISPLAY( "      --little-endian  Display hashes in little endian convention (default: big endian) \n");
     DISPLAY( "  -b                   Run benchmark (all variants, default) \n");
     DISPLAY( "  -b#                  Bench only variant # \n");
     DISPLAY( "  -i ITERATIONS        Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
+    DISPLAY( "  -q, --quiet          Don't display version header in benchmark mode \n");
     DISPLAY( "\n");
     DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");
     DISPLAY( "  -q, --quiet          Don't print OK for each successfully verified file \n");

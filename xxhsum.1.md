@@ -39,9 +39,6 @@ OPTIONS
   Hash selection. <HASHTYPE> means `0`=32bits, `1`=64bits, `2`=128bits.
   Default value is `1` (64bits)
 
-* `-q`, `--quiet`:
-  Remove status messages like "Loading..." written to `stderr`.
-
 * `--little-endian`:
   Set output hexadecimal checksum value as little endian convention.
   By default, value is displayed as big endian.
@@ -55,9 +52,8 @@ OPTIONS
   Read xxHash sums from <FILE> and check them
 
 * `-q`, `--quiet`:
-  On top of removing status messages written to `stderr`,
-  also don't print OK for each successfully verified file
-
+  Don't print OK for each successfully verified file
+  
 * `--strict`:
   Return an error code if any line in the file is invalid,
   not just if some checksums are wrong.

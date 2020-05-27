@@ -199,7 +199,7 @@ test-xxhsum-c: xxhsum
 	# xxhsum does not display "Loading" message into stderr either
 	! ./xxhsum xxh* 2>&1 | grep Loading
 	# Check that xxhsum do display filename that it failed to open.
-	LC_ALL=C xxhsum noneexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
+	LC_ALL=C ./xxhsum noneexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
 	# xxhsum to/from file, shell redirection
 	./xxhsum xxh* > .test.xxh64
 	./xxhsum -H0 xxh* > .test.xxh32

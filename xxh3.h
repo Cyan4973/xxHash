@@ -1335,15 +1335,17 @@ XXH3_scrambleAcc(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #endif
 }
 
-#define XXH_PREFETCH_DIST 384
-
-#ifdef __clang__ // for clang
-#  define XXH_PREFETCH_DIST_AVX512_64  320
-#  define XXH_PREFETCH_DIST_AVX512_128 320
-#else // for gcc
-#  define XXH_PREFETCH_DIST_AVX512_64  640
-#  define XXH_PREFETCH_DIST_AVX512_128 512
-#endif
+#ifndef XXH_PREFETCH_DIST
+#  ifdef __clang__
+#    define XXH_PREFETCH_DIST 320
+#  else
+#    if (XXH_VECTOR == XXH_AVX512)
+#      define XXH_PREFETCH_DIST 512
+#    else
+#      define XXH_PREFETCH_DIST 384
+#    endif
+#  endif  /* __clang__ */
+#endif  /* XXH_PREFETCH_DIST */
 
 /*
  * XXH3_accumulate()
@@ -1360,12 +1362,7 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     size_t n;
     for (n = 0; n < nbStripes; n++ ) {
         const xxh_u8* const in = input + n*XXH_STRIPE_LEN;
-#if (XXH_VECTOR == XXH_AVX512)
-        if (accWidth == XXH3_acc_64bits) XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_64);
-        else                             XXH_PREFETCH(in + XXH_PREFETCH_DIST_AVX512_128);
-#else
         XXH_PREFETCH(in + XXH_PREFETCH_DIST);
-#endif
         XXH3_accumulate_512(acc,
                             in,
                             secret + n*XXH_SECRET_CONSUME_RATE,

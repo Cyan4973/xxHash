@@ -42,10 +42,6 @@ Displays xxhsum version and exits
 Hash selection\. \fIHASHTYPE\fR means \fB0\fR=32bits, \fB1\fR=64bits, \fB2\fR=128bits\. Default value is \fB1\fR (64bits)
 .
 .TP
-\fB\-q\fR, \fB\-\-quiet\fR
-Remove status messages like "Loading\.\.\." written to \fBstderr\fR \.
-.
-.TP
 \fB\-\-little\-endian\fR
 Set output hexadecimal checksum value as little endian convention\. By default, value is displayed as big endian\.
 .
@@ -62,7 +58,7 @@ Read xxHash sums from \fIFILE\fR and check them
 .
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
-On top of removing status messages written to \fBstderr\fR, also don\'t print OK for each successfully verified file
+Don\'t print OK for each successfully verified file
 .
 .TP
 \fB\-\-strict\fR

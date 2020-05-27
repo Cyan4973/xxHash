@@ -196,6 +196,10 @@ test-xxhsum-c: xxhsum
 	./xxhsum -H0 xxh* | ./xxhsum -c -
 	# xxhsum -q does not display "Loading" message into stderr (#251)
 	! ./xxhsum -q xxh* 2>&1 | grep Loading
+	# xxhsum does not display "Loading" message into stderr either
+	! ./xxhsum xxh* 2>&1 | grep Loading
+	# Check that xxhsum do display filename that it failed to open.
+	LC_ALL=C ./xxhsum nonexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
 	# xxhsum to/from file, shell redirection
 	./xxhsum xxh* > .test.xxh64
 	./xxhsum -H0 xxh* > .test.xxh32
@@ -290,7 +294,7 @@ preview-man: man
 	man ./xxhsum.1
 
 .PHONY: test
-test: DEBUGFLAGS += -DDEBUGLEVEL=1
+test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
 test: all namespaceTest check test-xxhsum-c c90test test-tools
 
 .PHONY: test-inline

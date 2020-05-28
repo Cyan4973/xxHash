@@ -130,27 +130,23 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
  * Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
  */
-static wchar_t *utf8_to_utf16_len(const char *str, int *lenOut)
+static wchar_t* utf8_to_utf16_len(const char* str, int* lenOut)
 {
-    int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-    if (lenOut != NULL)
-        *lenOut = len;
-    if (len == 0) {
-        return NULL;
-    }
-    {   wchar_t *buf = (wchar_t *)malloc((size_t)len * sizeof(wchar_t));
+    int const len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    if (lenOut != NULL) *lenOut = len;
+    if (len == 0) return NULL;
+    {   wchar_t* buf = (wchar_t*)malloc((size_t)len * sizeof(wchar_t));
         if (buf != NULL) {
             if (MultiByteToWideChar(CP_UTF8, 0, str, -1, buf, len) == 0) {
                 free(buf);
                 return NULL;
-            }
-       }
+       }    }
        return buf;
     }
 }
 
 /* Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards. */
-static wchar_t *utf8_to_utf16(const char *str)
+static wchar_t* utf8_to_utf16(const char *str)
 {
     return utf8_to_utf16_len(str, NULL);
 }
@@ -159,22 +155,18 @@ static wchar_t *utf8_to_utf16(const char *str)
  * Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
  */
-static char *utf16_to_utf8_len(const wchar_t *str, int *lenOut)
+static char* utf16_to_utf8_len(const wchar_t *str, int *lenOut)
 {
     int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-    if (lenOut != NULL)
-        *lenOut = len;
-    if (len == 0) {
-        return NULL;
-    }
-    {   char *buf = (char *)malloc((size_t)len * sizeof(char));
+    if (lenOut != NULL) *lenOut = len;
+    if (len == 0) return NULL;
+    {   char* const buf = (char*)malloc((size_t)len * sizeof(char));
         if (buf != NULL) {
             if (WideCharToMultiByte(CP_UTF8, 0, str, -1, buf, len, NULL, NULL) == 0) {
                 free(buf);
                 return NULL;
-            }
-       }
-       return buf;
+        }    }
+        return buf;
     }
 }
 
@@ -191,15 +183,15 @@ static char *utf16_to_utf8(const wchar_t *str)
  *
  * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
  */
-static FILE *XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
+static FILE* XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 {
-    FILE *f = NULL;
-    wchar_t *wide_filename = utf8_to_utf16(filename);
-    if (wide_filename != NULL) {
-        f = _wfopen(wide_filename, mode);
+    FILE* f = NULL;
+    wchar_t* const wide_filename = utf8_to_utf16(filename);
+    if (wide_filename == NULL) return NULL;
+    {   FILE* const f = _wfopen(wide_filename, mode);
         free(wide_filename);
+        return f;
     }
-    return f;
 }
 
 /*
@@ -791,13 +783,14 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
                 BMK_benchHash(g_hashesToBench[i].func, hashNameBuf, ((const char*)buffer)+3, bufferSize);
                 free(hashNameBuf);
             }
-    }  }
+    }   }
 
     return 0;
 }
 
 static size_t BMK_selectBenchedSize(const char* fileName)
-{   U64 const inFileSize = BMK_GetFileSize(fileName);
+{
+    U64 const inFileSize = BMK_GetFileSize(fileName);
     size_t benchedSize = (size_t) BMK_findMaxMem(inFileSize);
     if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
     if (benchedSize < inFileSize) {
@@ -983,7 +976,7 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     }
 
     /* streaming API test */
-    {   XXH3_state_t *state = XXH3_createState();
+    {   XXH3_state_t* const state = XXH3_createState();
         assert(state != NULL);
         /* single ingestion */
         (void)XXH3_64bits_reset_withSeed(state, seed);
@@ -995,6 +988,19 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
             (void)XXH3_64bits_reset_withSeed(state, seed);
             (void)XXH3_64bits_update(state, data, 3);
             (void)XXH3_64bits_update(state, (const char*)data+3, len-3);
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        }
+
+        /* random ingestion */
+        {   size_t p = 0;
+            (void)XXH3_64bits_reset_withSeed(state, seed);
+            while (p < len) {
+                size_t const modulo = len > 2 ? len : 2;
+                size_t l = (size_t)(rand()) % modulo;
+                if (p + l > len) l = len - p;
+                (void)XXH3_64bits_update(state, (const char*)data+p, l);
+                p += l;
+            }
             BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
 
@@ -1080,7 +1086,7 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
     }
 }
 
-#define SANITY_BUFFER_SIZE 2243
+#define SANITY_BUFFER_SIZE 2367
 
 /*!
  * BMK_sanityCheck():
@@ -1137,8 +1143,8 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer,2048, PRIME64, 0x74BF9A802BBDFBAEULL);  /* 2 blocks, finishing at block boundary */
     BMK_testXXH3(sanityBuffer,2240, 0,       0x30FEB637E114C0C7ULL);  /* 3 blocks, finishing at stripe boundary */
     BMK_testXXH3(sanityBuffer,2240, PRIME64, 0xEEF78A36185EB61FULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2243, 0,       0x62C631454648A193ULL);  /* 3 blocks, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2243, PRIME64, 0x6CF80A4BADEA4428ULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2367, 0,       0x2EB8FEEDD2D1EF5DULL);  /* 3 blocks, last stripe is overlapping */
+    BMK_testXXH3(sanityBuffer,2367, PRIME64, 0xCE1A757AD2D25057ULL);  /* 3 blocks, last stripe is overlapping */
 
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
@@ -1155,7 +1161,7 @@ static void BMK_sanityCheck(void)
         BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize, 0xF9C0BA5BA3AF70B8ULL);  /* one block, last stripe is overlapping */
         BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x7896E65DCFA09071ULL);  /* one block, finishing at stripe boundary */
         BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0xD6545DB87ECFD98CULL);  /* >= 2 blocks, at least one scrambling */
-        BMK_testXXH3_withSecret(sanityBuffer,2243, secret, secretSize, 0x887810081C32460AULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
+        BMK_testXXH3_withSecret(sanityBuffer,2367, secret, secretSize, 0x857320340D953686ULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
     }
 
     {   XXH128_hash_t const expected = { 0x1F17545BCE1061F1ULL, 0x07FD4E968E916AE1ULL };
@@ -1230,11 +1236,11 @@ static void BMK_sanityCheck(void)
     {   XXH128_hash_t const expected = { 0x205E6D72DCCBD2AAULL, 0x62B70214DB075235ULL };
         BMK_testXXH128(sanityBuffer,2240, PRIME32, expected);       /* two blocks, ends at stripe boundary */
     }
-    {   XXH128_hash_t const expected = { 0xF403CEA1763CD9CCULL, 0x0CDABF3F3C98B371ULL };
-        BMK_testXXH128(sanityBuffer,2237, 0,       expected);       /* two blocks, last stripe is overlapping */
+    {   XXH128_hash_t const expected = { 0xCB37AEB9E5D361EDULL, 0xE89C0F6FF369B427ULL };
+        BMK_testXXH128(sanityBuffer,2367, 0,       expected);       /* two blocks, last stripe is overlapping */
     }
-    {   XXH128_hash_t const expected = { 0xF3824EE446018851ULL, 0xC81B751764BD53C5ULL };
-        BMK_testXXH128(sanityBuffer,2237, PRIME32, expected);       /* two blocks, last stripe is overlapping */
+    {   XXH128_hash_t const expected = { 0x6F5360AE69C2F406ULL, 0xD23AAE4B76C31ECBULL };
+        BMK_testXXH128(sanityBuffer,2367, PRIME32, expected);       /* two blocks, last stripe is overlapping */
     }
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */

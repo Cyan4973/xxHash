@@ -1753,10 +1753,10 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 }
 
 XXH_FORCE_INLINE void
-XXH3_consumeStripes( xxh_u64* acc,
-                    size_t* nbStripesSoFarPtr, size_t nbStripesPerBlock,
-                    const xxh_u8* input, size_t totalStripes,
-                    const xxh_u8* secret, size_t secretLimit,
+XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
+                    size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
+                    const xxh_u8* XXH_RESTRICT input, size_t totalStripes,
+                    const xxh_u8* XXH_RESTRICT secret, size_t secretLimit,
                     XXH3_accWidth_e accWidth)
 {
     XXH_ASSERT(*nbStripesSoFarPtr < nbStripesPerBlock);
@@ -1766,10 +1766,10 @@ XXH3_consumeStripes( xxh_u64* acc,
         XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth);
         XXH3_scrambleAcc(acc, secret + secretLimit);
         XXH3_accumulate(acc, input + nbStripes * XXH_STRIPE_LEN, secret, totalStripes - nbStripes, accWidth);
-        *nbStripesSoFarPtr = (XXH32_hash_t)(totalStripes - nbStripes);
+        *nbStripesSoFarPtr = totalStripes - nbStripes;
     } else {
         XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth);
-        *nbStripesSoFarPtr += (XXH32_hash_t)totalStripes;
+        *nbStripesSoFarPtr += totalStripes;
     }
 }
 
@@ -1828,6 +1828,8 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
                                     accWidth);
                 input += XXH3_INTERNALBUFFER_SIZE;
             } while (input<=limit);
+            /* for last partial stripe */
+            memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
         }
 
         if (input < bEnd) { /* Some remaining input: buffer it */
@@ -1858,11 +1860,11 @@ XXH3_digest_long (XXH64_hash_t* acc,
      */
     memcpy(acc, state->acc, sizeof(state->acc));
     if (state->bufferedSize >= XXH_STRIPE_LEN) {
-        size_t const totalNbStripes = state->bufferedSize / XXH_STRIPE_LEN;
+        size_t const nbStripes = state->bufferedSize / XXH_STRIPE_LEN;
         size_t nbStripesSoFar = state->nbStripesSoFar;
         XXH3_consumeStripes(acc,
                            &nbStripesSoFar, state->nbStripesPerBlock,
-                            state->buffer, totalNbStripes,
+                            state->buffer, nbStripes,
                             secret, state->secretLimit,
                             accWidth);
         if (state->bufferedSize % XXH_STRIPE_LEN) {  /* one last partial stripe */

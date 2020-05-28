@@ -185,7 +185,6 @@ static char *utf16_to_utf8(const wchar_t *str)
  */
 static FILE* XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
 {
-    FILE* f = NULL;
     wchar_t* const wide_filename = utf8_to_utf16(filename);
     if (wide_filename == NULL) return NULL;
     {   FILE* const f = _wfopen(wide_filename, mode);

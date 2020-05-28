@@ -30,6 +30,8 @@ matrix:
         - make clean
         - CPPFLAGS="-mavx2 -DXXH_VECTOR=2" make check   # AVX2 code path
         - make clean
+        - CPPFLAGS="-mavx512f -DXXH_VECTOR=5" make check   # AVX512 code path
+        - make clean
         - CPPFLAGS=-DXXH_REROLL=1 make check   # reroll code path (#240)
         - make -C tests/bench
 
@@ -110,4 +112,3 @@ matrix:
         - cd build
         - cmake ..
         - make
-

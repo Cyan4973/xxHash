@@ -1488,16 +1488,6 @@ typedef XXH64_hash_t xxh_u64;
 #  define U64 xxh_u64
 #endif
 
-#if !defined (__VMS) \
-  && (defined (__cplusplus) \
-  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
-    typedef int64_t xxh_i64;
-#else
-    /* the following type must have a width of 64-bit */
-    typedef long long xxh_i64;
-#endif
-
-
 /*!
  * XXH_REROLL_XXH64:
  * Whether to reroll the XXH64_finalize() loop.

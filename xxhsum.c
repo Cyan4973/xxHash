@@ -561,8 +561,10 @@ static char* XXH_strcatDup(const char* s1, const char* s2)
 }
 
 
-static const U32 PRIME32 = 2654435761U;
-static const U64 PRIME64 = 11400714785074694797ULL;
+/* use #define to make them constant, required for initialization */
+#define PRIME32 2654435761U
+#define PRIME64 11400714785074694797ULL
+
 /*
  * Fills a test buffer with pseudorandom data.
  *

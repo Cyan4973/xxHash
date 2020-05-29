@@ -57,10 +57,16 @@ matrix:
       arch: arm64
       script:
         # aarch64
-        - CPPFLAGS=-DXXH_VECTOR=0 LDFLAGS=-static make check   # Scalar code path
+        - CPPFLAGS=-DXXH_VECTOR=0 make check   # Scalar code path
         # NEON (64-bit)
         - make clean
-        - CPPFLAGS=-DXXH_VECTOR=3 LDFLAGS=-static make check   # NEON code path
+        - CPPFLAGS=-DXXH_VECTOR=3 make check   # NEON code path
+        # clang
+        - make clean
+        - CC=clang CPPFLAGS=-DXXH_VECTOR=0 make check   # Scalar code path
+        # clang + NEON
+        - make clean
+        - CC=clang CPPFLAGS=-DXXH_VECTOR=3 make check   # NEON code path
 
     # We need Bionic here because the QEMU versions shipped in the older repos
     # do not support POWER8 emulation, and compiling QEMU from source is a pain.

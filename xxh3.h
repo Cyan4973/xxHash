@@ -1577,10 +1577,11 @@ XXH_FORCE_INLINE void XXH3_initCustomSecret(void* XXH_RESTRICT customSecret, xxh
 #else  /* scalar code path */
 
     /*
-     * We need a separate pointer for the hack below.
+     * We need a separate pointer for the hack below,
+     * which requires a non-const pointer.
      * Any decent compiler will optimize this out otherwise.
      */
-    const xxh_u8* const kSecretPtr = XXH3_kSecret;
+    const xxh_u8* kSecretPtr = XXH3_kSecret;
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
 
 #if defined(__clang__) && defined(__aarch64__)

@@ -1288,9 +1288,8 @@ BMK_hashStream(FILE* inFile,
     (void)XXH3_128bits_reset(&state128);
 
     /* Load file & update hash */
-    {   size_t readSize = 1;
-        while (readSize) {
-            readSize = fread(buffer, 1, blockSize, inFile);
+    {   size_t readSize;
+        while ((readSize = fread(buffer, 1, blockSize, inFile)) > 0) {
             switch(hashType)
             {
             case algo_xxh32:
@@ -1305,6 +1304,10 @@ BMK_hashStream(FILE* inFile,
             default:
                 assert(0);
             }
+        }
+        if (ferror(inFile)) {
+            DISPLAY("Error: a failure occurred reading the input file.\n");
+            exit(1);
     }   }
 
     {   Multihash finalHash;

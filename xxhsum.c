@@ -960,6 +960,14 @@ static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
     XXH64_freeState(state);
 }
 
+static U32 BMK_rand(void)
+{
+    static U64 seed = PRIME32;
+    seed *= PRIME64;
+    return (U32)(seed >> 40);
+}
+
+
 void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     if (len>0) assert(data != NULL);
@@ -982,20 +990,12 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
         (void)XXH3_64bits_update(state, data, len);
         BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
 
-        if (len > 3) {
-            /* 2 ingestions */
-            (void)XXH3_64bits_reset_withSeed(state, seed);
-            (void)XXH3_64bits_update(state, data, 3);
-            (void)XXH3_64bits_update(state, (const char*)data+3, len-3);
-            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
-        }
-
         /* random ingestion */
         {   size_t p = 0;
             (void)XXH3_64bits_reset_withSeed(state, seed);
             while (p < len) {
                 size_t const modulo = len > 2 ? len : 2;
-                size_t l = (size_t)(rand()) % modulo;
+                size_t l = (size_t)(BMK_rand()) % modulo;
                 if (p + l > len) l = len - p;
                 (void)XXH3_64bits_update(state, (const char*)data+p, l);
                 p += l;
@@ -1028,6 +1028,19 @@ void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, s
         (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
         (void)XXH3_64bits_update(state, data, len);
         BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+
+        /* random ingestion */
+        {   size_t p = 0;
+            (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
+            while (p < len) {
+                size_t const modulo = len > 2 ? len : 2;
+                size_t l = (size_t)(BMK_rand()) % modulo;
+                if (p + l > len) l = len - p;
+                (void)XXH3_64bits_update(state, (const char*)data+p, l);
+                p += l;
+            }
+            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        }
 
         /* byte by byte ingestion */
         {   size_t pos;
@@ -1066,11 +1079,16 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
         (void)XXH3_128bits_update(state, data, len);
         BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
 
-        if (len > 3) {
-            /* 2 ingestions */
+        /* random ingestion */
+        {   size_t p = 0;
             (void)XXH3_128bits_reset_withSeed(state, seed);
-            (void)XXH3_128bits_update(state, data, 3);
-            (void)XXH3_128bits_update(state, (const char*)data+3, len-3);
+            while (p < len) {
+                size_t const modulo = len > 2 ? len : 2;
+                size_t l = (size_t)(BMK_rand()) % modulo;
+                if (p + l > len) l = len - p;
+                (void)XXH3_128bits_update(state, (const char*)data+p, l);
+                p += l;
+            }
             BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
 

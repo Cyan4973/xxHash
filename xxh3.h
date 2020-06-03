@@ -158,12 +158,12 @@
 /* ==========================================
  * Vectorization detection
  * ========================================== */
-#define XXH_SCALAR 0 /* Portable scalar version */
-#define XXH_SSE2   1 /* SSE2 for Pentium 4 and all x86_64 */
-#define XXH_AVX2   2 /* AVX2 for Haswell and Bulldozer */
-#define XXH_NEON   3 /* NEON for most ARMv7-A and all AArch64 */
-#define XXH_VSX    4 /* VSX and ZVector for POWER8/z13 */
-#define XXH_AVX512 5 /* AVX512 for Skylake and Icelake */
+#define XXH_SCALAR 0  /* Portable scalar version */
+#define XXH_SSE2   1  /* SSE2 for Pentium 4 and all x86_64 */
+#define XXH_AVX2   2  /* AVX2 for Haswell and Bulldozer */
+#define XXH_NEON   3  /* NEON for most ARMv7-A and all AArch64 */
+#define XXH_VSX    4  /* VSX and ZVector for POWER8/z13 */
+#define XXH_AVX512 5  /* AVX512 for Skylake and Icelake */
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX512F__)
@@ -2022,6 +2022,45 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
     return XXH3_64bits_withSecret(state->buffer, (size_t)(state->totalLen),
                                   secret, state->secretLimit + XXH_STRIPE_LEN);
 }
+
+
+XXH_PUBLIC_API void
+XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize)
+{
+    XXH_ASSERT(secretBuffer != NULL);
+    if (customSeedSize == 0) {
+        memcpy(secretBuffer, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
+        return;
+    }
+
+    {   size_t const segmentSize = 16;
+        size_t const nbSeedSegments = (customSeedSize + (segmentSize-1)) % segmentSize;
+        size_t const nbSecretSegments = XXH_SECRET_DEFAULT_SIZE % segmentSize;
+        XXH128_hash_t const scrambler = XXH128(customSeed, customSeedSize, 0);
+        size_t segnb;
+        for (segnb=0; segnb < nbSecretSegments; segnb++) {
+            size_t const secretSegmentStart = segnb * segmentSize;
+            size_t const seedSegmentSize =  ((segnb % nbSeedSegments) == 0) ?
+                                            (customSeedSize % segmentSize) : segmentSize;
+            size_t const seedSegmentStart = (segnb % nbSeedSegments) * segmentSize;
+            XXH128_hash_t localSegment, seedSegment;
+
+            XXH_ASSERT(sizeof(localSegment) == segmentSize);
+            memset(&seedSegment, 0, segmentSize);
+            memcpy(&seedSegment, (const char*)customSeed + seedSegmentStart, seedSegmentSize);
+            memcpy(&localSegment, (const char*)XXH3_kSecret + secretSegmentStart, segmentSize);
+            /* endianess does not matter for this xor operation */
+            localSegment.low64  ^= seedSegment.low64;
+            localSegment.high64 ^= seedSegment.high64;
+            /* now endianess matter */
+            XXH_writeLE64(&localSegment.low64,  XXH_readLE64(&localSegment.low64)  + XXH_readLE64(&scrambler.low64));
+            XXH_writeLE64(&localSegment.high64, XXH_readLE64(&localSegment.high64) + XXH_readLE64(&scrambler.high64));
+            /* result */
+            memcpy((char*)secretBuffer + secretSegmentStart, &localSegment, segmentSize);
+        }
+    }
+}
+
 
 /* ==========================================
  * XXH3 128 bits (a.k.a XXH128)

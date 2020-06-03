@@ -505,20 +505,6 @@ struct XXH64_state_s {
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 
 /*
- * XXH3_64bits_withSecret():
- * It's possible to provide any blob of bytes as a "secret" to generate the hash.
- * This makes it more difficult for an external actor to prepare an intentional
- * collision.
- * The secret *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
- * It should consist of random bytes.
- * Avoid trivial sequences, such as repeating sequences and especially '\0',
- * as this can cancel out itself.
- * Failure to respect these conditions will result in a poor quality hash.
- */
-#define XXH3_SECRET_SIZE_MIN 136
-XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
-
-/*
  * XXH3_64bits_withSeed():
  * This variant generates a custom secret on the fly based on the default
  * secret, altered using the `seed` value.
@@ -526,6 +512,35 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len,
  * Note: seed==0 produces the same results as XXH3_64bits().
  */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
+
+/*
+ * XXH3_64bits_withSecret():
+ * It's possible to provide any blob of bytes as a "secret" to generate the hash.
+ * This makes it more difficult for an external actor to prepare an intentional
+ * collision.
+ * secretSize *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
+ * The hash quality depends on the secret's high entropy,
+ * meaning that the secret should look like a bunch of random bytes.
+ * Avoid "trivial" sequences such as text or a bunch of repeated characters.
+ * If you are unsure of the "randonmess" of the blob of bytes,
+ * consider making it a "custom seed" instead,
+ * and use "XXH_generateSecret()" to generate a high quality secret.
+ */
+#define XXH3_SECRET_SIZE_MIN 136
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
+
+
+/*
+ * XXH3_generateSecret():
+ * Take as input a custom seed of any length and any content,
+ * generate from it a high-quality secret of length XXH3_SECRET_DEFAULT_SIZE
+ * into already allocated buffer secretBuffer.
+ * The generated secret can then be used with any `*_withSecret()` variant.
+ * customSeed can be anything, even a "low entropy" source, such as a bunch of zeroes.
+ * It can also have any size, even < XXH3_SECRET_SIZE_MIN.
+ */
+#define XXH3_SECRET_DEFAULT_SIZE 192
+XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize);
 
 
 /* streaming 64-bit */
@@ -551,7 +566,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
 
 typedef struct XXH3_state_s XXH3_state_t;
 
-#define XXH3_SECRET_DEFAULT_SIZE 192   /* >= XXH3_SECRET_SIZE_MIN */
 #define XXH3_INTERNALBUFFER_SIZE 256
 struct XXH3_state_s {
    XXH_ALIGN_MEMBER(64, XXH64_hash_t acc[8]);

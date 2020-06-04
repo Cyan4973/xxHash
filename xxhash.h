@@ -750,7 +750,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 #endif
 
 /*!
- *XXH_ACCEPT_NULL_INPUT_POINTER:
+ * XXH_ACCEPT_NULL_INPUT_POINTER:
  * If the input pointer is NULL, xxHash's default behavior is to dereference it,
  * triggering a segfault.
  * When this macro is enabled, xxHash actively checks the input for a null pointer.
@@ -762,16 +762,26 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 
 /*!
  * XXH_FORCE_ALIGN_CHECK:
- * This is a minor performance trick, only useful with lots of very small keys.
- * It means: check for aligned/unaligned input.
- * The check costs one initial branch per hash;
- * Set it to 0 when the input is guaranteed to be aligned or when alignment
- * doesn't matter for performance.
+ * This is an important performance trick
+ * for architectures without decent unaligned memory access performance.
+ * It checks for input alignment, and when conditions are met,
+ * uses a "fast path" employing direct 32-bit/64-bit read,
+ * resulting in _dramatically faster_ read speed.
  *
- * This option does not affect XXH3.
+ * The check costs one initial branch per hash, which is generally negligible, but not zero.
+ * Moreover, it's not useful to generate binary for an additional code path
+ * if memory access uses same instruction for both aligned and unaligned adresses.
+ *
+ * In these cases, the alignment check can be removed by setting this macro to 0.
+ * Then the code will always use unaligned memory access.
+ * Align check is automatically disabled on x86, x64 & arm64,
+ * which are platforms known to offer good unaligned memory accesses performance.
+ *
+ * This option does not affect XXH3 (only XXH32 and XXH64).
  */
-#ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#  if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#ifndef XXH_FORCE_ALIGN_CHECK  /* can be defined externally */
+#  if defined(__i386)  || defined(__x86_64__) || defined(__aarch64__) \
+   || defined(_M_IX86) || defined(_M_X64)     || defined(_M_ARM64)  /* visual */
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
@@ -992,10 +1002,13 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
      || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 #    define XXH_CPU_LITTLE_ENDIAN 0
 #  else
+/*
+ * runtime test, presumed to simplify to a constant by compiler
+ */
 static int XXH_isLittleEndian(void)
 {
     /*
-     * Nonstandard, but well-defined behavior in practice.
+     * Portable and well-defined behavior.
      * Don't use static: it is detrimental to performance.
      */
     const union { xxh_u32 u; xxh_u8 c[4]; } one = { 1 };

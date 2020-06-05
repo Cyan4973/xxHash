@@ -2036,14 +2036,31 @@ XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSee
 
     {   size_t const segmentSize = sizeof(XXH128_hash_t);
         size_t const nbSegments = XXH_SECRET_DEFAULT_SIZE / segmentSize;
-        XXH128_hash_t scrambler = XXH128(customSeed, customSeedSize, 0);
+        XXH128_canonical_t scrambler;
+        XXH64_hash_t seeds[12];
         size_t segnb;
+        XXH_ASSERT(nbSegments == 12);
         XXH_ASSERT(segmentSize * nbSegments == XXH_SECRET_DEFAULT_SIZE); /* exact multiple */
+        XXH128_canonicalFromHash(&scrambler, XXH128(customSeed, customSeedSize, 0));
+
+        /* prepare seeds */
+        {   size_t toFill = (customSeedSize > sizeof(seeds)) ? sizeof(seeds) : customSeedSize;
+            size_t filled = toFill;
+            memcpy(secretBuffer, customSeed, toFill);
+            while (filled < sizeof(seeds)) {
+                toFill = (filled > sizeof(seeds) - filled) ? sizeof(seeds) - filled : filled;
+                memcpy((char*)secretBuffer + filled, secretBuffer, toFill);
+                filled += toFill;
+        }   }
+
+        /* generate secret */
         memcpy(secretBuffer, &scrambler, sizeof(scrambler));
         for (segnb=1; segnb < nbSegments; segnb++) {
             size_t const segmentStart = segnb * segmentSize;
-            scrambler = XXH128(&scrambler, sizeof(scrambler), 0);
-            memcpy((char*)secretBuffer + segmentStart, &scrambler, sizeof(scrambler));
+            XXH128_canonical_t segment;
+            XXH128_canonicalFromHash(&segment,
+                XXH128(&scrambler, sizeof(scrambler), XXH_readLE64(seeds + segnb) + segnb) );
+            memcpy((char*)secretBuffer + segmentStart, &segment, sizeof(segment));
     }   }
 }
 

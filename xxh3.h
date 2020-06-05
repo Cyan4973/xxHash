@@ -2032,33 +2032,19 @@ XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSee
         memcpy(secretBuffer, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
         return;
     }
+    XXH_ASSERT(customSeed != NULL);
 
-    {   size_t const segmentSize = 16;
-        size_t const nbSeedSegments = (customSeedSize + (segmentSize-1)) % segmentSize;
-        size_t const nbSecretSegments = XXH_SECRET_DEFAULT_SIZE % segmentSize;
-        XXH128_hash_t const scrambler = XXH128(customSeed, customSeedSize, 0);
+    {   size_t const segmentSize = sizeof(XXH128_hash_t);
+        size_t const nbSegments = XXH_SECRET_DEFAULT_SIZE / segmentSize;
+        XXH128_hash_t scrambler = XXH128(customSeed, customSeedSize, 0);
         size_t segnb;
-        for (segnb=0; segnb < nbSecretSegments; segnb++) {
-            size_t const secretSegmentStart = segnb * segmentSize;
-            size_t const seedSegmentSize =  ((segnb % nbSeedSegments) == 0) ?
-                                            (customSeedSize % segmentSize) : segmentSize;
-            size_t const seedSegmentStart = (segnb % nbSeedSegments) * segmentSize;
-            XXH128_hash_t localSegment, seedSegment;
-
-            XXH_ASSERT(sizeof(localSegment) == segmentSize);
-            memset(&seedSegment, 0, segmentSize);
-            memcpy(&seedSegment, (const char*)customSeed + seedSegmentStart, seedSegmentSize);
-            memcpy(&localSegment, (const char*)XXH3_kSecret + secretSegmentStart, segmentSize);
-            /* endianess does not matter for this xor operation */
-            localSegment.low64  ^= seedSegment.low64;
-            localSegment.high64 ^= seedSegment.high64;
-            /* now endianess matter */
-            XXH_writeLE64(&localSegment.low64,  XXH_readLE64(&localSegment.low64)  + XXH_readLE64(&scrambler.low64));
-            XXH_writeLE64(&localSegment.high64, XXH_readLE64(&localSegment.high64) + XXH_readLE64(&scrambler.high64));
-            /* result */
-            memcpy((char*)secretBuffer + secretSegmentStart, &localSegment, segmentSize);
-        }
-    }
+        XXH_ASSERT(segmentSize * nbSegments == XXH_SECRET_DEFAULT_SIZE); /* exact multiple */
+        memcpy(secretBuffer, &scrambler, sizeof(scrambler));
+        for (segnb=1; segnb < nbSegments; segnb++) {
+            size_t const segmentStart = segnb * segmentSize;
+            scrambler = XXH128(&scrambler, sizeof(scrambler), 0);
+            memcpy((char*)secretBuffer + segmentStart, &scrambler, sizeof(scrambler));
+    }   }
 }
 
 

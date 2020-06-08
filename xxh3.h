@@ -2024,6 +2024,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
 }
 
 
+#define XXH_MIN(x, y) (((x) > (y)) ? (y) : (x))
+
 XXH_PUBLIC_API void
 XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize)
 {
@@ -2043,13 +2045,15 @@ XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSee
         XXH_ASSERT(segmentSize * nbSegments == XXH_SECRET_DEFAULT_SIZE); /* exact multiple */
         XXH128_canonicalFromHash(&scrambler, XXH128(customSeed, customSeedSize, 0));
 
-        /* prepare seeds */
-        {   size_t toFill = (customSeedSize > sizeof(seeds)) ? sizeof(seeds) : customSeedSize;
+        /*
+        * Copy customSeed to seeds[], truncating or repeating as necessary.
+        */
+        {   size_t toFill = XXH_MIN(customSeedSize, sizeof(seeds));
             size_t filled = toFill;
-            memcpy(secretBuffer, customSeed, toFill);
+            memcpy(seeds, customSeed, toFill);
             while (filled < sizeof(seeds)) {
-                toFill = (filled > sizeof(seeds) - filled) ? sizeof(seeds) - filled : filled;
-                memcpy((char*)secretBuffer + filled, secretBuffer, toFill);
+                toFill = XXH_MIN(filled, sizeof(seeds) - filled);
+                memcpy((char*)seeds + filled, seeds, toFill);
                 filled += toFill;
         }   }
 

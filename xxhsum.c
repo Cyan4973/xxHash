@@ -1105,7 +1105,33 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
     }
 }
 
-#define SANITY_BUFFER_SIZE 2367
+#define SECRET_SAMPLE_NBBYTES 4
+typedef struct { U8 byte[SECRET_SAMPLE_NBBYTES]; } verifSample_t;
+
+void BMK_testSecretGenerator(const void* customSeed, size_t len, verifSample_t result)
+{
+    static int nbTests = 1;
+    const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191};
+    U8 secretBuffer[XXH3_SECRET_DEFAULT_SIZE] = {0};
+    verifSample_t samples;
+    int i;
+
+    DISPLAY("BMK_testSecretGenerator : len = %zu \n", len);
+
+    XXH3_generateSecret(secretBuffer, customSeed, len);
+    for (i=0; i<SECRET_SAMPLE_NBBYTES; i++) {
+        samples.byte[i] = secretBuffer[sampleIndex[i]];
+    }
+    if (memcmp(&samples, &result, sizeof(result))) {
+        DISPLAY("\rError: Secret generation test %i: Internal sanity check failed. \n", nbTests);
+        DISPLAY("\rGot { 0x%02X, 0x%02X, 0x%02X, 0x%02X }, expected { 0x%02X, 0x%02X, 0x%02X, 0x%02X } \n",
+                samples.byte[0], samples.byte[1], samples.byte[2], samples.byte[3],
+                result.byte[0], result.byte[1], result.byte[2], result.byte[3] );
+        exit(1);
+    }
+    nbTests++;
+}
+
 
 /*!
  * BMK_sanityCheck():
@@ -1115,6 +1141,7 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
  */
 static void BMK_sanityCheck(void)
 {
+#define SANITY_BUFFER_SIZE 2367
     U8 sanityBuffer[SANITY_BUFFER_SIZE];
     BMK_fillTestBuffer(sanityBuffer, sizeof(sanityBuffer));
 
@@ -1165,6 +1192,7 @@ static void BMK_sanityCheck(void)
     BMK_testXXH3(sanityBuffer,2367, 0,       0x2EB8FEEDD2D1EF5DULL);  /* 3 blocks, last stripe is overlapping */
     BMK_testXXH3(sanityBuffer,2367, PRIME64, 0xCE1A757AD2D25057ULL);  /* 3 blocks, last stripe is overlapping */
 
+    /* XXH3 with Custom Secret */
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
         assert(sizeof(sanityBuffer) >= XXH3_SECRET_SIZE_MIN + 7 + 11);
@@ -1183,6 +1211,7 @@ static void BMK_sanityCheck(void)
         BMK_testXXH3_withSecret(sanityBuffer,2367, secret, secretSize, 0x857320340D953686ULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
     }
 
+    /* XXH128 */
     {   XXH128_hash_t const expected = { 0x1F17545BCE1061F1ULL, 0x07FD4E968E916AE1ULL };
         BMK_testXXH128(NULL,           0, 0,     expected);         /* empty string */
     }
@@ -1261,6 +1290,25 @@ static void BMK_sanityCheck(void)
     {   XXH128_hash_t const expected = { 0x6F5360AE69C2F406ULL, 0xD23AAE4B76C31ECBULL };
         BMK_testXXH128(sanityBuffer,2367, PRIME32, expected);       /* two blocks, last stripe is overlapping */
     }
+
+
+    /* secret generator */
+    {   verifSample_t const expected = { { 0xB8, 0x26, 0x83, 0x7E } };
+        BMK_testSecretGenerator(NULL, 0, expected);
+    }
+
+    {   verifSample_t const expected = { { 0x25, 0x82, 0x62, 0x9A } };
+        BMK_testSecretGenerator(sanityBuffer, 1, expected);
+    }
+
+    {   verifSample_t const expected = { { 0xDA, 0x2A, 0x12, 0x11 } };
+        BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_SIZE_MIN - 1, expected);
+    }
+
+    {   verifSample_t const expected = { { 0x7E, 0x48, 0x0C, 0xA7 } };
+        BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_DEFAULT_SIZE + 500, expected);
+    }
+
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");

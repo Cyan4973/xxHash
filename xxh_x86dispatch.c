@@ -68,6 +68,7 @@
 #define XXH_X86DISPATCH
 #define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
 #define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
+#define XXH_TARGET_SSE2 __attribute__((__target__("sse2")))
 #include "xxhash.h"
 
 /*
@@ -295,13 +296,13 @@ static int XXH_featureTest(void)
 typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_default)(const void* XXH_RESTRICT, size_t);
 static XXH3_dispatchx86_hashLong64_default g_dispatch_hashLong64_default = NULL;
 
-XXH_NO_INLINE __attribute__((__target__ ("no-sse3"))) XXH64_hash_t  /* no-sse2 can crash compilation on x64 */
+XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret_forcesscalar(const void* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
 }
 
-XXH_NO_INLINE __attribute__((__target__ ("sse2"))) XXH64_hash_t
+XXH_NO_INLINE XXH_TARGET_SSE2 XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret_forcesse2(const void* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
@@ -366,14 +367,14 @@ typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSeed)(const void* XXH_RES
 static XXH3_dispatchx86_hashLong64_withSeed g_dispatch_hashLong64_seed = NULL;
 
 
-XXH_NO_INLINE __attribute__((__target__ ("no-sse3"))) XXH64_hash_t  /* no-sse2 can crash compilation on x64 */
+XXH_NO_INLINE XXH64_hash_t  /* no-sse2 can crash compilation on x64 */
 XXH3_hashLong_64b_withSeed_forcescalar(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
                     XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar, XXH3_initCustomSecret_scalar);
 }
 
-XXH_NO_INLINE __attribute__((__target__ ("sse2"))) XXH64_hash_t
+XXH_NO_INLINE XXH_TARGET_SSE2 XXH64_hash_t
 XXH3_hashLong_64b_withSeed_forcesse2(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_hashLong_64b_withSeed_internal(input, len, seed,

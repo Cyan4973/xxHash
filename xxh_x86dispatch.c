@@ -41,28 +41,33 @@
 #endif
 
 #ifndef __GNUC__
-#  error "Dispatching requires __attribute__((__target__ "xxx")) capability"
+#  error "Dispatching requires __attribute__((__target__)) capability"
 #endif
 
-#if defined(__AVX512F__)
-#  define XXH_DISPATCH_AVX512
-#endif
-
-#if defined(__AVX2__)
-#  define XXH_DISPATCH_AVX2
-#endif
+#define XXH_DISPATCH_AVX2    /* enable dispatch towards AVX2 */
+#define XXH_DISPATCH_AVX512  /* enable dispatch towards AVX512 */
 
 #ifdef XXH_DISPATCH_DEBUG
 /* debug logging */
 #  include <stdio.h>
-#  define XXH_debugPrint(str) fprintf(stderr, "DEBUG: xxHash dispatch: %s\n", str)
+#  define XXH_debugPrint(str) { fprintf(stderr, "DEBUG: xxHash dispatch: %s \n", str); fflush(NULL); }
 #else
 #  define XXH_debugPrint(str) ((void)0)
 #  define NDEBUG
 #endif
 #include <assert.h>
 
+#if defined(__GNUC__)
+#  include <immintrin.h> /* sse2 */
+#  include <emmintrin.h> /* avx2 */
+#elif defined(_MSC_VER)
+#  include <intrin.h>
+#endif
+
 #define XXH_INLINE_ALL
+#define XXH_X86DISPATCH
+#define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
+#define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
 #include "xxhash.h"
 
 /*
@@ -163,11 +168,11 @@ static xxh_u64 XXH_xgetbv(void)
 #define AVX512F_XGETBV_MASK ((7 << 5) | (1 << 2) | (1 << 1))
 
 /* Returns the best XXH3 implementation */
-static xxh_u32 XXH_featureTest(void)
+static int XXH_featureTest(void)
 {
     xxh_u32 abcd[4];
     xxh_u32 max_leaves;
-    xxh_u32 best = XXH_SCALAR;
+    int best = XXH_SCALAR;
 #if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
     xxh_u64 xgetbv_val;
 #endif
@@ -262,9 +267,11 @@ static xxh_u32 XXH_featureTest(void)
     best = XXH_AVX2;
 #endif
 #if defined(XXH_DISPATCH_AVX512)
-    /* Validate that AVX512F is supported by the CPU */
-    if ((abcd[1] & AVX512F_CPUID_MASK) != AVX512F_CPUID_MASK)
+    /* Check if AVX512F is supported by the CPU */
+    if ((abcd[1] & AVX512F_CPUID_MASK) != AVX512F_CPUID_MASK) {
+        XXH_debugPrint("AVX512F not supported by CPU");
         return best;
+    }
 
     /* Validate that the OS supports ZMM registers */
     if ((xgetbv_val & AVX512F_XGETBV_MASK) != AVX512F_XGETBV_MASK) {
@@ -300,21 +307,21 @@ XXH3_hashLong_64b_defaultSecret_forcesse2(const void* XXH_RESTRICT input, size_t
     return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
 }
 
-XXH_NO_INLINE __attribute__((__target__ ("avx2"))) XXH64_hash_t
+XXH_NO_INLINE XXH_TARGET_AVX2 XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret_forceavx2(const void* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
 }
 
 #ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE __attribute__((__target__ ("avx512f"))) XXH64_hash_t
+XXH_NO_INLINE XXH_TARGET_AVX512 XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret_forceavx512(const void* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
 }
 #endif
 
-XXH3_dispatchx86_hashLong64_default select_hashLong(xxh_u32 vectorID)
+XXH3_dispatchx86_hashLong64_default select_hashLong(int vectorID)
 {
     switch(vectorID) {
         case XXH_AVX512:
@@ -322,7 +329,9 @@ XXH3_dispatchx86_hashLong64_default select_hashLong(xxh_u32 vectorID)
             return XXH3_hashLong_64b_defaultSecret_forceavx512;
 #endif
             /* fallthrough */
-        case XXH_AVX2   : return XXH3_hashLong_64b_defaultSecret_forceavx2;
+        case XXH_AVX2   :
+            XXH_debugPrint("dispatch : selecting AVX2 variant.");
+            return XXH3_hashLong_64b_defaultSecret_forceavx2;
         case XXH_SSE2   : return XXH3_hashLong_64b_defaultSecret_forcesse2;
         case XXH_SCALAR : return XXH3_hashLong_64b_defaultSecret_forcesscalar;
         /* should never happen */
@@ -371,7 +380,7 @@ XXH3_hashLong_64b_withSeed_forcesse2(const void* XXH_RESTRICT input, size_t len,
                     XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2, XXH3_initCustomSecret_sse2);
 }
 
-XXH_NO_INLINE __attribute__((__target__ ("avx2"))) XXH64_hash_t
+XXH_NO_INLINE XXH_TARGET_AVX2 XXH64_hash_t
 XXH3_hashLong_64b_withSeed_forceavx2(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
@@ -379,7 +388,7 @@ XXH3_hashLong_64b_withSeed_forceavx2(const void* XXH_RESTRICT input, size_t len,
 }
 
 #ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE __attribute__((__target__ ("avx512f"))) XXH64_hash_t
+XXH_NO_INLINE XXH_TARGET_AVX512 XXH64_hash_t
 XXH3_hashLong_64b_withSeed_forceavx512(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
@@ -387,7 +396,7 @@ XXH3_hashLong_64b_withSeed_forceavx512(const void* XXH_RESTRICT input, size_t le
 }
 #endif
 
-XXH3_dispatchx86_hashLong64_withSeed select_hashLong_withSeed(xxh_u32 vectorID)
+XXH3_dispatchx86_hashLong64_withSeed select_hashLong_withSeed(int vectorID)
 {
     switch(vectorID) {
         case XXH_AVX512 :
@@ -395,7 +404,9 @@ XXH3_dispatchx86_hashLong64_withSeed select_hashLong_withSeed(xxh_u32 vectorID)
             return XXH3_hashLong_64b_withSeed_forceavx512;
 #endif
             /* fallthrough */
-        case XXH_AVX2   : return XXH3_hashLong_64b_withSeed_forceavx2;
+        case XXH_AVX2   :
+            XXH_debugPrint("dispatch : selecting AVX2 variant.");
+            return XXH3_hashLong_64b_withSeed_forceavx2;
         case XXH_SSE2   : return XXH3_hashLong_64b_withSeed_forcesse2;
         case XXH_SCALAR : return XXH3_hashLong_64b_withSeed_forcescalar;
         /* should never happen */

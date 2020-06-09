@@ -40,8 +40,8 @@ DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
             -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
             -Wredundant-decls -Wstrict-overflow=2
-CFLAGS += $(DEBUGFLAGS)
-FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
+CFLAGS += $(DEBUGFLAGS) $(MOREFLAGS)
+FLAGS   = $(CFLAGS) $(CPPFLAGS)
 XXHSUM_VERSION = $(LIBVER)
 
 # Define *.exe as extension for Windows systems
@@ -88,14 +88,8 @@ dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h xxh3.h
-	$(CC) $(FLAGS) -c $< -o $@
 xxhsum.o: xxhsum.c xxhash.h xxh3.h
-	$(CC) $(FLAGS) -c $< -o $@
-xxh_x86dispatch.o: CPPFLAGS += -DXXH_DISPATCH_DEBUG=1
-xxh_x86dispatch.o: CFLAGS += -mavx2
-#xxh_x86dispatch.o: CFLAGS += -mavx512f  # crashes ??
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h xxh3.h
-	$(CC) $(FLAGS) -c $< -o $@
 
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum

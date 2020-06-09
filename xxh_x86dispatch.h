@@ -44,14 +44,19 @@ extern "C" {
 
 XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len);
 XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed);
+XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen);
 
 
+/* automatic replacement of XXH3 functions.
+ * can be disabled by setting XXH_DISPATCH_DISABLE_RENAME */
 #ifndef XXH_DISPATCH_DISABLE_RENAME
 
 # undef  XXH3_64bits
 # define XXH3_64bits XXH3_64bits_dispatch
 # undef  XXH3_64bits_withSeed
 # define XXH3_64bits_withSeed XXH3_64bits_withSeed_dispatch
+# undef  XXH3_64bits_withSecret
+# define XXH3_64bits_withSecret XXH3_64bits_withSecret_dispatch
 
 #endif /* XXH_DISPATCH_DISABLE_RENAME */
 

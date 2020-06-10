@@ -2529,7 +2529,7 @@ XXH_PUBLIC_API XXH128_hash_t
 XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_t secretSize)
 {
     return XXH3_128bits_internal(input, len, 0,
-                                 secret, secretSize,
+                                 (const xxh_u8*)secret, secretSize,
                                  XXH3_hashLong_128b_defaultSecret);
 }
 

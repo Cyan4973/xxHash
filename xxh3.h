@@ -2499,7 +2499,7 @@ XXH3_128bits_internal(const void* input, size_t len,
                       XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen,
                       XXH3_hashLong128_f f_hl128)
 {
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
+    XXH_ASSERT(secretLen >= XXH3_SECRET_SIZE_MIN);
     /*
      * If an action is to be taken if `secret` conditions are not respected,
      * it should be done here.

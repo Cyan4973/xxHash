@@ -385,7 +385,7 @@ XXHL64_secret_avx512(const void* XXH_RESTRICT input, size_t len, const void* sec
 #endif
 
 
-/* ===   Dispatchers   === */
+/* ====    Dispatchers    ==== */
 
 typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_default)(const void* XXH_RESTRICT, size_t);
 
@@ -426,8 +426,6 @@ static const coreFunctions_s k_coreFunc[NB_DISPATCHES] = {
         /* avx512 */ { XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512 },
 };
 
-
-
 static void setDispatch(void)
 {
     int vecID = XXH_featureTest();
@@ -442,6 +440,8 @@ static void setDispatch(void)
     g_coreFunc = k_coreFunc[vecID];
 }
 
+
+/* ====    XXH3 public functions    ==== */
 
 static XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret_selection(const xxh_u8* input, size_t len,
@@ -491,4 +491,15 @@ XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
     if (g_coreFunc.accumulate_512 == NULL) setDispatch();
     return XXH3_update(state, (const xxh_u8*)input, len,
                        XXH3_acc_64bits, g_coreFunc.accumulate_512, g_coreFunc.scrambleAcc);
+}
+
+
+/* ====    XXH128 public functions    ==== */
+
+XXH_errorcode
+XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
+{
+    if (g_coreFunc.accumulate_512 == NULL) setDispatch();
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_128bits, g_coreFunc.accumulate_512, g_coreFunc.scrambleAcc);
 }

@@ -47,6 +47,7 @@ XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_
 XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen);
 XXH_errorcode XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len);
 
+XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len);
 
 /* automatic replacement of XXH3 functions.
  * can be disabled by setting XXH_DISPATCH_DISABLE_RENAME */
@@ -60,6 +61,9 @@ XXH_errorcode XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input
 # define XXH3_64bits_withSecret XXH3_64bits_withSecret_dispatch
 # undef  XXH3_64bits_update
 # define XXH3_64bits_update XXH3_64bits_update_dispatch
+
+# undef  XXH3_128bits_update
+# define XXH3_128bits_update XXH3_128bits_update_dispatch
 
 #endif /* XXH_DISPATCH_DISABLE_RENAME */
 

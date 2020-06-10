@@ -2439,7 +2439,7 @@ XXH3_hashLong_128b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined.
  */
 XXH_NO_INLINE XXH128_hash_t
-XXH3_hashLong_128b_defaultSecret(const xxh_u8* input, size_t len,
+XXH3_hashLong_128b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
                                  XXH64_hash_t seed64,
                                  const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
@@ -2452,9 +2452,11 @@ XXH3_hashLong_128b_defaultSecret(const xxh_u8* input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined.
  */
 XXH_NO_INLINE XXH128_hash_t
-XXH3_hashLong_128b_withSecret(const xxh_u8* input, size_t len,
-                              const xxh_u8* secret, size_t secretSize)
+XXH3_hashLong_128b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
+                              XXH64_hash_t seed64,
+                              const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
 {
+    (void)seed64;
     return XXH3_hashLong_128b_internal(input, len, secret, secretSize,
                                        XXH3_accumulate_512, XXH3_scrambleAcc);
 }
@@ -2484,6 +2486,13 @@ XXH3_128bits_internal(const void* input, size_t len,
                       XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen,
                       XXH3_hashLong128_f f_hl128)
 {
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
+    /*
+     * If an action is to be taken if `secret` conditions are not respected,
+     * it should be done here.
+     * For now, it's a contract pre-condition.
+     * Adding a check and a branch here would cost performance at every hash.
+     */
     if (len <= 16)
         return XXH3_len_0to16_128b((const xxh_u8*)input, len, secret, seed64);
     if (len <= 128)
@@ -2497,26 +2506,15 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
 {
     return XXH3_128bits_internal(input, len, 0,
                                  XXH3_kSecret, sizeof(XXH3_kSecret),
-                                 XXH3_hashLong_128b_defaultSecret);
+                                 XXH3_hashLong_128b_withSecret);
 }
 
 XXH_PUBLIC_API XXH128_hash_t
 XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_t secretSize)
 {
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-    /*
-     * If an action is to be taken if `secret` conditions are not respected,
-     * it should be done here.
-     * For now, it's a contract pre-condition.
-     * Adding a check and a branch here would cost performance at every hash.
-     */
-    if (len <= 16)
-        return XXH3_len_0to16_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, 0);
-    if (len <= 128)
-        return XXH3_len_17to128_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    if (len <= XXH3_MIDSIZE_MAX)
-        return XXH3_len_129to240_128b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    return XXH3_hashLong_128b_withSecret((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
+    return XXH3_128bits_internal(input, len, 0,
+                                 secret, secretSize,
+                                 XXH3_hashLong_128b_defaultSecret);
 }
 
 XXH_PUBLIC_API XXH128_hash_t

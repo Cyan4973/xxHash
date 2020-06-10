@@ -424,53 +424,44 @@ static void setDispatch(void)
 }
 
 
-static XXH64_hash_t XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len)
+static XXH64_hash_t
+XXH3_hashLong_64b_defaultSecret_selection(const xxh_u8* input, size_t len,
+                                          XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
+    (void)seed64; (void)secret; (void)secretLen;
     if (g_dispatch.hashLong64_default == NULL) setDispatch();
     return g_dispatch.hashLong64_default(input, len);
 }
 
 XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len)
 {
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, 0);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
-    if (len <= XXH3_MIDSIZE_MAX)
-         return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
-    return XXH3_hashLong_64b_defaultSecret_selection((const xxh_u8*)input, len);
+    return XXH3_64bits_internal(input, len, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_defaultSecret_selection);
 }
 
-static XXH64_hash_t XXH3_hashLong_64b_withSeed_selection(const void* input, size_t len, XXH64_hash_t seed)
+static XXH64_hash_t
+XXH3_hashLong_64b_withSeed_selection(const xxh_u8* input, size_t len,
+                                     XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
+    (void)secret; (void)secretLen;
     if (g_dispatch.hashLong64_seed == NULL) setDispatch();
-    return g_dispatch.hashLong64_seed(input, len, seed);
+    return g_dispatch.hashLong64_seed(input, len, seed64);
 }
 
 XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)
 {
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, seed);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
-    if (len <= XXH3_MIDSIZE_MAX)
-        return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
-    return XXH3_hashLong_64b_withSeed_selection(input, len, seed);
+    return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSeed_selection);
 }
 
-static XXH64_hash_t XXH3_hashLong_64b_withSecret_selection(const void* input, size_t len, const void* secret, size_t secretLen)
+static XXH64_hash_t
+XXH3_hashLong_64b_withSecret_selection(const xxh_u8* input, size_t len,
+                                       XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
+    (void)seed64;
     if (g_dispatch.hashLong64_secret == NULL) setDispatch();
     return g_dispatch.hashLong64_secret(input, len, secret, secretLen);
 }
 
 XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen)
 {
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, secret, 0);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, secret, secretLen, 0);
-    if (len <= XXH3_MIDSIZE_MAX)
-        return XXH3_len_129to240_64b((const xxh_u8*)input, len, secret, secretLen, 0);
-    return XXH3_hashLong_64b_withSecret_selection(input, len, secret, secretLen);
+    return XXH3_64bits_internal(input, len, 0, secret, secretLen, XXH3_hashLong_64b_withSecret_selection);
 }

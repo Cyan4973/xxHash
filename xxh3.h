@@ -1752,33 +1752,15 @@ XXH3_hashLong_64b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
     return XXH3_mergeAccs(acc, secret + XXH_SECRET_MERGEACCS_START, (xxh_u64)len * XXH_PRIME64_1);
 }
 
-XXH_NO_INLINE XXH64_hash_t
-XXH3_hashLong_64b_defaultVec(const xxh_u8* XXH_RESTRICT input, size_t len,
-                             const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
-{
-    return XXH3_hashLong_64b_internal(input, len, secret, secretSize,
-                XXH3_accumulate_512, XXH3_scrambleAcc);
-}
-
 /*
- * It's important for performance that XXH3_hashLong is not inlined. Not sure
- * why (uop cache maybe?), but the difference is large and easily measurable.
- */
-XXH_NO_INLINE XXH64_hash_t
-XXH3_hashLong_64b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_64b_defaultVec(input, len, XXH3_kSecret, sizeof(XXH3_kSecret));
-}
-
-/*
- * It's important for performance that XXH3_hashLong is not inlined. Not sure
- * why (uop cache maybe?), but the difference is large and easily measurable.
+ * It's important for performance that XXH3_hashLong is not inlined.
  */
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
-                             const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
+                              XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
-    return XXH3_hashLong_64b_defaultVec(input, len, secret, secretSize);
+    (void)seed64;
+    return XXH3_hashLong_64b_internal(input, len, secret, secretLen, XXH3_accumulate_512, XXH3_scrambleAcc);
 }
 
 /*
@@ -1799,7 +1781,10 @@ XXH3_hashLong_64b_withSeed_internal(const xxh_u8* input, size_t len,
                                     XXH3_f_scrambleAcc f_scramble,
                                     XXH3_f_initCustomSecret f_initSec)
 {
-    if (seed == 0) return XXH3_hashLong_64b_defaultSecret(input, len);
+    if (seed == 0)
+        return XXH3_hashLong_64b_internal(input, len,
+                                          XXH3_kSecret, sizeof(XXH3_kSecret),
+                                          f_acc512, f_scramble);
 #if XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
     // manually deal with alignment of the custom secret
     // this will avoid pushing the rsp register to stack
@@ -1814,60 +1799,67 @@ XXH3_hashLong_64b_withSeed_internal(const xxh_u8* input, size_t len,
     {   XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
         f_initSec(secret, seed);
         return XXH3_hashLong_64b_internal(input, len, secret, sizeof(secret),
-                        f_acc512, f_scramble);
+                                          f_acc512, f_scramble);
     }
 #endif
 }
 
+/*
+ * It's important for performance that XXH3_hashLong is not inlined.
+ */
 XXH_NO_INLINE XXH64_hash_t
-XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
+XXH3_hashLong_64b_withSeed(const xxh_u8* input, size_t len,
+                           XXH64_hash_t seed, const xxh_u8* secret, size_t secretLen)
 {
+    (void)secret; (void)secretLen;
     return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
                 XXH3_accumulate_512, XXH3_scrambleAcc, XXH3_initCustomSecret);
 }
+
+
+typedef XXH64_hash_t (*XXH3_hashLong64_f)(const xxh_u8* XXH_RESTRICT, size_t,
+                                          XXH64_hash_t, const xxh_u8* XXH_RESTRICT, size_t);
+
+XXH_FORCE_INLINE XXH64_hash_t
+XXH3_64bits_internal(const void* XXH_RESTRICT input, size_t len,
+                     XXH64_hash_t seed64, const void* XXH_RESTRICT secret, size_t secretLen,
+                     XXH3_hashLong64_f f_hashLong)
+{
+    XXH_ASSERT(secretLen >= XXH3_SECRET_SIZE_MIN);
+    /*
+     * If an action is to be taken if `secretLen` condition is not respected,
+     * it should be done here.
+     * For now, it's a contract pre-condition.
+     * Adding a check and a branch here would cost performance at every hash.
+     * Also, note that function signature doesn't offer room to return an error.
+     */
+    if (len <= 16)
+        return XXH3_len_0to16_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, seed64);
+    if (len <= 128)
+        return XXH3_len_17to128_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretLen, seed64);
+    if (len <= XXH3_MIDSIZE_MAX)
+        return XXH3_len_129to240_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretLen, seed64);
+    return f_hashLong((const xxh_u8*)input, len, seed64, (const xxh_u8*)secret, secretLen);
+}
+
 
 /* ===   Public entry point   === */
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t len)
 {
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, 0);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
-    if (len <= XXH3_MIDSIZE_MAX)
-         return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
-    return XXH3_hashLong_64b_defaultSecret((const xxh_u8*)input, len);
+    return XXH3_64bits_internal(input, len, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSecret);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSecret(const void* input, size_t len, const void* secret, size_t secretSize)
 {
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-    /*
-     * If an action is to be taken if `secret` conditions are not respected,
-     * it should be done here.
-     * For now, it's a contract pre-condition.
-     * Adding a check and a branch here would cost performance at every hash.
-     */
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, 0);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    if (len <= XXH3_MIDSIZE_MAX)
-        return XXH3_len_129to240_64b((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, 0);
-    return XXH3_hashLong_64b_withSecret((const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize);
+    return XXH3_64bits_internal(input, len, 0, secret, secretSize, XXH3_hashLong_64b_withSecret);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
 XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
 {
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, seed);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
-    if (len <= XXH3_MIDSIZE_MAX)
-        return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
-    return XXH3_hashLong_64b_withSeed((const xxh_u8*)input, len, seed);
+    return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSeed);
 }
 
 

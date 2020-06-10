@@ -409,6 +409,24 @@ static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
         /* avx512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512 }
 };
 
+typedef void (*XXH3_dispatchx86_accumulate_512)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT input, const void* XXH_RESTRICT secret, XXH3_accWidth_e accWidth);
+typedef void (*XXH3_dispatchx86_scrambleAcc)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret);
+
+typedef struct {
+    XXH3_dispatchx86_accumulate_512  accumulate_512;
+    XXH3_dispatchx86_scrambleAcc     scrambleAcc;
+} coreFunctions_s;
+
+static coreFunctions_s g_coreFunc = { NULL, NULL };
+
+static const coreFunctions_s k_coreFunc[NB_DISPATCHES] = {
+        /* scalar */ { XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar },
+        /* sse2   */ { XXH3_accumulate_512_sse2,   XXH3_scrambleAcc_sse2 },
+        /* avx2   */ { XXH3_accumulate_512_avx2,   XXH3_scrambleAcc_avx2 },
+        /* avx512 */ { XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512 },
+};
+
+
 
 static void setDispatch(void)
 {
@@ -421,6 +439,7 @@ static void setDispatch(void)
     assert(vecID != XXH_AVX2);
 #endif
     g_dispatch = k_dispatch[vecID];
+    g_coreFunc = k_coreFunc[vecID];
 }
 
 
@@ -464,4 +483,12 @@ XXH3_hashLong_64b_withSecret_selection(const xxh_u8* input, size_t len,
 XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen)
 {
     return XXH3_64bits_internal(input, len, 0, secret, secretLen, XXH3_hashLong_64b_withSecret_selection);
+}
+
+XXH_errorcode
+XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
+{
+    if (g_coreFunc.accumulate_512 == NULL) setDispatch();
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_64bits, g_coreFunc.accumulate_512, g_coreFunc.scrambleAcc);
 }

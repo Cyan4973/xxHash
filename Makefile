@@ -74,7 +74,7 @@ default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
-all: lib xxhsum xxhsum_inlinedXXH dispatch
+all: lib xxhsum xxhsum_inlinedXXH
 
 ## xxhsum is the command line interface (CLI)
 xxhsum: xxhash.o xxhsum.o
@@ -84,6 +84,7 @@ xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
 xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
+## dispatch only works for x86/x64 systems
 dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
 dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)

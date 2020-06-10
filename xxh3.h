@@ -1478,9 +1478,9 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
-                    const void* XXH_RESTRICT input,
-                    const void* XXH_RESTRICT secret,
-                    XXH3_accWidth_e accWidth)
+                     const void* XXH_RESTRICT input,
+                     const void* XXH_RESTRICT secret,
+                     XXH3_accWidth_e accWidth)
 {
     XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc; /* presumed aligned */
     const xxh_u8* const xinput  = (const xxh_u8*) input;  /* no alignment restriction */
@@ -1994,18 +1994,20 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
                     const xxh_u8* XXH_RESTRICT input, size_t totalStripes,
                     const xxh_u8* XXH_RESTRICT secret, size_t secretLimit,
-                    XXH3_accWidth_e accWidth)
+                    XXH3_accWidth_e accWidth,
+                    XXH3_f_accumulate_512 f_acc512,
+                    XXH3_f_scrambleAcc f_scramble)
 {
     XXH_ASSERT(*nbStripesSoFarPtr < nbStripesPerBlock);
     if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
         /* need a scrambling operation */
         size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth, XXH3_accumulate_512);
-        XXH3_scrambleAcc(acc, secret + secretLimit);
-        XXH3_accumulate(acc, input + nbStripes * XXH_STRIPE_LEN, secret, totalStripes - nbStripes, accWidth, XXH3_accumulate_512);
+        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth, f_acc512);
+        f_scramble(acc, secret + secretLimit);
+        XXH3_accumulate(acc, input + nbStripes * XXH_STRIPE_LEN, secret, totalStripes - nbStripes, accWidth, f_acc512);
         *nbStripesSoFarPtr = totalStripes - nbStripes;
     } else {
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth, XXH3_accumulate_512);
+        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth, f_acc512);
         *nbStripesSoFarPtr += totalStripes;
     }
 }
@@ -2014,7 +2016,11 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
  * Both XXH3_64bits_update and XXH3_128bits_update use this routine.
  */
 XXH_FORCE_INLINE XXH_errorcode
-XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_e accWidth)
+XXH3_update(XXH3_state_t* state,
+            const xxh_u8* input, size_t len,
+            XXH3_accWidth_e accWidth,
+            XXH3_f_accumulate_512 f_acc512,
+            XXH3_f_scrambleAcc f_scramble)
 {
     if (input==NULL)
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
@@ -2050,7 +2056,7 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
                                &state->nbStripesSoFar, state->nbStripesPerBlock,
                                 state->buffer, XXH3_INTERNALBUFFER_STRIPES,
                                 secret, state->secretLimit,
-                                accWidth);
+                                accWidth, f_acc512, f_scramble);
             state->bufferedSize = 0;
         }
 
@@ -2062,7 +2068,7 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
                                    &state->nbStripesSoFar, state->nbStripesPerBlock,
                                     input, XXH3_INTERNALBUFFER_STRIPES,
                                     secret, state->secretLimit,
-                                    accWidth);
+                                    accWidth, f_acc512, f_scramble);
                 input += XXH3_INTERNALBUFFER_SIZE;
             } while (input<=limit);
             /* for last partial stripe */
@@ -2081,7 +2087,8 @@ XXH3_update(XXH3_state_t* state, const xxh_u8* input, size_t len, XXH3_accWidth_
 XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
 {
-    return XXH3_update(state, (const xxh_u8*)input, len, XXH3_acc_64bits);
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_64bits, XXH3_accumulate_512, XXH3_scrambleAcc);
 }
 
 
@@ -2103,7 +2110,7 @@ XXH3_digest_long (XXH64_hash_t* acc,
                            &nbStripesSoFar, state->nbStripesPerBlock,
                             state->buffer, nbStripes,
                             secret, state->secretLimit,
-                            accWidth);
+                            accWidth, XXH3_accumulate_512, XXH3_scrambleAcc);
         if (state->bufferedSize % XXH_STRIPE_LEN) {  /* one last partial stripe */
             XXH3_accumulate_512(acc,
                                 state->buffer + state->bufferedSize - XXH_STRIPE_LEN,
@@ -2557,7 +2564,8 @@ XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_update(XXH3_state_t* state, const void* input, size_t len)
 {
-    return XXH3_update(state, (const xxh_u8*)input, len, XXH3_acc_128bits);
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_128bits, XXH3_accumulate_512, XXH3_scrambleAcc);
 }
 
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)

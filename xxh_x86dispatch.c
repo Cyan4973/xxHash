@@ -289,15 +289,12 @@ static int XXH_featureTest(void)
 }
 
 
-/* ===   Vector variants   === */
+/* ===   Vector implementations   === */
 
-/* ===   XXH3, default secret   === */
-
-typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_default)(const void* XXH_RESTRICT, size_t);
-static XXH3_dispatchx86_hashLong64_default g_dispatch_hashLong64_default = NULL;
+/* ===   XXH3, default variants   === */
 
 XXH_NO_INLINE XXH64_hash_t
-XXH3_hashLong_64b_defaultSecret_forcesscalar(const void* XXH_RESTRICT input, size_t len)
+XXH3_hashLong_64b_defaultSecret_forcescalar(const void* XXH_RESTRICT input, size_t len)
 {
     return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
 }
@@ -322,50 +319,8 @@ XXH3_hashLong_64b_defaultSecret_forceavx512(const void* XXH_RESTRICT input, size
 }
 #endif
 
-XXH3_dispatchx86_hashLong64_default select_hashLong(int vectorID)
-{
-    switch(vectorID) {
-        case XXH_AVX512:
-#ifdef XXH_DISPATCH_AVX512
-            return XXH3_hashLong_64b_defaultSecret_forceavx512;
-#endif
-            /* fallthrough */
-        case XXH_AVX2   :
-            XXH_debugPrint("dispatch : selecting AVX2 variant.");
-            return XXH3_hashLong_64b_defaultSecret_forceavx2;
-        case XXH_SSE2   : return XXH3_hashLong_64b_defaultSecret_forcesse2;
-        case XXH_SCALAR : return XXH3_hashLong_64b_defaultSecret_forcesscalar;
-        /* should never happen */
-        default: assert(0); exit(1);
-    }
-    assert(0); return NULL;
-}
 
-static XXH64_hash_t XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len)
-{
-    if (g_dispatch_hashLong64_default == NULL) {
-        g_dispatch_hashLong64_default = select_hashLong(XXH_featureTest());
-    }
-    return g_dispatch_hashLong64_default(input, len);
-}
-
-XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len)
-{
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, 0);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
-    if (len <= XXH3_MIDSIZE_MAX)
-         return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
-    return XXH3_hashLong_64b_defaultSecret_selection((const xxh_u8*)input, len);
-}
-
-
-/* ===   XXH3, Seeded variant   === */
-
-typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSeed)(const void* XXH_RESTRICT, size_t, XXH64_hash_t);
-static XXH3_dispatchx86_hashLong64_withSeed g_dispatch_hashLong64_seed = NULL;
-
+/* ===   XXH3, Seeded variants   === */
 
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSeed_forcescalar(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
@@ -397,50 +352,7 @@ XXH3_hashLong_64b_withSeed_forceavx512(const void* XXH_RESTRICT input, size_t le
 }
 #endif
 
-XXH3_dispatchx86_hashLong64_withSeed select_hashLong_withSeed(int vectorID)
-{
-    switch(vectorID) {
-        case XXH_AVX512 :
-#ifdef XXH_DISPATCH_AVX512
-            return XXH3_hashLong_64b_withSeed_forceavx512;
-#endif
-            /* fallthrough */
-        case XXH_AVX2   :
-            XXH_debugPrint("dispatch : selecting AVX2 variant.");
-            return XXH3_hashLong_64b_withSeed_forceavx2;
-        case XXH_SSE2   : return XXH3_hashLong_64b_withSeed_forcesse2;
-        case XXH_SCALAR : return XXH3_hashLong_64b_withSeed_forcescalar;
-        /* should never happen */
-        default: assert(0); exit(1);
-    }
-    assert(0); return NULL;
-}
-
-static XXH64_hash_t XXH3_hashLong_64b_withSeed_selection(const void* input, size_t len, XXH64_hash_t seed)
-{
-    if (g_dispatch_hashLong64_seed == NULL) {
-        g_dispatch_hashLong64_seed = select_hashLong_withSeed(XXH_featureTest());
-    }
-    return g_dispatch_hashLong64_seed(input, len, seed);
-}
-
-XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)
-{
-    if (len <= 16)
-        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, seed);
-    if (len <= 128)
-        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
-    if (len <= XXH3_MIDSIZE_MAX)
-        return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
-    return XXH3_hashLong_64b_withSeed_selection(input, len, seed);
-}
-
-
-/* ===   XXH3, Secret variant   === */
-
-typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSecret)(const void* XXH_RESTRICT, size_t, const void*, size_t);
-static XXH3_dispatchx86_hashLong64_withSecret g_dispatch_hashLong64_secret = NULL;
-
+/* ===   XXH3, Secret variants   === */
 
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSecret_forcescalar(const void* XXH_RESTRICT input, size_t len, const void* secret, size_t secretLen)
@@ -472,30 +384,87 @@ XXH3_hashLong_64b_withSecret_forceavx512(const void* XXH_RESTRICT input, size_t 
 }
 #endif
 
-static XXH3_dispatchx86_hashLong64_withSecret select_hashLong_withSecret(int vectorID)
+
+/* ===   Dispatchers   === */
+
+typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_default)(const void* XXH_RESTRICT, size_t);
+
+typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSeed)(const void* XXH_RESTRICT, size_t, XXH64_hash_t);
+
+typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSecret)(const void* XXH_RESTRICT, size_t, const void* XXH_RESTRICT, size_t);
+
+typedef struct {
+    XXH3_dispatchx86_hashLong64_default    hashLong64_default;
+    XXH3_dispatchx86_hashLong64_withSeed   hashLong64_seed;
+    XXH3_dispatchx86_hashLong64_withSecret hashLong64_secret;
+} dispatchFunctions_s;
+
+static dispatchFunctions_s g_dispatch = { NULL, NULL, NULL};
+
+#define NB_DISPATCHES 4
+static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
+        /* scalar */ { XXH3_hashLong_64b_defaultSecret_forcescalar, XXH3_hashLong_64b_withSeed_forcescalar, XXH3_hashLong_64b_withSecret_forcescalar },
+        /* sse2   */ { XXH3_hashLong_64b_defaultSecret_forcesse2, XXH3_hashLong_64b_withSeed_forcesse2, XXH3_hashLong_64b_withSecret_forcesse2 },
+        /* avx2   */ { XXH3_hashLong_64b_defaultSecret_forceavx2, XXH3_hashLong_64b_withSeed_forceavx2, XXH3_hashLong_64b_withSecret_forceavx2 },
+        /* avx512 */ { XXH3_hashLong_64b_defaultSecret_forceavx512, XXH3_hashLong_64b_withSeed_forceavx512, XXH3_hashLong_64b_withSecret_forceavx512 }
+};
+
+
+static void setDispatch(void)
 {
-    switch(vectorID) {
-        case XXH_AVX512 :
-#ifdef XXH_DISPATCH_AVX512
-            return XXH3_hashLong_64b_withSecret_forceavx512;
+    int vecID = XXH_featureTest();
+    assert(XXH_SCALAR <= vecID && vecID <= XXH_AVX512);
+#ifndef XXH_DISPATCH_AVX512
+    assert(vecID != XXH_AVX512);
 #endif
-            /* fallthrough */
-        case XXH_AVX2   :
-            return XXH3_hashLong_64b_withSecret_forceavx2;
-        case XXH_SSE2   : return XXH3_hashLong_64b_withSecret_forcesse2;
-        case XXH_SCALAR : return XXH3_hashLong_64b_withSecret_forcescalar;
-        /* should never happen */
-        default: assert(0); exit(1);
-    }
-    assert(0); return NULL;
+#ifndef XXH_DISPATCH_AVX2
+    assert(vecID != XXH_AVX2);
+#endif
+    g_dispatch = k_dispatch[vecID];
+}
+
+
+static XXH64_hash_t XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len)
+{
+    if (g_dispatch.hashLong64_default == NULL)
+        setDispatch();
+    return g_dispatch.hashLong64_default(input, len);
+}
+
+XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len)
+{
+    if (len <= 16)
+        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, 0);
+    if (len <= 128)
+        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
+    if (len <= XXH3_MIDSIZE_MAX)
+         return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), 0);
+    return XXH3_hashLong_64b_defaultSecret_selection((const xxh_u8*)input, len);
+}
+
+static XXH64_hash_t XXH3_hashLong_64b_withSeed_selection(const void* input, size_t len, XXH64_hash_t seed)
+{
+    if (g_dispatch.hashLong64_seed == NULL)
+        setDispatch();
+    return g_dispatch.hashLong64_seed(input, len, seed);
+}
+
+XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)
+{
+    if (len <= 16)
+        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, seed);
+    if (len <= 128)
+        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
+    if (len <= XXH3_MIDSIZE_MAX)
+        return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed);
+    return XXH3_hashLong_64b_withSeed_selection(input, len, seed);
 }
 
 static XXH64_hash_t XXH3_hashLong_64b_withSecret_selection(const void* input, size_t len, const void* secret, size_t secretLen)
 {
-    if (g_dispatch_hashLong64_secret == NULL) {
-        g_dispatch_hashLong64_secret = select_hashLong_withSecret(XXH_featureTest());
-    }
-    return g_dispatch_hashLong64_secret(input, len, secret, secretLen);
+    if (g_dispatch.hashLong64_secret == NULL)
+        setDispatch();
+    return g_dispatch.hashLong64_secret(input, len, secret, secretLen);
 }
 
 XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen)

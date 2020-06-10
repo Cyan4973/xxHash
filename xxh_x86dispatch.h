@@ -42,11 +42,12 @@ extern "C" {
 
 #include <xxhash.h>  /* XXH64_hash_t */
 
-XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len);
-XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed);
-XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen);
+XXH64_hash_t  XXH3_64bits_dispatch(const void* input, size_t len);
+XXH64_hash_t  XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed);
+XXH64_hash_t  XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen);
 XXH_errorcode XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len);
 
+XXH128_hash_t XXH3_128bits_dispatch(const void* input, size_t len);
 XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len);
 
 /* automatic replacement of XXH3 functions.
@@ -62,6 +63,8 @@ XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* inpu
 # undef  XXH3_64bits_update
 # define XXH3_64bits_update XXH3_64bits_update_dispatch
 
+# undef  XXH3_128bits
+# define XXH3_128bits XXH3_128bits_dispatch
 # undef  XXH3_128bits_update
 # define XXH3_128bits_update XXH3_128bits_update_dispatch
 

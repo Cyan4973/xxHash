@@ -206,7 +206,9 @@
 #  endif
 #endif
 
-#if XXH_VECTOR == XXH_SSE2 || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
+#if defined(XXH_X86DISPATCH)
+#  define XXH_SEC_ALIGN 64
+#elif XXH_VECTOR == XXH_SSE2 || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
 #else
 #  define XXH_SEC_ALIGN 8
@@ -1054,7 +1056,8 @@ XXH_FORCE_INLINE XXH_TARGET_AVX512 void
 XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 {
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 63) == 0);
-    XXH_STATIC_ASSERT(XXH_SEC_ALIGN <= 64);
+    XXH_STATIC_ASSERT(XXH_SEC_ALIGN == 64);
+    XXH_ASSERT(((size_t)customSecret & 63) == 0);
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
         __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, -(xxh_i64)seed64);
@@ -1785,23 +1788,11 @@ XXH3_hashLong_64b_withSeed_internal(const xxh_u8* input, size_t len,
         return XXH3_hashLong_64b_internal(input, len,
                                           XXH3_kSecret, sizeof(XXH3_kSecret),
                                           f_acc512, f_scramble);
-#if XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
-    // manually deal with alignment of the custom secret
-    // this will avoid pushing the rsp register to stack
-    XXH_STATIC_ASSERT(XXH_SEC_ALIGN <= 64);
-    {   XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE+64];
-        XXH_ALIGN(64) xxh_u8 *const secretAlign64 = (xxh_u8*)((size_t)(secret+63)&~63ULL);
-        f_initSec(secretAlign64, seed);
-        return XXH3_hashLong_64b_internal(input, len, secretAlign64, XXH_SECRET_DEFAULT_SIZE,
-                        f_acc512, f_scramble);
-    }
-#else
     {   XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
         f_initSec(secret, seed);
         return XXH3_hashLong_64b_internal(input, len, secret, sizeof(secret),
                                           f_acc512, f_scramble);
     }
-#endif
 }
 
 /*
@@ -2464,21 +2455,10 @@ XXH_NO_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSeed(const xxh_u8* input, size_t len, XXH64_hash_t seed)
 {
     if (seed == 0) return XXH3_hashLong_128b_defaultSecret(input, len);
-#if XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
-    // manually deal with alignment of the custom secret
-    // this will avoid pushing the rsp register to stack
-    XXH_STATIC_ASSERT(XXH_SEC_ALIGN <= 64);
-    {   XXH_ALIGN(8) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE+64];
-        XXH_ALIGN(64) xxh_u8 *const secretAlign64 = (xxh_u8*)((size_t)(secret+63)&~63ULL);
-        XXH3_initCustomSecret(secretAlign64, seed);
-        return XXH3_hashLong_128b_internal(input, len, secretAlign64, XXH_SECRET_DEFAULT_SIZE);
-    }
-#else
     {   XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
         XXH3_initCustomSecret(secret, seed);
         return XXH3_hashLong_128b_internal(input, len, secret, sizeof(secret));
     }
-#endif
 }
 
 

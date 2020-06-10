@@ -68,15 +68,16 @@ endif
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
+## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default
-default:  ## generate CLI and libraries in release mode (default for `make`)
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
-all: lib xxhsum xxhsum_inlinedXXH
+all: lib xxhsum xxhsum_inlinedXXH dispatch
 
-xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
+## xxhsum is the command line interface (CLI)
+xxhsum: xxhash.o xxhsum.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
@@ -88,7 +89,7 @@ dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h xxh3.h
-xxhsum.o: xxhsum.c xxhash.h xxh3.h
+xxhsum.o: xxhsum.c xxhash.h xxh3.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h xxh3.h
 
 .PHONY: xxhsum_and_links

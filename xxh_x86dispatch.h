@@ -40,7 +40,7 @@ extern "C" {
 #endif
 
 
-#include <xxhash.h>  /* XXH64_hash_t, XXH3_state_t */
+#include "xxhash.h"  /* XXH64_hash_t, XXH3_state_t */
 
 XXH64_hash_t  XXH3_64bits_dispatch(const void* input, size_t len);
 XXH64_hash_t  XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed);

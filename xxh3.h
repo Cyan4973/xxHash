@@ -983,27 +983,29 @@ XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
     XXH_ASSERT((((size_t)acc) & 63) == 0);
     XXH_STATIC_ASSERT(XXH_STRIPE_LEN == sizeof(__m512i));
 
-    /* data_vec    = input[0]; */
-    __m512i const data_vec    = _mm512_loadu_si512   (input);
-    /* key_vec     = secret[0]; */
-    __m512i const key_vec     = _mm512_loadu_si512   (secret);
-    /* data_key    = data_vec ^ key_vec; */
-    __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
-    /* data_key_lo = data_key >> 32; */
-    __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
-    /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
-    __m512i const product     = _mm512_mul_epu32     (data_key, data_key_lo);
-    if (accWidth == XXH3_acc_128bits) {
-        /* xacc[0] += swap(data_vec); */
-        __m512i const data_swap = _mm512_shuffle_epi32(data_vec, _MM_SHUFFLE(1, 0, 3, 2));
-        __m512i const sum       = _mm512_add_epi64(*xacc, data_swap);
-        /* xacc[0] += product; */
-        *xacc = _mm512_add_epi64(product, sum);
-    } else {  /* XXH3_acc_64bits */
-        /* xacc[0] += data_vec; */
-        __m512i const sum = _mm512_add_epi64(*xacc, data_vec);
-        /* xacc[0] += product; */
-        *xacc = _mm512_add_epi64(product, sum);
+    {
+        /* data_vec    = input[0]; */
+        __m512i const data_vec    = _mm512_loadu_si512   (input);
+        /* key_vec     = secret[0]; */
+        __m512i const key_vec     = _mm512_loadu_si512   (secret);
+        /* data_key    = data_vec ^ key_vec; */
+        __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
+        /* data_key_lo = data_key >> 32; */
+        __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+        /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
+        __m512i const product     = _mm512_mul_epu32     (data_key, data_key_lo);
+        if (accWidth == XXH3_acc_128bits) {
+            /* xacc[0] += swap(data_vec); */
+            __m512i const data_swap = _mm512_shuffle_epi32(data_vec, _MM_SHUFFLE(1, 0, 3, 2));
+            __m512i const sum       = _mm512_add_epi64(*xacc, data_swap);
+            /* xacc[0] += product; */
+            *xacc = _mm512_add_epi64(product, sum);
+        } else {  /* XXH3_acc_64bits */
+            /* xacc[0] += data_vec; */
+            __m512i const sum = _mm512_add_epi64(*xacc, data_vec);
+            /* xacc[0] += product; */
+            *xacc = _mm512_add_epi64(product, sum);
+        }
     }
 }
 

@@ -77,6 +77,10 @@ default: lib xxhsum_and_links
 all: lib xxhsum xxhsum_inlinedXXH
 
 ## xxhsum is the command line interface (CLI)
+ifeq ($(DISPATCH),1)
+xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
+xxhsum: xxh_x86dispatch.o
+endif
 xxhsum: xxhash.o xxhsum.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 

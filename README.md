@@ -79,8 +79,8 @@ which can be observed in the following graphs:
 To access these new prototypes, one needs to unlock their declaration, using the build macro `XXH_STATIC_LINKING_ONLY`.
 
 The algorithm is currently in development, meaning its return values might still change in future versions.
-However, the API is stable, and can be used in production, typically for ephemeral
-data (produced and consumed in same session).
+However, the API is stable, and can be used in production,
+typically for generation of ephemeral hashes (produced and consumed in same session).
 
 `XXH3` has now reached "release candidate" status.
 If everything remains fine, its format will be "frozen" and become final.

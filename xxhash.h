@@ -532,37 +532,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
 
-/*
- * XXH3_generateSecret():
- *
- * Derive a secret for use with `*_withSecret()` prototypes of XXH3.
- * Use this if you need a higher level of security than the one provided by 64bit seed.
- *
- * Take as input a custom seed of any length and any content,
- * generate from it a high-entropy secret of length XXH3_SECRET_DEFAULT_SIZE
- * into already allocated buffer secretBuffer.
- * The generated secret ALWAYS is XXH_SECRET_DEFAULT_SIZE bytes long.
- *
- * The generated secret can then be used with any `*_withSecret()` variant.
- * The functions `XXH3_128bits_withSecret()`, `XXH3_64bits_withSecret()`,
- * `XXH3_128bits_reset_withSecret()` and `XXH3_64bits_reset_withSecret()`
- * are part of this list. They all accept a `secret` parameter
- * which must be very long for implementation reasons (>= XXH3_SECRET_SIZE_MIN)
- * _and_ feature very high entropy (consist of random-looking bytes).
- * These conditions can be a high bar to meet, so
- * this function can be used to generate a secret of proper quality.
- *
- * customSeed can be anything. It can have any size, even small ones,
- * and its content can be anything, even some "low entropy" source such as a bunch of zeroes.
- * The resulting `secret` will nonetheless respect all expected qualities.
- *
- * Supplying NULL as the customSeed copies the default secret into `secretBuffer`.
- * When customSeedSize > 0, supplying NULL as customSeed is undefined behavior.
- */
-#define XXH3_SECRET_DEFAULT_SIZE 192
-XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize);
-
-
 /* streaming 64-bit */
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)   /* C11+ */
@@ -587,6 +556,7 @@ XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSe
 typedef struct XXH3_state_s XXH3_state_t;
 
 #define XXH3_INTERNALBUFFER_SIZE 256
+#define XXH3_SECRET_DEFAULT_SIZE 192
 struct XXH3_state_s {
    XXH_ALIGN_MEMBER(64, XXH64_hash_t acc[8]);
   /* used to store a custom secret generated from a seed */
@@ -706,7 +676,41 @@ XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_has
 XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
 
 
+/* ===   Experimental API   === */
+/* Symbols defined below must be considered tied to a specific library version. */
+
+/*
+ * XXH3_generateSecret():
+ *
+ * Derive a secret for use with `*_withSecret()` prototypes of XXH3.
+ * Use this if you need a higher level of security than the one provided by 64bit seed.
+ *
+ * Take as input a custom seed of any length and any content,
+ * generate from it a high-entropy secret of length XXH3_SECRET_DEFAULT_SIZE
+ * into already allocated buffer secretBuffer.
+ * The generated secret ALWAYS is XXH_SECRET_DEFAULT_SIZE bytes long.
+ *
+ * The generated secret can then be used with any `*_withSecret()` variant.
+ * The functions `XXH3_128bits_withSecret()`, `XXH3_64bits_withSecret()`,
+ * `XXH3_128bits_reset_withSecret()` and `XXH3_64bits_reset_withSecret()`
+ * are part of this list. They all accept a `secret` parameter
+ * which must be very long for implementation reasons (>= XXH3_SECRET_SIZE_MIN)
+ * _and_ feature very high entropy (consist of random-looking bytes).
+ * These conditions can be a high bar to meet, so
+ * this function can be used to generate a secret of proper quality.
+ *
+ * customSeed can be anything. It can have any size, even small ones,
+ * and its content can be anything, even some "low entropy" source such as a bunch of zeroes.
+ * The resulting `secret` will nonetheless respect all expected qualities.
+ *
+ * Supplying NULL as the customSeed copies the default secret into `secretBuffer`.
+ * When customSeedSize > 0, supplying NULL as customSeed is undefined behavior.
+ */
+XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize);
+
+
 #endif  /* XXH_NO_LONG_LONG */
+
 
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  define XXH_IMPLEMENTATION

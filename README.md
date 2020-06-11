@@ -138,6 +138,9 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            It's possible to skip auto-detection and simply state that the architecture is little-endian by setting this macro to 1.
                            Setting it to 0 states big-endian.
 
+For the Command Line Interface `xxhsum`, the following environment variables can also be set :
+- `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
+
 
 ### Building xxHash - Using vcpkg
 

@@ -542,6 +542,7 @@ static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
 static void setDispatch(void)
 {
     int vecID = XXH_featureTest();
+    XXH_STATIC_ASSERT(XXH_AVX512 == NB_DISPATCHES-1);
     assert(XXH_SCALAR <= vecID && vecID <= XXH_AVX512);
 #ifndef XXH_DISPATCH_AVX512
     assert(vecID != XXH_AVX512);

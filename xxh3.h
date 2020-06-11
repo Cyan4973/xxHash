@@ -161,9 +161,9 @@
 #define XXH_SCALAR 0 /* Portable scalar version */
 #define XXH_SSE2   1 /* SSE2 for Pentium 4 and all x86_64 */
 #define XXH_AVX2   2 /* AVX2 for Haswell and Bulldozer */
-#define XXH_NEON   3 /* NEON for most ARMv7-A and all AArch64 */
-#define XXH_VSX    4 /* VSX and ZVector for POWER8/z13 */
-#define XXH_AVX512 5 /* AVX512 for Skylake and Icelake */
+#define XXH_AVX512 3 /* AVX512 for Skylake and Icelake */
+#define XXH_NEON   4 /* NEON for most ARMv7-A and all AArch64 */
+#define XXH_VSX    5 /* VSX and ZVector for POWER8/z13 */
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if defined(__AVX512F__)
@@ -187,11 +187,13 @@
 #endif
 
 /*
- * Controls the alignment of the accumulator.
- * This is for compatibility with aligned vector loads, which are usually faster.
+ * Controls the alignment of the accumulator,
+ * for compatibility with aligned vector loads, which are usually faster.
  */
 #ifndef XXH_ACC_ALIGN
-#  if XXH_VECTOR == XXH_SCALAR  /* scalar */
+#  if defined(XXH_X86DISPATCH)
+#     define XXH_ACC_ALIGN 64  /* for compatibility with avx512 */
+#  elif XXH_VECTOR == XXH_SCALAR  /* scalar */
 #     define XXH_ACC_ALIGN 8
 #  elif XXH_VECTOR == XXH_SSE2  /* sse2 */
 #     define XXH_ACC_ALIGN 16
@@ -201,14 +203,13 @@
 #     define XXH_ACC_ALIGN 16
 #  elif XXH_VECTOR == XXH_VSX   /* vsx */
 #     define XXH_ACC_ALIGN 16
-#  elif XXH_VECTOR == XXH_AVX512 /* avx512 */
+#  elif XXH_VECTOR == XXH_AVX512  /* avx512 */
 #     define XXH_ACC_ALIGN 64
 #  endif
 #endif
 
-#if defined(XXH_X86DISPATCH)
-#  define XXH_SEC_ALIGN 64
-#elif XXH_VECTOR == XXH_SSE2 || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
+#if defined(XXH_X86DISPATCH) || XXH_VECTOR == XXH_SSE2 \
+    || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
 #else
 #  define XXH_SEC_ALIGN 8

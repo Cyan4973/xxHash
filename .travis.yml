@@ -20,6 +20,8 @@ matrix:
             - cppcheck
       script:
         - make -B test-all
+        - make clean
+        - make dispatch
 
     - name: Check results consistency on x64
       arch: amd64

@@ -2126,7 +2126,7 @@ static int XXH_main(int argc, char** argv)
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
-        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); return 0; }
+        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
@@ -2171,11 +2171,14 @@ static int XXH_main(int argc, char** argv)
             case 'b':
                 argument++;
                 benchmarkMode = 1;
-                selectBenchIDs = readU32FromChar(&argument); /* select one specific test */
-                if (selectBenchIDs < NB_TESTFUNC) {
-                    g_testIDs[selectBenchIDs] = 1;
-                } else
-                    selectBenchIDs = kBenchAll;
+                do {
+                    if (*argument == ',') argument++;
+                    selectBenchIDs = readU32FromChar(&argument); /* select one specific test */
+                    if (selectBenchIDs < NB_TESTFUNC) {
+                        g_testIDs[selectBenchIDs] = 1;
+                    } else
+                        selectBenchIDs = kBenchAll;
+                } while (*argument == ',');
                 break;
 
             /* Modify Nb Iterations (benchmark only) */

@@ -73,7 +73,8 @@ OPTIONS
   Benchmark mode.  See [EXAMPLES](#EXAMPLES) for details.
 
 * `-b#`:
-  Specify ID of variant to be tested. Multiple variants can be selected.
+  Specify ID of variant to be tested.
+  Multiple variants can be selected, separated by a ',' comma.
 
 * `-B`<BLOCKSIZE>:
   Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
@@ -119,10 +120,12 @@ and finally the last column translates speed in megabytes per second.
 
     $ xxhsum -b
 
-In the following example,  the sample to hash is set to 16384 bytes,
-and the benchmark test is repeated 10 times, for increased accuracy.
+In the following example,
+the sample to hash is set to 16384 bytes,
+the variants to be benched are selected by their IDs,
+and each benchmark test is repeated 10 times, for increased accuracy.
 
-    $ xxhsum -b -i10 -B16384
+    $ xxhsum -b1,2,3 -i10 -B16384
 
 BUGS
 ----

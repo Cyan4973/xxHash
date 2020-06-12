@@ -79,11 +79,11 @@ which can be observed in the following graphs:
 To access these new prototypes, one needs to unlock their declaration, using the build macro `XXH_STATIC_LINKING_ONLY`.
 
 The algorithm is currently in development, meaning its return values might still change in future versions.
-However, the API is stable, and can be used in production, typically for ephemeral
-data (produced and consumed in same session).
+However, the API is stable, and can be used in production,
+typically for generation of ephemeral hashes (produced and consumed in same session).
 
-Since `v0.7.3`, `XXH3` has reached "release candidate" status,
-meaning that, if everything remains fine, its current format will be "frozen" and become the final one.
+`XXH3` has now reached "release candidate" status.
+If everything remains fine, its format will be "frozen" and become final.
 After which, return values of `XXH3` and `XXH128` will no longer change in future versions.
 `XXH3`'s return values will be officially finalized upon reaching `v0.8.0`.
 
@@ -114,9 +114,10 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            when running on architectures unable to load memory from unaligned addresses, or suffering a performance penalty from it.
                            It is (slightly) detrimental on platform with good unaligned memory access performance (same instruction for both aligned and unaligned accesses).
                            This option is automatically disabled on `x86`, `x64` and `aarch64`, and enabled on all other platforms.
+- `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). `0`==`scalar`, `1`==`sse2`, `2`==`avx2`, `3`==`avx512`, `4`==`neon`, `5`==`vsx`
 - `XXH_NO_PREFETCH` : disable prefetching. XXH3 only.
 - `XXH_PREFETCH_DIST` : select prefecting distance. XXH3 only.
-- `XXH_NO_INLINE_HINTS`: By default, xxHash uses tricks like `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.
+- `XXH_NO_INLINE_HINTS`: By default, xxHash uses `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.
                          Defining this macro to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not.
                          This is very useful when optimizing for smallest binary size,
                          and is automatically defined when compiling with `-O0`, `-Os`, `-Oz`, or `-fno-inline` on GCC and Clang.
@@ -136,6 +137,9 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            If, for some reason, the compiler cannot simplify the runtime test, it can cost performance.
                            It's possible to skip auto-detection and simply state that the architecture is little-endian by setting this macro to 1.
                            Setting it to 0 states big-endian.
+
+For the Command Line Interface `xxhsum`, the following environment variables can also be set :
+- `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
 
 
 ### Building xxHash - Using vcpkg

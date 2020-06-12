@@ -40,8 +40,8 @@ DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
             -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
             -Wredundant-decls -Wstrict-overflow=2
-CFLAGS += $(DEBUGFLAGS)
-FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
+CFLAGS += $(DEBUGFLAGS) $(MOREFLAGS)
+FLAGS   = $(CFLAGS) $(CPPFLAGS)
 XXHSUM_VERSION = $(LIBVER)
 
 # Define *.exe as extension for Windows systems
@@ -68,25 +68,34 @@ endif
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
+## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default
-default:  ## generate CLI and libraries in release mode (default for `make`)
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
-xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
+## xxhsum is the command line interface (CLI)
+ifeq ($(DISPATCH),1)
+xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
+xxhsum: xxh_x86dispatch.o
+endif
+xxhsum: xxhash.o xxhsum.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
 xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
+## dispatch only works for x86/x64 systems
+dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
+dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
+
 xxhash.o: xxhash.c xxhash.h xxh3.h
-	$(CC) $(FLAGS) -c $< -o $@
-xxhsum.o: xxhsum.c xxhash.h
-	$(CC) $(FLAGS) -c $< -o $@
+xxhsum.o: xxhsum.c xxhash.h xxh3.h xxh_x86dispatch.h
+xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h xxh3.h
 
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
@@ -147,7 +156,7 @@ help:  ## list documented targets
 clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
 

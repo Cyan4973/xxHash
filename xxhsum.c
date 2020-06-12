@@ -666,12 +666,11 @@ static void BMK_benchHash(hashFunction h, const char* hName, const int hID,
                           const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
-    U32 iterationNb;
+    U32 iterationNb, nbIterations = g_nbIterations + !g_nbIterations /* min 1 */;
     double fastestH = 100000000.;
     assert(HASHNAME_MAX > 2);
     DISPLAYLEVEL(2, "\r%80s\r", "");       /* Clean display line */
-    if (g_nbIterations<1) g_nbIterations=1;
-    for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
+    for (iterationNb = 1; iterationNb <= nbIterations; iterationNb++) {
         U32 r=0;
         clock_t cStart;
 
@@ -722,17 +721,21 @@ static void BMK_benchHash(hashFunction h, const char* hName, const int hID,
                     if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
                     nbh_perIteration = (U32)nbh_perSecond;
                 }
-                iterationNb--;   /* try again */
-                continue;
+                /* g_nbIterations==0 => quick evaluation, no claim of accuracy */
+                if (g_nbIterations>0) {
+                    iterationNb--;   /* new round for a more accurate speed evaluation */
+                    continue;
+                }
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
-            DISPLAYLEVEL(2, "%2u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+            if (fastestH>0.) { /* avoid div by zero */
+                DISPLAYLEVEL(2, "%2u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                             (unsigned)iterationNb,
                             HASHNAME_MAX, HASHNAME_MAX, hName,
                             (unsigned)bufferSize,
                             (double)1 / fastestH,
                             ((double)bufferSize / (1 MB)) / fastestH);
-        }
+        }   }
         {   double nbh_perSecond = (1 / fastestH) + 1;
             if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
             nbh_perIteration = (U32)nbh_perSecond;

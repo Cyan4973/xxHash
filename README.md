@@ -114,7 +114,7 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            when running on architectures unable to load memory from unaligned addresses, or suffering a performance penalty from it.
                            It is (slightly) detrimental on platform with good unaligned memory access performance (same instruction for both aligned and unaligned accesses).
                            This option is automatically disabled on `x86`, `x64` and `aarch64`, and enabled on all other platforms.
-- `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). `0`==`scalar`, `1`==`sse2`, `2`==`avx2`, `3`==`avx512`, `4`==`neon`, `5`==`vsx`
+- `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). Available instruction sets are `XXH_SCALAR`, `XXH_SSE2`, `XXH_AVX2`, `XXH_AVX512`, `XXH_NEON` and `XXH_VSX`. Compiler may require additional flags to ensure proper support (for example, `gcc` on linux will require `-mavx2` for AVX2, and `-mavx512f` for AVX512).
 - `XXH_NO_PREFETCH` : disable prefetching. XXH3 only.
 - `XXH_PREFETCH_DIST` : select prefecting distance. XXH3 only.
 - `XXH_NO_INLINE_HINTS`: By default, xxHash uses `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.

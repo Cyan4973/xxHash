@@ -1120,8 +1120,6 @@ void BMK_testSecretGenerator(const void* customSeed, size_t len, verifSample_t r
     verifSample_t samples;
     int i;
 
-    DISPLAY("BMK_testSecretGenerator : len = %zu \n", len);
-
     XXH3_generateSecret(secretBuffer, customSeed, len);
     for (i=0; i<SECRET_SAMPLE_NBBYTES; i++) {
         samples.byte[i] = secretBuffer[sampleIndex[i]];

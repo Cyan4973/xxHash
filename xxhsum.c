@@ -1925,7 +1925,7 @@ static int checkFile(const char* inFileName,
     parseFileArg->inFileName    = inFileName;
     parseFileArg->inFile        = inFile;
     parseFileArg->lineMax       = DEFAULT_LINE_LENGTH;
-    parseFileArg->lineBuf       = (char*) malloc((size_t) parseFileArg->lineMax);
+    parseFileArg->lineBuf       = (char*) malloc((size_t)parseFileArg->lineMax);
     parseFileArg->blockSize     = 64 * 1024;
     parseFileArg->blockBuf      = (char*) malloc(parseFileArg->blockSize);
     parseFileArg->strictMode    = strictMode;
@@ -1933,6 +1933,11 @@ static int checkFile(const char* inFileName,
     parseFileArg->warn          = warn;
     parseFileArg->quiet         = quiet;
 
+    if ( (parseFileArg->lineBuf == NULL)
+      || (parseFileArg->blockBuf == NULL) ) {
+        DISPLAY("Error: : memory allocation failed \n");
+        exit(1);
+    }
     parseFile1(parseFileArg);
 
     free(parseFileArg->blockBuf);

@@ -175,6 +175,8 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
 	# internal bench
 	$(RUN_ENV) ./xxhsum$(EXT) -bi0
+	# long bench command
+	$(RUN_ENV) ./xxhsum$(EXT) --benchmark-all -i0
 	# file bench
 	$(RUN_ENV) ./xxhsum$(EXT) -bi0 xxhash.c
 	# 32-bit

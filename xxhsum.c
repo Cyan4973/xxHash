@@ -46,9 +46,10 @@
 /* ************************************
  *  Includes
  **************************************/
+#include <limits.h>
 #include <stdlib.h>     /* malloc, calloc, free, exit */
+#include <string.h>     /* strcmp, memcpy */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout, _fileno (when present) */
-#include <string.h>     /* strcmp */
 #include <sys/types.h>  /* stat, stat64, _stat64 */
 #include <sys/stat.h>   /* stat, stat64, _stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
@@ -661,9 +662,10 @@ static const hashInfo g_hashesToBench[] = {
 
 #define HASHNAME_MAX 29
 
-static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
+static void BMK_benchHash(hashFunction h, const char* hName, const int hID,
+                          const void* buffer, size_t bufferSize)
 {
-    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
+    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
     U32 iterationNb;
     double fastestH = 100000000.;
     assert(HASHNAME_MAX > 2);
@@ -673,9 +675,9 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-*.*s : %10u ->\r",
+        DISPLAYLEVEL(2, "%2u-%-*.*s : %10u ->\r",
                         (unsigned)iterationNb,
-                        HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+                        HASHNAME_MAX, HASHNAME_MAX, hName,
                         (unsigned)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
@@ -724,9 +726,9 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                 continue;
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
-            DISPLAYLEVEL(2, "%1u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+            DISPLAYLEVEL(2, "%2u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                             (unsigned)iterationNb,
-                            HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+                            HASHNAME_MAX, HASHNAME_MAX, hName,
                             (unsigned)bufferSize,
                             (double)1 / fastestH,
                             ((double)bufferSize / (1 MB)) / fastestH);
@@ -736,7 +738,8 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+    DISPLAYLEVEL(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+                    hID,
                     HASHNAME_MAX, HASHNAME_MAX, hName,
                     (unsigned)bufferSize,
                     (double)1 / fastestH,
@@ -776,16 +779,17 @@ static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
         }
         for (i = 0; i < NUM_HASHES; i++) {
             assert(g_hashesToBench[i].name != NULL);
+            assert(i < (INT_MAX/2 - 2));
             /* aligned */
             if (specificTest == 0 || specificTest == 2 * i + 1) {
-                BMK_benchHash(g_hashesToBench[i].func, g_hashesToBench[i].name, buffer, bufferSize);
+                BMK_benchHash(g_hashesToBench[i].func, g_hashesToBench[i].name, (int)(2 * i + 1), buffer, bufferSize);
             }
             /* unaligned */
             if (specificTest == 0 || specificTest == 2 * i + 2) {
                 /* Append "unaligned". */
                 char* hashNameBuf = XXH_strcatDup(g_hashesToBench[i].name, " unaligned");
                 assert(hashNameBuf != NULL);
-                BMK_benchHash(g_hashesToBench[i].func, hashNameBuf, ((const char*)buffer)+3, bufferSize);
+                BMK_benchHash(g_hashesToBench[i].func, hashNameBuf, (int)(2 * i + 2), ((const char*)buffer)+3, bufferSize);
                 free(hashNameBuf);
             }
     }   }

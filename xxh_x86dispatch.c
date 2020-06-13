@@ -501,23 +501,6 @@ static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
         /* avx512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512 }
 };
 
-typedef void (*XXH3_dispatchx86_accumulate_512)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT input, const void* XXH_RESTRICT secret, XXH3_accWidth_e accWidth);
-typedef void (*XXH3_dispatchx86_scrambleAcc)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret);
-
-typedef struct {
-    XXH3_dispatchx86_accumulate_512  accumulate_512;
-    XXH3_dispatchx86_scrambleAcc     scrambleAcc;
-} coreFunctions_s;
-
-static coreFunctions_s g_coreFunc = { NULL, NULL };
-
-static const coreFunctions_s k_coreFunc[NB_DISPATCHES] = {
-        /* scalar */ { XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar },
-        /* sse2   */ { XXH3_accumulate_512_sse2,   XXH3_scrambleAcc_sse2 },
-        /* avx2   */ { XXH3_accumulate_512_avx2,   XXH3_scrambleAcc_avx2 },
-        /* avx512 */ { XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512 },
-};
-
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(const void* XXH_RESTRICT, size_t);
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_withSeed)(const void* XXH_RESTRICT, size_t, XXH64_hash_t);
@@ -537,6 +520,23 @@ static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
         /* sse2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2 },
         /* avx2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2 },
         /* avx512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512 }
+};
+
+typedef void (*XXH3_dispatchx86_accumulate_512)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT input, const void* XXH_RESTRICT secret, XXH3_accWidth_e accWidth);
+typedef void (*XXH3_dispatchx86_scrambleAcc)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret);
+
+typedef struct {
+    XXH3_dispatchx86_accumulate_512  accumulate_512;
+    XXH3_dispatchx86_scrambleAcc     scrambleAcc;
+} coreFunctions_s;
+
+static coreFunctions_s g_coreFunc = { NULL, NULL };
+
+static const coreFunctions_s k_coreFunc[NB_DISPATCHES] = {
+        /* scalar */ { XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar },
+        /* sse2   */ { XXH3_accumulate_512_sse2,   XXH3_scrambleAcc_sse2 },
+        /* avx2   */ { XXH3_accumulate_512_avx2,   XXH3_scrambleAcc_avx2 },
+        /* avx512 */ { XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512 },
 };
 
 static void setDispatch(void)

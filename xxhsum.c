@@ -642,6 +642,22 @@ static U32 localXXH3_128b_secret(const void* buffer, size_t bufferSize, U32 seed
     (void)seed;
     return (U32)(XXH3_128bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf)).low64);
 }
+static U32 localXXH3_stream(const void* buffer, size_t bufferSize, U32 seed)
+{
+    XXH3_state_t state;
+    (void)seed;
+    XXH3_64bits_reset(&state);
+    XXH3_64bits_update(&state, buffer, bufferSize);
+    return (U32)XXH3_64bits_digest(&state);
+}
+static U32 localXXH128_stream(const void* buffer, size_t bufferSize, U32 seed)
+{
+    XXH3_state_t state;
+    (void)seed;
+    XXH3_128bits_reset(&state);
+    XXH3_128bits_update(&state, buffer, bufferSize);
+    return (U32)(XXH3_128bits_digest(&state).low64);
+}
 
 
 typedef struct {
@@ -649,7 +665,7 @@ typedef struct {
     hashFunction func;
 } hashInfo;
 
-#define NB_HASHFUNC 8
+#define NB_HASHFUNC 10
 static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH32",             &localXXH32 },
     { "XXH64",             &localXXH64 },
@@ -658,7 +674,9 @@ static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH3_64b w/secret", &localXXH3_64b_secret },
     { "XXH128",            &localXXH3_128b },
     { "XXH128 w/seed",     &localXXH3_128b_seeded },
-    { "XXH128 w/secret",   &localXXH3_128b_secret }
+    { "XXH128 w/secret",   &localXXH3_128b_secret },
+    { "XXH3_stream",       &localXXH3_stream },
+    { "XXH128_stream",     &localXXH128_stream },
 };
 
 #define NB_TESTFUNC (1 + 2 * NB_HASHFUNC)

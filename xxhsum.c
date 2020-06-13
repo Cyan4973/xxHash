@@ -1626,8 +1626,8 @@ static int charToHex(char c)
 
 
 /*
- * Converts XXH32 canonical hexadecimal string `hashStr` to the big endian unsigned
- * char array `dst`.
+ * Converts canonical ASCII hexadecimal string `hashStr`
+ * to the big endian binary representation in unsigned char array `dst`.
  *
  * Returns CANONICAL_FROM_STRING_INVALID_FORMAT if hashStr is not well formatted.
  * Returns CANONICAL_FROM_STRING_OK if hashStr is parsed successfully.

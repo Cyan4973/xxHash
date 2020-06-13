@@ -316,7 +316,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze test-unicode
+test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace test-unicode
 
 .PHONY: test-tools
 test-tools:

@@ -1676,51 +1676,49 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
     const char* const firstSpace = strchr(line, ' ');
     if (firstSpace == NULL) return ParseLine_invalidFormat;
 
-    {   const char* const secondSpace = firstSpace + 1;
-        if (*secondSpace != ' ') return ParseLine_invalidFormat;
+    parsedLine->filename = NULL;
+    parsedLine->xxhBits = 0;
 
-        parsedLine->filename = NULL;
-        parsedLine->xxhBits = 0;
-
-        switch (firstSpace - line)
-        {
-        case 8:
-            {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-                if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
-                    != CanonicalFromString_ok) {
-                    return ParseLine_invalidFormat;
-                }
-                parsedLine->xxhBits = 32;
-                break;
-            }
-
-        case 16:
-            {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-                if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
-                    != CanonicalFromString_ok) {
-                    return ParseLine_invalidFormat;
-                }
-                parsedLine->xxhBits = 64;
-                break;
-            }
-
-        case 32:
-            {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
-                if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), line)
-                    != CanonicalFromString_ok) {
-                    return ParseLine_invalidFormat;
-                }
-                parsedLine->xxhBits = 128;
-                break;
-            }
-
-        default:
+    switch (firstSpace - line)
+    {
+    case 8:
+        {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
+            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
+                != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
-                break;
+            }
+            parsedLine->xxhBits = 32;
+            break;
         }
 
-        parsedLine->filename = secondSpace + 1;
+    case 16:
+        {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
+            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
+                != CanonicalFromString_ok) {
+                return ParseLine_invalidFormat;
+            }
+            parsedLine->xxhBits = 64;
+            break;
+        }
+
+    case 32:
+        {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
+            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), line)
+                != CanonicalFromString_ok) {
+                return ParseLine_invalidFormat;
+            }
+            parsedLine->xxhBits = 128;
+            break;
+        }
+
+    default:
+            return ParseLine_invalidFormat;
+            break;
     }
+
+    /* note : skipping second separation character, which can be anything,
+     * allowing insertion of custom markers such as '*' */
+    parsedLine->filename = firstSpace + 2;
     return ParseLine_ok;
 }
 

@@ -335,7 +335,7 @@ trailingWhitespace:
 # =========================================================
 # make install is validated only for the following targets
 # =========================================================
-ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
+ifneq (,$(filter Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS CYGWIN% , $(shell uname)))
 
 DESTDIR     ?=
 # directory variables: GNU conventions prefer lowercase

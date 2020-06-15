@@ -4,11 +4,11 @@ xxhsum(1) -- print or check xxHash non-cryptographic checksums
 SYNOPSIS
 --------
 
-`xxhsum [<OPTION>] ... [<FILE>] ...`  
+`xxhsum [<OPTION>] ... [<FILE>] ...`
 `xxhsum -b [<OPTION>] ...`
 
-`xxh32sum` is equivalent to `xxhsum -H0`  
-`xxh64sum` is equivalent to `xxhsum -H1`  
+`xxh32sum` is equivalent to `xxhsum -H0`
+`xxh64sum` is equivalent to `xxhsum -H1`
 `xxh128sum` is equivalent to `xxhsum -H2`
 
 
@@ -53,7 +53,7 @@ OPTIONS
 
 * `-q`, `--quiet`:
   Don't print OK for each successfully verified file
-  
+
 * `--strict`:
   Return an error code if any line in the file is invalid,
   not just if some checksums are wrong.
@@ -71,6 +71,10 @@ OPTIONS
 
 * `-b`:
   Benchmark mode.  See [EXAMPLES](#EXAMPLES) for details.
+
+* `-b#`:
+  Specify ID of variant to be tested.
+  Multiple variants can be selected, separated by a ',' comma.
 
 * `-B`<BLOCKSIZE>:
   Only useful for benchmark mode (`-b`). See [EXAMPLES](#EXAMPLES) for details.
@@ -105,14 +109,23 @@ Read xxHash sums from specific files and check them
 
     $ xxhsum -c xyz.xxh32 qux.xxh64
 
-Benchmark xxHash algorithm for 16384 bytes data in 10 times. `xxhsum`
-benchmarks all xxHash variants and output results to standard output.  
-The first column is the algorithm, thw second column is the source data
-size in bytes, the third column is the number of hashes generated per
-second (throughput), and finally the last column translates speed in
-megabytes per second.
+Benchmark xxHash algorithm.
+By default, `xxhsum` benchmarks xxHash main variants
+on a synthetic sample of 100 KB,
+and print results into standard output.
+The first column is the algorithm,
+the second column is the source data size in bytes,
+the third column is the number of hashes generated per second (throughput),
+and finally the last column translates speed in megabytes per second.
 
-    $ xxhsum -b -i10 -B16384
+    $ xxhsum -b
+
+In the following example,
+the sample to hash is set to 16384 bytes,
+the variants to be benched are selected by their IDs,
+and each benchmark test is repeated 10 times, for increased accuracy.
+
+    $ xxhsum -b1,2,3 -i10 -B16384
 
 BUGS
 ----

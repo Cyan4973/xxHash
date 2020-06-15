@@ -174,9 +174,13 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	# multiple files
 	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
 	# internal bench
-	$(RUN_ENV) ./xxhsum$(EXT) -bi1
+	$(RUN_ENV) ./xxhsum$(EXT) -bi0
+	# long bench command
+	$(RUN_ENV) ./xxhsum$(EXT) --benchmark-all -i0
+	# bench multiple variants
+	$(RUN_ENV) ./xxhsum$(EXT) -b1,2,3 -i0
 	# file bench
-	$(RUN_ENV) ./xxhsum$(EXT) -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -bi0 xxhash.c
 	# 32-bit
 	$(RUN_ENV) ./xxhsum$(EXT) -H0 xxhash.c
 	# 128-bit
@@ -312,7 +316,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze test-unicode
+test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace test-unicode
 
 .PHONY: test-tools
 test-tools:

@@ -383,6 +383,36 @@ XXHL64_secret_avx512(const void* XXH_RESTRICT input, size_t len, const void* sec
 }
 #endif
 
+/* ===   XXH3 update variants   === */
+
+XXH_NO_INLINE XXH_errorcode
+XXH3_64bits_update_scalar(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_64bits, XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
+}
+
+XXH_NO_INLINE XXH_TARGET_SSE2 XXH_errorcode
+XXH3_64bits_update_sse2(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_64bits, XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
+}
+
+XXH_NO_INLINE XXH_TARGET_AVX2 XXH_errorcode
+XXH3_64bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_64bits, XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
+}
+
+XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
+XXH3_64bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_64bits, XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
+}
+
 
 /* ===   XXH128 default variants   === */
 
@@ -476,6 +506,35 @@ XXHL128_seed_avx512(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t see
 }
 #endif
 
+/* ===   XXH128 update variants   === */
+
+XXH_NO_INLINE XXH_errorcode
+XXH3_128bits_update_scalar(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_128bits, XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
+}
+
+XXH_NO_INLINE XXH_TARGET_SSE2 XXH_errorcode
+XXH3_128bits_update_sse2(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_128bits, XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
+}
+
+XXH_NO_INLINE XXH_TARGET_AVX2 XXH_errorcode
+XXH3_128bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_128bits, XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
+}
+
+XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
+XXH3_128bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
+{
+    return XXH3_update(state, (const xxh_u8*)input, len,
+                       XXH3_acc_128bits, XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
+}
 
 /* ====    Dispatchers    ==== */
 
@@ -485,37 +544,23 @@ typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSeed)(const void* XXH_RES
 
 typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSecret)(const void* XXH_RESTRICT, size_t, const void* XXH_RESTRICT, size_t);
 
+typedef XXH_errorcode (*XXH3_dispatchx86_update)(XXH3_state_t*, const void*, size_t);
+
 typedef struct {
     XXH3_dispatchx86_hashLong64_default    hashLong64_default;
     XXH3_dispatchx86_hashLong64_withSeed   hashLong64_seed;
     XXH3_dispatchx86_hashLong64_withSecret hashLong64_secret;
+    XXH3_dispatchx86_update                update;
 } dispatchFunctions_s;
 
-static dispatchFunctions_s g_dispatch = { NULL, NULL, NULL};
+static dispatchFunctions_s g_dispatch = { NULL, NULL, NULL, NULL};
 
 #define NB_DISPATCHES 4
 static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
-        /* scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar },
-        /* sse2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2 },
-        /* avx2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2 },
-        /* avx512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512 }
-};
-
-typedef void (*XXH3_dispatchx86_accumulate_512)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT input, const void* XXH_RESTRICT secret, XXH3_accWidth_e accWidth);
-typedef void (*XXH3_dispatchx86_scrambleAcc)(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret);
-
-typedef struct {
-    XXH3_dispatchx86_accumulate_512  accumulate_512;
-    XXH3_dispatchx86_scrambleAcc     scrambleAcc;
-} coreFunctions_s;
-
-static coreFunctions_s g_coreFunc = { NULL, NULL };
-
-static const coreFunctions_s k_coreFunc[NB_DISPATCHES] = {
-        /* scalar */ { XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar },
-        /* sse2   */ { XXH3_accumulate_512_sse2,   XXH3_scrambleAcc_sse2 },
-        /* avx2   */ { XXH3_accumulate_512_avx2,   XXH3_scrambleAcc_avx2 },
-        /* avx512 */ { XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512 },
+        /* scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar, XXH3_64bits_update_scalar },
+        /* sse2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2,   XXH3_64bits_update_sse2 },
+        /* avx2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2,   XXH3_64bits_update_avx2 },
+        /* avx512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512, XXH3_64bits_update_avx512 }
 };
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(const void* XXH_RESTRICT, size_t);
@@ -528,15 +573,16 @@ typedef struct {
     XXH3_dispatchx86_hashLong128_default    hashLong128_default;
     XXH3_dispatchx86_hashLong128_withSeed   hashLong128_seed;
     XXH3_dispatchx86_hashLong128_withSecret hashLong128_secret;
+    XXH3_dispatchx86_update                 update;
 } dispatch128Functions_s;
 
-static dispatch128Functions_s g_dispatch128 = { NULL, NULL, NULL };
+static dispatch128Functions_s g_dispatch128 = { NULL, NULL, NULL, NULL };
 
 static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
-        /* scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar },
-        /* sse2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2 },
-        /* avx2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2 },
-        /* avx512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512 }
+        /* scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar, XXH3_128bits_update_scalar },
+        /* sse2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2,   XXH3_128bits_update_sse2 },
+        /* avx2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2,   XXH3_128bits_update_avx2 },
+        /* avx512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512, XXH3_128bits_update_avx512 }
 };
 
 static void setDispatch(void)
@@ -552,7 +598,6 @@ static void setDispatch(void)
 #endif
     g_dispatch = k_dispatch[vecID];
     g_dispatch128 = k_dispatch128[vecID];
-    g_coreFunc = k_coreFunc[vecID];
 }
 
 
@@ -603,9 +648,8 @@ XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, cons
 XXH_errorcode
 XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 {
-    if (g_coreFunc.accumulate_512 == NULL) setDispatch();
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_64bits, g_coreFunc.accumulate_512, g_coreFunc.scrambleAcc);
+    if (g_dispatch.update == NULL) setDispatch();
+    return g_dispatch.update(state, (const xxh_u8*)input, len);
 }
 
 
@@ -656,7 +700,6 @@ XXH128_hash_t XXH3_128bits_withSecret_dispatch(const void* input, size_t len, co
 XXH_errorcode
 XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 {
-    if (g_coreFunc.accumulate_512 == NULL) setDispatch();
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_128bits, g_coreFunc.accumulate_512, g_coreFunc.scrambleAcc);
+    if (g_dispatch128.update == NULL) setDispatch();
+    return g_dispatch128.update(state, (const xxh_u8*)input, len);
 }

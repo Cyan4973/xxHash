@@ -46,9 +46,10 @@
 /* ************************************
  *  Includes
  **************************************/
+#include <limits.h>
 #include <stdlib.h>     /* malloc, calloc, free, exit */
+#include <string.h>     /* strcmp, memcpy */
 #include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout, _fileno (when present) */
-#include <string.h>     /* strcmp */
 #include <sys/types.h>  /* stat, stat64, _stat64 */
 #include <sys/stat.h>   /* stat, stat64, _stat64 */
 #include <time.h>       /* clock_t, clock, CLOCKS_PER_SEC */
@@ -641,6 +642,22 @@ static U32 localXXH3_128b_secret(const void* buffer, size_t bufferSize, U32 seed
     (void)seed;
     return (U32)(XXH3_128bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf)).low64);
 }
+static U32 localXXH3_stream(const void* buffer, size_t bufferSize, U32 seed)
+{
+    XXH3_state_t state;
+    (void)seed;
+    XXH3_64bits_reset(&state);
+    XXH3_64bits_update(&state, buffer, bufferSize);
+    return (U32)XXH3_64bits_digest(&state);
+}
+static U32 localXXH128_stream(const void* buffer, size_t bufferSize, U32 seed)
+{
+    XXH3_state_t state;
+    (void)seed;
+    XXH3_128bits_reset(&state);
+    XXH3_128bits_update(&state, buffer, bufferSize);
+    return (U32)(XXH3_128bits_digest(&state).low64);
+}
 
 
 typedef struct {
@@ -648,7 +665,8 @@ typedef struct {
     hashFunction func;
 } hashInfo;
 
-static const hashInfo g_hashesToBench[] = {
+#define NB_HASHFUNC 10
+static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH32",             &localXXH32 },
     { "XXH64",             &localXXH64 },
     { "XXH3_64b",          &localXXH3_64b },
@@ -656,26 +674,36 @@ static const hashInfo g_hashesToBench[] = {
     { "XXH3_64b w/secret", &localXXH3_64b_secret },
     { "XXH128",            &localXXH3_128b },
     { "XXH128 w/seed",     &localXXH3_128b_seeded },
-    { "XXH128 w/secret",   &localXXH3_128b_secret }
+    { "XXH128 w/secret",   &localXXH3_128b_secret },
+    { "XXH3_stream",       &localXXH3_stream },
+    { "XXH128_stream",     &localXXH128_stream },
 };
 
-#define HASHNAME_MAX 29
+#define NB_TESTFUNC (1 + 2 * NB_HASHFUNC)
+static char g_testIDs[NB_TESTFUNC] = { 0 };
+static const char k_testIDs_default[NB_TESTFUNC] = { 0,
+        1 /*XXH32*/, 0,
+        1 /*XXH64*/, 0,
+        1 /*XXH3*/, 0, 0, 0, 0, 0,
+        1 /*XXH128*/ };
 
-static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer, size_t bufferSize)
+#define HASHNAME_MAX 29
+static void BMK_benchHash(hashFunction h, const char* hName, int testID,
+                          const void* buffer, size_t bufferSize)
 {
-    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first loop conservatively aims for 300 MB/s */
-    U32 iterationNb;
+    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
+    unsigned iterationNb, nbIterations = g_nbIterations + !g_nbIterations /* min 1 */;
     double fastestH = 100000000.;
     assert(HASHNAME_MAX > 2);
     DISPLAYLEVEL(2, "\r%80s\r", "");       /* Clean display line */
-    if (g_nbIterations<1) g_nbIterations=1;
-    for (iterationNb = 1; iterationNb <= g_nbIterations; iterationNb++) {
+
+    for (iterationNb = 1; iterationNb <= nbIterations; iterationNb++) {
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%1u-%-*.*s : %10u ->\r",
-                        (unsigned)iterationNb,
-                        HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+        DISPLAYLEVEL(2, "%2u-%-*.*s : %10u ->\r",
+                        iterationNb,
+                        HASHNAME_MAX, HASHNAME_MAX, hName,
                         (unsigned)bufferSize);
         cStart = clock();
         while (clock() == cStart);   /* starts clock() at its exact beginning */
@@ -685,7 +713,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
             for (u=0; u<nbh_perIteration; u++)
                 r += h(buffer, bufferSize, u);
         }
-        if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to defeat compiler "optimizing" away hash */
+        if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to defeat compiler "optimizing" hash away */
 
         {   clock_t const nbTicks = BMK_clockSpan(cStart);
             double const ticksPerHash = ((double)nbTicks / TIMELOOP) / nbh_perIteration;
@@ -720,23 +748,28 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
                     if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
                     nbh_perIteration = (U32)nbh_perSecond;
                 }
-                iterationNb--;   /* try again */
-                continue;
+                /* g_nbIterations==0 => quick evaluation, no claim of accuracy */
+                if (g_nbIterations>0) {
+                    iterationNb--;   /* new round for a more accurate speed evaluation */
+                    continue;
+                }
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
-            DISPLAYLEVEL(2, "%1u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
-                            (unsigned)iterationNb,
-                            HASHNAME_MAX-2, HASHNAME_MAX-2, hName,
+            if (fastestH>0.) { /* avoid div by zero */
+                DISPLAYLEVEL(2, "%2u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+                            iterationNb,
+                            HASHNAME_MAX, HASHNAME_MAX, hName,
                             (unsigned)bufferSize,
                             (double)1 / fastestH,
                             ((double)bufferSize / (1 MB)) / fastestH);
-        }
+        }   }
         {   double nbh_perSecond = (1 / fastestH) + 1;
             if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+    DISPLAYLEVEL(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+                    testID,
                     HASHNAME_MAX, HASHNAME_MAX, hName,
                     (unsigned)bufferSize,
                     (double)1 / fastestH,
@@ -748,49 +781,32 @@ static void BMK_benchHash(hashFunction h, const char* hName, const void* buffer,
 
 /*!
  * BMK_benchMem():
- * specificTest: 0 == run all tests, 1+ runs specific test
  * buffer: Must be 16-byte aligned.
  * The real allocated size of buffer is supposed to be >= (bufferSize+3).
  * returns: 0 on success, 1 if error (invalid mode selected)
  */
-static int BMK_benchMem(const void* buffer, size_t bufferSize, U32 specificTest)
+static void BMK_benchMem(const void* buffer, size_t bufferSize)
 {
-    BMK_fillTestBuffer(g_benchSecretBuf, sizeof(g_benchSecretBuf));
     assert((((size_t)buffer) & 15) == 0);  /* ensure alignment */
-    {   const size_t NUM_HASHES = sizeof(g_hashesToBench) / sizeof(g_hashesToBench[0]);
-        size_t i;
-        assert(NUM_HASHES > 0);
-
-        /*
-         * specificTest == 0: all hashes
-         * Otherwise, it is the hashes in order, starting at 1.
-         * There are two entries per hash, with the first one (2 * i + 1) testing
-         * an aligned buffer and the second one (2 * i + 2) testing an unaligned
-         * buffer.
-         * For example, specificTest == 2 tests XXH32 with an unaligned buffer
-         * in the default setup.
-         */
-        if (specificTest > 2 * NUM_HASHES) {
-            DISPLAY("Benchmark mode invalid.\n");
-            return 1;
-        }
-        for (i = 0; i < NUM_HASHES; i++) {
-            assert(g_hashesToBench[i].name != NULL);
+    BMK_fillTestBuffer(g_benchSecretBuf, sizeof(g_benchSecretBuf));
+    {   int i;
+        for (i = 1; i < NB_TESTFUNC; i++) {
+            int const hashFuncID = (i-1) / 2;
+            assert(g_hashesToBench[hashFuncID].name != NULL);
+            if (g_testIDs[i] == 0) continue;
             /* aligned */
-            if (specificTest == 0 || specificTest == 2 * i + 1) {
-                BMK_benchHash(g_hashesToBench[i].func, g_hashesToBench[i].name, buffer, bufferSize);
+            if ((i % 2) == 1) {
+                BMK_benchHash(g_hashesToBench[hashFuncID].func, g_hashesToBench[hashFuncID].name, i, buffer, bufferSize);
             }
             /* unaligned */
-            if (specificTest == 0 || specificTest == 2 * i + 2) {
+            if ((i % 2) == 0) {
                 /* Append "unaligned". */
-                char* hashNameBuf = XXH_strcatDup(g_hashesToBench[i].name, " unaligned");
+                char* const hashNameBuf = XXH_strcatDup(g_hashesToBench[hashFuncID].name, " unaligned");
                 assert(hashNameBuf != NULL);
-                BMK_benchHash(g_hashesToBench[i].func, hashNameBuf, ((const char*)buffer)+3, bufferSize);
+                BMK_benchHash(g_hashesToBench[hashFuncID].func, hashNameBuf, i, ((const char*)buffer)+3, bufferSize);
                 free(hashNameBuf);
             }
     }   }
-
-    return 0;
 }
 
 static size_t BMK_selectBenchedSize(const char* fileName)
@@ -805,11 +821,9 @@ static size_t BMK_selectBenchedSize(const char* fileName)
 }
 
 
-static int BMK_benchFiles(char** fileNamesTable, int nbFiles, U32 specificTest)
+static int BMK_benchFiles(char** fileNamesTable, int nbFiles)
 {
-    int result = 0;
     int fileIdx;
-
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
         const char* const inFileName = fileNamesTable[fileIdx];
         assert(inFileName != NULL);
@@ -823,12 +837,12 @@ static int BMK_benchFiles(char** fileNamesTable, int nbFiles, U32 specificTest)
             if (inFile==NULL){
                 DISPLAY("Error: Could not open '%s': %s.\n", inFileName, strerror(errno));
                 free(buffer);
-                return 11;
+                exit(11);
             }
             if(!buffer) {
                 DISPLAY("\nError: Out of memory.\n");
                 fclose(inFile);
-                return 12;
+                exit(12);
             }
 
             /* Fill input buffer */
@@ -837,25 +851,24 @@ static int BMK_benchFiles(char** fileNamesTable, int nbFiles, U32 specificTest)
                 if(readSize != benchedSize) {
                     DISPLAY("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
                     free(buffer);
-                    return 13;
+                    exit(13);
             }   }
 
             /* bench */
-            result |= BMK_benchMem(alignedBuffer, benchedSize, specificTest);
+            BMK_benchMem(alignedBuffer, benchedSize);
 
             free(buffer);
     }   }
-
-    return result;
+    return 0;
 }
 
 
-static int BMK_benchInternal(size_t keySize, U32 specificTest)
+static int BMK_benchInternal(size_t keySize)
 {
     void* const buffer = calloc(keySize+16+3, 1);
-    if (!buffer) {
+    if (buffer == NULL) {
         DISPLAY("\nError: Out of memory.\n");
-        return 12;
+        exit(12);
     }
 
     {   const void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
@@ -869,10 +882,10 @@ static int BMK_benchInternal(size_t keySize, U32 specificTest)
         }
         DISPLAYLEVEL(1, "...        \n");
 
-        {   int const result = BMK_benchMem(alignedBuffer, keySize, specificTest);
-            free(buffer);
-            return result;
-    }   }
+        BMK_benchMem(alignedBuffer, keySize);
+        free(buffer);
+    }
+    return 0;
 }
 
 
@@ -1631,8 +1644,8 @@ static int charToHex(char c)
 
 
 /*
- * Converts XXH32 canonical hexadecimal string `hashStr` to the big endian unsigned
- * char array `dst`.
+ * Converts canonical ASCII hexadecimal string `hashStr`
+ * to the big endian binary representation in unsigned char array `dst`.
  *
  * Returns CANONICAL_FROM_STRING_INVALID_FORMAT if hashStr is not well formatted.
  * Returns CANONICAL_FROM_STRING_OK if hashStr is parsed successfully.
@@ -1930,7 +1943,7 @@ static int checkFile(const char* inFileName,
     parseFileArg->inFileName    = inFileName;
     parseFileArg->inFile        = inFile;
     parseFileArg->lineMax       = DEFAULT_LINE_LENGTH;
-    parseFileArg->lineBuf       = (char*) malloc((size_t) parseFileArg->lineMax);
+    parseFileArg->lineBuf       = (char*) malloc((size_t)parseFileArg->lineMax);
     parseFileArg->blockSize     = 64 * 1024;
     parseFileArg->blockBuf      = (char*) malloc(parseFileArg->blockSize);
     parseFileArg->strictMode    = strictMode;
@@ -1938,6 +1951,11 @@ static int checkFile(const char* inFileName,
     parseFileArg->warn          = warn;
     parseFileArg->quiet         = quiet;
 
+    if ( (parseFileArg->lineBuf == NULL)
+      || (parseFileArg->blockBuf == NULL) ) {
+        DISPLAY("Error: : memory allocation failed \n");
+        exit(1);
+    }
     parseFile1(parseFileArg);
 
     free(parseFileArg->blockBuf);
@@ -2106,7 +2124,8 @@ static int XXH_main(int argc, char** argv)
     U32 strictMode    = 0;
     U32 statusOnly    = 0;
     U32 warn          = 0;
-    U32 specificTest  = 0;
+    U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
+    static const U32 kBenchAll = 99;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
     algoType algo     = g_defaultAlgo;
     endianess displayEndianess = big_endian;
@@ -2121,14 +2140,16 @@ static int XXH_main(int argc, char** argv)
 
         if(!argument) continue;   /* Protection if arguments are empty */
 
-        if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
+        if (!strcmp(argument, "--benchmark-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
+        if (!strcmp(argument, "--bench-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
+        if (!strcmp(argument, "--quiet")) { g_displayLevel--; continue; }
+        if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
-        if (!strcmp(argument, "--quiet")) { g_displayLevel--; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
-        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); return 0; }
+        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
@@ -2173,7 +2194,14 @@ static int XXH_main(int argc, char** argv)
             case 'b':
                 argument++;
                 benchmarkMode = 1;
-                specificTest = readU32FromChar(&argument); /* select one specific test */
+                do {
+                    if (*argument == ',') argument++;
+                    selectBenchIDs = readU32FromChar(&argument); /* select one specific test */
+                    if (selectBenchIDs < NB_TESTFUNC) {
+                        g_testIDs[selectBenchIDs] = 1;
+                    } else
+                        selectBenchIDs = kBenchAll;
+                } while (*argument == ',');
                 break;
 
             /* Modify Nb Iterations (benchmark only) */
@@ -2204,8 +2232,10 @@ static int XXH_main(int argc, char** argv)
     if (benchmarkMode) {
         DISPLAYLEVEL(2, WELCOME_MESSAGE(exename) );
         BMK_sanityCheck();
-        if (filenamesStart==0) return BMK_benchInternal(keySize, specificTest);
-        return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart, specificTest);
+        if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, sizeof(g_testIDs));
+        if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, sizeof(g_testIDs));
+        if (filenamesStart==0) return BMK_benchInternal(keySize);
+        return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart);
     }
 
     /* Check if input is defined as console; trigger an error in this case */

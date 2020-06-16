@@ -383,7 +383,9 @@ static unsigned BMK_isLittleEndian(void)
 
 /* Try to detect the architecture. */
 #if defined(ARCH_X86)
-#  if defined(__AVX512F__)
+#  if defined(XXHSUM_DISPATCH)
+#    define ARCH ARCH_X86 " autoVec"
+#  elif defined(__AVX512F__)
 #    define ARCH ARCH_X86 " + AVX512"
 #  elif defined(__AVX2__)
 #    define ARCH ARCH_X86 " + AVX2"

@@ -44,8 +44,17 @@ CFLAGS += $(DEBUGFLAGS) $(MOREFLAGS)
 FLAGS   = $(CFLAGS) $(CPPFLAGS)
 XXHSUM_VERSION = $(LIBVER)
 
+ifeq '$(findstring ;,$(PATH))' ';'
+    UNAME := Windows
+else
+    UNAME := $(shell uname 2>/dev/null || echo Unknown)
+    UNAME := $(patsubst CYGWIN%,Cygwin,$(UNAME))
+    UNAME := $(patsubst MSYS%,MSYS,$(UNAME))
+    UNAME := $(patsubst MINGW%,MSYS,$(UNAME))
+endif
+
 # Define *.exe as extension for Windows systems
-ifneq (,$(filter Windows%,$(OS)))
+ifeq ($(UNAME), Windows)
 EXT =.exe
 else
 EXT =
@@ -53,7 +62,7 @@ endif
 
 # OS X linker doesn't support -soname, and use different extension
 # see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
-ifeq ($(shell uname), Darwin)
+ifeq ($(UNAME), Darwin)
 	SHARED_EXT = dylib
 	SHARED_EXT_MAJOR = $(LIBVER_MAJOR).$(SHARED_EXT)
 	SHARED_EXT_VER = $(LIBVER).$(SHARED_EXT)
@@ -115,7 +124,7 @@ libxxhash.a: xxhash.o
 	$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
-ifeq (,$(filter Windows%,$(OS)))
+ifneq ($(UNAME), Windows)
 $(LIBXXH): CFLAGS += -fPIC
 endif
 $(LIBXXH): xxhash.c
@@ -335,7 +344,7 @@ trailingWhitespace:
 # =========================================================
 # make install is validated only for the following targets
 # =========================================================
-ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
+ifneq (,$(filter $(UNAME),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS Cygwin))
 
 DESTDIR     ?=
 # directory variables: GNU conventions prefer lowercase
@@ -354,19 +363,19 @@ datarootdir ?= $(PREFIX)/share
 mandir      ?= $(datarootdir)/man
 man1dir     ?= $(mandir)/man1
 
-ifneq (,$(filter $(shell uname),FreeBSD NetBSD DragonFly))
+ifneq (,$(filter $(UNAME),FreeBSD NetBSD DragonFly))
 PKGCONFIGDIR ?= $(PREFIX)/libdata/pkgconfig
 else
 PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
 endif
 
-ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
+ifneq (,$(filter $(UNAME),OpenBSD FreeBSD NetBSD DragonFly SunOS))
 MANDIR  ?= $(PREFIX)/man/man1
 else
 MANDIR  ?= $(man1dir)
 endif
 
-ifneq (,$(filter $(shell uname),SunOS))
+ifneq (,$(filter $(UNAME),SunOS))
 INSTALL ?= ginstall
 else
 INSTALL ?= install
@@ -410,6 +419,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
+	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
 	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum

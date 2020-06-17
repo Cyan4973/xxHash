@@ -117,7 +117,7 @@ libxxhash.a: xxhash.o
 	$(AR) $(ARFLAGS) $@ $^
 
 $(LIBXXH): LDFLAGS += -shared
-ifneq ($(UNAME), Windows)
+ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
 $(LIBXXH): xxhash.c

@@ -26,9 +26,10 @@
 # ################################################################
 
 # Version numbers
-LIBVER_MAJOR_SCRIPT:=`sed -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_MINOR_SCRIPT:=`sed -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_PATCH_SCRIPT:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+SED ?= sed
+LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
 LIBVER_MAJOR := $(shell echo $(LIBVER_MAJOR_SCRIPT))
 LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
@@ -43,18 +44,10 @@ DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
 CFLAGS += $(DEBUGFLAGS) $(MOREFLAGS)
 FLAGS   = $(CFLAGS) $(CPPFLAGS)
 XXHSUM_VERSION = $(LIBVER)
-
-ifeq '$(findstring ;,$(PATH))' ';'
-    UNAME := Windows
-else
-    UNAME := $(shell uname 2>/dev/null || echo Unknown)
-    UNAME := $(patsubst CYGWIN%,Cygwin,$(UNAME))
-    UNAME := $(patsubst MSYS%,MSYS,$(UNAME))
-    UNAME := $(patsubst MINGW%,MSYS,$(UNAME))
-endif
+UNAME := $(shell uname)
 
 # Define *.exe as extension for Windows systems
-ifeq ($(UNAME), Windows)
+ifneq (,$(filter Windows%,$(OS)))
 EXT =.exe
 else
 EXT =
@@ -141,7 +134,7 @@ lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
 
 pkgconfig:
-	@sed -e 's|@PREFIX@|$(PREFIX)|' \
+	@$(SED) -e 's|@PREFIX@|$(PREFIX)|' \
 		-e 's|@VERSION@|$(LIBVER)|' \
 		libxxhash.pc.in >libxxhash.pc
 
@@ -232,6 +225,8 @@ test-xxhsum-c: xxhsum
 	# read list of files from stdin
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
+	# check variant with '*' marker as second separator
+	$(SED) 's/  / \*/' .test.xxh32 | ./xxhsum -c
 	# xxhsum -c warns improperly format lines.
 	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
 	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly
@@ -302,7 +297,7 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 xxhsum.1: xxhsum.1.md xxhash.h
-	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
+	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | $(SED) -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
 man: xxhsum.1  ## generate man page from markdown source
@@ -344,7 +339,7 @@ trailingWhitespace:
 # =========================================================
 # make install is validated only for the following targets
 # =========================================================
-ifneq (,$(filter $(UNAME),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS Cygwin))
+ifneq (,$(filter Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS CYGWIN% , $(shell uname)))
 
 DESTDIR     ?=
 # directory variables: GNU conventions prefer lowercase

@@ -823,7 +823,7 @@ static size_t BMK_selectBenchedSize(const char* fileName)
 }
 
 
-static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
+static int BMK_benchFiles(const char*const* fileNamesTable, int nbFiles)
 {
     int fileIdx;
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
@@ -1559,7 +1559,7 @@ static int XSUM_hashFile(const char* fileName,
  * XSUM_hashFiles:
  * If fnTotal==0, read from stdin instead.
  */
-static int XSUM_hashFiles(const char* fnList[], int fnTotal,
+static int XSUM_hashFiles(const char*const * fnList, int fnTotal,
                           AlgoSelected hashType,
                           Display_endianess displayEndianess,
                           Display_convention convention)
@@ -2061,7 +2061,7 @@ static int checkFile(const char* inFileName,
 }
 
 
-static int checkFiles(const char** fnList, int fnTotal,
+static int checkFiles(const char*const* fnList, int fnTotal,
                       const Display_endianess displayEndianess,
                       U32 strictMode,
                       U32 statusOnly,
@@ -2181,7 +2181,7 @@ static U32 readU32FromChar(const char** stringPtr) {
     return result;
 }
 
-static int XXH_main(int argc, const char** argv)
+static int XXH_main(int argc, const char* const* argv)
 {
     int i, filenamesStart = 0;
     const char* const exename = argv[0];
@@ -2327,9 +2327,9 @@ static int XXH_main(int argc, const char** argv)
 /* Windows main wrapper which properly handles UTF-8 command line arguments. */
 #ifdef _WIN32
 /* Converts a UTF-16 argv to UTF-8. */
-static char** convert_argv(int argc, wchar_t** utf16_argv)
+static char** convert_argv(int argc, const wchar_t* const utf16_argv[])
 {
-    char** utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
+    char** const utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
     if (utf8_argv != NULL) {
         int i;
         for (i = 0; i < argc; i++) {
@@ -2365,7 +2365,7 @@ static void free_argv(int argc, char** argv)
  * This function is wrapped by `__wgetmainargs()` and `main()` below on MinGW
  * with Unicode disabled, but if possible, we try to use `wmain()`.
  */
-static int XXH_wmain(int argc, wchar_t** utf16_argv)
+static int XXH_wmain(int argc, const wchar_t* const utf16_argv[])
 {
     /* Convert the UTF-16 arguments to UTF-8. */
     char** utf8_argv = convert_argv(argc, utf16_argv);
@@ -2388,7 +2388,7 @@ static int XXH_wmain(int argc, wchar_t** utf16_argv)
         setvbuf(stderr, NULL, _IONBF, 0);
 
         /* Call our real main function */
-        ret = XXH_main(argc, utf8_argv);
+        ret = XXH_main(argc, (const char* const *) utf8_argv);
 
         /* Cleanup */
         free_argv(argc, utf8_argv);
@@ -2403,7 +2403,7 @@ static int XXH_wmain(int argc, wchar_t** utf16_argv)
 #if defined(__cplusplus)
 extern "C"
 #endif
-int wmain(int argc, wchar_t** utf16_argv)
+int wmain(int argc, const wchar_t* utf16_argv[])
 {
     return XXH_wmain(argc, utf16_argv);
 }
@@ -2443,7 +2443,7 @@ int __cdecl __wgetmainargs(
     _startupinfo* StartInfo
 );
 
-int main(int ansi_argc, char** ansi_argv)
+int main(int ansi_argc, const char* ansi_argv[])
 {
     int       utf16_argc;
     wchar_t** utf16_argv;
@@ -2456,7 +2456,7 @@ int main(int ansi_argc, char** ansi_argv)
         return XXH_main(ansi_argc, ansi_argv);
 
     /* Call XXH_wmain with our UTF-16 arguments */
-    return XXH_wmain(utf16_argc, utf16_argv);
+    return XXH_wmain(utf16_argc, (const wchar_t* const *)utf16_argv);
 }
 
 #endif /* Non-Unicode MinGW */
@@ -2464,7 +2464,7 @@ int main(int ansi_argc, char** ansi_argv)
 #else /* Not Windows */
 
 /* Wrap main normally on non-Windows platforms. */
-int main(int argc, const char** argv)
+int main(int argc, const char* argv[])
 {
     return XXH_main(argc, argv);
 }

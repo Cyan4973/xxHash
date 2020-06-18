@@ -1496,7 +1496,7 @@ static int XSUM_hashFile(const char* fileName,
     FILE* inFile;
     Multihash hashValue;
     assert(displayEndianess==big_endian || displayEndianess==little_endian);
-    assert(displayEndianess==display_gnu || displayEndianess==display_bsd);
+    assert(convention==display_gnu || convention==display_bsd);
 
     /* Check file existence */
     if (fileName == stdinName) {

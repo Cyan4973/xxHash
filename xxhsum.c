@@ -1308,7 +1308,6 @@ static void BMK_sanityCheck(void)
     {   XXH128_hash_t const expected = { 0x6F5360AE69C2F406ULL, 0xD23AAE4B76C31ECBULL };
         BMK_testXXH128(sanityBuffer,2367, PRIME32, expected);       /* two blocks, last stripe is overlapping */
     }
-#endif
 
     /* secret generator */
     {   verifSample_t const expected = { { 0xB8, 0x26, 0x83, 0x7E } };
@@ -1326,6 +1325,7 @@ static void BMK_sanityCheck(void)
     {   verifSample_t const expected = { { 0x7E, 0x48, 0x0C, 0xA7 } };
         BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_DEFAULT_SIZE + 500, expected);
     }
+#endif
 
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */

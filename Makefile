@@ -120,6 +120,9 @@ $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
+ifeq ($(DISPATCH),1)
+$(LIBXXH): xxh_x86dispatch.c
+endif
 $(LIBXXH): xxhash.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)

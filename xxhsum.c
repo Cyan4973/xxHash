@@ -1212,7 +1212,7 @@ static void BMK_sanityCheck(void)
     /* XXH3 with Custom Secret */
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
-        assert(sizeof(sanityBuffer) >= XXH3_SECRET_SIZE_MIN + 7 + 11);
+        assert(sizeof(sanityBuffer) >= 7 + secretSize);
         BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0x6775FD10343C92C3ULL);  /* empty string */
         BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0xC3382C326E24E3CDULL);  /*  1 -  3 */
         BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0x82C90AB0519369ADULL);  /*  4 -  8 */
@@ -1226,6 +1226,8 @@ static void BMK_sanityCheck(void)
         BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x7896E65DCFA09071ULL);  /* one block, finishing at stripe boundary */
         BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0xD6545DB87ECFD98CULL);  /* >= 2 blocks, at least one scrambling */
         BMK_testXXH3_withSecret(sanityBuffer,2367, secret, secretSize, 0x857320340D953686ULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
+
+        BMK_testXXH3_withSecret(sanityBuffer,64*10*3, secret, secretSize, 0xD4989A002E9850ABULL);  /* exactly 3 full blocks, not a multiple of 256 */
     }
 
     /* XXH128 */

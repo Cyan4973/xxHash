@@ -1995,23 +1995,25 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 XXH_FORCE_INLINE void
 XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
-                    const xxh_u8* XXH_RESTRICT input, size_t totalStripes,
+                    const xxh_u8* XXH_RESTRICT input, size_t nbStripes,
                     const xxh_u8* XXH_RESTRICT secret, size_t secretLimit,
                     XXH3_accWidth_e accWidth,
                     XXH3_f_accumulate_512 f_acc512,
                     XXH3_f_scrambleAcc f_scramble)
 {
+    XXH_ASSERT(nbStripes <= nbStripesPerBlock);  /* can handle max 1 scramble per invocation */
     XXH_ASSERT(*nbStripesSoFarPtr < nbStripesPerBlock);
-    if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
+    if (nbStripesPerBlock - *nbStripesSoFarPtr <= nbStripes) {
         /* need a scrambling operation */
-        size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth, f_acc512);
+        size_t const nbStripesToEndofBlock = nbStripesPerBlock - *nbStripesSoFarPtr;
+        size_t const nbStripesAfterBlock = nbStripes - nbStripesToEndofBlock;
+        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripesToEndofBlock, accWidth, f_acc512);
         f_scramble(acc, secret + secretLimit);
-        XXH3_accumulate(acc, input + nbStripes * XXH_STRIPE_LEN, secret, totalStripes - nbStripes, accWidth, f_acc512);
-        *nbStripesSoFarPtr = totalStripes - nbStripes;
+        XXH3_accumulate(acc, input + nbStripesToEndofBlock * XXH_STRIPE_LEN, secret, nbStripesAfterBlock, accWidth, f_acc512);
+        *nbStripesSoFarPtr = nbStripesAfterBlock;
     } else {
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth, f_acc512);
-        *nbStripesSoFarPtr += totalStripes;
+        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth, f_acc512);
+        *nbStripesSoFarPtr += nbStripes;
     }
 }
 
@@ -2063,7 +2065,7 @@ XXH3_update(XXH3_state_t* state,
             state->bufferedSize = 0;
         }
 
-        /* Consume input by full buffer quantities */
+        /* Consume input by a multiple of internal buffer size */
         if (input+XXH3_INTERNALBUFFER_SIZE <= bEnd) {
             const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {

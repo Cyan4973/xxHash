@@ -1337,10 +1337,12 @@ static void BMK_sanityCheck(void)
 /* ********************************************************
 *  File Hashing
 **********************************************************/
+typedef void (*XSUM_displayHash_f)(const void*, size_t);  /* display function signature */
 
+/* for support of --little-endian display mode */
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
-    const U8* p = (const U8*)ptr;
+    const U8* const p = (const U8*)ptr;
     size_t idx;
     for (idx=length-1; idx<length; idx--)    /* intentional underflow to negative to detect end */
         DISPLAYRESULT("%02x", p[idx]);
@@ -1348,7 +1350,7 @@ static void BMK_display_LittleEndian(const void* ptr, size_t length)
 
 static void BMK_display_BigEndian(const void* ptr, size_t length)
 {
-    const U8* p = (const U8*)ptr;
+    const U8* const p = (const U8*)ptr;
     size_t idx;
     for (idx=0; idx<length; idx++)
         DISPLAYRESULT("%02x", p[idx]);
@@ -1428,10 +1430,11 @@ static int BMK_hash(const char* fileName,
                     const algoType hashType,
                     const endianess displayEndianess)
 {
-    FILE*  inFile;
+    FILE* inFile;
     size_t const blockSize = 64 KB;
-    void*  buffer;
     Multihash hashValue;
+    XSUM_displayHash_f const f_displayHash = (displayEndianess==big_endian) ?
+                                BMK_display_BigEndian : BMK_display_LittleEndian;
 
     /* Check file existence */
     if (fileName == stdinName) {
@@ -1447,18 +1450,19 @@ static int BMK_hash(const char* fileName,
     }
 
     /* Memory allocation & restrictions */
-    buffer = malloc(blockSize);
-    if(!buffer) {
-        DISPLAY("\nError: Out of memory.\n");
+    {   void* const buffer = malloc(blockSize);
+        if(!buffer) {
+            DISPLAY("\nError: Out of memory.\n");
+            fclose(inFile);
+            return 1;
+        }
+
+        /* Load file & update hash */
+        hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
+
         fclose(inFile);
-        return 1;
+        free(buffer);
     }
-
-    /* Load file & update hash */
-    hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
-
-    fclose(inFile);
-    free(buffer);
 
     /* display Hash value followed by file name */
     switch(hashType)
@@ -1466,22 +1470,19 @@ static int BMK_hash(const char* fileName,
     case algo_xxh32:
         {   XXH32_canonical_t hcbe32;
             (void)XXH32_canonicalFromHash(&hcbe32, hashValue.xxh32);
-            displayEndianess==big_endian ?
-                BMK_display_BigEndian(&hcbe32, sizeof(hcbe32)) : BMK_display_LittleEndian(&hcbe32, sizeof(hcbe32));
+            f_displayHash(&hcbe32, sizeof(hcbe32));
             break;
         }
     case algo_xxh64:
         {   XXH64_canonical_t hcbe64;
             (void)XXH64_canonicalFromHash(&hcbe64, hashValue.xxh64);
-            displayEndianess==big_endian ?
-                BMK_display_BigEndian(&hcbe64, sizeof(hcbe64)) : BMK_display_LittleEndian(&hcbe64, sizeof(hcbe64));
+            f_displayHash(&hcbe64, sizeof(hcbe64));
             break;
         }
     case algo_xxh128:
         {   XXH128_canonical_t hcbe128;
             (void)XXH128_canonicalFromHash(&hcbe128, hashValue.xxh128);
-            displayEndianess==big_endian ?
-                BMK_display_BigEndian(&hcbe128, sizeof(hcbe128)) : BMK_display_LittleEndian(&hcbe128, sizeof(hcbe128));
+            f_displayHash(&hcbe128, sizeof(hcbe128));
             break;
         }
     default:

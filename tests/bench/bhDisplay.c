@@ -100,7 +100,7 @@ static void bench_latency_oneHash_smallInputs(Bench_Entry hashDesc, size_t size_
         double const nbhps = bench_hash(hashDesc.hash, BMK_latency,
                                         s, BMK_fixedSize,
                                         BENCH_SMALL_TOTAL_MS, BENCH_SMALL_ITER_MS);
-        printf(",%11.1f", nbhps); fflush(NULL);
+        printf(",%10.0f", nbhps); fflush(NULL);
     }
     printf("\n");
 }
@@ -123,7 +123,7 @@ static void bench_randomInputLength_withOneHash(Bench_Entry hashDesc, size_t siz
         double const nbhps = bench_hash(hashDesc.hash, BMK_throughput,
                                         s, BMK_randomSize,
                                         BENCH_SMALL_TOTAL_MS, BENCH_SMALL_ITER_MS);
-        printf(",%11.1f", nbhps); fflush(NULL);
+        printf(",%10.0f", nbhps); fflush(NULL);
     }
     printf("\n");
 }
@@ -146,7 +146,7 @@ static void bench_latency_oneHash_randomInputLength(Bench_Entry hashDesc, size_t
         double const nbhps = bench_hash(hashDesc.hash, BMK_latency,
                                         s, BMK_randomSize,
                                         BENCH_SMALL_TOTAL_MS, BENCH_SMALL_ITER_MS);
-        printf(",%11.1f", nbhps); fflush(NULL);
+        printf(",%10.0f", nbhps); fflush(NULL);
     }
     printf("\n");
 }

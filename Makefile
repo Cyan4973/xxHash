@@ -120,6 +120,9 @@ $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
+ifeq ($(DISPATCH),1)
+$(LIBXXH): xxh_x86dispatch.c
+endif
 $(LIBXXH): xxhash.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
@@ -391,6 +394,9 @@ install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
 	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+ifeq ($(DISPATCH),1)
+	@$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
+endif
 	@echo Installing pkgconfig
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
 	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
@@ -415,6 +421,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
+	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh_x86dispatch.h
 	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum

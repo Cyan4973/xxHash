@@ -467,8 +467,8 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
-typedef enum { algo_xxh32, algo_xxh64, algo_xxh128 } algoType;
-static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
+typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2 } AlgoSelected;
+static const AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
  * '4096' is typical Linux PATH_MAX configuration. */
@@ -823,7 +823,7 @@ static size_t BMK_selectBenchedSize(const char* fileName)
 }
 
 
-static int BMK_benchFiles(char** fileNamesTable, int nbFiles)
+static int BMK_benchFiles(const char*const* fileNamesTable, int nbFiles)
 {
     int fileIdx;
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
@@ -1337,8 +1337,6 @@ static void BMK_sanityCheck(void)
 /* ********************************************************
 *  File Hashing
 **********************************************************/
-typedef void (*XSUM_displayHash_f)(const void*, size_t);  /* display function signature */
-
 /* for support of --little-endian display mode */
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
@@ -1363,14 +1361,14 @@ typedef union {
 } Multihash;
 
 /*
- * BMK_hashStream:
+ * XSUM_hashStream:
  * Reads data from `inFile`, generating an incremental hash of type hashType,
  * using `buffer` of size `blockSize` for temporary storage.
  */
 static Multihash
-BMK_hashStream(FILE* inFile,
-               algoType hashType,
-               void* buffer, size_t blockSize)
+XSUM_hashStream(FILE* inFile,
+                AlgoSelected hashType,
+                void* buffer, size_t blockSize)
 {
     XXH32_state_t state32;
     XXH64_state_t state64;
@@ -1423,18 +1421,82 @@ BMK_hashStream(FILE* inFile,
     }
 }
 
+                                       /* algo_xxh32, algo_xxh64, algo_xxh128 */
+static const char* XSUM_algoName[] =    { "XXH32",    "XXH64",    "XXH128" };
+static const char* XSUM_algoLE_name[] = { "XXH32_LE", "XXH64_LE", "XXH128_LE" };
+static const size_t XSUM_algoLength[] = { 4,          8,          16 };
 
-typedef enum { big_endian, little_endian} endianess;
+#define XSUM_TABLE_ELT_SIZE(table)   (sizeof(table) / sizeof(*table))
 
-static int BMK_hash(const char* fileName,
-                    const algoType hashType,
-                    const endianess displayEndianess)
+typedef void (*XSUM_displayHash_f)(const void*, size_t);  /* display function signature */
+
+static void XSUM_printLine_BSD_internal(const char* filename,
+                                        const void* canonicalHash, const AlgoSelected hashType,
+                                        const char* algoString[],
+                                        XSUM_displayHash_f f_displayHash)
 {
-    FILE* inFile;
+    assert(0 <= hashType && hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
+    {   const char* const typeString = algoString[hashType];
+        const size_t hashLength = XSUM_algoLength[hashType];
+        DISPLAYRESULT("%s (%s) = ", typeString, filename);
+        f_displayHash(canonicalHash, hashLength);
+        DISPLAYRESULT("\n");
+}   }
+
+static void XSUM_printLine_BSD_LE(const char* filename, const void* canonicalHash, const AlgoSelected hashType)
+{
+    XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoLE_name, BMK_display_LittleEndian);
+}
+
+static void XSUM_printLine_BSD(const char* filename, const void* canonicalHash, const AlgoSelected hashType)
+{
+    XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoName, BMK_display_BigEndian);
+}
+
+static void XSUM_printLine_GNU_internal(const char* filename,
+                               const void* canonicalHash, const AlgoSelected hashType,
+                               XSUM_displayHash_f f_displayHash)
+{
+    assert(0 <= hashType && hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
+    {   const size_t hashLength = XSUM_algoLength[hashType];
+        f_displayHash(canonicalHash, hashLength);
+        DISPLAYRESULT("  %s\n", filename);
+}   }
+
+static void XSUM_printLine_GNU(const char* filename,
+                               const void* canonicalHash, const AlgoSelected hashType)
+{
+    XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, BMK_display_BigEndian);
+}
+
+static void XSUM_printLine_GNU_LE(const char* filename,
+                                  const void* canonicalHash, const AlgoSelected hashType)
+{
+    XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, BMK_display_LittleEndian);
+}
+
+typedef enum { big_endian, little_endian} Display_endianess;
+
+typedef enum { display_gnu, display_bsd } Display_convention;
+
+typedef void (*XSUM_displayLine_f)(const char*, const void*, AlgoSelected);  /* line display signature */
+
+static XSUM_displayLine_f XSUM_kDisplayLine_fTable[2][2] = {
+    { XSUM_printLine_GNU, XSUM_printLine_GNU_LE },
+    { XSUM_printLine_BSD, XSUM_printLine_BSD_LE }
+};
+
+static int XSUM_hashFile(const char* fileName,
+                         const AlgoSelected hashType,
+                         const Display_endianess displayEndianess,
+                         const Display_convention convention)
+{
     size_t const blockSize = 64 KB;
+    XSUM_displayLine_f const f_displayLine = XSUM_kDisplayLine_fTable[convention][displayEndianess];
+    FILE* inFile;
     Multihash hashValue;
-    XSUM_displayHash_f const f_displayHash = (displayEndianess==big_endian) ?
-                                BMK_display_BigEndian : BMK_display_LittleEndian;
+    assert(displayEndianess==big_endian || displayEndianess==little_endian);
+    assert(convention==display_gnu || convention==display_bsd);
 
     /* Check file existence */
     if (fileName == stdinName) {
@@ -1449,66 +1511,67 @@ static int BMK_hash(const char* fileName,
         return 1;
     }
 
-    /* Memory allocation & restrictions */
+    /* Memory allocation & streaming */
     {   void* const buffer = malloc(blockSize);
-        if(!buffer) {
+        if (!buffer) {
             DISPLAY("\nError: Out of memory.\n");
             fclose(inFile);
             return 1;
         }
 
-        /* Load file & update hash */
-        hashValue = BMK_hashStream(inFile, hashType, buffer, blockSize);
+        /* Stream file & update hash */
+        hashValue = XSUM_hashStream(inFile, hashType, buffer, blockSize);
 
         fclose(inFile);
         free(buffer);
     }
 
-    /* display Hash value followed by file name */
+    /* display Hash value in selected format */
     switch(hashType)
     {
     case algo_xxh32:
         {   XXH32_canonical_t hcbe32;
             (void)XXH32_canonicalFromHash(&hcbe32, hashValue.xxh32);
-            f_displayHash(&hcbe32, sizeof(hcbe32));
+            f_displayLine(fileName, &hcbe32, hashType);
             break;
         }
     case algo_xxh64:
         {   XXH64_canonical_t hcbe64;
             (void)XXH64_canonicalFromHash(&hcbe64, hashValue.xxh64);
-            f_displayHash(&hcbe64, sizeof(hcbe64));
+            f_displayLine(fileName, &hcbe64, hashType);
             break;
         }
     case algo_xxh128:
         {   XXH128_canonical_t hcbe128;
             (void)XXH128_canonicalFromHash(&hcbe128, hashValue.xxh128);
-            f_displayHash(&hcbe128, sizeof(hcbe128));
+            f_displayLine(fileName, &hcbe128, hashType);
             break;
         }
     default:
-        assert(0);
+        assert(0);  /* not possible */
     }
-    DISPLAYRESULT("  %s\n", fileName);
 
     return 0;
 }
 
 
 /*
- * BMK_hashFiles:
+ * XSUM_hashFiles:
  * If fnTotal==0, read from stdin instead.
  */
-static int BMK_hashFiles(char** fnList, int fnTotal,
-                         algoType hashType, endianess displayEndianess)
+static int XSUM_hashFiles(const char*const * fnList, int fnTotal,
+                          AlgoSelected hashType,
+                          Display_endianess displayEndianess,
+                          Display_convention convention)
 {
     int fnNb;
     int result = 0;
 
     if (fnTotal==0)
-        return BMK_hash(stdinName, hashType, displayEndianess);
+        return XSUM_hashFile(stdinName, hashType, displayEndianess, convention);
 
     for (fnNb=0; fnNb<fnTotal; fnNb++)
-        result += BMK_hash(fnList[fnNb], hashType, displayEndianess);
+        result |= XSUM_hashFile(fnList[fnNb], hashType, displayEndianess, convention);
     DISPLAYLEVEL(2, "\r%70s\r", "");
     return result;
 }
@@ -1831,21 +1894,21 @@ static void parseFile1(ParseFileArg* parseFileArg)
             switch (parsedLine.xxhBits)
             {
             case 32:
-                {   Multihash const xxh = BMK_hashStream(fp, algo_xxh32, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh32, parseFileArg->blockBuf, parseFileArg->blockSize);
                     if (xxh.xxh32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;
 
             case 64:
-                {   Multihash const xxh = BMK_hashStream(fp, algo_xxh64, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh64, parseFileArg->blockBuf, parseFileArg->blockSize);
                     if (xxh.xxh64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;
 
             case 128:
-                {   Multihash const xxh = BMK_hashStream(fp, algo_xxh128, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh128, parseFileArg->blockBuf, parseFileArg->blockSize);
                     if (XXH128_isEqual(xxh.xxh128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
                         lineStatus = LineStatus_hashOk;
                 }   }
@@ -1908,7 +1971,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
  *    - (strict mode) All lines in checksum file are consistent and well formatted.
  */
 static int checkFile(const char* inFileName,
-                     const endianess displayEndianess,
+                     const Display_endianess displayEndianess,
                      U32 strictMode,
                      U32 statusOnly,
                      U32 warn,
@@ -1998,8 +2061,8 @@ static int checkFile(const char* inFileName,
 }
 
 
-static int checkFiles(char** fnList, int fnTotal,
-                      const endianess displayEndianess,
+static int checkFiles(const char*const* fnList, int fnTotal,
+                      const Display_endianess displayEndianess,
                       U32 strictMode,
                       U32 statusOnly,
                       U32 warn,
@@ -2031,7 +2094,7 @@ static int usage(const char* exename)
     DISPLAY( "Usage: %s [options] [files] \n\n", exename);
     DISPLAY( "When no filename provided or when '-' is provided, uses stdin as input. \n");
     DISPLAY( "Options: \n");
-    DISPLAY( "  -H#         algorithm strength: 0=32bits, 1=64bits, 2=128bits (default: %i) \n", (int)g_defaultAlgo);
+    DISPLAY( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
     DISPLAY( "  -c          read xxHash sums from [files] and check them \n");
     DISPLAY( "  -h, --help  display a long help page about advanced options \n");
     return 0;
@@ -2044,8 +2107,8 @@ static int usage_advanced(const char* exename)
     DISPLAY( "Advanced :\n");
     DISPLAY( "  -V, --version        Display version information \n");
     DISPLAY( "      --little-endian  Display hashes in little endian convention (default: big endian) \n");
-    DISPLAY( "  -b                   Run benchmark (all variants, default) \n");
-    DISPLAY( "  -b#                  Bench only variant # \n");
+    DISPLAY( "  -b                   Run benchmark \n");
+    DISPLAY( "  -b#                  Bench only algorithm variant # \n");
     DISPLAY( "  -i ITERATIONS        Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
     DISPLAY( "  -q, --quiet          Don't display version header in benchmark mode \n");
     DISPLAY( "\n");
@@ -2118,7 +2181,7 @@ static U32 readU32FromChar(const char** stringPtr) {
     return result;
 }
 
-static int XXH_main(int argc, char** argv)
+static int XXH_main(int argc, const char* const* argv)
 {
     int i, filenamesStart = 0;
     const char* const exename = argv[0];
@@ -2130,8 +2193,9 @@ static int XXH_main(int argc, char** argv)
     U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
     static const U32 kBenchAll = 99;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
-    algoType algo     = g_defaultAlgo;
-    endianess displayEndianess = big_endian;
+    AlgoSelected algo     = g_defaultAlgo;
+    Display_endianess displayEndianess = big_endian;
+    Display_convention convention = display_gnu;
 
     /* special case: xxhNNsum default to NN bits checksum */
     if (strstr(exename,  "xxh32sum") != NULL) algo = algo_xxh32;
@@ -2153,6 +2217,7 @@ static int XXH_main(int argc, char** argv)
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
         if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
+        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }  /* hidden option */
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
@@ -2174,11 +2239,17 @@ static int XXH_main(int argc, char** argv)
                 return usage_advanced(exename);
 
             /* select hash algorithm */
-            case 'H':
-                algo = (algoType)(argument[1] - '0');
-                argument+=2;
-                if (!((algo >= algo_xxh32) && (algo <= algo_xxh128)))
-                    return badusage(exename);
+            case 'H': argument++;
+                switch(readU32FromChar(&argument)) {
+                    case 0 :
+                    case 32: algo = algo_xxh32; break;
+                    case 1 :
+                    case 64: algo = algo_xxh64; break;
+                    case 2 :
+                    case 128: algo = algo_xxh128; break;
+                    default:
+                        return badusage(exename);
+                }
                 break;
 
             /* File check mode */
@@ -2249,16 +2320,16 @@ static int XXH_main(int argc, char** argv)
         return checkFiles(argv+filenamesStart, argc-filenamesStart,
                           displayEndianess, strictMode, statusOnly, warn, (g_displayLevel < 2) /*quiet*/);
     } else {
-        return BMK_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess);
+        return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess, convention);
     }
 }
 
 /* Windows main wrapper which properly handles UTF-8 command line arguments. */
 #ifdef _WIN32
 /* Converts a UTF-16 argv to UTF-8. */
-static char** convert_argv(int argc, wchar_t** utf16_argv)
+static char** convert_argv(int argc, const wchar_t* const utf16_argv[])
 {
-    char** utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
+    char** const utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
     if (utf8_argv != NULL) {
         int i;
         for (i = 0; i < argc; i++) {
@@ -2294,7 +2365,7 @@ static void free_argv(int argc, char** argv)
  * This function is wrapped by `__wgetmainargs()` and `main()` below on MinGW
  * with Unicode disabled, but if possible, we try to use `wmain()`.
  */
-static int XXH_wmain(int argc, wchar_t** utf16_argv)
+static int XXH_wmain(int argc, const wchar_t* const utf16_argv[])
 {
     /* Convert the UTF-16 arguments to UTF-8. */
     char** utf8_argv = convert_argv(argc, utf16_argv);
@@ -2317,7 +2388,7 @@ static int XXH_wmain(int argc, wchar_t** utf16_argv)
         setvbuf(stderr, NULL, _IONBF, 0);
 
         /* Call our real main function */
-        ret = XXH_main(argc, utf8_argv);
+        ret = XXH_main(argc, (const char* const *) utf8_argv);
 
         /* Cleanup */
         free_argv(argc, utf8_argv);
@@ -2332,7 +2403,7 @@ static int XXH_wmain(int argc, wchar_t** utf16_argv)
 #if defined(__cplusplus)
 extern "C"
 #endif
-int wmain(int argc, wchar_t** utf16_argv)
+int wmain(int argc, const wchar_t* utf16_argv[])
 {
     return XXH_wmain(argc, utf16_argv);
 }
@@ -2372,7 +2443,7 @@ int __cdecl __wgetmainargs(
     _startupinfo* StartInfo
 );
 
-int main(int ansi_argc, char** ansi_argv)
+int main(int ansi_argc, const char* ansi_argv[])
 {
     int       utf16_argc;
     wchar_t** utf16_argv;
@@ -2385,7 +2456,7 @@ int main(int ansi_argc, char** ansi_argv)
         return XXH_main(ansi_argc, ansi_argv);
 
     /* Call XXH_wmain with our UTF-16 arguments */
-    return XXH_wmain(utf16_argc, utf16_argv);
+    return XXH_wmain(utf16_argc, (const wchar_t* const *)utf16_argv);
 }
 
 #endif /* Non-Unicode MinGW */
@@ -2393,7 +2464,7 @@ int main(int ansi_argc, char** ansi_argv)
 #else /* Not Windows */
 
 /* Wrap main normally on non-Windows platforms. */
-int main(int argc, char** argv)
+int main(int argc, const char* argv[])
 {
     return XXH_main(argc, argv);
 }

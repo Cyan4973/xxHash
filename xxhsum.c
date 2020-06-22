@@ -1220,6 +1220,7 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(sanityBuffer,222, 0,       0xB641AE8CB691C174ULL);
     BMK_testXXH64(sanityBuffer,222, PRIME32, 0x20CB8AB7AE10C14AULL);
 
+#if 0
     BMK_testXXH3(NULL,           0, 0,       0x776EDDFB6BFD9195ULL);  /* empty string */
     BMK_testXXH3(NULL,           0, PRIME64, 0x6AFCE90814C488CBULL);
     BMK_testXXH3(sanityBuffer,   1, 0,       0xB936EBAE24CB01C5ULL);  /*  1 -  3 */
@@ -1385,7 +1386,7 @@ static void BMK_sanityCheck(void)
     {   verifSample_t const expected = { { 0x7E, 0x48, 0x0C, 0xA7 } };
         BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_DEFAULT_SIZE + 500, expected);
     }
-
+#endif
 
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");

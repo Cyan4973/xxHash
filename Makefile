@@ -120,6 +120,9 @@ $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
+ifeq ($(DISPATCH),1)
+$(LIBXXH): xxh_x86dispatch.c
+endif
 $(LIBXXH): xxhash.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
@@ -227,6 +230,20 @@ test-xxhsum-c: xxhsum
 	./xxhsum -c < .test.xxh32
 	# check variant with '*' marker as second separator
 	$(SED) 's/  / \*/' .test.xxh32 | ./xxhsum -c
+	# check bsd-style output
+	./xxhsum --tag xxhsum* | $(GREP) XXH64
+	./xxhsum --tag -H0 xxhsum* | $(GREP) XXH32
+	./xxhsum --tag -H1 xxhsum* | $(GREP) XXH64
+	./xxhsum --tag -H2 xxhsum* | $(GREP) XXH128
+	./xxhsum --tag -H32 xxhsum* | $(GREP) XXH32
+	./xxhsum --tag -H64 xxhsum* | $(GREP) XXH64
+	./xxhsum --tag -H128 xxhsum* | $(GREP) XXH128
+	./xxhsum --tag -H0 --little-endian xxhsum* | $(GREP) XXH32_LE
+	./xxhsum --tag -H1 --little-endian xxhsum* | $(GREP) XXH64_LE
+	./xxhsum --tag -H2 --little-endian xxhsum* | $(GREP) XXH128_LE
+	./xxhsum --tag -H32 --little-endian xxhsum* | $(GREP) XXH32_LE
+	./xxhsum --tag -H64 --little-endian xxhsum* | $(GREP) XXH64_LE
+	./xxhsum --tag -H128 --little-endian xxhsum* | $(GREP) XXH128_LE
 	# xxhsum -c warns improperly format lines.
 	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
 	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly
@@ -391,6 +408,9 @@ install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
 	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+ifeq ($(DISPATCH),1)
+	@$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
+endif
 	@echo Installing pkgconfig
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
 	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
@@ -415,6 +435,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
+	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh_x86dispatch.h
 	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum

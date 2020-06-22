@@ -1778,6 +1778,21 @@ XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
 }
 
 /*
+ * It's important for performance that XXH3_hashLong is not inlined.
+ * Since the function is not inlined, the compiler may not be able to understand that,
+ * in some scenarios, its `secret` argument is actually a compile time constant.
+ * This variant enforces that the compiler can detect that,
+ * and uses this opportunity to streamline the generated code for better performance.
+ */
+XXH_NO_INLINE XXH64_hash_t
+XXH3_hashLong_64b_default(const xxh_u8* XXH_RESTRICT input, size_t len,
+                          XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
+{
+    (void)seed64; (void)secret; (void)secretLen;
+    return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512, XXH3_scrambleAcc);
+}
+
+/*
  * XXH3_hashLong_64b_withSeed():
  * Generate a custom key based on alteration of default XXH3_kSecret with the seed,
  * and then use this key for long mode hashing.
@@ -1849,7 +1864,7 @@ XXH3_64bits_internal(const void* XXH_RESTRICT input, size_t len,
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t len)
 {
-    return XXH3_64bits_internal(input, len, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSecret);
+    return XXH3_64bits_internal(input, len, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_default);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -2003,23 +2018,25 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 XXH_FORCE_INLINE void
 XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
-                    const xxh_u8* XXH_RESTRICT input, size_t totalStripes,
+                    const xxh_u8* XXH_RESTRICT input, size_t nbStripes,
                     const xxh_u8* XXH_RESTRICT secret, size_t secretLimit,
                     XXH3_accWidth_e accWidth,
                     XXH3_f_accumulate_512 f_acc512,
                     XXH3_f_scrambleAcc f_scramble)
 {
+    XXH_ASSERT(nbStripes <= nbStripesPerBlock);  /* can handle max 1 scramble per invocation */
     XXH_ASSERT(*nbStripesSoFarPtr < nbStripesPerBlock);
-    if (nbStripesPerBlock - *nbStripesSoFarPtr <= totalStripes) {
+    if (nbStripesPerBlock - *nbStripesSoFarPtr <= nbStripes) {
         /* need a scrambling operation */
-        size_t const nbStripes = nbStripesPerBlock - *nbStripesSoFarPtr;
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth, f_acc512);
+        size_t const nbStripesToEndofBlock = nbStripesPerBlock - *nbStripesSoFarPtr;
+        size_t const nbStripesAfterBlock = nbStripes - nbStripesToEndofBlock;
+        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripesToEndofBlock, accWidth, f_acc512);
         f_scramble(acc, secret + secretLimit);
-        XXH3_accumulate(acc, input + nbStripes * XXH_STRIPE_LEN, secret, totalStripes - nbStripes, accWidth, f_acc512);
-        *nbStripesSoFarPtr = totalStripes - nbStripes;
+        XXH3_accumulate(acc, input + nbStripesToEndofBlock * XXH_STRIPE_LEN, secret, nbStripesAfterBlock, accWidth, f_acc512);
+        *nbStripesSoFarPtr = nbStripesAfterBlock;
     } else {
-        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, totalStripes, accWidth, f_acc512);
-        *nbStripesSoFarPtr += totalStripes;
+        XXH3_accumulate(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes, accWidth, f_acc512);
+        *nbStripesSoFarPtr += nbStripes;
     }
 }
 
@@ -2071,7 +2088,7 @@ XXH3_update(XXH3_state_t* state,
             state->bufferedSize = 0;
         }
 
-        /* Consume input by full buffer quantities */
+        /* Consume input by a multiple of internal buffer size */
         if (input+XXH3_INTERNALBUFFER_SIZE <= bEnd) {
             const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {
@@ -2494,9 +2511,9 @@ XXH3_hashLong_128b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined.
  */
 XXH_NO_INLINE XXH128_hash_t
-XXH3_hashLong_128b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
-                                 XXH64_hash_t seed64,
-                                 const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
+XXH3_hashLong_128b_default(const xxh_u8* XXH_RESTRICT input, size_t len,
+                           XXH64_hash_t seed64,
+                           const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
     return XXH3_hashLong_128b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret),
@@ -2577,7 +2594,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
 {
     return XXH3_128bits_internal(input, len, 0,
                                  XXH3_kSecret, sizeof(XXH3_kSecret),
-                                 XXH3_hashLong_128b_withSecret);
+                                 XXH3_hashLong_128b_default);
 }
 
 XXH_PUBLIC_API XXH128_hash_t
@@ -2585,7 +2602,7 @@ XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_
 {
     return XXH3_128bits_internal(input, len, 0,
                                  (const xxh_u8*)secret, secretSize,
-                                 XXH3_hashLong_128b_defaultSecret);
+                                 XXH3_hashLong_128b_withSecret);
 }
 
 XXH_PUBLIC_API XXH128_hash_t

@@ -1770,6 +1770,21 @@ XXH3_hashLong_64b_withSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
 }
 
 /*
+ * It's important for performance that XXH3_hashLong is not inlined.
+ * Since the function is not inlined, the compiler may not be able to understand that,
+ * in some scenarios, its `secret` argument is actually a compile time constant.
+ * This variant enforces that the compiler can detect that,
+ * and uses this opportunity to streamline the generated code for better performance.
+ */
+XXH_NO_INLINE XXH64_hash_t
+XXH3_hashLong_64b_default(const xxh_u8* XXH_RESTRICT input, size_t len,
+                          XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
+{
+    (void)seed64; (void)secret; (void)secretLen;
+    return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512, XXH3_scrambleAcc);
+}
+
+/*
  * XXH3_hashLong_64b_withSeed():
  * Generate a custom key based on alteration of default XXH3_kSecret with the seed,
  * and then use this key for long mode hashing.
@@ -1841,7 +1856,7 @@ XXH3_64bits_internal(const void* XXH_RESTRICT input, size_t len,
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t len)
 {
-    return XXH3_64bits_internal(input, len, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSecret);
+    return XXH3_64bits_internal(input, len, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_default);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
@@ -2490,9 +2505,9 @@ XXH3_hashLong_128b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined.
  */
 XXH_NO_INLINE XXH128_hash_t
-XXH3_hashLong_128b_defaultSecret(const xxh_u8* XXH_RESTRICT input, size_t len,
-                                 XXH64_hash_t seed64,
-                                 const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
+XXH3_hashLong_128b_default(const xxh_u8* XXH_RESTRICT input, size_t len,
+                           XXH64_hash_t seed64,
+                           const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
     return XXH3_hashLong_128b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret),
@@ -2573,7 +2588,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
 {
     return XXH3_128bits_internal(input, len, 0,
                                  XXH3_kSecret, sizeof(XXH3_kSecret),
-                                 XXH3_hashLong_128b_withSecret);
+                                 XXH3_hashLong_128b_default);
 }
 
 XXH_PUBLIC_API XXH128_hash_t
@@ -2581,7 +2596,7 @@ XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_
 {
     return XXH3_128bits_internal(input, len, 0,
                                  (const xxh_u8*)secret, secretSize,
-                                 XXH3_hashLong_128b_defaultSecret);
+                                 XXH3_hashLong_128b_withSecret);
 }
 
 XXH_PUBLIC_API XXH128_hash_t

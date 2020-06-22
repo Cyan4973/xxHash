@@ -1124,6 +1124,45 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
     }
 }
 
+void BMK_testXXH128_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, XXH128_hash_t Nresult)
+{
+    if (len>0) assert(data != NULL);
+
+    {   XXH128_hash_t const Dresult = XXH3_128bits_withSecret(data, len, secret, secretSize);
+        BMK_checkResult128(Dresult, Nresult);
+    }
+
+    /* streaming API test */
+    {   XXH3_state_t* const state = XXH3_createState();
+        assert(state != NULL);
+        (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
+        (void)XXH3_128bits_update(state, data, len);
+        BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+
+        /* random ingestion */
+        {   size_t p = 0;
+            (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
+            while (p < len) {
+                size_t const modulo = len > 2 ? len : 2;
+                size_t l = (size_t)(BMK_rand()) % modulo;
+                if (p + l > len) l = len - p;
+                (void)XXH3_128bits_update(state, (const char*)data+p, l);
+                p += l;
+            }
+            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+        }
+
+        /* byte by byte ingestion */
+        {   size_t pos;
+            (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
+            for (pos=0; pos<len; pos++)
+                (void)XXH3_128bits_update(state, ((const char*)data)+pos, 1);
+            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+        }
+        XXH3_freeState(state);
+    }
+}
+
 #define SECRET_SAMPLE_NBBYTES 4
 typedef struct { U8 byte[SECRET_SAMPLE_NBBYTES]; } verifSample_t;
 
@@ -1308,6 +1347,25 @@ static void BMK_sanityCheck(void)
     }
     {   XXH128_hash_t const expected = { 0x6F5360AE69C2F406ULL, 0xD23AAE4B76C31ECBULL };
         BMK_testXXH128(sanityBuffer,2367, PRIME32, expected);       /* two blocks, last stripe is overlapping */
+    }
+
+    /* XXH128 with custom Secret */
+    {   const void* const secret = sanityBuffer + 7;
+        const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
+        assert(sizeof(sanityBuffer) >= 7 + secretSize);
+
+        {   XXH128_hash_t const expected = { 0x58607A62EE3D62F5ULL, 0x339965195B2942D1ULL };
+            BMK_testXXH128_withSecret(NULL,           0, secret, secretSize,     expected);         /* empty string */
+        }
+        {   XXH128_hash_t const expected = { 0xC3382C326E24E3CDULL, 0x2A2771BA8906D2EBULL };
+            BMK_testXXH128_withSecret(sanityBuffer,   1, secret, secretSize,       expected);       /* 1-3 */
+        }
+        {   XXH128_hash_t const expected = { 0x0B61C8ACA7D4778FULL, 0x376BD91B6432F36DULL };
+            BMK_testXXH128_withSecret(sanityBuffer,   6, secret, secretSize,       expected);       /* 4-8 */
+        }
+        {   XXH128_hash_t const expected = { 0xAF82F6EBA263D7D8ULL, 0x90A3C2D839F57D0FULL };
+            BMK_testXXH128_withSecret(sanityBuffer,  12, secret, secretSize,       expected);       /* 9-16 */
+        }
     }
 
 

@@ -53,6 +53,7 @@
 #  define XXH_debugPrint(str) { fprintf(stderr, "DEBUG: xxHash dispatch: %s \n", str); fflush(NULL); }
 #else
 #  define XXH_debugPrint(str) ((void)0)
+#  undef NDEBUG /* avoid redefinition */
 #  define NDEBUG
 #endif
 #include <assert.h>

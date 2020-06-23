@@ -651,9 +651,8 @@ XXH_FORCE_INLINE xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
 }
 
 /*
- * We don't need to (or want to) mix as much as XXH64.
- *
- * Short hashes are more evenly distributed, so it isn't necessary.
+ * This is a fast avalanche stage,
+ * suitable when input bits are already partially mixed
  */
 static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
@@ -661,6 +660,21 @@ static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
     h64 *= 0x165667919E3779F9ULL;
     h64 = XXH_xorshift64(h64, 32);
     return h64;
+}
+
+/*
+ * This is a stronger avalanche,
+ * inspired by Pelle Evensen's rrmxmx
+ * preferable when input has not been previously mixed
+ */
+static XXH64_hash_t XXH3_rrmxmx(xxh_u64 h64, xxh_u64 len)
+{
+    /* this mix is inspired by Pelle Evensen's rrmxmx */
+    h64 ^= XXH_rotl64(h64, 49) ^ XXH_rotl64(h64, 24);
+    h64 *= 0x9FB21C651E98DF25ULL;
+    h64 ^= (h64 >> 35) + len ;
+    h64 *= 0x9FB21C651E98DF25ULL;
+    return XXH_xorshift64(h64, 28);
 }
 
 
@@ -708,15 +722,14 @@ XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
      * len = 2: combined = { input[1], 0x02, input[0], input[1] }
      * len = 3: combined = { input[2], 0x03, input[0], input[1] }
      */
-    {   xxh_u8 const c1 = input[0];
-        xxh_u8 const c2 = input[len >> 1];
-        xxh_u8 const c3 = input[len - 1];
+    {   xxh_u8  const c1 = input[0];
+        xxh_u8  const c2 = input[len >> 1];
+        xxh_u8  const c3 = input[len - 1];
         xxh_u32 const combined = ((xxh_u32)c1 << 16) | ((xxh_u32)c2  << 24)
                                | ((xxh_u32)c3 <<  0) | ((xxh_u32)len << 8);
         xxh_u64 const bitflip = (XXH_readLE32(secret) ^ XXH_readLE32(secret+4)) + seed;
         xxh_u64 const keyed = (xxh_u64)combined ^ bitflip;
-        xxh_u64 const mixed = keyed * XXH_PRIME64_1;
-        return XXH3_avalanche(mixed);
+        return XXH64_avalanche(keyed);
     }
 }
 
@@ -731,13 +744,8 @@ XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_h
         xxh_u32 const input2 = XXH_readLE32(input + len - 4);
         xxh_u64 const bitflip = (XXH_readLE64(secret+8) ^ XXH_readLE64(secret+16)) - seed;
         xxh_u64 const input64 = input2 + (((xxh_u64)input1) << 32);
-        xxh_u64 x = input64 ^ bitflip;
-        /* this mix is inspired by Pelle Evensen's rrmxmx */
-        x ^= XXH_rotl64(x, 49) ^ XXH_rotl64(x, 24);
-        x *= 0x9FB21C651E98DF25ULL;
-        x ^= (x >> 35) + len ;
-        x *= 0x9FB21C651E98DF25ULL;
-        return XXH_xorshift64(x, 28);
+        xxh_u64 const keyed = input64 ^ bitflip;
+        return XXH3_rrmxmx(keyed, len);
     }
 }
 
@@ -765,7 +773,7 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
     {   if (XXH_likely(len >  8)) return XXH3_len_9to16_64b(input, len, secret, seed);
         if (XXH_likely(len >= 4)) return XXH3_len_4to8_64b(input, len, secret, seed);
         if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
-        return XXH3_avalanche((XXH_PRIME64_1 + seed) ^ (XXH_readLE64(secret+56) ^ XXH_readLE64(secret+64)));
+        return XXH64_avalanche(seed ^ (XXH_readLE64(secret+56) ^ XXH_readLE64(secret+64)));
     }
 }
 
@@ -2252,11 +2260,9 @@ XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         xxh_u64 const bitfliph = (XXH_readLE32(secret+8) ^ XXH_readLE32(secret+12)) - seed;
         xxh_u64 const keyed_lo = (xxh_u64)combinedl ^ bitflipl;
         xxh_u64 const keyed_hi = (xxh_u64)combinedh ^ bitfliph;
-        xxh_u64 const mixedl = keyed_lo * XXH_PRIME64_1;
-        xxh_u64 const mixedh = keyed_hi * XXH_PRIME64_5;
         XXH128_hash_t h128;
-        h128.low64  = XXH3_avalanche(mixedl);
-        h128.high64 = XXH3_avalanche(mixedh);
+        h128.low64  = XXH64_avalanche(keyed_lo);
+        h128.high64 = XXH64_avalanche(keyed_hi);
         return h128;
     }
 }
@@ -2373,8 +2379,8 @@ XXH3_len_0to16_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64
         {   XXH128_hash_t h128;
             xxh_u64 const bitflipl = XXH_readLE64(secret+64) ^ XXH_readLE64(secret+72);
             xxh_u64 const bitfliph = XXH_readLE64(secret+80) ^ XXH_readLE64(secret+88);
-            h128.low64 = XXH3_avalanche((XXH_PRIME64_1 + seed) ^ bitflipl);
-            h128.high64 = XXH3_avalanche((XXH_PRIME64_2 - seed) ^ bitfliph);
+            h128.low64 = XXH64_avalanche(seed ^ bitflipl);
+            h128.high64 = XXH64_avalanche( seed ^ bitfliph);
             return h128;
     }   }
 }

@@ -1369,7 +1369,6 @@ static void BMK_sanityCheck(void)
         }
     }
 
-
     /* secret generator */
     {   verifSample_t const expected = { { 0xB8, 0x26, 0x83, 0x7E } };
         BMK_testSecretGenerator(NULL, 0, expected);

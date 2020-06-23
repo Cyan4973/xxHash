@@ -1681,30 +1681,28 @@ XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
                             XXH3_f_accumulate_512 f_acc512,
                             XXH3_f_scrambleAcc f_scramble)
 {
-    size_t const nb_rounds = (secretSize - XXH_STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
-    size_t const block_len = XXH_STRIPE_LEN * nb_rounds;
-    size_t const nb_blocks = len / block_len;
+    size_t const nbStripesPerBlock = (secretSize - XXH_STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
+    size_t const block_len = XXH_STRIPE_LEN * nbStripesPerBlock;
+    size_t const nb_blocks = (len - 1) / block_len;
 
     size_t n;
 
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
 
     for (n = 0; n < nb_blocks; n++) {
-        XXH3_accumulate(acc, input + n*block_len, secret, nb_rounds, accWidth, f_acc512);
+        XXH3_accumulate(acc, input + n*block_len, secret, nbStripesPerBlock, accWidth, f_acc512);
         f_scramble(acc, secret + secretSize - XXH_STRIPE_LEN);
     }
 
     /* last partial block */
     XXH_ASSERT(len > XXH_STRIPE_LEN);
-    {   size_t const nbStripes = (len - (block_len * nb_blocks)) / XXH_STRIPE_LEN;
+    {   size_t const nbStripes = ((len - 1) - (block_len * nb_blocks)) / XXH_STRIPE_LEN;
         XXH_ASSERT(nbStripes <= (secretSize / XXH_SECRET_CONSUME_RATE));
         XXH3_accumulate(acc, input + nb_blocks*block_len, secret, nbStripes, accWidth, f_acc512);
 
         /* last stripe */
-        if (len & (XXH_STRIPE_LEN - 1)) {
-            const xxh_u8* const p = input + len - XXH_STRIPE_LEN;
-            /* Do not align on 8, so that the secret is different from the scrambler */
-#define XXH_SECRET_LASTACC_START 7
+        {   const xxh_u8* const p = input + len - XXH_STRIPE_LEN;
+#define XXH_SECRET_LASTACC_START 7  /* not aligned on 8, last secret is different from acc & scrambler */
             f_acc512(acc, p, secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START, accWidth);
     }   }
 }
@@ -2014,6 +2012,9 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
     return XXH_OK;
 }
 
+/* Note : when XXH3_consumeStripes() is invoked,
+ * there must be a guarantee that at least one more byte must be consumed from input
+ * so that the function can blindly consume all stripes using the "normal" secret segment */
 XXH_FORCE_INLINE void
 XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
@@ -2066,14 +2067,14 @@ XXH3_update(XXH3_state_t* state,
             state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
         }
-        /* input is now > XXH3_INTERNALBUFFER_SIZE */
+        /* total input is now > XXH3_INTERNALBUFFER_SIZE */
 
         #define XXH3_INTERNALBUFFER_STRIPES (XXH3_INTERNALBUFFER_SIZE / XXH_STRIPE_LEN)
         XXH_STATIC_ASSERT(XXH3_INTERNALBUFFER_SIZE % XXH_STRIPE_LEN == 0);   /* clean multiple */
 
         /*
-         * There is some input left inside the internal buffer.
-         * Fill it, then consume it.
+         * Internal buffer is partially filled (always, except at beginning)
+         * Complete it, then consume it.
          */
         if (state->bufferedSize) {
             size_t const loadSize = XXH3_INTERNALBUFFER_SIZE - state->bufferedSize;
@@ -2086,9 +2087,10 @@ XXH3_update(XXH3_state_t* state,
                                 accWidth, f_acc512, f_scramble);
             state->bufferedSize = 0;
         }
+        XXH_ASSERT(input < bEnd);
 
         /* Consume input by a multiple of internal buffer size */
-        if (input+XXH3_INTERNALBUFFER_SIZE <= bEnd) {
+        if (input+XXH3_INTERNALBUFFER_SIZE < bEnd) {
             const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {
                 XXH3_consumeStripes(state->acc,
@@ -2097,15 +2099,15 @@ XXH3_update(XXH3_state_t* state,
                                     secret, state->secretLimit,
                                     accWidth, f_acc512, f_scramble);
                 input += XXH3_INTERNALBUFFER_SIZE;
-            } while (input<=limit);
+            } while (input<limit);
             /* for last partial stripe */
             memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
         }
+        XXH_ASSERT(input < bEnd);
 
-        if (input < bEnd) { /* Some remaining input: buffer it */
-            XXH_memcpy(state->buffer, input, (size_t)(bEnd-input));
-            state->bufferedSize = (XXH32_hash_t)(bEnd-input);
-        }
+        /* Some remaining input (always) : buffer it */
+        XXH_memcpy(state->buffer, input, (size_t)(bEnd-input));
+        state->bufferedSize = (XXH32_hash_t)(bEnd-input);
     }
 
     return XXH_OK;
@@ -2131,30 +2133,29 @@ XXH3_digest_long (XXH64_hash_t* acc,
      */
     memcpy(acc, state->acc, sizeof(state->acc));
     if (state->bufferedSize >= XXH_STRIPE_LEN) {
-        size_t const nbStripes = state->bufferedSize / XXH_STRIPE_LEN;
+        size_t const nbStripes = (state->bufferedSize - 1) / XXH_STRIPE_LEN;
         size_t nbStripesSoFar = state->nbStripesSoFar;
         XXH3_consumeStripes(acc,
                            &nbStripesSoFar, state->nbStripesPerBlock,
                             state->buffer, nbStripes,
                             secret, state->secretLimit,
                             accWidth, XXH3_accumulate_512, XXH3_scrambleAcc);
-        if (state->bufferedSize % XXH_STRIPE_LEN) {  /* one last partial stripe */
-            XXH3_accumulate_512(acc,
-                                state->buffer + state->bufferedSize - XXH_STRIPE_LEN,
-                                secret + state->secretLimit - XXH_SECRET_LASTACC_START,
-                                accWidth);
-        }
+        /* last stripe */
+        XXH3_accumulate_512(acc,
+                            state->buffer + state->bufferedSize - XXH_STRIPE_LEN,
+                            secret + state->secretLimit - XXH_SECRET_LASTACC_START,
+                            accWidth);
     } else {  /* bufferedSize < XXH_STRIPE_LEN */
-        if (state->bufferedSize) { /* one last stripe */
-            xxh_u8 lastStripe[XXH_STRIPE_LEN];
-            size_t const catchupSize = XXH_STRIPE_LEN - state->bufferedSize;
-            memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
-            memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
-            XXH3_accumulate_512(acc,
-                                lastStripe,
-                                secret + state->secretLimit - XXH_SECRET_LASTACC_START,
-                                accWidth);
-    }   }
+        xxh_u8 lastStripe[XXH_STRIPE_LEN];
+        size_t const catchupSize = XXH_STRIPE_LEN - state->bufferedSize;
+        XXH_ASSERT(state->bufferedSize > 0);  /* there is always some input buffered */
+        memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
+        memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
+        XXH3_accumulate_512(acc,
+                            lastStripe,
+                            secret + state->secretLimit - XXH_SECRET_LASTACC_START,
+                            accWidth);
+    }
 }
 
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)

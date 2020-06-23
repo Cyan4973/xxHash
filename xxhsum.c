@@ -1220,13 +1220,6 @@ static void BMK_sanityCheck(void)
     BMK_testXXH64(sanityBuffer,222, 0,       0xB641AE8CB691C174ULL);
     BMK_testXXH64(sanityBuffer,222, PRIME32, 0x20CB8AB7AE10C14AULL);
 
-    BMK_testXXH3(sanityBuffer, 403, 0,       0x1C03A3D9C038A896ULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 403, PRIME64, 0x4849612208F3A069ULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 512, 0,       0x88BE504C335A7BF0ULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer, 512, PRIME64, 0x2FFFA17063B595DEULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2048, 0,       0xFB37C3C889A504DFULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2048, PRIME64, 0x42F89143D4C087B6ULL);  /* 2 blocks, finishing at block boundary */
-
 #if 0
     BMK_testXXH3(NULL,           0, 0,       0x776EDDFB6BFD9195ULL);  /* empty string */
     BMK_testXXH3(NULL,           0, PRIME64, 0x6AFCE90814C488CBULL);

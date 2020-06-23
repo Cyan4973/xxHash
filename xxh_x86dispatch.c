@@ -406,13 +406,14 @@ XXH3_64bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
                        XXH3_acc_64bits, XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
 }
 
+#ifdef XXH_DISPATCH_AVX512
 XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
 XXH3_64bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
                        XXH3_acc_64bits, XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
 }
-
+#endif
 
 /* ===   XXH128 default variants   === */
 
@@ -529,12 +530,14 @@ XXH3_128bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
                        XXH3_acc_128bits, XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
 }
 
+#ifdef XXH_DISPATCH_AVX512
 XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
 XXH3_128bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
                        XXH3_acc_128bits, XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
 }
+#endif
 
 /* ====    Dispatchers    ==== */
 
@@ -560,7 +563,11 @@ static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
         /* scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar, XXH3_64bits_update_scalar },
         /* sse2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2,   XXH3_64bits_update_sse2 },
         /* avx2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2,   XXH3_64bits_update_avx2 },
+#ifdef XXH_DISPATCH_AVX512
         /* avx512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512, XXH3_64bits_update_avx512 }
+#else
+        /* avx512 */ { NULL, NULL, NULL, NULL }
+#endif
 };
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(const void* XXH_RESTRICT, size_t);
@@ -582,7 +589,11 @@ static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
         /* scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar, XXH3_128bits_update_scalar },
         /* sse2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2,   XXH3_128bits_update_sse2 },
         /* avx2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2,   XXH3_128bits_update_avx2 },
+#ifdef XXH_DISPATCH_AVX512
         /* avx512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512, XXH3_128bits_update_avx512 }
+#else
+        /* avx512 */ { NULL, NULL, NULL, NULL }
+#endif
 };
 
 static void setDispatch(void)

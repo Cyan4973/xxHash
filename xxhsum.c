@@ -1387,7 +1387,6 @@ static void BMK_sanityCheck(void)
     }
 #endif
 
-
     DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
     DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");
 }

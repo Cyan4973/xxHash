@@ -1754,7 +1754,7 @@ XXH3_hashLong_64b_internal(const xxh_u8* XXH_RESTRICT input, size_t len,
 {
     XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64 acc[XXH_ACC_NB] = XXH3_INIT_ACC;
 
-    XXH3_hashLong_internal_loop(acc, input, len, secret, secretSize, XXH3_acc_64bits, f_acc512, f_scramble);
+    XXH3_hashLong_internal_loop(acc, input, len, secret, secretSize, XXH3_acc_128bits, f_acc512, f_scramble);
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);

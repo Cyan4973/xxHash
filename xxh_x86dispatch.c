@@ -396,14 +396,14 @@ XXH_NO_INLINE XXH_errorcode
 XXH3_64bits_update_scalar(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_64bits, XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
+                       XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
 }
 
 XXH_NO_INLINE XXH_TARGET_SSE2 XXH_errorcode
 XXH3_64bits_update_sse2(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_64bits, XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
+                       XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
 }
 
 #ifdef XXH_DISPATCH_AVX2
@@ -411,7 +411,7 @@ XXH_NO_INLINE XXH_TARGET_AVX2 XXH_errorcode
 XXH3_64bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_64bits, XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
+                       XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
 }
 #endif
 
@@ -420,7 +420,7 @@ XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
 XXH3_64bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_64bits, XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
+                       XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
 }
 #endif
 
@@ -528,14 +528,14 @@ XXH_NO_INLINE XXH_errorcode
 XXH3_128bits_update_scalar(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_128bits, XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
+                       XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
 }
 
 XXH_NO_INLINE XXH_TARGET_SSE2 XXH_errorcode
 XXH3_128bits_update_sse2(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_128bits, XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
+                       XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
 }
 
 #ifdef XXH_DISPATCH_AVX2
@@ -543,7 +543,7 @@ XXH_NO_INLINE XXH_TARGET_AVX2 XXH_errorcode
 XXH3_128bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_128bits, XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
+                       XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
 }
 #endif
 
@@ -552,7 +552,7 @@ XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
 XXH3_128bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_acc_128bits, XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
+                       XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
 }
 #endif
 

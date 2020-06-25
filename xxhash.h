@@ -470,15 +470,10 @@ struct XXH64_state_s {
  * ephemeral data (local sessions).
  *
  * Avoid storing values in long-term storage until the algorithm is finalized.
- *
- * Since v0.7.3, XXH3 has reached "release candidate" status, meaning that, if
- * everything remains fine, its current format will be "frozen" and become the
- * final one.
+ * XXH3's return values will be officially finalized upon reaching v0.8.0.
  *
  * After which, return values of XXH3 and XXH128 will no longer change in
  * future versions.
- *
- * XXH3's return values will be officially finalized upon reaching v0.8.0.
  *
  * The API supports one-shot hashing, streaming mode, and custom secrets.
  */
@@ -518,15 +513,15 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
 /*
  * XXH3_64bits_withSecret():
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
- * This makes it more difficult for an external actor to prepare an intentional
- * collision.
- * secretSize *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
- * The hash quality depends on the secret's high entropy,
- * meaning that the secret should look like a bunch of random bytes.
- * Avoid "trivial" sequences such as text or a bunch of repeated characters.
- * If you are unsure of the "randonmess" of the blob of bytes,
- * consider making it a "custom seed" instead,
- * and use "XXH_generateSecret()" to generate a high quality secret.
+ * This makes it more difficult for an external actor to prepare an intentional collision.
+ * The main condition is that secretSize *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
+ * However, the quality of the hash highly depends on the secret's entropy.
+ * Technically, the secret must look like a bunch of random bytes.
+ * Avoid "trivial" or structured data such as repeated sequences or a text document.
+ * Whenever unsure about the "randonmess" of the blob of bytes,
+ * consider relabelling it as a "custom seed" instead,
+ * and employ "XXH3_generateSecret()" (see below)
+ * to generate a high quality secret derived from this custom seed.
  */
 #define XXH3_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
@@ -602,9 +597,12 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
 /*
  * XXH3_64bits_reset_withSecret():
- * `secret` is referenced, and must outlive the hash streaming session, so
- * be careful when using stack arrays.
- * `secretSize` must be >= `XXH3_SECRET_SIZE_MIN`.
+ * `secret` is referenced, it _must outlive_ the hash streaming session.
+ * Similar to one-shot API, `secretSize` must be >= `XXH3_SECRET_SIZE_MIN`,
+ * and the quality of the hash depends on secret's entropy,
+ * meaning that the secret should look like a bunch of random bytes.
+ * When in doubt about the randomness of a candidate `secret`,
+ * consider employing `XXH3_generateSecret()` instead (see below).
  */
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
 
@@ -682,16 +680,18 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 /*
  * XXH3_generateSecret():
  *
- * Derive a secret for use with `*_withSecret()` prototypes of XXH3.
- * Use this if you need a higher level of security than the one provided by 64bit seed.
+ * Derive a high-entropy secret from any user-defined content, named customSeed.
+ * The generated secret can be used in combination with `*_withSecret()` functions.
+ * The `_withSecret()` variants are useful to provide a higher level of protection than 64-bit seed,
+ * as it becomes much more difficult for an external actor to guess how to impact the calculation logic.
  *
- * Take as input a custom seed of any length and any content,
- * generate from it a high-entropy secret of length XXH3_SECRET_DEFAULT_SIZE
- * into already allocated buffer secretBuffer.
- * The generated secret ALWAYS is XXH_SECRET_DEFAULT_SIZE bytes long.
+ * The function accepts as input a custom seed of any length and any content,
+ * and derives from it a high-entropy secret of length XXH3_SECRET_DEFAULT_SIZE
+ * into an already allocated buffer secretBuffer.
+ * The generated secret is _always_ XXH_SECRET_DEFAULT_SIZE bytes long.
  *
  * The generated secret can then be used with any `*_withSecret()` variant.
- * The functions `XXH3_128bits_withSecret()`, `XXH3_64bits_withSecret()`,
+ * Functions `XXH3_128bits_withSecret()`, `XXH3_64bits_withSecret()`,
  * `XXH3_128bits_reset_withSecret()` and `XXH3_64bits_reset_withSecret()`
  * are part of this list. They all accept a `secret` parameter
  * which must be very long for implementation reasons (>= XXH3_SECRET_SIZE_MIN)
@@ -700,8 +700,8 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
  * this function can be used to generate a secret of proper quality.
  *
  * customSeed can be anything. It can have any size, even small ones,
- * and its content can be anything, even some "low entropy" source such as a bunch of zeroes.
- * The resulting `secret` will nonetheless respect all expected qualities.
+ * and its content can be anything, even stupidly "low entropy" source such as a bunch of zeroes.
+ * The resulting `secret` will nonetheless provide all expected qualities.
  *
  * Supplying NULL as the customSeed copies the default secret into `secretBuffer`.
  * When customSeedSize > 0, supplying NULL as customSeed is undefined behavior.

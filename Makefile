@@ -26,9 +26,10 @@
 # ################################################################
 
 # Version numbers
-LIBVER_MAJOR_SCRIPT:=`sed -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_MINOR_SCRIPT:=`sed -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_PATCH_SCRIPT:=`sed -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+SED ?= sed
+LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
 LIBVER_MAJOR := $(shell echo $(LIBVER_MAJOR_SCRIPT))
 LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
@@ -40,9 +41,10 @@ DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
             -Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
             -Wredundant-decls -Wstrict-overflow=2
-CFLAGS += $(DEBUGFLAGS)
-FLAGS   = $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)
+CFLAGS += $(DEBUGFLAGS) $(MOREFLAGS)
+FLAGS   = $(CFLAGS) $(CPPFLAGS)
 XXHSUM_VERSION = $(LIBVER)
+UNAME := $(shell uname)
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -53,7 +55,7 @@ endif
 
 # OS X linker doesn't support -soname, and use different extension
 # see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
-ifeq ($(shell uname), Darwin)
+ifeq ($(UNAME), Darwin)
 	SHARED_EXT = dylib
 	SHARED_EXT_MAJOR = $(LIBVER_MAJOR).$(SHARED_EXT)
 	SHARED_EXT_VER = $(LIBVER).$(SHARED_EXT)
@@ -68,25 +70,34 @@ endif
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 
+## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default
-default:  ## generate CLI and libraries in release mode (default for `make`)
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
-xxhsum: xxhash.o xxhsum.o  ## generate command line interface (CLI)
+## xxhsum is the command line interface (CLI)
+ifeq ($(DISPATCH),1)
+xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
+xxhsum: xxh_x86dispatch.o
+endif
+xxhsum: xxhash.o xxhsum.o
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
 xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
+## dispatch only works for x86/x64 systems
+dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
+dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
+
 xxhash.o: xxhash.c xxhash.h xxh3.h
-	$(CC) $(FLAGS) -c $< -o $@
-xxhsum.o: xxhsum.c xxhash.h
-	$(CC) $(FLAGS) -c $< -o $@
+xxhsum.o: xxhsum.c xxhash.h xxh3.h xxh_x86dispatch.h
+xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h xxh3.h
 
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
@@ -109,6 +120,9 @@ $(LIBXXH): LDFLAGS += -shared
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
+ifeq ($(DISPATCH),1)
+$(LIBXXH): xxh_x86dispatch.c
+endif
 $(LIBXXH): xxhash.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) $(SONAME_FLAGS) -o $@
 	ln -sf $@ libxxhash.$(SHARED_EXT_MAJOR)
@@ -123,7 +137,7 @@ lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
 
 pkgconfig:
-	@sed -e 's|@PREFIX@|$(PREFIX)|' \
+	@$(SED) -e 's|@PREFIX@|$(PREFIX)|' \
 		-e 's|@VERSION@|$(LIBVER)|' \
 		libxxhash.pc.in >libxxhash.pc
 
@@ -147,7 +161,7 @@ help:  ## list documented targets
 clean:  ## remove all build artifacts
 	@$(RM) -r *.dSYM   # Mac OS-X specific
 	@$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT)
+	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
 
@@ -165,9 +179,13 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	# multiple files
 	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
 	# internal bench
-	$(RUN_ENV) ./xxhsum$(EXT) -bi1
+	$(RUN_ENV) ./xxhsum$(EXT) -bi0
+	# long bench command
+	$(RUN_ENV) ./xxhsum$(EXT) --benchmark-all -i0
+	# bench multiple variants
+	$(RUN_ENV) ./xxhsum$(EXT) -b1,2,3 -i0
 	# file bench
-	$(RUN_ENV) ./xxhsum$(EXT) -bi1 xxhash.c
+	$(RUN_ENV) ./xxhsum$(EXT) -bi0 xxhash.c
 	# 32-bit
 	$(RUN_ENV) ./xxhsum$(EXT) -H0 xxhash.c
 	# 128-bit
@@ -196,6 +214,10 @@ test-xxhsum-c: xxhsum
 	./xxhsum -H0 xxh* | ./xxhsum -c -
 	# xxhsum -q does not display "Loading" message into stderr (#251)
 	! ./xxhsum -q xxh* 2>&1 | grep Loading
+	# xxhsum does not display "Loading" message into stderr either
+	! ./xxhsum xxh* 2>&1 | grep Loading
+	# Check that xxhsum do display filename that it failed to open.
+	LC_ALL=C ./xxhsum nonexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
 	# xxhsum to/from file, shell redirection
 	./xxhsum xxh* > .test.xxh64
 	./xxhsum -H0 xxh* > .test.xxh32
@@ -206,6 +228,22 @@ test-xxhsum-c: xxhsum
 	# read list of files from stdin
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
+	# check variant with '*' marker as second separator
+	$(SED) 's/  / \*/' .test.xxh32 | ./xxhsum -c
+	# check bsd-style output
+	./xxhsum --tag xxhsum* | $(GREP) XXH64
+	./xxhsum --tag -H0 xxhsum* | $(GREP) XXH32
+	./xxhsum --tag -H1 xxhsum* | $(GREP) XXH64
+	./xxhsum --tag -H2 xxhsum* | $(GREP) XXH128
+	./xxhsum --tag -H32 xxhsum* | $(GREP) XXH32
+	./xxhsum --tag -H64 xxhsum* | $(GREP) XXH64
+	./xxhsum --tag -H128 xxhsum* | $(GREP) XXH128
+	./xxhsum --tag -H0 --little-endian xxhsum* | $(GREP) XXH32_LE
+	./xxhsum --tag -H1 --little-endian xxhsum* | $(GREP) XXH64_LE
+	./xxhsum --tag -H2 --little-endian xxhsum* | $(GREP) XXH128_LE
+	./xxhsum --tag -H32 --little-endian xxhsum* | $(GREP) XXH32_LE
+	./xxhsum --tag -H64 --little-endian xxhsum* | $(GREP) XXH64_LE
+	./xxhsum --tag -H128 --little-endian xxhsum* | $(GREP) XXH128_LE
 	# xxhsum -c warns improperly format lines.
 	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
 	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly
@@ -276,7 +314,7 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
 xxhsum.1: xxhsum.1.md xxhash.h
-	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | sed -n '/^\.\\\".*/!p' > $@
+	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | $(SED) -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
 man: xxhsum.1  ## generate man page from markdown source
@@ -290,7 +328,7 @@ preview-man: man
 	man ./xxhsum.1
 
 .PHONY: test
-test: DEBUGFLAGS += -DDEBUGLEVEL=1
+test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
 test: all namespaceTest check test-xxhsum-c c90test test-tools
 
 .PHONY: test-inline
@@ -299,7 +337,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace staticAnalyze test-unicode
+test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace test-unicode
 
 .PHONY: test-tools
 test-tools:
@@ -318,7 +356,7 @@ trailingWhitespace:
 # =========================================================
 # make install is validated only for the following targets
 # =========================================================
-ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS))
+ifneq (,$(filter Linux Darwin GNU/kFreeBSD GNU OpenBSD FreeBSD NetBSD DragonFly SunOS CYGWIN% , $(UNAME)))
 
 DESTDIR     ?=
 # directory variables: GNU conventions prefer lowercase
@@ -337,19 +375,19 @@ datarootdir ?= $(PREFIX)/share
 mandir      ?= $(datarootdir)/man
 man1dir     ?= $(mandir)/man1
 
-ifneq (,$(filter $(shell uname),FreeBSD NetBSD DragonFly))
+ifneq (,$(filter $(UNAME),FreeBSD NetBSD DragonFly))
 PKGCONFIGDIR ?= $(PREFIX)/libdata/pkgconfig
 else
 PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
 endif
 
-ifneq (,$(filter $(shell uname),OpenBSD FreeBSD NetBSD DragonFly SunOS))
+ifneq (,$(filter $(UNAME),OpenBSD FreeBSD NetBSD DragonFly SunOS))
 MANDIR  ?= $(PREFIX)/man/man1
 else
 MANDIR  ?= $(man1dir)
 endif
 
-ifneq (,$(filter $(shell uname),SunOS))
+ifneq (,$(filter $(UNAME),SunOS))
 INSTALL ?= ginstall
 else
 INSTALL ?= install
@@ -370,6 +408,9 @@ install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
 	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+ifeq ($(DISPATCH),1)
+	@$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
+endif
 	@echo Installing pkgconfig
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
 	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
@@ -393,6 +434,8 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
 	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
+	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
+	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh_x86dispatch.h
 	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum

@@ -16,6 +16,7 @@ xxhsum
 xxhsum32
 xxhsum_privateXXH
 xxhsum_inlinedXXH
+dispatch
 tests/generate_unicode_test
 
 # compilation chain

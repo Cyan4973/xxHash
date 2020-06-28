@@ -468,7 +468,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 
 static const char stdinName[] = "-";
 typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2 } AlgoSelected;
-static const AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
+static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
  * '4096' is typical Linux PATH_MAX configuration. */
@@ -2254,9 +2254,9 @@ static int XXH_main(int argc, const char* const* argv)
     Display_convention convention = display_gnu;
 
     /* special case: xxhNNsum default to NN bits checksum */
-    if (strstr(exename,  "xxh32sum") != NULL) algo = algo_xxh32;
-    if (strstr(exename,  "xxh64sum") != NULL) algo = algo_xxh64;
-    if (strstr(exename, "xxh128sum") != NULL) algo = algo_xxh128;
+    if (strstr(exename,  "xxh32sum") != NULL) algo = g_defaultAlgo = algo_xxh32;
+    if (strstr(exename,  "xxh64sum") != NULL) algo = g_defaultAlgo = algo_xxh64;
+    if (strstr(exename, "xxh128sum") != NULL) algo = g_defaultAlgo = algo_xxh128;
 
     for(i=1; i<argc; i++) {
         const char* argument = argv[i];

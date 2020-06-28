@@ -1067,12 +1067,13 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
         XXH_ALIGN(64)       __m512i* const dest = (      __m512i*) customSecret;
         int i;
         for (i=0; i < nbRounds; ++i) {
-            // GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
-            // this will warn "discards ‘const’ qualifier".
+            /* GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
+             * this will warn "discards ‘const’ qualifier". */
             union {
-                XXH_ALIGN(64) const __m512i* const cp;
-                XXH_ALIGN(64) void* const p;
-            } const remote_const_void = { .cp = src + i };
+                XXH_ALIGN(64) const __m512i* cp;
+                XXH_ALIGN(64) void* p;
+            } remote_const_void;
+            remote_const_void.cp = src + i;
             dest[i] = _mm512_add_epi64(_mm512_stream_load_si512(remote_const_void.p), seed);
     }   }
 }

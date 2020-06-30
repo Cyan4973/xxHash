@@ -661,13 +661,21 @@ static U32 localXXH128_stream(const void* buffer, size_t bufferSize, U32 seed)
     return (U32)(XXH3_128bits_digest(&state).low64);
 }
 
+static U32 g_fixseed = 42;
+static XXH3_state_t g_fixseed_state;
+
+static U32 localXXH3_64b_fix_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    (void)seed;
+    return (U32)XXH3_64bits_withSeed2(buffer, bufferSize, &g_fixseed_state);
+}
 
 typedef struct {
     const char*  name;
     hashFunction func;
 } hashInfo;
 
-#define NB_HASHFUNC 10
+#define NB_HASHFUNC 11
 static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH32",             &localXXH32 },
     { "XXH64",             &localXXH64 },
@@ -679,6 +687,7 @@ static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH128 w/secret",   &localXXH3_128b_secret },
     { "XXH3_stream",       &localXXH3_stream },
     { "XXH128_stream",     &localXXH128_stream },
+    { "XXH3_64b_w/seed-2",     &localXXH3_64b_fix_seeded },
 };
 
 #define NB_TESTFUNC (1 + 2 * NB_HASHFUNC)
@@ -994,6 +1003,12 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     if (len>0) assert(data != NULL);
 
     {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
+        BMK_checkResult64(Dresult, Nresult);
+    }
+
+    {   XXH3_state_t seed_state;
+        XXH3_64bits_reset_withSeed(&seed_state, seed);
+        U64 const Dresult = XXH3_64bits_withSeed2(data, len, &seed_state);
         BMK_checkResult64(Dresult, Nresult);
     }
 
@@ -2239,6 +2254,8 @@ static U32 readU32FromChar(const char** stringPtr) {
 
 static int XXH_main(int argc, const char* const* argv)
 {
+    (void)XXH3_64bits_reset_withSeed(&g_fixseed_state, g_fixseed);
+
     int i, filenamesStart = 0;
     const char* const exename = argv[0];
     U32 benchmarkMode = 0;

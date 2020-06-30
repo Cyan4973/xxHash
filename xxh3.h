@@ -1832,6 +1832,24 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
     return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSeed);
 }
 
+XXH_NO_INLINE XXH64_hash_t
+XXH3_hashLong_64b_withSeed2(const xxh_u8* XXH_RESTRICT const input, const size_t len, const xxh_u8* XXH_RESTRICT const secret)
+{
+    return XXH3_hashLong_64b_internal(input, len, secret, XXH_SECRET_DEFAULT_SIZE, XXH3_accumulate_512, XXH3_scrambleAcc);
+}
+
+XXH_PUBLIC_API XXH64_hash_t
+XXH3_64bits_withSeed2(const void* const input, const size_t len, const XXH3_state_t* const seed_state)
+{
+    if (len <= 16)
+        return XXH3_len_0to16_64b((const xxh_u8*)input, len, XXH3_kSecret, seed_state->seed);
+    if (len <= 128)
+        return XXH3_len_17to128_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed_state->seed);
+    if (len <= XXH3_MIDSIZE_MAX)
+        return XXH3_len_129to240_64b((const xxh_u8*)input, len, XXH3_kSecret, sizeof(XXH3_kSecret), seed_state->seed);
+    return XXH3_hashLong_64b_withSeed2((const xxh_u8*)input, len, seed_state->customSecret);
+}
+
 
 /* ===   XXH3 streaming   === */
 

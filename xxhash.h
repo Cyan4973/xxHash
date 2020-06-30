@@ -482,6 +482,7 @@ struct XXH64_state_s {
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
 #  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
+#  define XXH3_64bits_withSeed2 XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed2)
 
 #  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
 #  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
@@ -509,6 +510,15 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
  * Note: seed==0 produces the same results as XXH3_64bits().
  */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
+
+/*
+ * XXH3_64bits_withSeed2():
+ * This variant try to reuse the custom secret for a seed.
+ * The seed_state is generated from XXH3_64bits_reset_withSeed().
+ * The produced results are same with XXH3_64bits_withSeed2().
+ */
+typedef struct XXH3_state_s XXH3_state_t;
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed2(const void* data, size_t len, const XXH3_state_t *seed_state);
 
 /*
  * XXH3_64bits_withSecret():

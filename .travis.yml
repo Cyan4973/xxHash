@@ -22,6 +22,8 @@ matrix:
         - make -B test-all
         - make clean
         - make dispatch
+        - make clean
+        - CC=g++ make CFLAGS="-O2 -mavx512f"
 
     - name: Check results consistency on x64
       arch: amd64

@@ -33,6 +33,10 @@
  */
 
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 /*
  * Dispatcher code for XXH3 on x86-based targets.
  */
@@ -459,14 +463,14 @@ XXHL128_default_avx512(const void* XXH_RESTRICT input, size_t len)
 XXH_NO_INLINE XXH128_hash_t
 XXHL128_secret_scalar(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
 {
-    return XXH3_hashLong_128b_internal(input, len, secret, secretLen,
+    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
                     XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
 }
 
 XXH_NO_INLINE XXH_TARGET_SSE2 XXH128_hash_t
 XXHL128_secret_sse2(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
 {
-    return XXH3_hashLong_128b_internal(input, len, secret, secretLen,
+    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
                     XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
 }
 
@@ -474,7 +478,7 @@ XXHL128_secret_sse2(const void* XXH_RESTRICT input, size_t len, const void* XXH_
 XXH_NO_INLINE XXH_TARGET_AVX2 XXH128_hash_t
 XXHL128_secret_avx2(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
 {
-    return XXH3_hashLong_128b_internal(input, len, secret, secretLen,
+    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
                     XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
 }
 #endif
@@ -483,7 +487,7 @@ XXHL128_secret_avx2(const void* XXH_RESTRICT input, size_t len, const void* XXH_
 XXH_NO_INLINE XXH_TARGET_AVX512 XXH128_hash_t
 XXHL128_secret_avx512(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
 {
-    return XXH3_hashLong_128b_internal(input, len, secret, secretLen,
+    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
                     XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
 }
 #endif
@@ -640,7 +644,7 @@ static void setDispatch(void)
 /* ====    XXH3 public functions    ==== */
 
 static XXH64_hash_t
-XXH3_hashLong_64b_defaultSecret_selection(const xxh_u8* input, size_t len,
+XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len,
                                           XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
@@ -654,7 +658,7 @@ XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len)
 }
 
 static XXH64_hash_t
-XXH3_hashLong_64b_withSeed_selection(const xxh_u8* input, size_t len,
+XXH3_hashLong_64b_withSeed_selection(const void* input, size_t len,
                                      XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
@@ -668,7 +672,7 @@ XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_
 }
 
 static XXH64_hash_t
-XXH3_hashLong_64b_withSecret_selection(const xxh_u8* input, size_t len,
+XXH3_hashLong_64b_withSecret_selection(const void* input, size_t len,
                                        XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)seed64;
@@ -692,8 +696,8 @@ XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 /* ====    XXH128 public functions    ==== */
 
 static XXH128_hash_t
-XXH3_hashLong_128b_defaultSecret_selection(const xxh_u8* input, size_t len,
-                                           XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
+XXH3_hashLong_128b_defaultSecret_selection(const void* input, size_t len,
+                                           XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
     if (g_dispatch128.hashLong128_default == NULL) setDispatch();
@@ -706,8 +710,8 @@ XXH128_hash_t XXH3_128bits_dispatch(const void* input, size_t len)
 }
 
 static XXH128_hash_t
-XXH3_hashLong_128b_withSeed_selection(const xxh_u8* input, size_t len,
-                                     XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
+XXH3_hashLong_128b_withSeed_selection(const void* input, size_t len,
+                                     XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
     if (g_dispatch128.hashLong128_seed == NULL) setDispatch();
@@ -720,8 +724,8 @@ XXH128_hash_t XXH3_128bits_withSeed_dispatch(const void* input, size_t len, XXH6
 }
 
 static XXH128_hash_t
-XXH3_hashLong_128b_withSecret_selection(const xxh_u8* input, size_t len,
-                                        XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
+XXH3_hashLong_128b_withSecret_selection(const void* input, size_t len,
+                                        XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)seed64;
     if (g_dispatch128.hashLong128_secret == NULL) setDispatch();
@@ -739,3 +743,7 @@ XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
     if (g_dispatch128.update == NULL) setDispatch();
     return g_dispatch128.update(state, (const xxh_u8*)input, len);
 }
+
+#if defined (__cplusplus)
+}
+#endif

@@ -449,8 +449,11 @@ static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s by %s, compiled as %i-bit %s %s with " CC_VERSION_FMT " \n", \
-                    exename, PROGRAM_VERSION, author, g_nbBits, ARCH, ENDIAN_NAME, CC_VERSION
+#define WELCOME_MESSAGE(exename) "%s %s by %s \n", exename, PROGRAM_VERSION, author
+#define FULL_WELCOME_MESSAGE(exename) "%s %s by %s \n" \
+                    "compiled as %i-bit %s %s with " CC_VERSION_FMT " \n", \
+                    exename, PROGRAM_VERSION, author, \
+                    g_nbBits, ARCH, ENDIAN_NAME, CC_VERSION
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)
@@ -2188,6 +2191,14 @@ static void errorOut(const char* msg)
     DISPLAY("%s \n", msg); exit(1);
 }
 
+static const char* lastNameFromPath(const char* path)
+{
+    const char* name = path;
+    if (strrchr(name, '/')) name = strrchr(name, '/') + 1;
+    if (strrchr(name, '\\')) name = strrchr(name, '\\') + 1; /* windows */
+    return name;
+}
+
 /*!
  * readU32FromCharChecked():
  * @return 0 if success, and store the result in *value.
@@ -2240,7 +2251,7 @@ static U32 readU32FromChar(const char** stringPtr) {
 static int XXH_main(int argc, const char* const* argv)
 {
     int i, filenamesStart = 0;
-    const char* const exename = argv[0];
+    const char* const exename = lastNameFromPath(argv[0]);
     U32 benchmarkMode = 0;
     U32 fileCheckMode = 0;
     U32 strictMode    = 0;
@@ -2272,7 +2283,7 @@ static int XXH_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
-        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
+        if (!strcmp(argument, "--version")) { DISPLAY(FULL_WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
         if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }  /* hidden option */
 
         if (*argument!='-') {
@@ -2288,7 +2299,7 @@ static int XXH_main(int argc, const char* const* argv)
             {
             /* Display version */
             case 'V':
-                DISPLAY(WELCOME_MESSAGE(exename)); return 0;
+                DISPLAY(FULL_WELCOME_MESSAGE(exename)); return 0;
 
             /* Display help on usage */
             case 'h':
@@ -2360,7 +2371,7 @@ static int XXH_main(int argc, const char* const* argv)
 
     /* Check benchmark mode */
     if (benchmarkMode) {
-        DISPLAYLEVEL(2, WELCOME_MESSAGE(exename) );
+        DISPLAYLEVEL(2, FULL_WELCOME_MESSAGE(exename) );
         BMK_sanityCheck();
         if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, sizeof(g_testIDs));
         if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, sizeof(g_testIDs));

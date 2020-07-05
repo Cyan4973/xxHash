@@ -24,6 +24,9 @@ matrix:
         - make dispatch
         - make clean
         - CC=g++ CFLAGS="-O1 -mavx512f" make
+        - make clean
+        - CC=g++ CFLAGS="-Wall -Wextra" make DISPATCH=1
+
 
     - name: Check results consistency on x64
       arch: amd64

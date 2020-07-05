@@ -35,12 +35,11 @@
 #ifndef XXH_X86DISPATCH_H_13563687684
 #define XXH_X86DISPATCH_H_13563687684
 
+#include "xxhash.h"  /* XXH64_hash_t, XXH3_state_t */
+
 #if defined (__cplusplus)
 extern "C" {
 #endif
-
-
-#include "xxhash.h"  /* XXH64_hash_t, XXH3_state_t */
 
 XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_dispatch(const void* input, size_t len);
 XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed);
@@ -51,6 +50,10 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_dispatch(const void* input, size_t len
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen);
 XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len);
+
+#if defined (__cplusplus)
+}
+#endif
 
 
 /* automatic replacement of XXH3 functions.
@@ -79,10 +82,5 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, c
 # define XXH3_128bits_update XXH3_128bits_update_dispatch
 
 #endif /* XXH_DISPATCH_DISABLE_REPLACE */
-
-
-#if defined (__cplusplus)
-}
-#endif
 
 #endif /* XXH_X86DISPATCH_H_13563687684 */

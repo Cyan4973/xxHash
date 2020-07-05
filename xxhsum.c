@@ -1811,19 +1811,36 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  *
  *      <8, 16, or 32 hexadecimal char> <space> <space> <filename...> <'\0'>
  */
-static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
+static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
 {
     const char* const firstSpace = strchr(line, ' ');
+    const char* hash_ptr;
+    int hash_len;
     if (firstSpace == NULL) return ParseLine_invalidFormat;
 
     parsedLine->filename = NULL;
     parsedLine->xxhBits = 0;
 
-    switch (firstSpace - line)
+    if (firstSpace[1] == '(') {
+        char* lastSpace = strrchr(line, ' ');
+        if (lastSpace - firstSpace < 5) return ParseLine_invalidFormat;
+        if (lastSpace[-1] != '=' || lastSpace[-2] != ' ' || lastSpace[-3] != ')') return ParseLine_invalidFormat;
+        lastSpace[-3] = '\0'; /* Terminate the filename */
+        hash_ptr = lastSpace + 1;
+        hash_len = strlen(hash_ptr);
+        /* NOTE: This currently ignores the hash description at the start of the string.
+         * In the future we should parse it and verify that it matches the hash length.
+         * It could also be used to allow both XXH64 & XXH3_64bits to be differentiated. */
+    } else {
+        hash_ptr = line;
+        hash_len = firstSpace - line;
+    }
+
+    switch (hash_len)
     {
     case 8:
         {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
+            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1833,7 +1850,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
     case 16:
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
+            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1843,7 +1860,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
     case 32:
         {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
-            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), line)
+            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -2284,7 +2301,7 @@ static int XXH_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
         if (!strcmp(argument, "--version")) { DISPLAY(FULL_WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
-        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }  /* hidden option */
+        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */

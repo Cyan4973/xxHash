@@ -54,6 +54,9 @@ OPTIONS
 * `-q`, `--quiet`:
   Don't print OK for each successfully verified file
 
+* `--tag`:
+  Output in the BSD style.
+
 * `--strict`:
   Return an error code if any line in the file is invalid,
   not just if some checksums are wrong.

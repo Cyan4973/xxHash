@@ -997,11 +997,11 @@ XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
         /* data_key    = data_vec ^ key_vec; */
         __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
         /* data_key_lo = data_key >> 32; */
-        __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, (_MM_PERM_ENUM)_MM_SHUFFLE(0, 3, 0, 1));
         /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
         __m512i const product     = _mm512_mul_epu32     (data_key, data_key_lo);
         /* xacc[0] += swap(data_vec); */
-        __m512i const data_swap = _mm512_shuffle_epi32(data_vec, _MM_SHUFFLE(1, 0, 3, 2));
+        __m512i const data_swap = _mm512_shuffle_epi32(data_vec, (_MM_PERM_ENUM)_MM_SHUFFLE(1, 0, 3, 2));
         __m512i const sum       = _mm512_add_epi64(*xacc, data_swap);
         /* xacc[0] += product; */
         *xacc = _mm512_add_epi64(product, sum);
@@ -1046,7 +1046,7 @@ XXH3_scrambleAcc_avx512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
 
         /* xacc[0] *= XXH_PRIME32_1; */
-        __m512i const data_key_hi = _mm512_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const data_key_hi = _mm512_shuffle_epi32 (data_key, (_MM_PERM_ENUM)_MM_SHUFFLE(0, 3, 0, 1));
         __m512i const prod_lo     = _mm512_mul_epu32     (data_key, prime32);
         __m512i const prod_hi     = _mm512_mul_epu32     (data_key_hi, prime32);
         *xacc = _mm512_add_epi64(prod_lo, _mm512_slli_epi64(prod_hi, 32));

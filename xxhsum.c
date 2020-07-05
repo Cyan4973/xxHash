@@ -1815,7 +1815,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
 {
     const char* const firstSpace = strchr(line, ' ');
     const char* hash_ptr;
-    int hash_len;
+    size_t hash_len;
     if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     parsedLine->filename = NULL;

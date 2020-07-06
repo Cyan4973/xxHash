@@ -1776,8 +1776,8 @@ static int charToHex(char c)
  * Converts canonical ASCII hexadecimal string `hashStr`
  * to the big endian binary representation in unsigned char array `dst`.
  *
- * Returns CANONICAL_FROM_STRING_INVALID_FORMAT if hashStr is not well formatted.
- * Returns CANONICAL_FROM_STRING_OK if hashStr is parsed successfully.
+ * Returns CanonicalFromString_invalidFormat if hashStr is not well formatted.
+ * Returns CanonicalFromString_ok if hashStr is parsed successfully.
  */
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
                                                      size_t dstSize,
@@ -1803,17 +1803,22 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
 
 /*
  * Parse single line of xxHash checksum file.
- * Returns PARSE_LINE_ERROR_INVALID_FORMAT if the line is not well formatted.
- * Returns PARSE_LINE_OK if the line is parsed successfully.
+ * Returns ParseLine_invalidFormat if the line is not well formatted.
+ * Returns ParseLine_ok if the line is parsed successfully.
  * And members of parseLine will be filled by parsed values.
  *
- *  - line must be terminated with '\0'.
+ *  - line must be terminated with '\0' without a trailing newline.
  *  - Since parsedLine.filename will point within given argument `line`,
  *    users must keep `line`s content when they are using parsedLine.
+ *  - The line may be modified to carve up the information it contains.
  *
  * xxHash checksum lines should have the following format:
  *
  *      <8, 16, or 32 hexadecimal char> <space> <space> <filename...> <'\0'>
+ *
+ * or:
+ *
+ *      <algorithm> <' ('> <filename> <') = '> <hexstring> <'\0'>
  */
 static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 {
@@ -1821,10 +1826,10 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
     const char* hash_ptr;
     size_t hash_len;
 
-    if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
-
     parsedLine->filename = NULL;
     parsedLine->xxhBits = 0;
+
+    if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     if (firstSpace[1] == '(') {
         char* lastSpace = strrchr(line, ' ');

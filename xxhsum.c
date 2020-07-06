@@ -1781,16 +1781,18 @@ static int charToHex(char c)
  */
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
                                                      size_t dstSize,
-                                                     const char* hashStr)
+                                                     const char* hashStr,
+                                                     int reverseBytes)
 {
     size_t i;
     for (i = 0; i < dstSize; ++i) {
         int h0, h1;
+        size_t j = reverseBytes ? dstSize - i - 1 : i;
 
-        h0 = charToHex(hashStr[i*2 + 0]);
+        h0 = charToHex(hashStr[j*2 + 0]);
         if (h0 < 0) return CanonicalFromString_invalidFormat;
 
-        h1 = charToHex(hashStr[i*2 + 1]);
+        h1 = charToHex(hashStr[j*2 + 1]);
         if (h1 < 0) return CanonicalFromString_invalidFormat;
 
         dst[i] = (unsigned char) ((h0 << 4) | h1);
@@ -1813,19 +1815,39 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  *
  *      <8, 16, or 32 hexadecimal char> <space> <space> <filename...> <'\0'>
  */
-static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
+static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 {
-    const char* const firstSpace = strchr(line, ' ');
-    if (firstSpace == NULL) return ParseLine_invalidFormat;
+    char* const firstSpace = strchr(line, ' ');
+    const char* hash_ptr;
+    size_t hash_len;
+
+    if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     parsedLine->filename = NULL;
     parsedLine->xxhBits = 0;
 
-    switch (firstSpace - line)
+    if (firstSpace[1] == '(') {
+        char* lastSpace = strrchr(line, ' ');
+        if (lastSpace - firstSpace < 5) return ParseLine_invalidFormat;
+        if (lastSpace[-1] != '=' || lastSpace[-2] != ' ' || lastSpace[-3] != ')') return ParseLine_invalidFormat;
+        lastSpace[-3] = '\0'; /* Terminate the filename */
+        *firstSpace = '\0';
+        rev = strstr(line, "_LE") != NULL; /* was output little-endian */
+        hash_ptr = lastSpace + 1;
+        hash_len = strlen(hash_ptr);
+        /* NOTE: This currently ignores the hash description at the start of the string.
+         * In the future we should parse it and verify that it matches the hash length.
+         * It could also be used to allow both XXH64 & XXH3_64bits to be differentiated. */
+    } else {
+        hash_ptr = line;
+        hash_len = (size_t)(firstSpace - line);
+    }
+
+    switch (hash_len)
     {
     case 8:
         {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
+            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1835,7 +1857,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
     case 16:
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
+            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1845,7 +1867,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
     case 32:
         {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
-            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), line)
+            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1868,7 +1890,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 /*!
  * Parse xxHash checksum file.
  */
-static void parseFile1(ParseFileArg* parseFileArg)
+static void parseFile1(ParseFileArg* parseFileArg, int rev)
 {
     const char* const inFileName = parseFileArg->inFileName;
     ParseFileReport* const report = &parseFileArg->report;
@@ -1920,7 +1942,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 break;
         }   }
 
-        if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
+        if (parseLine(&parsedLine, parseFileArg->lineBuf, rev) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn) {
                 DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n",
@@ -2044,12 +2066,6 @@ static int checkFile(const char* inFileName,
     ParseFileArg* const parseFileArg = &parseFileArgBody;
     ParseFileReport* const report = &parseFileArg->report;
 
-    if (displayEndianess != big_endian) {
-        /* Don't accept little endian */
-        DISPLAY( "Check file mode doesn't support little endian\n" );
-        return 0;
-    }
-
     /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
         /*
@@ -2083,7 +2099,7 @@ static int checkFile(const char* inFileName,
         DISPLAY("Error: : memory allocation failed \n");
         exit(1);
     }
-    parseFile1(parseFileArg);
+    parseFile1(parseFileArg, displayEndianess != big_endian);
 
     free(parseFileArg->blockBuf);
     free(parseFileArg->lineBuf);
@@ -2286,7 +2302,7 @@ static int XXH_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
         if (!strcmp(argument, "--version")) { DISPLAY(FULL_WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
-        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }  /* hidden option */
+        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */

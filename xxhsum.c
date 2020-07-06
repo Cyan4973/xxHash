@@ -1785,7 +1785,7 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
     size_t i;
     for (i = 0; i < dstSize; ++i) {
         int h0, h1;
-        int j = reverseDigits ? dstSize - i - 1 : i;
+        size_t j = reverseDigits ? dstSize - i - 1 : i;
 
         h0 = charToHex(hashStr[j*2 + 0]);
         if (h0 < 0) return CanonicalFromString_invalidFormat;
@@ -1813,12 +1813,11 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  *
  *      <8, 16, or 32 hexadecimal char> <space> <space> <filename...> <'\0'>
  */
-static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
+static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 {
     char* const firstSpace = strchr(line, ' ');
     const char* hash_ptr;
     size_t hash_len;
-    int rev;
 
     if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
@@ -1840,7 +1839,6 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
     } else {
         hash_ptr = line;
         hash_len = (size_t)(firstSpace - line);
-        rev = 0;
     }
 
     switch (hash_len)
@@ -1890,7 +1888,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
 /*!
  * Parse xxHash checksum file.
  */
-static void parseFile1(ParseFileArg* parseFileArg)
+static void parseFile1(ParseFileArg* parseFileArg, int rev)
 {
     const char* const inFileName = parseFileArg->inFileName;
     ParseFileReport* const report = &parseFileArg->report;
@@ -1942,7 +1940,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 break;
         }   }
 
-        if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
+        if (parseLine(&parsedLine, parseFileArg->lineBuf, rev) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn) {
                 DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n",
@@ -2066,12 +2064,6 @@ static int checkFile(const char* inFileName,
     ParseFileArg* const parseFileArg = &parseFileArgBody;
     ParseFileReport* const report = &parseFileArg->report;
 
-    if (displayEndianess != big_endian) {
-        /* Don't accept little endian */
-        DISPLAY( "Check file mode doesn't support little endian\n" );
-        return 0;
-    }
-
     /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
         /*
@@ -2105,7 +2097,7 @@ static int checkFile(const char* inFileName,
         DISPLAY("Error: : memory allocation failed \n");
         exit(1);
     }
-    parseFile1(parseFileArg);
+    parseFile1(parseFileArg, displayEndianess != big_endian);
 
     free(parseFileArg->blockBuf);
     free(parseFileArg->lineBuf);

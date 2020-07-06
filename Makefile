@@ -230,7 +230,7 @@ test-xxhsum-c: xxhsum
 	./xxhsum -c < .test.xxh32
 	# check variant with '*' marker as second separator
 	$(SED) 's/  / \*/' .test.xxh32 | ./xxhsum -c
-	# check bsd-style output
+	# bsd-style output
 	./xxhsum --tag xxhsum* | $(GREP) XXH64
 	./xxhsum --tag -H0 xxhsum* | $(GREP) XXH32
 	./xxhsum --tag -H1 xxhsum* | $(GREP) XXH64
@@ -244,6 +244,9 @@ test-xxhsum-c: xxhsum
 	./xxhsum --tag -H32 --little-endian xxhsum* | $(GREP) XXH32_LE
 	./xxhsum --tag -H64 --little-endian xxhsum* | $(GREP) XXH64_LE
 	./xxhsum --tag -H128 --little-endian xxhsum* | $(GREP) XXH128_LE
+	# check bsd-style
+	./xxhsum --tag xxhsum* | ./xxhsum -c
+	./xxhsum --tag -H32 --little-endian xxhsum* | ./xxhsum -c
 	# xxhsum -c warns improperly format lines.
 	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
 	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly

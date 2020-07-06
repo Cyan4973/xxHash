@@ -1779,16 +1779,18 @@ static int charToHex(char c)
  */
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
                                                      size_t dstSize,
-                                                     const char* hashStr)
+                                                     const char* hashStr,
+                                                     int reverseDigits)
 {
     size_t i;
     for (i = 0; i < dstSize; ++i) {
         int h0, h1;
+        int j = reverseDigits ? dstSize - i - 1 : i;
 
-        h0 = charToHex(hashStr[i*2 + 0]);
+        h0 = charToHex(hashStr[j*2 + 0]);
         if (h0 < 0) return CanonicalFromString_invalidFormat;
 
-        h1 = charToHex(hashStr[i*2 + 1]);
+        h1 = charToHex(hashStr[j*2 + 1]);
         if (h1 < 0) return CanonicalFromString_invalidFormat;
 
         dst[i] = (unsigned char) ((h0 << 4) | h1);
@@ -1813,9 +1815,11 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  */
 static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
 {
-    const char* const firstSpace = strchr(line, ' ');
+    char* const firstSpace = strchr(line, ' ');
     const char* hash_ptr;
     size_t hash_len;
+    int rev;
+
     if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     parsedLine->filename = NULL;
@@ -1826,6 +1830,8 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
         if (lastSpace - firstSpace < 5) return ParseLine_invalidFormat;
         if (lastSpace[-1] != '=' || lastSpace[-2] != ' ' || lastSpace[-3] != ')') return ParseLine_invalidFormat;
         lastSpace[-3] = '\0'; /* Terminate the filename */
+        *firstSpace = '\0';
+        rev = strstr(line, "_LE") != NULL; /* was output little-endian */
         hash_ptr = lastSpace + 1;
         hash_len = strlen(hash_ptr);
         /* NOTE: This currently ignores the hash description at the start of the string.
@@ -1834,13 +1840,14 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
     } else {
         hash_ptr = line;
         hash_len = (size_t)(firstSpace - line);
+        rev = 0;
     }
 
     switch (hash_len)
     {
     case 8:
         {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr)
+            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1850,7 +1857,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
 
     case 16:
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr)
+            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1860,7 +1867,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
 
     case 32:
         {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
-            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr)
+            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }

@@ -2097,9 +2097,9 @@ static int checkFile(const char* inFileName,
         DISPLAY("%s: no properly formatted xxHash checksum lines found\n", inFileName);
     } else if (!statusOnly) {
         if (report->nImproperlyFormattedLines) {
-            DISPLAYRESULT("%lu %s are improperly formatted\n"
+            DISPLAYRESULT("%lu %s improperly formatted\n"
                 , report->nImproperlyFormattedLines
-                , report->nImproperlyFormattedLines == 1 ? "line" : "lines");
+                , report->nImproperlyFormattedLines == 1 ? "line is" : "lines are");
         }
         if (report->nOpenOrReadFailures) {
             DISPLAYRESULT("%lu listed %s could not be read\n"

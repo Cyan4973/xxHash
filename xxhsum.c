@@ -1833,7 +1833,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line)
          * It could also be used to allow both XXH64 & XXH3_64bits to be differentiated. */
     } else {
         hash_ptr = line;
-        hash_len = firstSpace - line;
+        hash_len = (size_t)(firstSpace - line);
     }
 
     switch (hash_len)

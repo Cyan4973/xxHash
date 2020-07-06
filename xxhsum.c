@@ -35,7 +35,9 @@
  **************************************/
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
-#  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  ifndef _CRT_SECURE_NO_WARNINGS
+#    define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  endif
 #endif
 
 /* Under Linux at least, pull in the *64 commands */

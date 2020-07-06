@@ -1780,12 +1780,12 @@ static int charToHex(char c)
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
                                                      size_t dstSize,
                                                      const char* hashStr,
-                                                     int reverseDigits)
+                                                     int reverseBytes)
 {
     size_t i;
     for (i = 0; i < dstSize; ++i) {
         int h0, h1;
-        size_t j = reverseDigits ? dstSize - i - 1 : i;
+        size_t j = reverseBytes ? dstSize - i - 1 : i;
 
         h0 = charToHex(hashStr[j*2 + 0]);
         if (h0 < 0) return CanonicalFromString_invalidFormat;

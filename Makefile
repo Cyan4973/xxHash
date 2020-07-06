@@ -220,14 +220,24 @@ test-xxhsum-c: xxhsum
 	LC_ALL=C ./xxhsum nonexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
 	# xxhsum to/from file, shell redirection
 	./xxhsum xxh* > .test.xxh64
+	./xxhsum --tag xxh* > .test.xxh64_tag
+	./xxhsum --little-endian xxh* > .test.le_xxh64
+	./xxhsum --tag --little-endian xxh* > .test.le_xxh64_tag
 	./xxhsum -H0 xxh* > .test.xxh32
+	./xxhsum -H0 --tag xxh* > .test.xxh32_tag
+	./xxhsum -H0 --little-endian xxh* > .test.le_xxh32
+	./xxhsum -H0 --tag --little-endian xxh* > .test.le_xxh32_tag
 	./xxhsum -H2 xxh* > .test.xxh128
-	./xxhsum -c .test.xxh64
-	./xxhsum -c .test.xxh32
-	./xxhsum -c .test.xxh128
+	./xxhsum -H2 --tag xxh* > .test.xxh128_tag
+	./xxhsum -H2 --little-endian xxh* > .test.le_xxh128
+	./xxhsum -H2 --tag --little-endian xxh* > .test.le_xxh128_tag
+	./xxhsum -c .test.xxh*
+	./xxhsum -c --little-endian .test.le_xxh*
+	./xxhsum -c .test.*_tag
 	# read list of files from stdin
 	./xxhsum -c < .test.xxh64
 	./xxhsum -c < .test.xxh32
+	cat .test.xxh* | ./xxhsum -c -
 	# check variant with '*' marker as second separator
 	$(SED) 's/  / \*/' .test.xxh32 | ./xxhsum -c
 	# check bsd-style output
@@ -245,15 +255,17 @@ test-xxhsum-c: xxhsum
 	./xxhsum --tag -H64 --little-endian xxhsum* | $(GREP) XXH64_LE
 	./xxhsum --tag -H128 --little-endian xxhsum* | $(GREP) XXH128_LE
 	# xxhsum -c warns improperly format lines.
-	cat .test.xxh64 .test.xxh32 | ./xxhsum -c - | $(GREP) improperly
-	cat .test.xxh32 .test.xxh64 | ./xxhsum -c - | $(GREP) improperly
+	echo '12345678 ' >>.test.xxh32
+	./xxhsum -c .test.xxh32 | $(GREP) improperly
+	echo '123456789  file' >>.test.xxh64
+	./xxhsum -c .test.xxh64 | $(GREP) improperly
 	# Expects "FAILED"
 	echo "0000000000000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  LICENSE" | ./xxhsum -c -; test $$? -eq 1
 	# Expects "FAILED open or read"
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
-	@$(RM) .test.xxh32 .test.xxh64 .test.xxh128
+	@$(RM) .test.*
 
 .PHONY: armtest
 armtest: clean

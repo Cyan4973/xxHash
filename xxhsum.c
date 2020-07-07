@@ -1398,6 +1398,29 @@ static void BMK_sanityCheck(void)
 /* ********************************************************
 *  File Hashing
 **********************************************************/
+#if defined(_MSC_VER)
+    typedef struct __stat64 stat_t;
+    typedef int mode_t;
+#else
+    typedef struct stat stat_t;
+#endif
+
+#include <sys/types.h>  /* struct stat / __start64 */
+#include <sys/stat.h>   /* stat() / _stat64() */
+
+int XSUM_isDirectory(const char* infilename)
+{
+    stat_t statbuf;
+#if defined(_MSC_VER)
+    int const r = _stat64(infilename, &statbuf);
+    if (!r && (statbuf.st_mode & _S_IFDIR)) return 1;
+#else
+    int const r = stat(infilename, &statbuf);
+    if (!r && S_ISDIR(statbuf.st_mode)) return 1;
+#endif
+    return 0;
+}
+
 /* for support of --little-endian display mode */
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
@@ -1565,16 +1588,19 @@ static int XSUM_hashFile(const char* fileName,
         fileName = "stdin";
         SET_BINARY_MODE(stdin);
     } else {
+        if (XSUM_isDirectory(fileName)) {
+            DISPLAY("xxhsum: %s: Is a directory \n", fileName);
+            return 1;
+        }
         inFile = XXH_fopen( fileName, "rb" );
-    }
-    if (inFile==NULL) {
-        DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
-        return 1;
-    }
+        if (inFile==NULL) {
+            DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
+            return 1;
+    }   }
 
     /* Memory allocation & streaming */
     {   void* const buffer = malloc(blockSize);
-        if (!buffer) {
+        if (buffer == NULL) {
             DISPLAY("\nError: Out of memory.\n");
             fclose(inFile);
             return 1;

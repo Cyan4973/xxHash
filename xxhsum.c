@@ -1679,7 +1679,6 @@ typedef struct {
     unsigned long   nMismatchedChecksums;
     unsigned long   nOpenOrReadFailures;
     unsigned long   nMixedFormatLines;
-    int             xxhBits;
     int             quit;
 } ParseFileReport;
 
@@ -1956,21 +1955,7 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
             continue;
         }
 
-        if (report->xxhBits != 0 && report->xxhBits != parsedLine.xxhBits) {
-            /* Don't accept xxh32/xxh64 mixed file */
-            report->nImproperlyFormattedLines++;
-            report->nMixedFormatLines++;
-            if (parseFileArg->warn) {
-                DISPLAY("%s: %lu: Error: Multiple hash types in one file.\n",
-                        inFileName, lineNumber);
-            }
-            continue;
-        }
-
         report->nProperlyFormattedLines++;
-        if (report->xxhBits == 0) {
-            report->xxhBits = parsedLine.xxhBits;
-        }
 
         do {
             FILE* const fp = XXH_fopen(parsedLine.filename, "rb");
@@ -2117,9 +2102,9 @@ static int checkFile(const char* inFileName,
         DISPLAY("%s: no properly formatted xxHash checksum lines found\n", inFileName);
     } else if (!statusOnly) {
         if (report->nImproperlyFormattedLines) {
-            DISPLAYRESULT("%lu %s are improperly formatted\n"
+            DISPLAYRESULT("%lu %s improperly formatted\n"
                 , report->nImproperlyFormattedLines
-                , report->nImproperlyFormattedLines == 1 ? "line" : "lines");
+                , report->nImproperlyFormattedLines == 1 ? "line is" : "lines are");
         }
         if (report->nOpenOrReadFailures) {
             DISPLAYRESULT("%lu listed %s could not be read\n"

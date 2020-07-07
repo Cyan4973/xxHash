@@ -1486,7 +1486,7 @@ XSUM_hashStream(FILE* inFile,
             exit(1);
     }   }
 
-    {   Multihash finalHash;
+    {   Multihash finalHash = {0};
         switch(hashType)
         {
         case algo_xxh32:

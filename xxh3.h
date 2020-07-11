@@ -362,6 +362,7 @@
 #  endif
 
 #  undef vector /* Undo the pollution */
+#  undef bool
 
 typedef __vector unsigned long long xxh_u64x2;
 typedef __vector unsigned char xxh_u8x16;

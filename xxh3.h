@@ -1926,8 +1926,11 @@ XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
                            const void* secret, size_t secretSize)
 {
     size_t const initStart = offsetof(XXH3_state_t, bufferedSize);
+    size_t const initLength = offsetof(XXH3_state_t, nbStripesPerBlock) - initStart;
+    XXH_ASSERT(offsetof(XXH3_state_t, nbStripesPerBlock) > initStart);
     XXH_ASSERT(statePtr != NULL);
-    memset((char*)statePtr + initStart, 0, sizeof(*statePtr) - initStart);
+    /* set members from bufferedSize to nbStripesPerBlock (excluded) to 0 */
+    memset((char*)statePtr + initStart, 0, initLength);
     statePtr->acc[0] = XXH_PRIME32_3;
     statePtr->acc[1] = XXH_PRIME64_1;
     statePtr->acc[2] = XXH_PRIME64_2;

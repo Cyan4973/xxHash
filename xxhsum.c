@@ -660,6 +660,7 @@ static U32 localXXH3_stream(const void* buffer, size_t bufferSize, U32 seed)
 static U32 localXXH3_stream_seeded(const void* buffer, size_t bufferSize, U32 seed)
 {
     XXH3_state_t state;
+    XXH3_INITSTATE(&state);
     XXH3_64bits_reset_withSeed(&state, (XXH64_hash_t)seed);
     XXH3_64bits_update(&state, buffer, bufferSize);
     return (U32)XXH3_64bits_digest(&state);
@@ -675,7 +676,7 @@ static U32 localXXH128_stream(const void* buffer, size_t bufferSize, U32 seed)
 static U32 localXXH128_stream_seeded(const void* buffer, size_t bufferSize, U32 seed)
 {
     XXH3_state_t state;
-    (void)seed;
+    XXH3_INITSTATE(&state);
     XXH3_128bits_reset_withSeed(&state, (XXH64_hash_t)seed);
     XXH3_128bits_update(&state, buffer, bufferSize);
     return (U32)(XXH3_128bits_digest(&state).low64);

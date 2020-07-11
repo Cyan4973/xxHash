@@ -572,6 +572,16 @@ struct XXH3_state_s {
 
 #undef XXH_ALIGN_MEMBER
 
+/* When the XXH3_state_t structure is merely emplaced on stack,
+ * it should be initialized with XXH3_INITSTATE() or a memset()
+ * in case its first reset uses XXH3_NNbits_reset_withSeed().
+ * This init can be omitted if the first reset uses default or _withSecret mode.
+ * This operation isn't necessary when the state is created with XXH3_createState().
+ * Note that this doesn't prepare the state for a streaming operation,
+ * it's still necessary to use XXH3_NNbits_reset*() afterwards.
+ */
+#define XXH3_INITSTATE(XXH3_state_ptr)   { (XXH3_state_ptr)->seed = 0; }
+
 /*
  * Streaming requires state maintenance.
  * This operation costs memory and CPU.

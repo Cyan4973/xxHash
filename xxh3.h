@@ -1902,7 +1902,10 @@ static void XXH_alignedFree(void* p)
 }
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {
-    return (XXH3_state_t*)XXH_alignedMalloc(sizeof(XXH3_state_t), 64);
+    XXH3_state_t* const state = XXH_alignedMalloc(sizeof(XXH3_state_t), 64);
+    if (state==NULL) return NULL;
+    XXH3_INITSTATE(state);
+    return state;
 }
 
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
@@ -1920,10 +1923,11 @@ XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
 static void
 XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
                            XXH64_hash_t seed,
-                           const xxh_u8* secret, size_t secretSize)
+                           const void* secret, size_t secretSize)
 {
+    size_t const initStart = offsetof(XXH3_state_t, bufferedSize);
     XXH_ASSERT(statePtr != NULL);
-    memset(statePtr, 0, sizeof(*statePtr));
+    memset((char*)statePtr + initStart, 0, sizeof(*statePtr) - initStart);
     statePtr->acc[0] = XXH_PRIME32_3;
     statePtr->acc[1] = XXH_PRIME64_1;
     statePtr->acc[2] = XXH_PRIME64_2;
@@ -1933,8 +1937,7 @@ XXH3_64bits_reset_internal(XXH3_state_t* statePtr,
     statePtr->acc[6] = XXH_PRIME64_5;
     statePtr->acc[7] = XXH_PRIME32_1;
     statePtr->seed = seed;
-    XXH_ASSERT(secret != NULL);
-    statePtr->extSecret = secret;
+    statePtr->extSecret = (const unsigned char*)secret;
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     statePtr->secretLimit = secretSize - XXH_STRIPE_LEN;
     statePtr->nbStripesPerBlock = statePtr->secretLimit / XXH_SECRET_CONSUME_RATE;
@@ -1952,7 +1955,7 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_64bits_reset_internal(statePtr, 0, (const xxh_u8*)secret, secretSize);
+    XXH3_64bits_reset_internal(statePtr, 0, secret, secretSize);
     if (secret == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
     return XXH_OK;
@@ -1962,9 +1965,9 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_64bits_reset_internal(statePtr, seed, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
-    XXH3_initCustomSecret(statePtr->customSecret, seed);
-    statePtr->extSecret = NULL;
+    if (seed==0) return XXH3_64bits_reset(statePtr);
+    if (seed != statePtr->seed) XXH3_initCustomSecret(statePtr->customSecret, seed);
+    XXH3_64bits_reset_internal(statePtr, seed, NULL, XXH_SECRET_DEFAULT_SIZE);
     return XXH_OK;
 }
 
@@ -2581,7 +2584,7 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 static void
 XXH3_128bits_reset_internal(XXH3_state_t* statePtr,
                             XXH64_hash_t seed,
-                            const xxh_u8* secret, size_t secretSize)
+                            const void* secret, size_t secretSize)
 {
     XXH3_64bits_reset_internal(statePtr, seed, secret, secretSize);
 }
@@ -2598,7 +2601,7 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_128bits_reset_internal(statePtr, 0, (const xxh_u8*)secret, secretSize);
+    XXH3_128bits_reset_internal(statePtr, 0, secret, secretSize);
     if (secret == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
     return XXH_OK;
@@ -2608,9 +2611,9 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_128bits_reset_internal(statePtr, seed, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
-    XXH3_initCustomSecret(statePtr->customSecret, seed);
-    statePtr->extSecret = NULL;
+    if (seed==0) return XXH3_128bits_reset(statePtr);
+    if (seed != statePtr->seed) XXH3_initCustomSecret(statePtr->customSecret, seed);
+    XXH3_128bits_reset_internal(statePtr, seed, NULL, XXH_SECRET_DEFAULT_SIZE);
     return XXH_OK;
 }
 

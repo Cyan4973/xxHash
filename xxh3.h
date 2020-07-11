@@ -1902,7 +1902,7 @@ static void XXH_alignedFree(void* p)
 }
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {
-    XXH3_state_t* const state = XXH_alignedMalloc(sizeof(XXH3_state_t), 64);
+    XXH3_state_t* const state = (XXH3_state_t*)XXH_alignedMalloc(sizeof(XXH3_state_t), 64);
     if (state==NULL) return NULL;
     XXH3_INITSTATE(state);
     return state;

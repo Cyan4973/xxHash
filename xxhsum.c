@@ -2322,11 +2322,11 @@ static int XXH_main(int argc, const char* const* argv)
 
         if (!strcmp(argument, "--")) {
             if (filenamesStart==0 && i!=argc-1) filenamesStart=i+1; /* only supports a continuous list of filenames */
-            break;
+            break;  /* treat rest of arguments as strictly file names */
         }
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
-            break;
+            break;  /* treat rest of arguments as strictly file names */
         }
 
         /* command selection */

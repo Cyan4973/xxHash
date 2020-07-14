@@ -2322,7 +2322,7 @@ static int XXH_main(int argc, const char* const* argv)
 
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
-            continue;
+            break;
         }
 
         /* command selection */

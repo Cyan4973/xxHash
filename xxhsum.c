@@ -2320,9 +2320,13 @@ static int XXH_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--version")) { DISPLAY(FULL_WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
         if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }
 
+        if (!strcmp(argument, "--")) {
+            if (filenamesStart==0 && i!=argc-1) filenamesStart=i+1; /* only supports a continuous list of filenames */
+            break;  /* treat rest of arguments as strictly file names */
+        }
         if (*argument!='-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
-            continue;
+            break;  /* treat rest of arguments as strictly file names */
         }
 
         /* command selection */

@@ -2117,16 +2117,16 @@ static int checkFile(const char* inFileName,
         return 0;
     }
 
-    parseFileArg->inFileName    = inFileName;
-    parseFileArg->inFile        = inFile;
-    parseFileArg->lineMax       = DEFAULT_LINE_LENGTH;
-    parseFileArg->lineBuf       = (char*) malloc((size_t)parseFileArg->lineMax);
-    parseFileArg->blockSize     = 64 * 1024;
-    parseFileArg->blockBuf      = (char*) malloc(parseFileArg->blockSize);
-    parseFileArg->strictMode    = strictMode;
-    parseFileArg->statusOnly    = statusOnly;
-    parseFileArg->warn          = warn;
-    parseFileArg->quiet         = quiet;
+    parseFileArg->inFileName  = inFileName;
+    parseFileArg->inFile      = inFile;
+    parseFileArg->lineMax     = DEFAULT_LINE_LENGTH;
+    parseFileArg->lineBuf     = (char*) malloc((size_t)parseFileArg->lineMax);
+    parseFileArg->blockSize   = 64 * 1024;
+    parseFileArg->blockBuf    = (char*) malloc(parseFileArg->blockSize);
+    parseFileArg->strictMode  = strictMode;
+    parseFileArg->statusOnly  = statusOnly;
+    parseFileArg->warn        = warn;
+    parseFileArg->quiet       = quiet;
 
     if ( (parseFileArg->lineBuf == NULL)
       || (parseFileArg->blockBuf == NULL) ) {
@@ -2309,6 +2309,7 @@ static int XXH_main(int argc, const char* const* argv)
     U32 strictMode    = 0;
     U32 statusOnly    = 0;
     U32 warn          = 0;
+    int explicitStdin = 0;
     U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
     static const U32 kBenchAll = 99;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
@@ -2321,10 +2322,9 @@ static int XXH_main(int argc, const char* const* argv)
     if (strstr(exename,  "xxh64sum") != NULL) algo = g_defaultAlgo = algo_xxh64;
     if (strstr(exename, "xxh128sum") != NULL) algo = g_defaultAlgo = algo_xxh128;
 
-    for(i=1; i<argc; i++) {
+    for (i=1; i<argc; i++) {
         const char* argument = argv[i];
-
-        if(!argument) continue;   /* Protection if arguments are empty */
+        assert(argument != NULL);
 
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
         if (!strcmp(argument, "--benchmark-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
@@ -2342,15 +2342,16 @@ static int XXH_main(int argc, const char* const* argv)
             if (filenamesStart==0 && i!=argc-1) filenamesStart=i+1; /* only supports a continuous list of filenames */
             break;  /* treat rest of arguments as strictly file names */
         }
-        if (*argument!='-') {
+        if (*argument != '-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
             break;  /* treat rest of arguments as strictly file names */
         }
 
         /* command selection */
         argument++;   /* note: *argument=='-' */
+        if (*argument == 0) explicitStdin = 1;
 
-        while (*argument!=0) {
+        while (*argument != 0) {
             switch(*argument)
             {
             /* Display version */
@@ -2436,7 +2437,8 @@ static int XXH_main(int argc, const char* const* argv)
     }
 
     /* Check if input is defined as console; trigger an error in this case */
-    if ( (filenamesStart==0) && IS_CONSOLE(stdin) ) return badusage(exename);
+    if ( (filenamesStart==0) && IS_CONSOLE(stdin) && !explicitStdin)
+        return badusage(exename);
 
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {

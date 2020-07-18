@@ -554,15 +554,15 @@ typedef struct XXH3_state_s XXH3_state_t;
 #define XXH3_SECRET_DEFAULT_SIZE 192
 struct XXH3_state_s {
    XXH_ALIGN_MEMBER(64, XXH64_hash_t acc[8]);
-  /* used to store a custom secret generated from a seed */
+   /* used to store a custom secret generated from a seed */
    XXH_ALIGN_MEMBER(64, unsigned char customSecret[XXH3_SECRET_DEFAULT_SIZE]);
    XXH_ALIGN_MEMBER(64, unsigned char buffer[XXH3_INTERNALBUFFER_SIZE]);
    XXH32_hash_t bufferedSize;
    XXH32_hash_t reserved32;
-   size_t nbStripesPerBlock;
    size_t nbStripesSoFar;
-   size_t secretLimit;
    XXH64_hash_t totalLen;
+   size_t nbStripesPerBlock;
+   size_t secretLimit;
    XXH64_hash_t seed;
    XXH64_hash_t reserved64;
    const unsigned char* extSecret;  /* reference to external secret;
@@ -571,6 +571,16 @@ struct XXH3_state_s {
 }; /* typedef'd to XXH3_state_t */
 
 #undef XXH_ALIGN_MEMBER
+
+/* When the XXH3_state_t structure is merely emplaced on stack,
+ * it should be initialized with XXH3_INITSTATE() or a memset()
+ * in case its first reset uses XXH3_NNbits_reset_withSeed().
+ * This init can be omitted if the first reset uses default or _withSecret mode.
+ * This operation isn't necessary when the state is created with XXH3_createState().
+ * Note that this doesn't prepare the state for a streaming operation,
+ * it's still necessary to use XXH3_NNbits_reset*() afterwards.
+ */
+#define XXH3_INITSTATE(XXH3_state_ptr)   { (XXH3_state_ptr)->seed = 0; }
 
 /*
  * Streaming requires state maintenance.

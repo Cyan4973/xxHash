@@ -1409,11 +1409,10 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
 
         /* swap high and low halves */
 #ifdef __s390x__
-        xxh_u64x2 const data_swapped = vec_permi(data_vec, data_vec, 2);
+        xacc[i] += vec_permi(data_vec, data_vec, 2);
 #else
-        xxh_u64x2 const data_swapped = vec_xxpermdi(data_vec, data_vec, 2);
+        xacc[i] += vec_xxpermdi(data_vec, data_vec, 2);
 #endif
-        xacc[i] += data_swapped;
     }
 }
 

@@ -192,6 +192,7 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	$(RUN_ENV) ./xxhsum$(EXT) -H2 xxhash.c
 	# request incorrect variant
 	$(RUN_ENV) ./xxhsum$(EXT) -H9 xxhash.c ; test $$? -eq 1
+	@printf "\n .......   checks completed successfully   ....... \n"
 
 .PHONY: test-unicode
 test-unicode:

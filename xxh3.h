@@ -1426,7 +1426,7 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
         /* product = ((xxh_u64x2)data_key & 0xFFFFFFFF) * ((xxh_u64x2)shuffled & 0xFFFFFFFF); */
         xxh_u64x2 const product  = XXH_vec_mulo((xxh_u32x4)data_key, (xxh_u32x4)shuffled);
         /* acc_vec = xacc[i]; */
-        xxh_u64x2 acc_vec        = vec_xl(16 * i, xacc);
+        xxh_u64x2 acc_vec        = vec_xl(0, xacc + 2 * i);
         acc_vec += product;
 
         /* swap high and low halves */
@@ -1436,7 +1436,7 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
         acc_vec += vec_xxpermdi(data_vec, data_vec, 2);
 #endif
         /* xacc[i] = acc_vec; */
-        vec_xst(acc_vec, 16 * i, xacc);
+        vec_xst(acc_vec, 0, xacc + 2 * i);
     }
 }
 
@@ -1454,7 +1454,7 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, void const* XXH_RESTRICT secret)
         size_t i;
         for (i = 0; i < XXH_STRIPE_LEN / sizeof(xxh_u64x2); i++) {
             /* xacc[i] ^= (xacc[i] >> 47); */
-            xxh_u64x2 const acc_vec  = vec_xl(16 * i, xacc);
+            xxh_u64x2 const acc_vec  = vec_xl(0, xacc + 2 * i);
             xxh_u64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
 
             /* xacc[i] ^= xsecret[i]; */
@@ -1466,8 +1466,8 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, void const* XXH_RESTRICT secret)
             xxh_u64x2 const prod_lo = XXH_vec_mulo((xxh_u32x4)data_key, prime);
             /* prod_hi = ((xxh_u64x2)data_key >> 32) * ((xxh_u64x2)prime >> 32);  */
             xxh_u64x2 const prod_hi = XXH_vec_mule((xxh_u32x4)data_key, prime);
-            xxh_u64x2 const product = prod_odd + (prod_even << v32);
-            vec_xst(product, 16 * i, xacc);
+            xxh_u64x2 const product = prod_lo + (prod_hi << v32);
+            vec_xst(product, 0, xacc + 2 * i);
     }   }
 }
 

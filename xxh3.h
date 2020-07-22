@@ -355,13 +355,35 @@
  * inconsistent intrinsics, spotty coverage, and multiple endiannesses.
  */
 #if XXH_VECTOR == XXH_VSX
+/*
+ * Unless __APPLE_ALTIVEC__ is defined, there is a likely chance altivec.h will
+ * define bool, pixel, and vector as macros, which is bad.
+ *
+ * We do our best to clean up everything and put it back to the way it was,
+ * but it isn't perfect.
+ */
+#  ifndef __APPLE_ALTIVEC__
+#    undef bool /* if it was defined already */
+#  endif
 #  if defined(__s390x__)
 #    include <s390intrin.h>
 #  else
 #    include <altivec.h>
 #  endif
-
-#  undef vector /* Undo the pollution */
+/* Undo the pollution */
+#  ifndef __APPLE_ALTIVEC__
+#    undef vector
+#    undef pixel
+#    undef bool
+/* Define bool back to _Bool if stdbool.h was included. */
+#    ifdef __bool_true_false_are_defined
+#      ifdef __cplusplus
+#        define bool bool
+#      else
+#        define bool _Bool
+#      endif
+#    endif
+#  endif
 
 typedef __vector unsigned long long xxh_u64x2;
 typedef __vector unsigned char xxh_u8x16;

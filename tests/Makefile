@@ -47,7 +47,7 @@ test_multiInclude:
 	# ! $(NM) multiInclude | $(GREP) TESTN_
 	#@$(MAKE) clean
 
-xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxh3.h ../xxhsum.c
+xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxhsum.c
 	$(CC) $(CFLAGS) $(LDFLAGS) ../xxhash.c ../xxhsum.c -o $@
 
 # Make sure that Unicode filenames work.

@@ -63,8 +63,8 @@
  */
 
  /* ===  xxHash  === */
-
-#include "xxh3.h"
+#define XXH_INLINE_ALL
+#include "xxhash.h"
 
 size_t XXH32_wrapper(const void* src, size_t srcSize, void* dst, size_t dstCapacity, void* customPayload)
 {

@@ -95,9 +95,9 @@ dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
 dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
-xxhash.o: xxhash.c xxhash.h xxh3.h
-xxhsum.o: xxhsum.c xxhash.h xxh3.h xxh_x86dispatch.h
-xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h xxh3.h
+xxhash.o: xxhash.c xxhash.h
+xxhsum.o: xxhsum.c xxhash.h xxh_x86dispatch.h
+xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
@@ -423,7 +423,7 @@ install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
 	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
 	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
-	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR)
+	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR) # for compatibility, will be removed in v0.9.0
 ifeq ($(DISPATCH),1)
 	@$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
 endif

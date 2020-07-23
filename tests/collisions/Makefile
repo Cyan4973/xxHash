@@ -45,7 +45,7 @@ all: release
 collisionsTest: main.o pool.o threading.o sort.o $(HASH_OBJ)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
 
-main.o: hashes.h xxh3.h xxhash.h
+main.o: hashes.h xxhash.h
 
 release: CXXFLAGS += -O3
 release: CFLAGS += -O3

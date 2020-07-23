@@ -195,6 +195,7 @@ extern "C" {
 #  define XXH_CAT(A,B) A##B
 #  define XXH_NAME2(A,B) XXH_CAT(A,B)
 #  define XXH_versionNumber XXH_NAME2(XXH_NAMESPACE, XXH_versionNumber)
+/* XXH32 */
 #  define XXH32 XXH_NAME2(XXH_NAMESPACE, XXH32)
 #  define XXH32_createState XXH_NAME2(XXH_NAMESPACE, XXH32_createState)
 #  define XXH32_freeState XXH_NAME2(XXH_NAMESPACE, XXH32_freeState)
@@ -204,6 +205,7 @@ extern "C" {
 #  define XXH32_copyState XXH_NAME2(XXH_NAMESPACE, XXH32_copyState)
 #  define XXH32_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH32_canonicalFromHash)
 #  define XXH32_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH32_hashFromCanonical)
+/* XXH64 */
 #  define XXH64 XXH_NAME2(XXH_NAMESPACE, XXH64)
 #  define XXH64_createState XXH_NAME2(XXH_NAMESPACE, XXH64_createState)
 #  define XXH64_freeState XXH_NAME2(XXH_NAMESPACE, XXH64_freeState)
@@ -213,6 +215,33 @@ extern "C" {
 #  define XXH64_copyState XXH_NAME2(XXH_NAMESPACE, XXH64_copyState)
 #  define XXH64_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH64_canonicalFromHash)
 #  define XXH64_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH64_hashFromCanonical)
+/* XXH3_64bits */
+#  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
+#  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
+#  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
+#  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
+#  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
+#  define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
+#  define XXH3_64bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset)
+#  define XXH3_64bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
+#  define XXH3_64bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
+#  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
+#  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
+#  define XXH3_generateSecret XXH_NAME2(XXH_NAMESPACE, XXH3_generateSecret)
+/* XXH3_128bits */
+#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
+#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
+#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
+#  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
+#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
+#  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
+#  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
+#  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
+#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
+#  define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
+#  define XXH128_cmp     XXH_NAME2(XXH_NAMESPACE, XXH128_cmp)
+#  define XXH128_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH128_canonicalFromHash)
+#  define XXH128_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH128_hashFromCanonical)
 #endif
 
 
@@ -372,59 +401,8 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
 
 
-#endif  /* XXH_NO_LONG_LONG */
-
-#endif /* XXHASH_H_5627135585666179 */
-
-
-
-#if defined(XXH_STATIC_LINKING_ONLY) && !defined(XXHASH_H_STATIC_13879238742)
-#define XXHASH_H_STATIC_13879238742
-/* ****************************************************************************
- * This section contains declarations which are not guaranteed to remain stable.
- * They may change in future versions, becoming incompatible with a different
- * version of the library.
- * These declarations should only be used with static linking.
- * Never use them in association with dynamic linking!
- ***************************************************************************** */
-
-/*
- * These definitions are only present to allow static allocation of an XXH
- * state, for example, on the stack or in a struct.
- * Never **ever** access members directly.
- */
-
-struct XXH32_state_s {
-   XXH32_hash_t total_len_32;
-   XXH32_hash_t large_len;
-   XXH32_hash_t v1;
-   XXH32_hash_t v2;
-   XXH32_hash_t v3;
-   XXH32_hash_t v4;
-   XXH32_hash_t mem32[4];
-   XXH32_hash_t memsize;
-   XXH32_hash_t reserved;   /* never read nor write, might be removed in a future version */
-};   /* typedef'd to XXH32_state_t */
-
-
-#ifndef XXH_NO_LONG_LONG  /* defined when there is no 64-bit support */
-
-struct XXH64_state_s {
-   XXH64_hash_t total_len;
-   XXH64_hash_t v1;
-   XXH64_hash_t v2;
-   XXH64_hash_t v3;
-   XXH64_hash_t v4;
-   XXH64_hash_t mem64[4];
-   XXH32_hash_t memsize;
-   XXH32_hash_t reserved32;  /* required for padding anyway */
-   XXH64_hash_t reserved64;  /* never read nor write, might be removed in a future version */
-};   /* typedef'd to XXH64_state_t */
-
-
 /*-**********************************************************************
-*  XXH3
-*  New experimental hash
+*  XXH3 64-bit variant
 ************************************************************************/
 
 /* ************************************************************************
@@ -478,24 +456,6 @@ struct XXH64_state_s {
  * The API supports one-shot hashing, streaming mode, and custom secrets.
  */
 
-#ifdef XXH_NAMESPACE
-#  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
-#  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
-#  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
-
-#  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
-#  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
-#  define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
-
-#  define XXH3_64bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset)
-#  define XXH3_64bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
-#  define XXH3_64bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
-#  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
-#  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
-
-#  define XXH3_generateSecret XXH_NAME2(XXH_NAMESPACE, XXH3_generateSecret)
-#endif
-
 /* XXH3_64bits():
  * default 64-bit variant, using default secret and default seed of 0.
  * It's the fastest variant. */
@@ -503,8 +463,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
 
 /*
  * XXH3_64bits_withSeed():
- * This variant generates a custom secret on the fly based on the default
- * secret, altered using the `seed` value.
+ * This variant generates a custom secret on the fly
+ * based on default secret altered using the `seed` value.
  * While this operation is decently fast, note that it's not completely free.
  * Note: seed==0 produces the same results as XXH3_64bits().
  */
@@ -515,19 +475,169 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
  * This makes it more difficult for an external actor to prepare an intentional collision.
  * The main condition is that secretSize *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
- * However, the quality of the hash highly depends on the secret's entropy.
+ * However, the quality of produced hash values depends on secret's entropy.
  * Technically, the secret must look like a bunch of random bytes.
  * Avoid "trivial" or structured data such as repeated sequences or a text document.
- * Whenever unsure about the "randonmess" of the blob of bytes,
+ * Whenever unsure about the "randomness" of the blob of bytes,
  * consider relabelling it as a "custom seed" instead,
  * and employ "XXH3_generateSecret()" (see below)
- * to generate a high quality secret derived from this custom seed.
+ * to generate a high entropy secret derived from the custom seed.
  */
 #define XXH3_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
 
-/* streaming 64-bit */
+/*******   Streaming   *******/
+/*
+ * Streaming requires state maintenance.
+ * This operation costs memory and CPU.
+ * As a consequence, streaming is slower than one-shot hashing.
+ * For better performance, prefer one-shot functions whenever applicable.
+ */
+typedef struct XXH3_state_s XXH3_state_t;
+XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
+XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
+XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
+
+/*
+ * XXH3_64bits_reset():
+ * Initialize with default parameters.
+ * digest will be equivalent to `XXH3_64bits()`.
+ */
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
+/*
+ * XXH3_64bits_reset_withSeed():
+ * Generate a custom secret from `seed`, and store it into `statePtr`.
+ * digest will be equivalent to `XXH3_64bits_withSeed()`.
+ */
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
+/*
+ * XXH3_64bits_reset_withSecret():
+ * `secret` is referenced, it _must outlive_ the hash streaming session.
+ * Similar to one-shot API, `secretSize` must be >= `XXH3_SECRET_SIZE_MIN`,
+ * and the quality of produced hash values depends on secret's entropy
+ * (secret's content should look like a bunch of random bytes).
+ * When in doubt about the randomness of a candidate `secret`,
+ * consider employing `XXH3_generateSecret()` instead (see below).
+ */
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
+
+/* note : canonical representation of XXH3 is the same as XXH64
+ * since they both produce XXH64_hash_t values */
+
+
+/*-**********************************************************************
+*  XXH3 128-bit variant
+************************************************************************/
+
+typedef struct {
+ XXH64_hash_t low64;
+ XXH64_hash_t high64;
+} XXH128_hash_t;
+
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
+
+/*******   Streaming   *******/
+/*
+ * Streaming requires state maintenance.
+ * This operation costs memory and CPU.
+ * As a consequence, streaming is slower than one-shot hashing.
+ * For better performance, prefer one-shot functions whenever applicable.
+ *
+ * XXH3_128bits uses the same XXH3_state_t as XXH3_64bits().
+ * Use already declared XXH3_createState() and XXH3_freeState().
+ *
+ * All reset and streaming functions have same meaning as their 64-bit counterpart.
+ */
+
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
+
+/* Following helper functions make it possible to compare XXH128_hast_t values.
+ * Since XXH128_hash_t is a structure, this capability is not offered by the language.
+ * Note: For better performance, these functions can be inlined using XXH_INLINE_ALL */
+
+/*!
+ * XXH128_isEqual():
+ * Return: 1 if `h1` and `h2` are equal, 0 if they are not.
+ */
+XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
+
+/*!
+ * XXH128_cmp():
+ *
+ * This comparator is compatible with stdlib's `qsort()`/`bsearch()`.
+ *
+ * return: >0 if *h128_1  > *h128_2
+ *         =0 if *h128_1 == *h128_2
+ *         <0 if *h128_1  < *h128_2
+ */
+XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
+
+
+/*******   Canonical representation   *******/
+typedef struct { unsigned char digest[sizeof(XXH128_hash_t)]; } XXH128_canonical_t;
+XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
+XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
+
+
+#endif  /* XXH_NO_LONG_LONG */
+
+#endif /* XXHASH_H_5627135585666179 */
+
+
+
+#if defined(XXH_STATIC_LINKING_ONLY) && !defined(XXHASH_H_STATIC_13879238742)
+#define XXHASH_H_STATIC_13879238742
+/* ****************************************************************************
+ * This section contains declarations which are not guaranteed to remain stable.
+ * They may change in future versions, becoming incompatible with a different
+ * version of the library.
+ * These declarations should only be used with static linking.
+ * Never use them in association with dynamic linking!
+ ***************************************************************************** */
+
+/*
+ * These definitions are only present to allow static allocation
+ * of XXH states, on stack or in a struct, for example.
+ * Never **ever** access their members directly.
+ */
+
+struct XXH32_state_s {
+   XXH32_hash_t total_len_32;
+   XXH32_hash_t large_len;
+   XXH32_hash_t v1;
+   XXH32_hash_t v2;
+   XXH32_hash_t v3;
+   XXH32_hash_t v4;
+   XXH32_hash_t mem32[4];
+   XXH32_hash_t memsize;
+   XXH32_hash_t reserved;   /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH32_state_t */
+
+
+#ifndef XXH_NO_LONG_LONG  /* defined when there is no 64-bit support */
+
+struct XXH64_state_s {
+   XXH64_hash_t total_len;
+   XXH64_hash_t v1;
+   XXH64_hash_t v2;
+   XXH64_hash_t v3;
+   XXH64_hash_t v4;
+   XXH64_hash_t mem64[4];
+   XXH32_hash_t memsize;
+   XXH32_hash_t reserved32;  /* required for padding anyway */
+   XXH64_hash_t reserved64;  /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH64_state_t */
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)   /* C11+ */
 #  include <stdalign.h>
@@ -547,8 +657,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len,
 #else
 #   define XXH_ALIGN_MEMBER(align, type) XXH_ALIGN(align) type
 #endif
-
-typedef struct XXH3_state_s XXH3_state_t;
 
 #define XXH3_INTERNALBUFFER_SIZE 256
 #define XXH3_SECRET_DEFAULT_SIZE 192
@@ -581,107 +689,6 @@ struct XXH3_state_s {
  * it's still necessary to use XXH3_NNbits_reset*() afterwards.
  */
 #define XXH3_INITSTATE(XXH3_state_ptr)   { (XXH3_state_ptr)->seed = 0; }
-
-/*
- * Streaming requires state maintenance.
- * This operation costs memory and CPU.
- * As a consequence, streaming is slower than one-shot hashing.
- * For better performance, prefer one-shot functions whenever possible.
- */
-XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
-XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
-XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
-
-
-/*
- * XXH3_64bits_reset():
- * Initialize with the default parameters.
- * The result will be equivalent to `XXH3_64bits()`.
- */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
-/*
- * XXH3_64bits_reset_withSeed():
- * Generate a custom secret from `seed`, and store it into `statePtr`.
- * digest will be equivalent to `XXH3_64bits_withSeed()`.
- */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
-/*
- * XXH3_64bits_reset_withSecret():
- * `secret` is referenced, it _must outlive_ the hash streaming session.
- * Similar to one-shot API, `secretSize` must be >= `XXH3_SECRET_SIZE_MIN`,
- * and the quality of the hash depends on secret's entropy,
- * meaning that the secret should look like a bunch of random bytes.
- * When in doubt about the randomness of a candidate `secret`,
- * consider employing `XXH3_generateSecret()` instead (see below).
- */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
-
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
-
-
-/* 128-bit */
-
-#ifdef XXH_NAMESPACE
-#  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
-#  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
-#  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
-#  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
-
-#  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
-#  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
-#  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
-#  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
-#  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
-
-#  define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
-#  define XXH128_cmp     XXH_NAME2(XXH_NAMESPACE, XXH128_cmp)
-#  define XXH128_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH128_canonicalFromHash)
-#  define XXH128_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH128_hashFromCanonical)
-#endif
-
-typedef struct {
-    XXH64_hash_t low64;
-    XXH64_hash_t high64;
-} XXH128_hash_t;
-
-XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);  /* == XXH128() */
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
-
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH3_state_t* statePtr);
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
-
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
-
-
-/* Note: For better performance, these functions can be inlined using XXH_INLINE_ALL */
-
-/*!
- * XXH128_isEqual():
- * Return: 1 if `h1` and `h2` are equal, 0 if they are not.
- */
-XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
-
-/*!
- * XXH128_cmp():
- *
- * This comparator is compatible with stdlib's `qsort()`/`bsearch()`.
- *
- * return: >0 if *h128_1  > *h128_2
- *         =0 if *h128_1 == *h128_2
- *         <0 if *h128_1  < *h128_2
- */
-XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
-
-
-/*******   Canonical representation   *******/
-typedef struct { unsigned char digest[sizeof(XXH128_hash_t)]; } XXH128_canonical_t;
-XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
-XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
 
 
 /* ===   Experimental API   === */
@@ -719,6 +726,10 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize);
 
 
+/* simple short-cut to pre-selected XXH3_128bits variant */
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
+
+
 #endif  /* XXH_NO_LONG_LONG */
 
 
@@ -739,13 +750,21 @@ XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSe
  *-**********************************************************************
  * xxHash's implementation used to be hosted inside xxhash.c.
  *
- * However, code inlining requires the implementation to be visible to the
- * compiler, usually within the header.
- * This used to require xxhash.c to be present in /include directory
- * alongside xxhash.h, which created issues with some build or install systems.
+ * However, inlining requires implementation to be visible to the compiler,
+ * hence be included alongside the header.
+ * Previously, implementation was hosted inside xxhash.c,
+ * which was then #included when inlining was activated.
+ * This construction created issues with a few build and install systems,
+ * as it required xxhash.c to be stored in /include directory.
  *
- * Implementation is now directly integrated within xxhash.h.
- * xxhash.c is no longer needed in /include.
+ * xxHash implementation is now directly integrated within xxhash.h.
+ * As a consequence, xxhash.c is no longer needed in /include.
+ *
+ * xxhash.c is still available and is still useful.
+ * In a "normal" setup, when xxhash is not inlined,
+ * xxhash.h only exposes the prototypes and public symbols,
+ * while xxhash.c can be built into an object file xxhash.o
+ * which can then be linked into the final binary.
  ************************************************************************/
 
 #if ( defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API) \
@@ -763,10 +782,10 @@ XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSe
  * Unfortunately, on some target/compiler combinations, the generated assembly
  * is sub-optimal.
  *
- * The below switch allow to select a different access method for improved
- * performance.
+ * The below switch allow selection of a different access method
+ * in the search for improved performance.
  * Method 0 (default):
- *     Use `memcpy()`. Safe and portable.
+ *     Use `memcpy()`. Safe and portable. Default.
  * Method 1:
  *     `__attribute__((packed))` statement. It depends on compiler extensions
  *     and is therefore not portable.
@@ -778,7 +797,7 @@ XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSe
  *     It can generate buggy code on targets which do not support unaligned
  *     memory accesses.
  *     But in some circumstances, it's the only known way to get the most
- *     performance (ie GCC + ARMv6)
+ *     performance (example: GCC + ARMv6)
  * Method 3:
  *     Byteshift. This can generate the best code on old compilers which don't
  *     inline small `memcpy()` calls, and it might also be faster on big-endian
@@ -827,7 +846,7 @@ XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSe
  */
 #ifndef XXH_FORCE_ALIGN_CHECK  /* can be defined externally */
 #  if defined(__i386)  || defined(__x86_64__) || defined(__aarch64__) \
-   || defined(_M_IX86) || defined(_M_X64)     || defined(_M_ARM64)  /* visual */
+   || defined(_M_IX86) || defined(_M_X64)     || defined(_M_ARM64) /* visual */
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
 #    define XXH_FORCE_ALIGN_CHECK 1
@@ -882,8 +901,8 @@ XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSe
 *  Includes & Memory related functions
 ***************************************/
 /*!
- * Modify the local functions below should you wish to use some other memory
- * routines for malloc() and free()
+ * Modify the local functions below should you wish to use
+ * different memory routines for malloc() and free()
  */
 #include <stdlib.h>
 

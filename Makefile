@@ -24,9 +24,11 @@
 # ################################################################
 # xxhsum: provides 32/64 bits hash of one or multiple files, or stdin
 # ################################################################
+Q = $(if $(filter 1,$(V) $(VERBOSE)),,@)
 
 # Version numbers
 SED ?= sed
+SED_ERE_OPT ?= -E
 LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
 LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
 LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
@@ -136,11 +138,6 @@ libxxhash: $(LIBXXH)
 lib:  ## generate static and dynamic xxhash libraries
 lib: libxxhash.a libxxhash
 
-pkgconfig:
-	@$(SED) -e 's|@PREFIX@|$(PREFIX)|' \
-		-e 's|@VERSION@|$(LIBVER)|' \
-		libxxhash.pc.in >libxxhash.pc
-
 # helper targets
 
 AWK = awk
@@ -149,20 +146,20 @@ SORT = sort
 
 .PHONY: list
 list:  ## list all Makefile targets
-	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | $(AWK) -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | $(SORT) | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
+	$(Q)$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | $(AWK) -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | $(SORT) | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
 
 .PHONY: help
 help:  ## list documented targets
-	@$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	$(Q)$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	$(SORT) | \
 	$(AWK) 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: clean
 clean:  ## remove all build artifacts
-	@$(RM) -r *.dSYM   # Mac OS-X specific
-	@$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
-	@$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
-	@$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
+	$(Q)$(RM) -r *.dSYM   # Mac OS-X specific
+	$(Q)$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
+	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
+	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	@echo cleaning completed
 
 
@@ -381,6 +378,7 @@ DESTDIR     ?=
 prefix      ?= /usr/local
 PREFIX      ?= $(prefix)
 exec_prefix ?= $(PREFIX)
+EXEC_PREFIX ?= $(exec_prefix)
 libdir      ?= $(exec_prefix)/lib
 LIBDIR      ?= $(libdir)
 includedir  ?= $(PREFIX)/include
@@ -413,54 +411,82 @@ INSTALL_PROGRAM ?= $(INSTALL)
 INSTALL_DATA    ?= $(INSTALL) -m 644
 
 
+PCLIBDIR ?= $(shell echo "$(LIBDIR)"     | $(SED) -n $(SED_ERE_OPT) -e "s@^$(EXEC_PREFIX)(/|$$)@@p")
+PCINCDIR ?= $(shell echo "$(INCLUDEDIR)" | $(SED) -n $(SED_ERE_OPT) -e "s@^$(PREFIX)(/|$$)@@p")
+
+ifeq (,$(PCLIBDIR))
+# Additional prefix check is required, since the empty string is technically a
+# valid PCLIBDIR
+ifeq (,$(shell echo "$(LIBDIR)" | $(SED) -n $(SED_ERE_OPT) -e "\\@^$(EXEC_PREFIX)(/|$$)@ p"))
+$(error configured libdir ($(LIBDIR)) is outside of prefix ($(PREFIX)), can't generate pkg-config file)
+endif
+endif
+
+ifeq (,$(PCINCDIR))
+# Additional prefix check is required, since the empty string is technically a
+# valid PCINCDIR
+ifeq (,$(shell echo "$(INCLUDEDIR)" | $(SED) -n $(SED_ERE_OPT) -e "\\@^$(PREFIX)(/|$$)@ p"))
+$(error configured includedir ($(INCLUDEDIR)) is outside of exec_prefix ($(EXEC_PREFIX)), can't generate pkg-config file)
+endif
+endif
+
+libxxhash.pc: libxxhash.pc.in
+	@echo creating pkgconfig
+	$(Q)$(SED) $(SED_ERE_OPT) -e 's|@PREFIX@|$(PREFIX)|' \
+          -e 's|@LIBDIR@|$(PCLIBDIR)|' \
+          -e 's|@INCLUDEDIR@|$(PCINCDIR)|' \
+          -e 's|@VERSION@|$(VERSION)|' \
+          $< > $@
+
+
 .PHONY: install
-install: lib pkgconfig xxhsum  ## install libraries, CLI, links and man page
+install: lib libxxhash.pc xxhsum  ## install libraries, CLI, links and man page
 	@echo Installing libxxhash
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
-	@$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
-	@$(INSTALL_PROGRAM) $(LIBXXH) $(DESTDIR)$(LIBDIR)
-	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
-	@ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
-	@$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
-	@$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR) # for compatibility, will be removed in v0.9.0
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
+	$(Q)$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
+	$(Q)$(INSTALL_PROGRAM) $(LIBXXH) $(DESTDIR)$(LIBDIR)
+	$(Q)ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
+	$(Q)ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(INCLUDEDIR)   # includes
+	$(Q)$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
+	$(Q)$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR) # for compatibility, will be removed in v0.9.0
 ifeq ($(DISPATCH),1)
-	@$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
+	$(Q)$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
 endif
 	@echo Installing pkgconfig
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
-	@$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
+	$(Q)$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
 	@echo Installing xxhsum
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
-	@$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
-	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
-	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
-	@ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
+	$(Q)$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
+	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
+	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
+	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
 	@echo Installing man pages
-	@$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
-	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
-	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
-	@ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh128sum.1
+	$(Q)$(INSTALL_DATA) xxhsum.1 $(DESTDIR)$(MANDIR)/xxhsum.1
+	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
+	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh128sum.1
 	@echo xxhash installation completed
 
 .PHONY: uninstall
 uninstall:  ## uninstall libraries, CLI, links and man page
-	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.a
-	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
-	@$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
-	@$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
-	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
-	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
-	@$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh_x86dispatch.h
-	@$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
-	@$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
-	@$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
-	@$(RM) $(DESTDIR)$(BINDIR)/xxh128sum
-	@$(RM) $(DESTDIR)$(BINDIR)/xxhsum
-	@$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
-	@$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1
-	@$(RM) $(DESTDIR)$(MANDIR)/xxh128sum.1
-	@$(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
+	$(Q)$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.a
+	$(Q)$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
+	$(Q)$(RM) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
+	$(Q)$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
+	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
+	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
+	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh_x86dispatch.h
+	$(Q)$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
+	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
+	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
+	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh128sum
+	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxhsum
+	$(Q)$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
+	$(Q)$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1
+	$(Q)$(RM) $(DESTDIR)$(MANDIR)/xxh128sum.1
+	$(Q)$(RM) $(DESTDIR)$(MANDIR)/xxhsum.1
 	@echo xxhsum successfully uninstalled
 
 endif

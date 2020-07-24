@@ -138,6 +138,8 @@ lib: libxxhash.a libxxhash
 
 pkgconfig:
 	@$(SED) -e 's|@PREFIX@|$(PREFIX)|' \
+		-e 's|@INCLUDEDIR@|$(INCLUDEDIR)|' \
+		-e 's|@LIBDIR@|$(LIBDIR)|' \
 		-e 's|@VERSION@|$(LIBVER)|' \
 		libxxhash.pc.in >libxxhash.pc
 

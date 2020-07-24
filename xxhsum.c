@@ -1400,6 +1400,10 @@ static void BMK_sanityCheck(void)
         BMK_testSecretGenerator(sanityBuffer, 1, expected);
     }
 
+    {   verifSample_t const expected = { { 0xDC, 0xD3, 0x3A, 0x7D } };
+        BMK_testSecretGenerator(sanityBuffer, 8, expected);
+    }
+
     {   verifSample_t const expected = { { 0xDA, 0x2A, 0x12, 0x11 } };
         BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_SIZE_MIN - 1, expected);
     }

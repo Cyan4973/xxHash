@@ -418,7 +418,7 @@ ifeq (,$(PCLIBDIR))
 # Additional prefix check is required, since the empty string is technically a
 # valid PCLIBDIR
 ifeq (,$(shell echo "$(LIBDIR)" | $(SED) -n $(SED_ERE_OPT) -e "\\@^$(EXEC_PREFIX)(/|$$)@ p"))
-$(error configured libdir ($(LIBDIR)) is outside of prefix ($(PREFIX)), can't generate pkg-config file)
+$(error configured libdir ($(LIBDIR)) is outside of exec_prefix ($(EXEC_PREFIX)), can't generate pkg-config file)
 endif
 endif
 
@@ -426,7 +426,7 @@ ifeq (,$(PCINCDIR))
 # Additional prefix check is required, since the empty string is technically a
 # valid PCINCDIR
 ifeq (,$(shell echo "$(INCLUDEDIR)" | $(SED) -n $(SED_ERE_OPT) -e "\\@^$(PREFIX)(/|$$)@ p"))
-$(error configured includedir ($(INCLUDEDIR)) is outside of exec_prefix ($(EXEC_PREFIX)), can't generate pkg-config file)
+$(error configured includedir ($(INCLUDEDIR)) is outside of prefix ($(PREFIX)), can't generate pkg-config file)
 endif
 endif
 

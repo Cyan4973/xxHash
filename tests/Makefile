@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Wextra -g
+CFLAGS += -Wall -Wextra -Wundef -g
 
 NM = nm
 GREP = grep
@@ -46,6 +46,11 @@ test_multiInclude:
 	# no symbol prefixed TESTN_ should exist
 	# ! $(NM) multiInclude | $(GREP) TESTN_
 	#@$(MAKE) clean
+
+.PHONY: test_ppc_redefine
+test_ppc_redefine: ppc_define.c
+	@$(MAKE) clean
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $^
 
 xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxhsum.c
 	$(CC) $(CFLAGS) $(LDFLAGS) ../xxhash.c ../xxhsum.c -o $@

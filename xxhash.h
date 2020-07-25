@@ -2398,10 +2398,19 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #  if defined(__s390x__)
 #    include <s390intrin.h>
 #  else
+/* gcc's altivec.h can have the unwanted consequence to unconditionally
+ * #define bool, vector, and pixel keywords,
+ * with bad consequences for programs already using these keywords for other purposes.
+ * The paragraph defining these macros is skipped when __APPLE_ALTIVEC__ is defined.
+ * __APPLE_ALTIVEC__ is _generally_ defined automatically by the compiler,
+ * but it seems that, in some cases, it isn't.
+ * Force the build macro to be defined, so that keywords are not altered.
+ */
+#    if defined(__GNUC__) && !defined(__APPLE_ALTIVEC__)
+#      define __APPLE_ALTIVEC__
+#    endif
 #    include <altivec.h>
 #  endif
-
-#  undef vector /* Undo the pollution */
 
 typedef __vector unsigned long long xxh_u64x2;
 typedef __vector unsigned char xxh_u8x16;

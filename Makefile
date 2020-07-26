@@ -379,11 +379,11 @@ prefix      ?= /usr/local
 PREFIX      ?= $(prefix)
 exec_prefix ?= $(PREFIX)
 EXEC_PREFIX ?= $(exec_prefix)
-libdir      ?= $(exec_prefix)/lib
+libdir      ?= $(EXEC_PREFIX)/lib
 LIBDIR      ?= $(libdir)
 includedir  ?= $(PREFIX)/include
 INCLUDEDIR  ?= $(includedir)
-bindir      ?= $(exec_prefix)/bin
+bindir      ?= $(EXEC_PREFIX)/bin
 BINDIR      ?= $(bindir)
 datarootdir ?= $(PREFIX)/share
 mandir      ?= $(datarootdir)/man
@@ -413,6 +413,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 
 PCLIBDIR ?= $(shell echo "$(LIBDIR)"     | $(SED) -n $(SED_ERE_OPT) -e "s@^$(EXEC_PREFIX)(/|$$)@@p")
 PCINCDIR ?= $(shell echo "$(INCLUDEDIR)" | $(SED) -n $(SED_ERE_OPT) -e "s@^$(PREFIX)(/|$$)@@p")
+PCEXECDIR?= $(if $(filter $(PREFIX),$(EXEC_PREFIX)), $$\{prefix\}, $(EXEC_PREFIX))
 
 ifeq (,$(PCLIBDIR))
 # Additional prefix check is required, since the empty string is technically a
@@ -433,6 +434,7 @@ endif
 libxxhash.pc: libxxhash.pc.in
 	@echo creating pkgconfig
 	$(Q)$(SED) $(SED_ERE_OPT) -e 's|@PREFIX@|$(PREFIX)|' \
+          -e 's|@EXECPREFIX@|$(PCEXECDIR)|' \
           -e 's|@LIBDIR@|$(PCLIBDIR)|' \
           -e 's|@INCLUDEDIR@|$(PCINCDIR)|' \
           -e 's|@VERSION@|$(VERSION)|' \

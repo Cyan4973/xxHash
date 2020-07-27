@@ -23,13 +23,13 @@ The reference system uses Intel i7-9700K
 | ---------     | ----- | ----------------- | ----- | --- | --- |
 | __XXH3__ (SSE2) |  64 | 31.5 GB/s         | 133.1 | 10
 | __XXH128__ (SSE2) | 128 | 29.6 GB/s       | 118.1 | 10
-| _RAM sequential read_ | N/A | 28.0 GB/s   |   N/A | N/A
+| _RAM sequential read_ | N/A | 28.0 GB/s   |   N/A | N/A | _for reference_
 | City64        |    64 | 22.0 GB/s         |  76.6 | 10
-| T1ha2         |    64 | 22.0 GB/s         |  99.0 |  9 | Slightly worse [collision ratio]
+| T1ha2         |    64 | 22.0 GB/s         |  99.0 |  9 | Slightly worse [collisions]
 | City128       |   128 | 21.7 GB/s         |  57.7 | 10
 | __XXH64__     |    64 | 19.4 GB/s         |  71.0 | 10
 | SpookyHash    |    64 | 19.3 GB/s         |  53.2 | 10
-| Mum           |    64 | 18.0 GB/s         |  67.0 |  9 | Slightly worse [collision ratio]
+| Mum           |    64 | 18.0 GB/s         |  67.0 |  9 | Slightly worse [collisions]
 | __XXH32__     |    32 |  9.7 GB/s         |  71.9 | 10
 | City32        |    32 |  9.1 GB/s         |  66.0 | 10
 | Murmur3       |    32 |  3.9 GB/s         |  56.1 | 10
@@ -38,9 +38,11 @@ The reference system uses Intel i7-9700K
 | FNV64         |    64 |  1.2 GB/s         |  62.7 |  5 | Poor avalanche properties
 | Blake2        |   128 |  1.1 GB/s         |   5.1 | 10
 
-[collision ratio]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study
+[collisions]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study
 
-note: some algorithms feature _faster than RAM_ speed. In which case, they can only reach their full speed when input data is already in CPU cache (L3 or better). Otherwise, they max out on RAM speed limit.
+note 1: Small data velocity is a rough evaluation of algorithm's efficiency on small data. For more detailed information, please refer to next paragraph.
+
+note 2: some algorithms feature _faster than RAM_ speed. In which case, they can only reach their full speed when input data is already in CPU cache (L3 or better). Otherwise, they max out on RAM speed limit.
 
 ### Small data
 Performance on large data is only one part of the picture.
@@ -209,10 +211,13 @@ XXH64_hash_t calcul_hash_streaming(FileHandler fh)
 Aside from the C reference version,
 xxHash is also available in many different programming languages,
 thanks to many great contributors.
-They are [listed here](https://www.xxhash.com/#other-languages).
+They are [listed here](http://www.xxhash.com/#other-languages).
 
 
 ### Special Thanks
+
 Takayuki Matsuoka, aka @t-mat, for creating `xxhsum -c` and general support during early xxh releases
+
 Mathias Westerdahl, aka @JCash, for introducing the first version of `XXH64`
+
 Devin Hussey, aka @easyaspi314, for excellent low-level optimizations on `XXH3` and `XXH128`

@@ -413,7 +413,7 @@ INSTALL_DATA    ?= $(INSTALL) -m 644
 
 PCLIBDIR ?= $(shell echo "$(LIBDIR)"     | $(SED) -n $(SED_ERE_OPT) -e "s@^$(EXEC_PREFIX)(/|$$)@@p")
 PCINCDIR ?= $(shell echo "$(INCLUDEDIR)" | $(SED) -n $(SED_ERE_OPT) -e "s@^$(PREFIX)(/|$$)@@p")
-PCEXECDIR?= $(if $(filter $(PREFIX),$(EXEC_PREFIX)), $$\{prefix\}, $(EXEC_PREFIX))
+PCEXECDIR?= $(if $(filter $(PREFIX),$(EXEC_PREFIX)),$$\{prefix\},$(EXEC_PREFIX))
 
 ifeq (,$(PCLIBDIR))
 # Additional prefix check is required, since the empty string is technically a

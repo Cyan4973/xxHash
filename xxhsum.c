@@ -2206,7 +2206,7 @@ static int usage(const char* exename)
     DISPLAY( "When no filename provided or when '-' is provided, uses stdin as input. \n");
     DISPLAY( "Options: \n");
     DISPLAY( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
-    DISPLAY( "  -c          read xxHash sums from [files] and check them \n");
+    DISPLAY( "  -c, --check read xxHash checksum from [files] and check them \n");
     DISPLAY( "  -h, --help  display a long help page about advanced options \n");
     return 0;
 }
@@ -2217,10 +2217,11 @@ static int usage_advanced(const char* exename)
     usage(exename);
     DISPLAY( "Advanced :\n");
     DISPLAY( "  -V, --version        Display version information \n");
-    DISPLAY( "      --little-endian  Display hashes in little endian convention (default: big endian) \n");
+    DISPLAY( "      --tag            Produce BSD-style checksum lines \n");
+    DISPLAY( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
     DISPLAY( "  -b                   Run benchmark \n");
     DISPLAY( "  -b#                  Bench only algorithm variant # \n");
-    DISPLAY( "  -i ITERATIONS        Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
+    DISPLAY( "  -i#                  Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
     DISPLAY( "  -q, --quiet          Don't display version header in benchmark mode \n");
     DISPLAY( "\n");
     DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");

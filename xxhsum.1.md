@@ -15,11 +15,12 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-Print or check xxHash (32, 64 or 128 bits) checksums.  When <FILE> is `-`, read
-standard input.
+Print or check xxHash (32, 64 or 128 bits) checksums.
+When no <FILE>, read standard input, except if it's the console.
+When <FILE> is `-`, read standard input even if it's the console.
 
-`xxhsum` supports a command line syntax similar but not identical to
-md5sum(1).  Differences are:
+`xxhsum` supports a command line syntax similar but not identical to md5sum(1).
+Differences are:
 `xxhsum` doesn't have text/binary mode switch (`-b`, `-t`);
 `xxhsum` always treats files as binary file;
 `xxhsum` has a hash bit width switch (`-H`);
@@ -37,7 +38,11 @@ OPTIONS
 
 * `-H`<HASHTYPE>:
   Hash selection. <HASHTYPE> means `0`=32bits, `1`=64bits, `2`=128bits.
+  Alternatively, <HASHTYPE> `32`=32bits, `64`=64bits, `128`=128bits.
   Default value is `1` (64bits)
+
+* `--tag`:
+  Output in the BSD style.
 
 * `--little-endian`:
   Set output hexadecimal checksum value as little endian convention.

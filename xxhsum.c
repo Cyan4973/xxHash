@@ -35,7 +35,9 @@
  **************************************/
 /* MS Visual */
 #if defined(_MSC_VER) || defined(_WIN32)
-#  define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  ifndef _CRT_SECURE_NO_WARNINGS
+#    define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
+#  endif
 #endif
 
 /* Under Linux at least, pull in the *64 commands */
@@ -449,8 +451,11 @@ static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s by %s, compiled as %i-bit %s %s with " CC_VERSION_FMT " \n", \
-                    exename, PROGRAM_VERSION, author, g_nbBits, ARCH, ENDIAN_NAME, CC_VERSION
+#define WELCOME_MESSAGE(exename) "%s %s by %s \n", exename, PROGRAM_VERSION, author
+#define FULL_WELCOME_MESSAGE(exename) "%s %s by %s \n" \
+                    "compiled as %i-bit %s %s with " CC_VERSION_FMT " \n", \
+                    exename, PROGRAM_VERSION, author, \
+                    g_nbBits, ARCH, ENDIAN_NAME, CC_VERSION
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)
@@ -468,7 +473,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 
 static const char stdinName[] = "-";
 typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2 } AlgoSelected;
-static const AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
+static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
  * '4096' is typical Linux PATH_MAX configuration. */
@@ -652,11 +657,27 @@ static U32 localXXH3_stream(const void* buffer, size_t bufferSize, U32 seed)
     XXH3_64bits_update(&state, buffer, bufferSize);
     return (U32)XXH3_64bits_digest(&state);
 }
+static U32 localXXH3_stream_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    XXH3_state_t state;
+    XXH3_INITSTATE(&state);
+    XXH3_64bits_reset_withSeed(&state, (XXH64_hash_t)seed);
+    XXH3_64bits_update(&state, buffer, bufferSize);
+    return (U32)XXH3_64bits_digest(&state);
+}
 static U32 localXXH128_stream(const void* buffer, size_t bufferSize, U32 seed)
 {
     XXH3_state_t state;
     (void)seed;
     XXH3_128bits_reset(&state);
+    XXH3_128bits_update(&state, buffer, bufferSize);
+    return (U32)(XXH3_128bits_digest(&state).low64);
+}
+static U32 localXXH128_stream_seeded(const void* buffer, size_t bufferSize, U32 seed)
+{
+    XXH3_state_t state;
+    XXH3_INITSTATE(&state);
+    XXH3_128bits_reset_withSeed(&state, (XXH64_hash_t)seed);
     XXH3_128bits_update(&state, buffer, bufferSize);
     return (U32)(XXH3_128bits_digest(&state).low64);
 }
@@ -667,7 +688,7 @@ typedef struct {
     hashFunction func;
 } hashInfo;
 
-#define NB_HASHFUNC 10
+#define NB_HASHFUNC 12
 static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH32",             &localXXH32 },
     { "XXH64",             &localXXH64 },
@@ -678,7 +699,9 @@ static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH128 w/seed",     &localXXH3_128b_seeded },
     { "XXH128 w/secret",   &localXXH3_128b_secret },
     { "XXH3_stream",       &localXXH3_stream },
+    { "XXH3_stream w/seed",&localXXH3_stream_seeded },
     { "XXH128_stream",     &localXXH128_stream },
+    { "XXH128_stream w/seed",&localXXH128_stream_seeded },
 };
 
 #define NB_TESTFUNC (1 + 2 * NB_HASHFUNC)
@@ -1393,6 +1416,29 @@ static void BMK_sanityCheck(void)
 /* ********************************************************
 *  File Hashing
 **********************************************************/
+#if defined(_MSC_VER)
+    typedef struct __stat64 stat_t;
+    typedef int mode_t;
+#else
+    typedef struct stat stat_t;
+#endif
+
+#include <sys/types.h>  /* struct stat / __start64 */
+#include <sys/stat.h>   /* stat() / _stat64() */
+
+int XSUM_isDirectory(const char* infilename)
+{
+    stat_t statbuf;
+#if defined(_MSC_VER)
+    int const r = _stat64(infilename, &statbuf);
+    if (!r && (statbuf.st_mode & _S_IFDIR)) return 1;
+#else
+    int const r = stat(infilename, &statbuf);
+    if (!r && S_ISDIR(statbuf.st_mode)) return 1;
+#endif
+    return 0;
+}
+
 /* for support of --little-endian display mode */
 static void BMK_display_LittleEndian(const void* ptr, size_t length)
 {
@@ -1458,7 +1504,7 @@ XSUM_hashStream(FILE* inFile,
             exit(1);
     }   }
 
-    {   Multihash finalHash;
+    {   Multihash finalHash = {0};
         switch(hashType)
         {
         case algo_xxh32:
@@ -1560,16 +1606,19 @@ static int XSUM_hashFile(const char* fileName,
         fileName = "stdin";
         SET_BINARY_MODE(stdin);
     } else {
+        if (XSUM_isDirectory(fileName)) {
+            DISPLAY("xxhsum: %s: Is a directory \n", fileName);
+            return 1;
+        }
         inFile = XXH_fopen( fileName, "rb" );
-    }
-    if (inFile==NULL) {
-        DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
-        return 1;
-    }
+        if (inFile==NULL) {
+            DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
+            return 1;
+    }   }
 
     /* Memory allocation & streaming */
     {   void* const buffer = malloc(blockSize);
-        if (!buffer) {
+        if (buffer == NULL) {
             DISPLAY("\nError: Out of memory.\n");
             fclose(inFile);
             return 1;
@@ -1674,7 +1723,6 @@ typedef struct {
     unsigned long   nMismatchedChecksums;
     unsigned long   nOpenOrReadFailures;
     unsigned long   nMixedFormatLines;
-    int             xxhBits;
     int             quit;
 } ParseFileReport;
 
@@ -1771,21 +1819,23 @@ static int charToHex(char c)
  * Converts canonical ASCII hexadecimal string `hashStr`
  * to the big endian binary representation in unsigned char array `dst`.
  *
- * Returns CANONICAL_FROM_STRING_INVALID_FORMAT if hashStr is not well formatted.
- * Returns CANONICAL_FROM_STRING_OK if hashStr is parsed successfully.
+ * Returns CanonicalFromString_invalidFormat if hashStr is not well formatted.
+ * Returns CanonicalFromString_ok if hashStr is parsed successfully.
  */
 static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
                                                      size_t dstSize,
-                                                     const char* hashStr)
+                                                     const char* hashStr,
+                                                     int reverseBytes)
 {
     size_t i;
     for (i = 0; i < dstSize; ++i) {
         int h0, h1;
+        size_t j = reverseBytes ? dstSize - i - 1 : i;
 
-        h0 = charToHex(hashStr[i*2 + 0]);
+        h0 = charToHex(hashStr[j*2 + 0]);
         if (h0 < 0) return CanonicalFromString_invalidFormat;
 
-        h1 = charToHex(hashStr[i*2 + 1]);
+        h1 = charToHex(hashStr[j*2 + 1]);
         if (h1 < 0) return CanonicalFromString_invalidFormat;
 
         dst[i] = (unsigned char) ((h0 << 4) | h1);
@@ -1796,31 +1846,56 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
 
 /*
  * Parse single line of xxHash checksum file.
- * Returns PARSE_LINE_ERROR_INVALID_FORMAT if the line is not well formatted.
- * Returns PARSE_LINE_OK if the line is parsed successfully.
+ * Returns ParseLine_invalidFormat if the line is not well formatted.
+ * Returns ParseLine_ok if the line is parsed successfully.
  * And members of parseLine will be filled by parsed values.
  *
- *  - line must be terminated with '\0'.
+ *  - line must be terminated with '\0' without a trailing newline.
  *  - Since parsedLine.filename will point within given argument `line`,
  *    users must keep `line`s content when they are using parsedLine.
+ *  - The line may be modified to carve up the information it contains.
  *
  * xxHash checksum lines should have the following format:
  *
  *      <8, 16, or 32 hexadecimal char> <space> <space> <filename...> <'\0'>
+ *
+ * or:
+ *
+ *      <algorithm> <' ('> <filename> <') = '> <hexstring> <'\0'>
  */
-static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
+static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 {
-    const char* const firstSpace = strchr(line, ' ');
-    if (firstSpace == NULL) return ParseLine_invalidFormat;
+    char* const firstSpace = strchr(line, ' ');
+    const char* hash_ptr;
+    size_t hash_len;
 
     parsedLine->filename = NULL;
     parsedLine->xxhBits = 0;
 
-    switch (firstSpace - line)
+    if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
+
+    if (firstSpace[1] == '(') {
+        char* lastSpace = strrchr(line, ' ');
+        if (lastSpace - firstSpace < 5) return ParseLine_invalidFormat;
+        if (lastSpace[-1] != '=' || lastSpace[-2] != ' ' || lastSpace[-3] != ')') return ParseLine_invalidFormat;
+        lastSpace[-3] = '\0'; /* Terminate the filename */
+        *firstSpace = '\0';
+        rev = strstr(line, "_LE") != NULL; /* was output little-endian */
+        hash_ptr = lastSpace + 1;
+        hash_len = strlen(hash_ptr);
+        /* NOTE: This currently ignores the hash description at the start of the string.
+         * In the future we should parse it and verify that it matches the hash length.
+         * It could also be used to allow both XXH64 & XXH3_64bits to be differentiated. */
+    } else {
+        hash_ptr = line;
+        hash_len = (size_t)(firstSpace - line);
+    }
+
+    switch (hash_len)
     {
     case 8:
         {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), line)
+            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1830,7 +1905,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
     case 16:
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), line)
+            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1840,7 +1915,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 
     case 32:
         {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
-            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), line)
+            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1863,7 +1938,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, const char* line)
 /*!
  * Parse xxHash checksum file.
  */
-static void parseFile1(ParseFileArg* parseFileArg)
+static void parseFile1(ParseFileArg* parseFileArg, int rev)
 {
     const char* const inFileName = parseFileArg->inFileName;
     ParseFileReport* const report = &parseFileArg->report;
@@ -1915,7 +1990,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
                 break;
         }   }
 
-        if (parseLine(&parsedLine, parseFileArg->lineBuf) != ParseLine_ok) {
+        if (parseLine(&parsedLine, parseFileArg->lineBuf, rev) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
             if (parseFileArg->warn) {
                 DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n",
@@ -1924,21 +1999,7 @@ static void parseFile1(ParseFileArg* parseFileArg)
             continue;
         }
 
-        if (report->xxhBits != 0 && report->xxhBits != parsedLine.xxhBits) {
-            /* Don't accept xxh32/xxh64 mixed file */
-            report->nImproperlyFormattedLines++;
-            report->nMixedFormatLines++;
-            if (parseFileArg->warn) {
-                DISPLAY("%s: %lu: Error: Multiple hash types in one file.\n",
-                        inFileName, lineNumber);
-            }
-            continue;
-        }
-
         report->nProperlyFormattedLines++;
-        if (report->xxhBits == 0) {
-            report->xxhBits = parsedLine.xxhBits;
-        }
 
         do {
             FILE* const fp = XXH_fopen(parsedLine.filename, "rb");
@@ -2039,12 +2100,6 @@ static int checkFile(const char* inFileName,
     ParseFileArg* const parseFileArg = &parseFileArgBody;
     ParseFileReport* const report = &parseFileArg->report;
 
-    if (displayEndianess != big_endian) {
-        /* Don't accept little endian */
-        DISPLAY( "Check file mode doesn't support little endian\n" );
-        return 0;
-    }
-
     /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
         /*
@@ -2062,23 +2117,23 @@ static int checkFile(const char* inFileName,
         return 0;
     }
 
-    parseFileArg->inFileName    = inFileName;
-    parseFileArg->inFile        = inFile;
-    parseFileArg->lineMax       = DEFAULT_LINE_LENGTH;
-    parseFileArg->lineBuf       = (char*) malloc((size_t)parseFileArg->lineMax);
-    parseFileArg->blockSize     = 64 * 1024;
-    parseFileArg->blockBuf      = (char*) malloc(parseFileArg->blockSize);
-    parseFileArg->strictMode    = strictMode;
-    parseFileArg->statusOnly    = statusOnly;
-    parseFileArg->warn          = warn;
-    parseFileArg->quiet         = quiet;
+    parseFileArg->inFileName  = inFileName;
+    parseFileArg->inFile      = inFile;
+    parseFileArg->lineMax     = DEFAULT_LINE_LENGTH;
+    parseFileArg->lineBuf     = (char*) malloc((size_t)parseFileArg->lineMax);
+    parseFileArg->blockSize   = 64 * 1024;
+    parseFileArg->blockBuf    = (char*) malloc(parseFileArg->blockSize);
+    parseFileArg->strictMode  = strictMode;
+    parseFileArg->statusOnly  = statusOnly;
+    parseFileArg->warn        = warn;
+    parseFileArg->quiet       = quiet;
 
     if ( (parseFileArg->lineBuf == NULL)
       || (parseFileArg->blockBuf == NULL) ) {
         DISPLAY("Error: : memory allocation failed \n");
         exit(1);
     }
-    parseFile1(parseFileArg);
+    parseFile1(parseFileArg, displayEndianess != big_endian);
 
     free(parseFileArg->blockBuf);
     free(parseFileArg->lineBuf);
@@ -2091,9 +2146,9 @@ static int checkFile(const char* inFileName,
         DISPLAY("%s: no properly formatted xxHash checksum lines found\n", inFileName);
     } else if (!statusOnly) {
         if (report->nImproperlyFormattedLines) {
-            DISPLAYRESULT("%lu %s are improperly formatted\n"
+            DISPLAYRESULT("%lu %s improperly formatted\n"
                 , report->nImproperlyFormattedLines
-                , report->nImproperlyFormattedLines == 1 ? "line" : "lines");
+                , report->nImproperlyFormattedLines == 1 ? "line is" : "lines are");
         }
         if (report->nOpenOrReadFailures) {
             DISPLAYRESULT("%lu listed %s could not be read\n"
@@ -2188,6 +2243,14 @@ static void errorOut(const char* msg)
     DISPLAY("%s \n", msg); exit(1);
 }
 
+static const char* lastNameFromPath(const char* path)
+{
+    const char* name = path;
+    if (strrchr(name, '/')) name = strrchr(name, '/') + 1;
+    if (strrchr(name, '\\')) name = strrchr(name, '\\') + 1; /* windows */
+    return name;
+}
+
 /*!
  * readU32FromCharChecked():
  * @return 0 if success, and store the result in *value.
@@ -2240,12 +2303,13 @@ static U32 readU32FromChar(const char** stringPtr) {
 static int XXH_main(int argc, const char* const* argv)
 {
     int i, filenamesStart = 0;
-    const char* const exename = argv[0];
+    const char* const exename = lastNameFromPath(argv[0]);
     U32 benchmarkMode = 0;
     U32 fileCheckMode = 0;
     U32 strictMode    = 0;
     U32 statusOnly    = 0;
     U32 warn          = 0;
+    int explicitStdin = 0;
     U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
     static const U32 kBenchAll = 99;
     size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
@@ -2254,14 +2318,13 @@ static int XXH_main(int argc, const char* const* argv)
     Display_convention convention = display_gnu;
 
     /* special case: xxhNNsum default to NN bits checksum */
-    if (strstr(exename,  "xxh32sum") != NULL) algo = algo_xxh32;
-    if (strstr(exename,  "xxh64sum") != NULL) algo = algo_xxh64;
-    if (strstr(exename, "xxh128sum") != NULL) algo = algo_xxh128;
+    if (strstr(exename,  "xxh32sum") != NULL) algo = g_defaultAlgo = algo_xxh32;
+    if (strstr(exename,  "xxh64sum") != NULL) algo = g_defaultAlgo = algo_xxh64;
+    if (strstr(exename, "xxh128sum") != NULL) algo = g_defaultAlgo = algo_xxh128;
 
-    for(i=1; i<argc; i++) {
+    for (i=1; i<argc; i++) {
         const char* argument = argv[i];
-
-        if(!argument) continue;   /* Protection if arguments are empty */
+        assert(argument != NULL);
 
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
         if (!strcmp(argument, "--benchmark-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
@@ -2272,23 +2335,28 @@ static int XXH_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
-        if (!strcmp(argument, "--version")) { DISPLAY(WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
-        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }  /* hidden option */
+        if (!strcmp(argument, "--version")) { DISPLAY(FULL_WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
+        if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }
 
-        if (*argument!='-') {
+        if (!strcmp(argument, "--")) {
+            if (filenamesStart==0 && i!=argc-1) filenamesStart=i+1; /* only supports a continuous list of filenames */
+            break;  /* treat rest of arguments as strictly file names */
+        }
+        if (*argument != '-') {
             if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
-            continue;
+            break;  /* treat rest of arguments as strictly file names */
         }
 
         /* command selection */
         argument++;   /* note: *argument=='-' */
+        if (*argument == 0) explicitStdin = 1;
 
-        while (*argument!=0) {
+        while (*argument != 0) {
             switch(*argument)
             {
             /* Display version */
             case 'V':
-                DISPLAY(WELCOME_MESSAGE(exename)); return 0;
+                DISPLAY(FULL_WELCOME_MESSAGE(exename)); return 0;
 
             /* Display help on usage */
             case 'h':
@@ -2360,7 +2428,7 @@ static int XXH_main(int argc, const char* const* argv)
 
     /* Check benchmark mode */
     if (benchmarkMode) {
-        DISPLAYLEVEL(2, WELCOME_MESSAGE(exename) );
+        DISPLAYLEVEL(2, FULL_WELCOME_MESSAGE(exename) );
         BMK_sanityCheck();
         if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, sizeof(g_testIDs));
         if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, sizeof(g_testIDs));
@@ -2369,7 +2437,8 @@ static int XXH_main(int argc, const char* const* argv)
     }
 
     /* Check if input is defined as console; trigger an error in this case */
-    if ( (filenamesStart==0) && IS_CONSOLE(stdin) ) return badusage(exename);
+    if ( (filenamesStart==0) && IS_CONSOLE(stdin) && !explicitStdin)
+        return badusage(exename);
 
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {

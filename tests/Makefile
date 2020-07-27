@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Wextra -g
+CFLAGS += -Wall -Wextra -Wundef -g
 
 NM = nm
 GREP = grep
@@ -47,7 +47,12 @@ test_multiInclude:
 	# ! $(NM) multiInclude | $(GREP) TESTN_
 	#@$(MAKE) clean
 
-xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxh3.h ../xxhsum.c
+.PHONY: test_ppc_redefine
+test_ppc_redefine: ppc_define.c
+	@$(MAKE) clean
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $^
+
+xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxhsum.c
 	$(CC) $(CFLAGS) $(LDFLAGS) ../xxhash.c ../xxhsum.c -o $@
 
 # Make sure that Unicode filenames work.

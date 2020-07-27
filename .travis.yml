@@ -22,6 +22,11 @@ matrix:
         - make -B test-all
         - make clean
         - make dispatch
+        - make clean
+        - CC=g++ CFLAGS="-O1 -mavx512f" make
+        - make clean
+        - CC=g++ CFLAGS="-Wall -Wextra" make DISPATCH=1
+
 
     - name: Check results consistency on x64
       arch: amd64
@@ -88,10 +93,12 @@ matrix:
         - CC=powerpc-linux-gnu-gcc RUN_ENV=qemu-ppc-static LDFLAGS=-static make check   # Scalar code path
         - make clean
         - CC=powerpc64-linux-gnu-gcc RUN_ENV=qemu-ppc64-static CPPFLAGS=-DXXH_VECTOR=XXH_SCALAR CFLAGS="-O3" LDFLAGS="-static -m64" make check   # Scalar code path
-        - make clean
         # VSX code
-        - CC=powerpc64-linux-gnu-gcc RUN_ENV="qemu-ppc64-static -cpu power8" CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -maltivec -mvsx -mcpu=power8 -mpower8-vector" LDFLAGS="-static -m64" make check   # Auto code path
         - make clean
+        - CC=powerpc64-linux-gnu-gcc RUN_ENV="qemu-ppc64-static -cpu power8" CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -maltivec -mvsx -mcpu=power8 -mpower8-vector" LDFLAGS="-static -m64" make check   # VSX code path
+        # altivec.h redefinition issue #426
+        - make clean
+        - CC=powerpc64-linux-gnu-gcc CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-maltivec -mvsx -mcpu=power8 -mpower8-vector" make -C tests test_ppc_redefine
 
     - name: PPC64LE compilation and consistency checks
       dist: xenial
@@ -102,6 +109,9 @@ matrix:
         # VSX code path (64-bit)
         - make clean
         - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check
+        # altivec.h redefinition issue #426
+        - make clean
+        - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-maltivec -mvsx -mcpu=power8 -mpower8-vector" make -C tests test_ppc_redefine 
 
     - name: IBM s390x compilation and consistency checks
       dist: bionic

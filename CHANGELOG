@@ -1,3 +1,11 @@
+v0.8.0
+- api : stabilize XXH3
+- cli : xxhsum can parse BSD-style --check lines, by @WayneD
+- cli : `xxhsum -` accepts console input, requested by @jaki
+- cli : xxhsum accepts -- separator, by @jaki
+- cli : fix : print correct default algo for symlinked helpers, by @martinetd
+- install: improved pkgconfig script, allowing custom install locations, requested by @ellert
+
 v0.7.4
 - perf: automatic vector detection and selection at runtime (`xxh_x86dispatch.h`), initiated by @easyaspi314
 - perf: added AVX512 support, by @gzm55

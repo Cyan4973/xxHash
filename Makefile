@@ -437,7 +437,7 @@ libxxhash.pc: libxxhash.pc.in
           -e 's|@EXECPREFIX@|$(PCEXECDIR)|' \
           -e 's|@LIBDIR@|$(PCLIBDIR)|' \
           -e 's|@INCLUDEDIR@|$(PCINCDIR)|' \
-          -e 's|@VERSION@|$(VERSION)|' \
+          -e 's|@VERSION@|$(LIBVER)|' \
           $< > $@
 
 

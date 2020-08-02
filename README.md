@@ -36,6 +36,7 @@ The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` f
 | SipHash       |    64 |  3.0 GB/s        |  43.2 | 10
 | FNV64         |    64 |  1.2 GB/s        |  62.7 |  5 | Poor avalanche properties
 | Blake2        |   256 |  1.1 GB/s        |   5.1 | 10 | Cryptographic
+| SHA1          |   160 |  0.8 GB/s        |   5.6 | 10 | Cryptographic but broken
 | MD5           |   128 |  0.6 GB/s        |   7.8 | 10 | Cryptographic but broken
 
 [open source benchmark program]: https://github.com/Cyan4973/xxHash/tree/release/tests/bench

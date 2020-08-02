@@ -16,35 +16,36 @@ Code is highly portable, and hashes are identical across all platforms (little /
 Benchmarks
 -------------------------
 
-The benchmark is compiled with clang v10.0 and run on Ubuntu x64 20.04.
-The reference system uses Intel i7-9700K
+The reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
+The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` flag.
 
 | Hash Name     | Width | Bandwidth (GB/s) | Small Data Velocity | Quality | Comment |
-| ---------     | ----- | ----------------- | ----- | --- | --- |
-| __XXH3__ (SSE2) |  64 | 31.5 GB/s         | 133.1 | 10
-| __XXH128__ (SSE2) | 128 | 29.6 GB/s       | 118.1 | 10
-| _RAM sequential read_ | N/A | 28.0 GB/s   |   N/A | N/A | _for reference_
-| City64        |    64 | 22.0 GB/s         |  76.6 | 10
-| T1ha2         |    64 | 22.0 GB/s         |  99.0 |  9 | Slightly worse [collisions]
-| City128       |   128 | 21.7 GB/s         |  57.7 | 10
-| __XXH64__     |    64 | 19.4 GB/s         |  71.0 | 10
-| SpookyHash    |    64 | 19.3 GB/s         |  53.2 | 10
-| Mum           |    64 | 18.0 GB/s         |  67.0 |  9 | Slightly worse [collisions]
-| __XXH32__     |    32 |  9.7 GB/s         |  71.9 | 10
-| City32        |    32 |  9.1 GB/s         |  66.0 | 10
-| Murmur3       |    32 |  3.9 GB/s         |  56.1 | 10
-| SipHash       |    64 |  3.0 GB/s         |  43.2 | 10
-| HighwayHash   |    64 |  1.4 GB/s         |   6.0 | 10
-| FNV64         |    64 |  1.2 GB/s         |  62.7 |  5 | Poor avalanche properties
-| Blake2        |   128 |  1.1 GB/s         |   5.1 | 10
+| ---------     | ----- | ---------------- | ----- | --- | --- |
+| __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10
+| __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10
+| _RAM sequential read_ | N/A | 28.0 GB/s  |   N/A | N/A | _for reference_
+| City64        |    64 | 22.0 GB/s        |  76.6 | 10
+| T1ha2         |    64 | 22.0 GB/s        |  99.0 |  9 | Slightly worse [collisions]
+| City128       |   128 | 21.7 GB/s        |  57.7 | 10
+| __XXH64__     |    64 | 19.4 GB/s        |  71.0 | 10
+| SpookyHash    |    64 | 19.3 GB/s        |  53.2 | 10
+| Mum           |    64 | 18.0 GB/s        |  67.0 |  9 | Slightly worse [collisions]
+| __XXH32__     |    32 |  9.7 GB/s        |  71.9 | 10
+| City32        |    32 |  9.1 GB/s        |  66.0 | 10
+| Murmur3       |    32 |  3.9 GB/s        |  56.1 | 10
+| SipHash       |    64 |  3.0 GB/s        |  43.2 | 10
+| FNV64         |    64 |  1.2 GB/s        |  62.7 |  5 | Poor avalanche properties
+| Blake2        |   128 |  1.1 GB/s        |   5.1 | 10
 
+[open source benchmark program]: https://github.com/Cyan4973/xxHash/tree/release/tests/bench
 [collisions]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study
 
-note 1: Small data velocity is a rough evaluation of algorithm's efficiency on small data. For more detailed information, please refer to next paragraph.
+note 1: Small data velocity is a _rough_ evaluation of algorithm's efficiency on small data. For more detailed analysis, please refer to next paragraph.
 
 note 2: some algorithms feature _faster than RAM_ speed. In which case, they can only reach their full speed when input data is already in CPU cache (L3 or better). Otherwise, they max out on RAM speed limit.
 
 ### Small data
+
 Performance on large data is only one part of the picture.
 Hashing is also very useful in constructions like hash tables and bloom filters.
 In these use cases, it's frequent to hash a lot of small data (starting at a few bytes).
@@ -79,11 +80,6 @@ A more detailed analysis is documented [in the wiki](https://github.com/Cyan4973
 
 [birthday paradox]: https://en.wikipedia.org/wiki/Birthday_problem
 [newer forks of SMHasher]: https://github.com/rurban/smhasher
-
-### License
-
-The library files `xxhash.c` and `xxhash.h` are BSD licensed.
-The utility `xxhsum` is GPL licensed.
 
 
 ### Build modifiers
@@ -155,7 +151,8 @@ The xxHash port in vcpkg is kept up to date by Microsoft team members and commun
 
 ### Example
 
-Calling xxhash 64-bit variant from a C program:
+The simplest example calls xxhash 64-bit variant as a one-shot function
+generating a hash value from a single buffer, and invoked from a C/C++ program:
 
 ```C
 #include "xxhash.h"
@@ -165,7 +162,8 @@ Calling xxhash 64-bit variant from a C program:
 }
 ```
 
-Using streaming variant is more involved, but makes it possible to provide data incrementally:
+Streaming variant is more involved, but makes it possible to provide data incrementally:
+
 ```C
 #include "stdlib.h"   /* abort() */
 #include "xxhash.h"
@@ -187,17 +185,17 @@ XXH64_hash_t calcul_hash_streaming(FileHandler fh)
 
     /* Feed the state with input data, any size, any number of times */
     (...)
-    while ( /* any condition */ ) {
+    while ( /* some data left */ ) {
         size_t const length = get_more_data(buffer, bufferSize, fh);
         if (XXH64_update(state, buffer, length) == XXH_ERROR) abort();
         (...)
     }
     (...)
 
-    /* Get the hash */
+    /* Produce the final hash value */
     XXH64_hash_t const hash = XXH64_digest(state);
 
-    /* State can be re-used; in this example, it is simply freed  */
+    /* State could be re-used; but in this example, it is simply freed  */
     free(buffer);
     XXH64_freeState(state);
 
@@ -206,11 +204,17 @@ XXH64_hash_t calcul_hash_streaming(FileHandler fh)
 ```
 
 
+### License
+
+The library files `xxhash.c` and `xxhash.h` are BSD licensed.
+The utility `xxhsum` is GPL licensed.
+
+
 ### Other programming languages
 
-Aside from the C reference version,
-xxHash is also available in many different programming languages,
-thanks to many great contributors.
+Beyond the C reference version,
+xxHash is also available from many different programming languages,
+thanks to great contributors.
 They are [listed here](http://www.xxhash.com/#other-languages).
 
 

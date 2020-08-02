@@ -35,7 +35,8 @@ The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` f
 | Murmur3       |    32 |  3.9 GB/s        |  56.1 | 10
 | SipHash       |    64 |  3.0 GB/s        |  43.2 | 10
 | FNV64         |    64 |  1.2 GB/s        |  62.7 |  5 | Poor avalanche properties
-| Blake2        |   128 |  1.1 GB/s        |   5.1 | 10
+| Blake2        |   256 |  1.1 GB/s        |   5.1 | 10 | Cryptographic
+| MD5           |   128 |  0.6 GB/s        |   7.8 | 10 | Cryptographic but broken
 
 [open source benchmark program]: https://github.com/Cyan4973/xxHash/tree/release/tests/bench
 [collisions]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study

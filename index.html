@@ -69,8 +69,9 @@
         <h1>xxHash</h1>
         <iframe src="https://ghbtns.com/github-btn.html?user=Cyan4973&repo=xxHash&type=star&count=true&size=large" frameborder="0" scrolling="0" width="160px" height="30px"></iframe>
         <p>
-        xxHash is an extremely fast non-cryptographic hash algorithm, working at speeds close to RAM limits.
-        It is proposed in two flavors, 32 and 64 bits.
+        xxHash is an extremely fast non-cryptographic hash algorithm, working at RAM speed limit.
+        It is proposed in four flavors (XXH32, XXH64, XXH3_64bits and XXH3_128bits).
+        The latest variant, XXH3, offers improved performance across the board, especially on small data.
       </div>
     </div>
 
@@ -78,42 +79,45 @@
 
 <xmp theme="sandstone" style="display:none;">
 <a name="benchmarks"></a>
+
 Benchmarks
-----------
+-------------------------
 
-The benchmark uses the
-[Open-Source SMHasher program by Austin Appleby](http://code.google.com/p/smhasher/wiki/SMHasher)
-compiled with Visual C on Windows Seven 32-bits in single-thread mode.
-The reference system uses a Core 2 Duo @3.0GHz.
+The reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
+The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` flag.
 
-| Name          |   Speed  | Quality | Author           |
-|---------------|----------|:-------:|------------------|
-| xxHash        | 5.4 GB/s |   10    | Y.C.             |
-| MurmurHash 3a | 2.7 GB/s |   10    | Austin Appleby   |
-| SBox          | 1.4 GB/s |    9    | Bret Mulvey      |
-| Lookup3       | 1.2 GB/s |    9    | Bob Jenkins      |
-| CityHash64    | 1.05 GB/s|   10    | Pike & Alakuijala|
-| FNV           | 0.55 GB/s|    5    | Fowler, Noll, Vo |
-| CRC32         | 0.43 GB/s|    9    |                  |
-| MD5-32        | 0.33 GB/s|   10    | Ronald L.Rivest  |
-| SHA1-32       | 0.28 GB/s|   10    |                  |
+| Hash Name     | Width | Bandwidth (GB/s) | Small Data Velocity | Quality | Comment |
+| ---------     | ----- | ---------------- | ----- | --- | --- |
+| __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10
+| __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10
+| _RAM sequential read_ | N/A | 28.0 GB/s  |   N/A | N/A | _for reference_
+| City64        |    64 | 22.0 GB/s        |  76.6 | 10
+| T1ha2         |    64 | 22.0 GB/s        |  99.0 |  9 | Slightly worse [collisions]
+| City128       |   128 | 21.7 GB/s        |  57.7 | 10
+| __XXH64__     |    64 | 19.4 GB/s        |  71.0 | 10
+| SpookyHash    |    64 | 19.3 GB/s        |  53.2 | 10
+| Mum           |    64 | 18.0 GB/s        |  67.0 |  9 | Slightly worse [collisions]
+| __XXH32__     |    32 |  9.7 GB/s        |  71.9 | 10
+| City32        |    32 |  9.1 GB/s        |  66.0 | 10
+| Murmur3       |    32 |  3.9 GB/s        |  56.1 | 10
+| SipHash       |    64 |  3.0 GB/s        |  43.2 | 10
+| FNV64         |    64 |  1.2 GB/s        |  62.7 |  5 | Poor avalanche properties
+| Blake2        |   256 |  1.1 GB/s        |   5.1 | 10 | Cryptographic
+| SHA1          |   160 |  0.8 GB/s        |   5.6 | 10 | Cryptographic but broken
+| MD5           |   128 |  0.6 GB/s        |   7.8 | 10 | Cryptographic but broken
 
-Q.Score is a measure of quality of the hash function.
-It depends on successfully passing SMHasher test set.
-10 is a perfect score.
-Algorithms with a score < 5 are not listed on this table.
+[open source benchmark program]: https://github.com/Cyan4973/xxHash/tree/release/tests/bench
+[collisions]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study
 
-A new version, XXH64, has been created thanks to [Mathias Westerdahl](https://github.com/JCash)'s contribution,
-which offers superior speed and dispersion for 64-bits systems.
-Note however that 32-bits applications will still run faster using the 32-bits version.
+note 1: Small data velocity is a _rough_ evaluation of algorithm's efficiency on small data.
+For more detailed analysis, please refer to [the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-).
 
-SMHasher speed test, compiled using GCC 4.8.2, on Linux Mint 64-bits.
-The reference system uses a Core i5-3340M @2.7GHz
+note 2: On 32-bit applications, the ranking between hashes differs drastically, strongly favoring 32-bit hashes,
+See [this section of the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#bandwidth-on-x86-with-various-data-size-of-len-2n-32-bit-friendliness) for illustration.
 
-| Version    | Speed on 64-bits | Speed on 32-bits |
-|------------|------------------|------------------|
-| XXH64      | 13.8 GB/s        |  1.9 GB/s        |
-| XXH32      |  6.8 GB/s        |  6.0 GB/s        |
+note 3: some algorithms feature _faster than RAM_ speed.
+In which case, they can only reach their full speed when input data is already in CPU cache (L3 or better).
+Otherwise, they max out at RAM speed limit.
 
 
 <br/>

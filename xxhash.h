@@ -440,18 +440,13 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
  *
  * The 128-bit version adds additional strength, but it is slightly slower.
  *
- * The XXH3 algorithm is still in development.
- * The results it produces may still change in future versions.
+ * Return values of XXH3 and XXH128 are officially finalized starting
+ * with v0.8.0 and will no longer change in future versions.
+ * Avoid storing values from before that release in long-term storage.
  *
  * Results produced by v0.7.x are not comparable with results from v0.7.y.
  * However, the API is completely stable, and it can safely be used for
  * ephemeral data (local sessions).
- *
- * Avoid storing values in long-term storage until the algorithm is finalized.
- * XXH3's return values will be officially finalized upon reaching v0.8.0.
- *
- * After which, return values of XXH3 and XXH128 will no longer change in
- * future versions.
  *
  * The API supports one-shot hashing, streaming mode, and custom secrets.
  */

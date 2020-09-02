@@ -97,20 +97,20 @@
  || defined(__DJGPP__) \
  || defined(__MSYS__)
 #  include <unistd.h>   /* isatty */
-#  define IS_CONSOLE(stdStream) isatty(fileno(stdStream))
+#  define XSUM_isConsole(stdStream) isatty(fileno(stdStream))
 #elif defined(MSDOS) || defined(OS2)
 #  include <io.h>       /* _isatty */
-#  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
+#  define XSUM_isConsole(stdStream) _isatty(_fileno(stdStream))
 #elif defined(WIN32) || defined(_WIN32)
 #  include <io.h>      /* _isatty */
 #  include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
 #  include <stdio.h>   /* FILE */
-static __inline int IS_CONSOLE(FILE* stdStream) {
+static __inline int XSUM_isConsole(FILE* stdStream) {
     DWORD dummy;
     return _isatty(_fileno(stdStream)) && GetConsoleMode((HANDLE)_get_osfhandle(_fileno(stdStream)), &dummy);
 }
 #else
-#  define IS_CONSOLE(stdStream) 0
+#  define XSUM_isConsole(stdStream) 0
 #endif
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32)
@@ -137,7 +137,7 @@ static __inline int IS_CONSOLE(FILE* stdStream) {
  * Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
  */
-static wchar_t* utf8_to_utf16_len(const char* str, int* lenOut)
+static wchar_t* XSUM_widenString(const char* str, int* lenOut)
 {
     int const len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
     if (lenOut != NULL) *lenOut = len;
@@ -152,17 +152,11 @@ static wchar_t* utf8_to_utf16_len(const char* str, int* lenOut)
     }
 }
 
-/* Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards. */
-static wchar_t* utf8_to_utf16(const char *str)
-{
-    return utf8_to_utf16_len(str, NULL);
-}
-
 /*
  * Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
  */
-static char* utf16_to_utf8_len(const wchar_t *str, int *lenOut)
+static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
 {
     int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
     if (lenOut != NULL) *lenOut = len;
@@ -177,12 +171,6 @@ static char* utf16_to_utf8_len(const wchar_t *str, int *lenOut)
     }
 }
 
-/* Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards. */
-static char *utf16_to_utf8(const wchar_t *str)
-{
-    return utf16_to_utf8_len(str, NULL);
-}
-
 /*
  * fopen wrapper that supports UTF-8
  *
@@ -190,9 +178,9 @@ static char *utf16_to_utf8(const wchar_t *str)
  *
  * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
  */
-static FILE* XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
+static FILE* XSUM_fopen_wrapped(const char *filename, const wchar_t *mode)
 {
-    wchar_t* const wide_filename = utf8_to_utf16(filename);
+    wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
     if (wide_filename == NULL) return NULL;
     {   FILE* const f = _wfopen(wide_filename, mode);
         free(wide_filename);
@@ -219,7 +207,7 @@ static FILE* XXH_fopen_wrapped(const char *filename, const wchar_t *mode)
  *
  * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
  */
-static int fprintf_utf8(FILE *stream, const char *format, ...)
+static int XSUM_fprintf_utf8(FILE *stream, const char *format, ...)
 {
     int result;
     va_list args;
@@ -251,7 +239,7 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
             u8_str[nchar - 1] = '\0';
             if (result > 0) {
                 /*
-                 * Check if we are outputting to a console. Don't use IS_CONSOLE
+                 * Check if we are outputting to a console. Don't use XSUM_isConsole
                  * directly -- we don't need to call _get_osfhandle twice.
                  */
                 int fileNb = _fileno(stream);
@@ -269,7 +257,7 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
                      * default msvcrt.dll.
                      */
                     int len;
-                    wchar_t *const u16_buf = utf8_to_utf16_len(u8_str, &len);
+                    wchar_t *const u16_buf = XSUM_widenString(u8_str, &len);
                     if (u16_buf == NULL) {
                         result = -1;
                     } else {
@@ -298,9 +286,9 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
  * Since we always use literals in the "mode" argument, it is just easier to append "L" to
  * the string to make it UTF-16 and avoid the hassle of a second manual conversion.
  */
-#  define XXH_fopen(filename, mode) XXH_fopen_wrapped(filename, L##mode)
+#  define XSUM_fopen(filename, mode) XSUM_fopen_wrapped(filename, L##mode)
 #else
-#  define XXH_fopen(filename, mode) fopen(filename, mode)
+#  define XSUM_fopen(filename, mode) fopen(filename, mode)
 #endif
 
 /* ************************************
@@ -323,7 +311,7 @@ static int fprintf_utf8(FILE *stream, const char *format, ...)
     typedef unsigned long long U64;
 #endif /* not C++/C99 */
 
-static unsigned BMK_isLittleEndian(void)
+static unsigned XSUM_isLittleEndian(void)
 {
     const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static: performance detrimental  */
     return one.c[0];
@@ -449,7 +437,7 @@ static unsigned BMK_isLittleEndian(void)
 static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
-#define ENDIAN_NAME (BMK_isLittleEndian() ? g_lename : g_bename)
+#define ENDIAN_NAME (XSUM_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
 #define WELCOME_MESSAGE(exename) "%s %s by %s \n", exename, PROGRAM_VERSION, author
 #define FULL_WELCOME_MESSAGE(exename) "%s %s by %s \n" \
@@ -461,7 +449,7 @@ static const char author[] = "Yann Collet";
 #define MB *( 1<<20)
 #define GB *(1U<<30)
 
-static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
+static size_t XSUM_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define NBLOOPS    3                              /* Default number of benchmark iterations */
 #define TIMELOOP_S 1
 #define TIMELOOP  (TIMELOOP_S * CLOCKS_PER_SEC)   /* target timing per iteration */
@@ -473,7 +461,7 @@ static size_t XXH_DEFAULT_SAMPLE_SIZE = 100 KB;
 
 static const char stdinName[] = "-";
 typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2 } AlgoSelected;
-static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & usage() */
+static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & XSUM_usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
  * '4096' is typical Linux PATH_MAX configuration. */
@@ -487,14 +475,14 @@ static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & u
  *  Display macros
  **************************************/
 #ifdef _WIN32
-#define DISPLAY(...)         fprintf_utf8(stderr, __VA_ARGS__)
-#define DISPLAYRESULT(...)   fprintf_utf8(stdout, __VA_ARGS__)
+#define XSUM_log(...)         XSUM_fprintf_utf8(stderr, __VA_ARGS__)
+#define XSUM_output(...)   XSUM_fprintf_utf8(stdout, __VA_ARGS__)
 #else
-#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
-#define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
+#define XSUM_log(...)         fprintf(stderr, __VA_ARGS__)
+#define XSUM_output(...)   fprintf(stdout, __VA_ARGS__)
 #endif
 
-#define DISPLAYLEVEL(l, ...) do { if (g_displayLevel>=l) DISPLAY(__VA_ARGS__); } while (0)
+#define XSUM_logVerbose(l, ...) do { if (g_displayLevel>=l) XSUM_log(__VA_ARGS__); } while (0)
 static int g_displayLevel = 2;
 
 
@@ -507,13 +495,13 @@ static U32 g_nbIterations = NBLOOPS;
 /* ************************************
  *  Benchmark Functions
  **************************************/
-static clock_t BMK_clockSpan( clock_t start )
+static clock_t XSUM_clockSpan( clock_t start )
 {
     return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
 }
 
 
-static size_t BMK_findMaxMem(U64 requiredMem)
+static size_t XSUM_findMaxMem(U64 requiredMem)
 {
     size_t const step = 64 MB;
     void* testmem = NULL;
@@ -537,7 +525,7 @@ static size_t BMK_findMaxMem(U64 requiredMem)
 }
 
 
-static U64 BMK_GetFileSize(const char* infilename)
+static U64 XSUM_GetFileSize(const char* infilename)
 {
     int r;
 #if defined(_MSC_VER)
@@ -555,7 +543,7 @@ static U64 BMK_GetFileSize(const char* infilename)
  * Allocates a string containing s1 and s2 concatenated. Acts like strdup.
  * The result must be freed.
  */
-static char* XXH_strcatDup(const char* s1, const char* s2)
+static char* XSUM_strcatDup(const char* s1, const char* s2)
 {
     assert(s1 != NULL);
     assert(s2 != NULL);
@@ -582,7 +570,7 @@ static char* XXH_strcatDup(const char* s1, const char* s2)
  *
  * This is used in the sanity check - its values must not be changed.
  */
-static void BMK_fillTestBuffer(U8* buffer, size_t len)
+static void XSUM_fillTestBuffer(U8* buffer, size_t len)
 {
     U64 byteGen = PRIME32;
     size_t i;
@@ -713,20 +701,20 @@ static const char k_testIDs_default[NB_TESTFUNC] = { 0,
         1 /*XXH128*/ };
 
 #define HASHNAME_MAX 29
-static void BMK_benchHash(hashFunction h, const char* hName, int testID,
+static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
                           const void* buffer, size_t bufferSize)
 {
     U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
     unsigned iterationNb, nbIterations = g_nbIterations + !g_nbIterations /* min 1 */;
     double fastestH = 100000000.;
     assert(HASHNAME_MAX > 2);
-    DISPLAYLEVEL(2, "\r%80s\r", "");       /* Clean display line */
+    XSUM_logVerbose(2, "\r%80s\r", "");       /* Clean display line */
 
     for (iterationNb = 1; iterationNb <= nbIterations; iterationNb++) {
         U32 r=0;
         clock_t cStart;
 
-        DISPLAYLEVEL(2, "%2u-%-*.*s : %10u ->\r",
+        XSUM_logVerbose(2, "%2u-%-*.*s : %10u ->\r",
                         iterationNb,
                         HASHNAME_MAX, HASHNAME_MAX, hName,
                         (unsigned)bufferSize);
@@ -738,9 +726,9 @@ static void BMK_benchHash(hashFunction h, const char* hName, int testID,
             for (u=0; u<nbh_perIteration; u++)
                 r += h(buffer, bufferSize, u);
         }
-        if (r==0) DISPLAYLEVEL(3,".\r");  /* do something with r to defeat compiler "optimizing" hash away */
+        if (r==0) XSUM_logVerbose(3,".\r");  /* do something with r to defeat compiler "optimizing" hash away */
 
-        {   clock_t const nbTicks = BMK_clockSpan(cStart);
+        {   clock_t const nbTicks = XSUM_clockSpan(cStart);
             double const ticksPerHash = ((double)nbTicks / TIMELOOP) / nbh_perIteration;
             /*
              * clock() is the only decent portable timer, but it isn't very
@@ -781,7 +769,7 @@ static void BMK_benchHash(hashFunction h, const char* hName, int testID,
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
             if (fastestH>0.) { /* avoid div by zero */
-                DISPLAYLEVEL(2, "%2u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+                XSUM_logVerbose(2, "%2u-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
                             iterationNb,
                             HASHNAME_MAX, HASHNAME_MAX, hName,
                             (unsigned)bufferSize,
@@ -793,27 +781,27 @@ static void BMK_benchHash(hashFunction h, const char* hName, int testID,
             nbh_perIteration = (U32)nbh_perSecond;
         }
     }
-    DISPLAYLEVEL(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+    XSUM_logVerbose(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
                     testID,
                     HASHNAME_MAX, HASHNAME_MAX, hName,
                     (unsigned)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1 MB)) / fastestH);
     if (g_displayLevel<1)
-        DISPLAYLEVEL(0, "%u, ", (unsigned)((double)1 / fastestH));
+        XSUM_logVerbose(0, "%u, ", (unsigned)((double)1 / fastestH));
 }
 
 
 /*!
- * BMK_benchMem():
+ * XSUM_benchMem():
  * buffer: Must be 16-byte aligned.
  * The real allocated size of buffer is supposed to be >= (bufferSize+3).
  * returns: 0 on success, 1 if error (invalid mode selected)
  */
-static void BMK_benchMem(const void* buffer, size_t bufferSize)
+static void XSUM_benchMem(const void* buffer, size_t bufferSize)
 {
     assert((((size_t)buffer) & 15) == 0);  /* ensure alignment */
-    BMK_fillTestBuffer(g_benchSecretBuf, sizeof(g_benchSecretBuf));
+    XSUM_fillTestBuffer(g_benchSecretBuf, sizeof(g_benchSecretBuf));
     {   int i;
         for (i = 1; i < NB_TESTFUNC; i++) {
             int const hashFuncID = (i-1) / 2;
@@ -821,51 +809,51 @@ static void BMK_benchMem(const void* buffer, size_t bufferSize)
             if (g_testIDs[i] == 0) continue;
             /* aligned */
             if ((i % 2) == 1) {
-                BMK_benchHash(g_hashesToBench[hashFuncID].func, g_hashesToBench[hashFuncID].name, i, buffer, bufferSize);
+                XSUM_benchHash(g_hashesToBench[hashFuncID].func, g_hashesToBench[hashFuncID].name, i, buffer, bufferSize);
             }
             /* unaligned */
             if ((i % 2) == 0) {
                 /* Append "unaligned". */
-                char* const hashNameBuf = XXH_strcatDup(g_hashesToBench[hashFuncID].name, " unaligned");
+                char* const hashNameBuf = XSUM_strcatDup(g_hashesToBench[hashFuncID].name, " unaligned");
                 assert(hashNameBuf != NULL);
-                BMK_benchHash(g_hashesToBench[hashFuncID].func, hashNameBuf, i, ((const char*)buffer)+3, bufferSize);
+                XSUM_benchHash(g_hashesToBench[hashFuncID].func, hashNameBuf, i, ((const char*)buffer)+3, bufferSize);
                 free(hashNameBuf);
             }
     }   }
 }
 
-static size_t BMK_selectBenchedSize(const char* fileName)
+static size_t XSUM_selectBenchedSize(const char* fileName)
 {
-    U64 const inFileSize = BMK_GetFileSize(fileName);
-    size_t benchedSize = (size_t) BMK_findMaxMem(inFileSize);
+    U64 const inFileSize = XSUM_GetFileSize(fileName);
+    size_t benchedSize = (size_t) XSUM_findMaxMem(inFileSize);
     if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
     if (benchedSize < inFileSize) {
-        DISPLAY("Not enough memory for '%s' full size; testing %i MB only...\n", fileName, (int)(benchedSize>>20));
+        XSUM_log("Not enough memory for '%s' full size; testing %i MB only...\n", fileName, (int)(benchedSize>>20));
     }
     return benchedSize;
 }
 
 
-static int BMK_benchFiles(const char*const* fileNamesTable, int nbFiles)
+static int XSUM_benchFiles(const char*const* fileNamesTable, int nbFiles)
 {
     int fileIdx;
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
         const char* const inFileName = fileNamesTable[fileIdx];
         assert(inFileName != NULL);
 
-        {   FILE* const inFile = XXH_fopen( inFileName, "rb" );
-            size_t const benchedSize = BMK_selectBenchedSize(inFileName);
+        {   FILE* const inFile = XSUM_fopen( inFileName, "rb" );
+            size_t const benchedSize = XSUM_selectBenchedSize(inFileName);
             char* const buffer = (char*)calloc(benchedSize+16+3, 1);
             void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
 
             /* Checks */
             if (inFile==NULL){
-                DISPLAY("Error: Could not open '%s': %s.\n", inFileName, strerror(errno));
+                XSUM_log("Error: Could not open '%s': %s.\n", inFileName, strerror(errno));
                 free(buffer);
                 exit(11);
             }
             if(!buffer) {
-                DISPLAY("\nError: Out of memory.\n");
+                XSUM_log("\nError: Out of memory.\n");
                 fclose(inFile);
                 exit(12);
             }
@@ -874,13 +862,13 @@ static int BMK_benchFiles(const char*const* fileNamesTable, int nbFiles)
             {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
                 fclose(inFile);
                 if(readSize != benchedSize) {
-                    DISPLAY("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
+                    XSUM_log("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
                     free(buffer);
                     exit(13);
             }   }
 
             /* bench */
-            BMK_benchMem(alignedBuffer, benchedSize);
+            XSUM_benchMem(alignedBuffer, benchedSize);
 
             free(buffer);
     }   }
@@ -888,26 +876,26 @@ static int BMK_benchFiles(const char*const* fileNamesTable, int nbFiles)
 }
 
 
-static int BMK_benchInternal(size_t keySize)
+static int XSUM_benchInternal(size_t keySize)
 {
     void* const buffer = calloc(keySize+16+3, 1);
     if (buffer == NULL) {
-        DISPLAY("\nError: Out of memory.\n");
+        XSUM_log("\nError: Out of memory.\n");
         exit(12);
     }
 
     {   const void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
 
         /* bench */
-        DISPLAYLEVEL(1, "Sample of ");
+        XSUM_logVerbose(1, "Sample of ");
         if (keySize > 10 KB) {
-            DISPLAYLEVEL(1, "%u KB", (unsigned)(keySize >> 10));
+            XSUM_logVerbose(1, "%u KB", (unsigned)(keySize >> 10));
         } else {
-            DISPLAYLEVEL(1, "%u bytes", (unsigned)keySize);
+            XSUM_logVerbose(1, "%u bytes", (unsigned)keySize);
         }
-        DISPLAYLEVEL(1, "...        \n");
+        XSUM_logVerbose(1, "...        \n");
 
-        BMK_benchMem(alignedBuffer, keySize);
+        XSUM_benchMem(alignedBuffer, keySize);
         free(buffer);
     }
     return 0;
@@ -919,50 +907,50 @@ static int BMK_benchInternal(size_t keySize)
  * ensure results consistency accross platforms
  *********************************************** */
 
-static void BMK_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
+static void XSUM_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
-        DISPLAY("\rError: 32-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X, expected 0x%08X.\n", (unsigned)r1, (unsigned)r2);
-        DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
-                  "or temporarily comment out the tests in BMK_sanityCheck.\n");
+        XSUM_log("\rError: 32-bit hash test %i: Internal sanity check failed!\n", nbTests);
+        XSUM_log("\rGot 0x%08X, expected 0x%08X.\n", (unsigned)r1, (unsigned)r2);
+        XSUM_log("\rNote: If you modified the hash functions, make sure to either update the values\n"
+                  "or temporarily comment out the tests in XSUM_sanityCheck.\n");
         exit(1);
     }
     nbTests++;
 }
 
-static void BMK_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
+static void XSUM_checkResult64(XXH64_hash_t r1, XXH64_hash_t r2)
 {
     static int nbTests = 1;
     if (r1!=r2) {
-        DISPLAY("\rError: 64-bit hash test %i: Internal sanity check failed!\n", nbTests);
-        DISPLAY("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n",
+        XSUM_log("\rError: 64-bit hash test %i: Internal sanity check failed!\n", nbTests);
+        XSUM_log("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n",
                 (unsigned)(r1>>32), (unsigned)r1, (unsigned)(r2>>32), (unsigned)r2);
-        DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
-                  "or temporarily comment out the tests in BMK_sanityCheck.\n");
+        XSUM_log("\rNote: If you modified the hash functions, make sure to either update the values\n"
+                  "or temporarily comment out the tests in XSUM_sanityCheck.\n");
         exit(1);
     }
     nbTests++;
 }
 
-static void BMK_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
+static void XSUM_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 {
     static int nbTests = 1;
     if ((r1.low64 != r2.low64) || (r1.high64 != r2.high64)) {
-        DISPLAY("\rError: 128-bit hash test %i: Internal sanity check failed.\n", nbTests);
-        DISPLAY("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, 0x%08X%08XULL } \n",
+        XSUM_log("\rError: 128-bit hash test %i: Internal sanity check failed.\n", nbTests);
+        XSUM_log("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, 0x%08X%08XULL } \n",
                 (unsigned)(r1.low64>>32), (unsigned)r1.low64, (unsigned)(r1.high64>>32), (unsigned)r1.high64,
                 (unsigned)(r2.low64>>32), (unsigned)r2.low64, (unsigned)(r2.high64>>32), (unsigned)r2.high64 );
-        DISPLAY("\rNote: If you modified the hash functions, make sure to either update the values\n"
-                  "or temporarily comment out the tests in BMK_sanityCheck.\n");
+        XSUM_log("\rNote: If you modified the hash functions, make sure to either update the values\n"
+                  "or temporarily comment out the tests in XSUM_sanityCheck.\n");
         exit(1);
     }
     nbTests++;
 }
 
 
-static void BMK_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
+static void XSUM_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
 {
     XXH32_state_t *state = XXH32_createState();
     size_t pos;
@@ -970,20 +958,20 @@ static void BMK_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
     assert(state != NULL);
     if (len>0) assert(data != NULL);
 
-    BMK_checkResult32(XXH32(data, len, seed), Nresult);
+    XSUM_checkResult32(XXH32(data, len, seed), Nresult);
 
     (void)XXH32_reset(state, seed);
     (void)XXH32_update(state, data, len);
-    BMK_checkResult32(XXH32_digest(state), Nresult);
+    XSUM_checkResult32(XXH32_digest(state), Nresult);
 
     (void)XXH32_reset(state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH32_update(state, ((const char*)data)+pos, 1);
-    BMK_checkResult32(XXH32_digest(state), Nresult);
+    XSUM_checkResult32(XXH32_digest(state), Nresult);
     XXH32_freeState(state);
 }
 
-static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
+static void XSUM_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     XXH64_state_t *state = XXH64_createState();
     size_t pos;
@@ -991,20 +979,20 @@ static void BMK_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
     assert(state != NULL);
     if (len>0) assert(data != NULL);
 
-    BMK_checkResult64(XXH64(data, len, seed), Nresult);
+    XSUM_checkResult64(XXH64(data, len, seed), Nresult);
 
     (void)XXH64_reset(state, seed);
     (void)XXH64_update(state, data, len);
-    BMK_checkResult64(XXH64_digest(state), Nresult);
+    XSUM_checkResult64(XXH64_digest(state), Nresult);
 
     (void)XXH64_reset(state, seed);
     for (pos=0; pos<len; pos++)
         (void)XXH64_update(state, ((const char*)data)+pos, 1);
-    BMK_checkResult64(XXH64_digest(state), Nresult);
+    XSUM_checkResult64(XXH64_digest(state), Nresult);
     XXH64_freeState(state);
 }
 
-static U32 BMK_rand(void)
+static U32 XSUM_rand(void)
 {
     static U64 seed = PRIME32;
     seed *= PRIME64;
@@ -1012,18 +1000,18 @@ static U32 BMK_rand(void)
 }
 
 
-void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
+void XSUM_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
 {
     if (len>0) assert(data != NULL);
 
     {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
-        BMK_checkResult64(Dresult, Nresult);
+        XSUM_checkResult64(Dresult, Nresult);
     }
 
     /* check that the no-seed variant produces same result as seed==0 */
     if (seed == 0) {
         U64 const Dresult = XXH3_64bits(data, len);
-        BMK_checkResult64(Dresult, Nresult);
+        XSUM_checkResult64(Dresult, Nresult);
     }
 
     /* streaming API test */
@@ -1032,19 +1020,19 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
         /* single ingestion */
         (void)XXH3_64bits_reset_withSeed(state, seed);
         (void)XXH3_64bits_update(state, data, len);
-        BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         /* random ingestion */
         {   size_t p = 0;
             (void)XXH3_64bits_reset_withSeed(state, seed);
             while (p < len) {
                 size_t const modulo = len > 2 ? len : 2;
-                size_t l = (size_t)(BMK_rand()) % modulo;
+                size_t l = (size_t)(XSUM_rand()) % modulo;
                 if (p + l > len) l = len - p;
                 (void)XXH3_64bits_update(state, (const char*)data+p, l);
                 p += l;
             }
-            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+            XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
@@ -1052,18 +1040,18 @@ void BMK_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
             (void)XXH3_64bits_reset_withSeed(state, seed);
             for (pos=0; pos<len; pos++)
                 (void)XXH3_64bits_update(state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+            XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
         XXH3_freeState(state);
     }
 }
 
-void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
+void XSUM_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
 {
     if (len>0) assert(data != NULL);
 
     {   U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
-        BMK_checkResult64(Dresult, Nresult);
+        XSUM_checkResult64(Dresult, Nresult);
     }
 
     /* streaming API test */
@@ -1071,19 +1059,19 @@ void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, s
         assert(state != NULL);
         (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
         (void)XXH3_64bits_update(state, data, len);
-        BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+        XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         /* random ingestion */
         {   size_t p = 0;
             (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
             while (p < len) {
                 size_t const modulo = len > 2 ? len : 2;
-                size_t l = (size_t)(BMK_rand()) % modulo;
+                size_t l = (size_t)(XSUM_rand()) % modulo;
                 if (p + l > len) l = len - p;
                 (void)XXH3_64bits_update(state, (const char*)data+p, l);
                 p += l;
             }
-            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+            XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
@@ -1091,27 +1079,27 @@ void BMK_testXXH3_withSecret(const void* data, size_t len, const void* secret, s
             (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
             for (pos=0; pos<len; pos++)
                 (void)XXH3_64bits_update(state, ((const char*)data)+pos, 1);
-            BMK_checkResult64(XXH3_64bits_digest(state), Nresult);
+            XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
         }
         XXH3_freeState(state);
     }
 }
 
-void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
+void XSUM_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
 {
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSeed(data, len, seed);
-        BMK_checkResult128(Dresult, Nresult);
+        XSUM_checkResult128(Dresult, Nresult);
     }
 
     /* check that XXH128() is identical to XXH3_128bits_withSeed() */
     {   XXH128_hash_t const Dresult2 = XXH128(data, len, seed);
-        BMK_checkResult128(Dresult2, Nresult);
+        XSUM_checkResult128(Dresult2, Nresult);
     }
 
     /* check that the no-seed variant produces same result as seed==0 */
     if (seed == 0) {
         XXH128_hash_t const Dresult = XXH3_128bits(data, len);
-        BMK_checkResult128(Dresult, Nresult);
+        XSUM_checkResult128(Dresult, Nresult);
     }
 
     /* streaming API test */
@@ -1121,19 +1109,19 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
         /* single ingestion */
         (void)XXH3_128bits_reset_withSeed(state, seed);
         (void)XXH3_128bits_update(state, data, len);
-        BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+        XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
 
         /* random ingestion */
         {   size_t p = 0;
             (void)XXH3_128bits_reset_withSeed(state, seed);
             while (p < len) {
                 size_t const modulo = len > 2 ? len : 2;
-                size_t l = (size_t)(BMK_rand()) % modulo;
+                size_t l = (size_t)(XSUM_rand()) % modulo;
                 if (p + l > len) l = len - p;
                 (void)XXH3_128bits_update(state, (const char*)data+p, l);
                 p += l;
             }
-            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+            XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
@@ -1141,18 +1129,18 @@ void BMK_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresul
             (void)XXH3_128bits_reset_withSeed(state, seed);
             for (pos=0; pos<len; pos++)
                 (void)XXH3_128bits_update(state, ((const char*)data)+pos, 1);
-            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+            XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
         XXH3_freeState(state);
     }
 }
 
-void BMK_testXXH128_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, XXH128_hash_t Nresult)
+void XSUM_testXXH128_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, XXH128_hash_t Nresult)
 {
     if (len>0) assert(data != NULL);
 
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSecret(data, len, secret, secretSize);
-        BMK_checkResult128(Dresult, Nresult);
+        XSUM_checkResult128(Dresult, Nresult);
     }
 
     /* streaming API test */
@@ -1160,19 +1148,19 @@ void BMK_testXXH128_withSecret(const void* data, size_t len, const void* secret,
         assert(state != NULL);
         (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
         (void)XXH3_128bits_update(state, data, len);
-        BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+        XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
 
         /* random ingestion */
         {   size_t p = 0;
             (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
             while (p < len) {
                 size_t const modulo = len > 2 ? len : 2;
-                size_t l = (size_t)(BMK_rand()) % modulo;
+                size_t l = (size_t)(XSUM_rand()) % modulo;
                 if (p + l > len) l = len - p;
                 (void)XXH3_128bits_update(state, (const char*)data+p, l);
                 p += l;
             }
-            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+            XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
 
         /* byte by byte ingestion */
@@ -1180,7 +1168,7 @@ void BMK_testXXH128_withSecret(const void* data, size_t len, const void* secret,
             (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
             for (pos=0; pos<len; pos++)
                 (void)XXH3_128bits_update(state, ((const char*)data)+pos, 1);
-            BMK_checkResult128(XXH3_128bits_digest(state), Nresult);
+            XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
         }
         XXH3_freeState(state);
     }
@@ -1189,7 +1177,7 @@ void BMK_testXXH128_withSecret(const void* data, size_t len, const void* secret,
 #define SECRET_SAMPLE_NBBYTES 4
 typedef struct { U8 byte[SECRET_SAMPLE_NBBYTES]; } verifSample_t;
 
-void BMK_testSecretGenerator(const void* customSeed, size_t len, verifSample_t result)
+void XSUM_testSecretGenerator(const void* customSeed, size_t len, verifSample_t result)
 {
     static int nbTests = 1;
     const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191};
@@ -1202,8 +1190,8 @@ void BMK_testSecretGenerator(const void* customSeed, size_t len, verifSample_t r
         samples.byte[i] = secretBuffer[sampleIndex[i]];
     }
     if (memcmp(&samples, &result, sizeof(result))) {
-        DISPLAY("\rError: Secret generation test %i: Internal sanity check failed. \n", nbTests);
-        DISPLAY("\rGot { 0x%02X, 0x%02X, 0x%02X, 0x%02X }, expected { 0x%02X, 0x%02X, 0x%02X, 0x%02X } \n",
+        XSUM_log("\rError: Secret generation test %i: Internal sanity check failed. \n", nbTests);
+        XSUM_log("\rGot { 0x%02X, 0x%02X, 0x%02X, 0x%02X }, expected { 0x%02X, 0x%02X, 0x%02X, 0x%02X } \n",
                 samples.byte[0], samples.byte[1], samples.byte[2], samples.byte[3],
                 result.byte[0], result.byte[1], result.byte[2], result.byte[3] );
         exit(1);
@@ -1213,163 +1201,163 @@ void BMK_testSecretGenerator(const void* customSeed, size_t len, verifSample_t r
 
 
 /*!
- * BMK_sanityCheck():
+ * XSUM_sanityCheck():
  * Runs a sanity check before the benchmark.
  *
  * Exits on an incorrect output.
  */
-static void BMK_sanityCheck(void)
+static void XSUM_sanityCheck(void)
 {
 #define SANITY_BUFFER_SIZE 2367
     U8 sanityBuffer[SANITY_BUFFER_SIZE];
-    BMK_fillTestBuffer(sanityBuffer, sizeof(sanityBuffer));
+    XSUM_fillTestBuffer(sanityBuffer, sizeof(sanityBuffer));
 
-    BMK_testXXH32(NULL,          0, 0,       0x02CC5D05);
-    BMK_testXXH32(NULL,          0, PRIME32, 0x36B78AE7);
-    BMK_testXXH32(sanityBuffer,  1, 0,       0xCF65B03E);
-    BMK_testXXH32(sanityBuffer,  1, PRIME32, 0xB4545AA4);
-    BMK_testXXH32(sanityBuffer, 14, 0,       0x1208E7E2);
-    BMK_testXXH32(sanityBuffer, 14, PRIME32, 0x6AF1D1FE);
-    BMK_testXXH32(sanityBuffer,222, 0,       0x5BD11DBD);
-    BMK_testXXH32(sanityBuffer,222, PRIME32, 0x58803C5F);
+    XSUM_testXXH32(NULL,          0, 0,       0x02CC5D05);
+    XSUM_testXXH32(NULL,          0, PRIME32, 0x36B78AE7);
+    XSUM_testXXH32(sanityBuffer,  1, 0,       0xCF65B03E);
+    XSUM_testXXH32(sanityBuffer,  1, PRIME32, 0xB4545AA4);
+    XSUM_testXXH32(sanityBuffer, 14, 0,       0x1208E7E2);
+    XSUM_testXXH32(sanityBuffer, 14, PRIME32, 0x6AF1D1FE);
+    XSUM_testXXH32(sanityBuffer,222, 0,       0x5BD11DBD);
+    XSUM_testXXH32(sanityBuffer,222, PRIME32, 0x58803C5F);
 
-    BMK_testXXH64(NULL        ,  0, 0,       0xEF46DB3751D8E999ULL);
-    BMK_testXXH64(NULL        ,  0, PRIME32, 0xAC75FDA2929B17EFULL);
-    BMK_testXXH64(sanityBuffer,  1, 0,       0xE934A84ADB052768ULL);
-    BMK_testXXH64(sanityBuffer,  1, PRIME32, 0x5014607643A9B4C3ULL);
-    BMK_testXXH64(sanityBuffer,  4, 0,       0x9136A0DCA57457EEULL);
-    BMK_testXXH64(sanityBuffer, 14, 0,       0x8282DCC4994E35C8ULL);
-    BMK_testXXH64(sanityBuffer, 14, PRIME32, 0xC3BD6BF63DEB6DF0ULL);
-    BMK_testXXH64(sanityBuffer,222, 0,       0xB641AE8CB691C174ULL);
-    BMK_testXXH64(sanityBuffer,222, PRIME32, 0x20CB8AB7AE10C14AULL);
+    XSUM_testXXH64(NULL        ,  0, 0,       0xEF46DB3751D8E999ULL);
+    XSUM_testXXH64(NULL        ,  0, PRIME32, 0xAC75FDA2929B17EFULL);
+    XSUM_testXXH64(sanityBuffer,  1, 0,       0xE934A84ADB052768ULL);
+    XSUM_testXXH64(sanityBuffer,  1, PRIME32, 0x5014607643A9B4C3ULL);
+    XSUM_testXXH64(sanityBuffer,  4, 0,       0x9136A0DCA57457EEULL);
+    XSUM_testXXH64(sanityBuffer, 14, 0,       0x8282DCC4994E35C8ULL);
+    XSUM_testXXH64(sanityBuffer, 14, PRIME32, 0xC3BD6BF63DEB6DF0ULL);
+    XSUM_testXXH64(sanityBuffer,222, 0,       0xB641AE8CB691C174ULL);
+    XSUM_testXXH64(sanityBuffer,222, PRIME32, 0x20CB8AB7AE10C14AULL);
 
-    BMK_testXXH3(NULL,           0, 0,       0x2D06800538D394C2ULL);  /* empty string */
-    BMK_testXXH3(NULL,           0, PRIME64, 0xA8A6B918B2F0364AULL);
-    BMK_testXXH3(sanityBuffer,   1, 0,       0xC44BDFF4074EECDBULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   1, PRIME64, 0x032BE332DD766EF8ULL);  /*  1 -  3 */
-    BMK_testXXH3(sanityBuffer,   6, 0,       0x27B56A84CD2D7325ULL);  /*  4 -  8 */
-    BMK_testXXH3(sanityBuffer,   6, PRIME64, 0x84589C116AB59AB9ULL);  /*  4 -  8 */
-    BMK_testXXH3(sanityBuffer,  12, 0,       0xA713DAF0DFBB77E7ULL);  /*  9 - 16 */
-    BMK_testXXH3(sanityBuffer,  12, PRIME64, 0xE7303E1B2336DE0EULL);  /*  9 - 16 */
-    BMK_testXXH3(sanityBuffer,  24, 0,       0xA3FE70BF9D3510EBULL);  /* 17 - 32 */
-    BMK_testXXH3(sanityBuffer,  24, PRIME64, 0x850E80FC35BDD690ULL);  /* 17 - 32 */
-    BMK_testXXH3(sanityBuffer,  48, 0,       0x397DA259ECBA1F11ULL);  /* 33 - 64 */
-    BMK_testXXH3(sanityBuffer,  48, PRIME64, 0xADC2CBAA44ACC616ULL);  /* 33 - 64 */
-    BMK_testXXH3(sanityBuffer,  80, 0,       0xBCDEFBBB2C47C90AULL);  /* 65 - 96 */
-    BMK_testXXH3(sanityBuffer,  80, PRIME64, 0xC6DD0CB699532E73ULL);  /* 65 - 96 */
-    BMK_testXXH3(sanityBuffer, 195, 0,       0xCD94217EE362EC3AULL);  /* 129-240 */
-    BMK_testXXH3(sanityBuffer, 195, PRIME64, 0xBA68003D370CB3D9ULL);  /* 129-240 */
+    XSUM_testXXH3(NULL,           0, 0,       0x2D06800538D394C2ULL);  /* empty string */
+    XSUM_testXXH3(NULL,           0, PRIME64, 0xA8A6B918B2F0364AULL);
+    XSUM_testXXH3(sanityBuffer,   1, 0,       0xC44BDFF4074EECDBULL);  /*  1 -  3 */
+    XSUM_testXXH3(sanityBuffer,   1, PRIME64, 0x032BE332DD766EF8ULL);  /*  1 -  3 */
+    XSUM_testXXH3(sanityBuffer,   6, 0,       0x27B56A84CD2D7325ULL);  /*  4 -  8 */
+    XSUM_testXXH3(sanityBuffer,   6, PRIME64, 0x84589C116AB59AB9ULL);  /*  4 -  8 */
+    XSUM_testXXH3(sanityBuffer,  12, 0,       0xA713DAF0DFBB77E7ULL);  /*  9 - 16 */
+    XSUM_testXXH3(sanityBuffer,  12, PRIME64, 0xE7303E1B2336DE0EULL);  /*  9 - 16 */
+    XSUM_testXXH3(sanityBuffer,  24, 0,       0xA3FE70BF9D3510EBULL);  /* 17 - 32 */
+    XSUM_testXXH3(sanityBuffer,  24, PRIME64, 0x850E80FC35BDD690ULL);  /* 17 - 32 */
+    XSUM_testXXH3(sanityBuffer,  48, 0,       0x397DA259ECBA1F11ULL);  /* 33 - 64 */
+    XSUM_testXXH3(sanityBuffer,  48, PRIME64, 0xADC2CBAA44ACC616ULL);  /* 33 - 64 */
+    XSUM_testXXH3(sanityBuffer,  80, 0,       0xBCDEFBBB2C47C90AULL);  /* 65 - 96 */
+    XSUM_testXXH3(sanityBuffer,  80, PRIME64, 0xC6DD0CB699532E73ULL);  /* 65 - 96 */
+    XSUM_testXXH3(sanityBuffer, 195, 0,       0xCD94217EE362EC3AULL);  /* 129-240 */
+    XSUM_testXXH3(sanityBuffer, 195, PRIME64, 0xBA68003D370CB3D9ULL);  /* 129-240 */
 
-    BMK_testXXH3(sanityBuffer, 403, 0,       0xCDEB804D65C6DEA4ULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 403, PRIME64, 0x6259F6ECFD6443FDULL);  /* one block, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer, 512, 0,       0x617E49599013CB6BULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer, 512, PRIME64, 0x3CE457DE14C27708ULL);  /* one block, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2048, 0,       0xDD59E2C3A5F038E0ULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2048, PRIME64, 0x66F81670669ABABCULL);  /* 2 blocks, finishing at block boundary */
-    BMK_testXXH3(sanityBuffer,2240, 0,       0x6E73A90539CF2948ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2240, PRIME64, 0x757BA8487D1B5247ULL);  /* 3 blocks, finishing at stripe boundary */
-    BMK_testXXH3(sanityBuffer,2367, 0,       0xCB37AEB9E5D361EDULL);  /* 3 blocks, last stripe is overlapping */
-    BMK_testXXH3(sanityBuffer,2367, PRIME64, 0xD2DB3415B942B42AULL);  /* 3 blocks, last stripe is overlapping */
+    XSUM_testXXH3(sanityBuffer, 403, 0,       0xCDEB804D65C6DEA4ULL);  /* one block, last stripe is overlapping */
+    XSUM_testXXH3(sanityBuffer, 403, PRIME64, 0x6259F6ECFD6443FDULL);  /* one block, last stripe is overlapping */
+    XSUM_testXXH3(sanityBuffer, 512, 0,       0x617E49599013CB6BULL);  /* one block, finishing at stripe boundary */
+    XSUM_testXXH3(sanityBuffer, 512, PRIME64, 0x3CE457DE14C27708ULL);  /* one block, finishing at stripe boundary */
+    XSUM_testXXH3(sanityBuffer,2048, 0,       0xDD59E2C3A5F038E0ULL);  /* 2 blocks, finishing at block boundary */
+    XSUM_testXXH3(sanityBuffer,2048, PRIME64, 0x66F81670669ABABCULL);  /* 2 blocks, finishing at block boundary */
+    XSUM_testXXH3(sanityBuffer,2240, 0,       0x6E73A90539CF2948ULL);  /* 3 blocks, finishing at stripe boundary */
+    XSUM_testXXH3(sanityBuffer,2240, PRIME64, 0x757BA8487D1B5247ULL);  /* 3 blocks, finishing at stripe boundary */
+    XSUM_testXXH3(sanityBuffer,2367, 0,       0xCB37AEB9E5D361EDULL);  /* 3 blocks, last stripe is overlapping */
+    XSUM_testXXH3(sanityBuffer,2367, PRIME64, 0xD2DB3415B942B42AULL);  /* 3 blocks, last stripe is overlapping */
 
     /* XXH3 with Custom Secret */
     {   const void* const secret = sanityBuffer + 7;
         const size_t secretSize = XXH3_SECRET_SIZE_MIN + 11;
         assert(sizeof(sanityBuffer) >= 7 + secretSize);
-        BMK_testXXH3_withSecret(NULL,           0, secret, secretSize, 0x3559D64878C5C66CULL);  /* empty string */
-        BMK_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0x8A52451418B2DA4DULL);  /*  1 -  3 */
-        BMK_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0x82C90AB0519369ADULL);  /*  4 -  8 */
-        BMK_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x14631E773B78EC57ULL);  /*  9 - 16 */
-        BMK_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize, 0xCDD5542E4A9D9FE8ULL);  /* 17 - 32 */
-        BMK_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize, 0x33ABD54D094B2534ULL);  /* 33 - 64 */
-        BMK_testXXH3_withSecret(sanityBuffer,  80, secret, secretSize, 0xE687BA1684965297ULL);  /* 65 - 96 */
-        BMK_testXXH3_withSecret(sanityBuffer, 195, secret, secretSize, 0xA057273F5EECFB20ULL);  /* 129-240 */
+        XSUM_testXXH3_withSecret(NULL,           0, secret, secretSize, 0x3559D64878C5C66CULL);  /* empty string */
+        XSUM_testXXH3_withSecret(sanityBuffer,   1, secret, secretSize, 0x8A52451418B2DA4DULL);  /*  1 -  3 */
+        XSUM_testXXH3_withSecret(sanityBuffer,   6, secret, secretSize, 0x82C90AB0519369ADULL);  /*  4 -  8 */
+        XSUM_testXXH3_withSecret(sanityBuffer,  12, secret, secretSize, 0x14631E773B78EC57ULL);  /*  9 - 16 */
+        XSUM_testXXH3_withSecret(sanityBuffer,  24, secret, secretSize, 0xCDD5542E4A9D9FE8ULL);  /* 17 - 32 */
+        XSUM_testXXH3_withSecret(sanityBuffer,  48, secret, secretSize, 0x33ABD54D094B2534ULL);  /* 33 - 64 */
+        XSUM_testXXH3_withSecret(sanityBuffer,  80, secret, secretSize, 0xE687BA1684965297ULL);  /* 65 - 96 */
+        XSUM_testXXH3_withSecret(sanityBuffer, 195, secret, secretSize, 0xA057273F5EECFB20ULL);  /* 129-240 */
 
-        BMK_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize, 0x14546019124D43B8ULL);  /* one block, last stripe is overlapping */
-        BMK_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x7564693DD526E28DULL);  /* one block, finishing at stripe boundary */
-        BMK_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0xD32E975821D6519FULL);  /* >= 2 blocks, at least one scrambling */
-        BMK_testXXH3_withSecret(sanityBuffer,2367, secret, secretSize, 0x293FA8E5173BB5E7ULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
+        XSUM_testXXH3_withSecret(sanityBuffer, 403, secret, secretSize, 0x14546019124D43B8ULL);  /* one block, last stripe is overlapping */
+        XSUM_testXXH3_withSecret(sanityBuffer, 512, secret, secretSize, 0x7564693DD526E28DULL);  /* one block, finishing at stripe boundary */
+        XSUM_testXXH3_withSecret(sanityBuffer,2048, secret, secretSize, 0xD32E975821D6519FULL);  /* >= 2 blocks, at least one scrambling */
+        XSUM_testXXH3_withSecret(sanityBuffer,2367, secret, secretSize, 0x293FA8E5173BB5E7ULL);  /* >= 2 blocks, at least one scrambling, last stripe unaligned */
 
-        BMK_testXXH3_withSecret(sanityBuffer,64*10*3, secret, secretSize, 0x751D2EC54BC6038BULL);  /* exactly 3 full blocks, not a multiple of 256 */
+        XSUM_testXXH3_withSecret(sanityBuffer,64*10*3, secret, secretSize, 0x751D2EC54BC6038BULL);  /* exactly 3 full blocks, not a multiple of 256 */
     }
 
     /* XXH128 */
     {   XXH128_hash_t const expected = { 0x6001C324468D497FULL, 0x99AA06D3014798D8ULL };
-        BMK_testXXH128(NULL,           0, 0,     expected);         /* empty string */
+        XSUM_testXXH128(NULL,           0, 0,     expected);         /* empty string */
     }
     {   XXH128_hash_t const expected = { 0x5444F7869C671AB0ULL, 0x92220AE55E14AB50ULL };
-        BMK_testXXH128(NULL,           0, PRIME32, expected);
+        XSUM_testXXH128(NULL,           0, PRIME32, expected);
     }
     {   XXH128_hash_t const expected = { 0xC44BDFF4074EECDBULL, 0xA6CD5E9392000F6AULL };
-        BMK_testXXH128(sanityBuffer,   1, 0,       expected);       /* 1-3 */
+        XSUM_testXXH128(sanityBuffer,   1, 0,       expected);       /* 1-3 */
     }
     {   XXH128_hash_t const expected = { 0xB53D5557E7F76F8DULL, 0x89B99554BA22467CULL };
-        BMK_testXXH128(sanityBuffer,   1, PRIME32, expected);       /* 1-3 */
+        XSUM_testXXH128(sanityBuffer,   1, PRIME32, expected);       /* 1-3 */
     }
     {   XXH128_hash_t const expected = { 0x3E7039BDDA43CFC6ULL, 0x082AFE0B8162D12AULL };
-        BMK_testXXH128(sanityBuffer,   6, 0,       expected);       /* 4-8 */
+        XSUM_testXXH128(sanityBuffer,   6, 0,       expected);       /* 4-8 */
     }
     {   XXH128_hash_t const expected = { 0x269D8F70BE98856EULL, 0x5A865B5389ABD2B1ULL };
-        BMK_testXXH128(sanityBuffer,   6, PRIME32, expected);       /* 4-8 */
+        XSUM_testXXH128(sanityBuffer,   6, PRIME32, expected);       /* 4-8 */
     }
     {   XXH128_hash_t const expected = { 0x061A192713F69AD9ULL, 0x6E3EFD8FC7802B18ULL };
-        BMK_testXXH128(sanityBuffer,  12, 0,       expected);       /* 9-16 */
+        XSUM_testXXH128(sanityBuffer,  12, 0,       expected);       /* 9-16 */
     }
     {   XXH128_hash_t const expected = { 0x9BE9F9A67F3C7DFBULL, 0xD7E09D518A3405D3ULL };
-        BMK_testXXH128(sanityBuffer,  12, PRIME32, expected);       /* 9-16 */
+        XSUM_testXXH128(sanityBuffer,  12, PRIME32, expected);       /* 9-16 */
     }
     {   XXH128_hash_t const expected = { 0x1E7044D28B1B901DULL, 0x0CE966E4678D3761ULL };
-        BMK_testXXH128(sanityBuffer,  24, 0,       expected);       /* 17-32 */
+        XSUM_testXXH128(sanityBuffer,  24, 0,       expected);       /* 17-32 */
     }
     {   XXH128_hash_t const expected = { 0xD7304C54EBAD40A9ULL, 0x3162026714A6A243ULL };
-        BMK_testXXH128(sanityBuffer,  24, PRIME32, expected);       /* 17-32 */
+        XSUM_testXXH128(sanityBuffer,  24, PRIME32, expected);       /* 17-32 */
     }
     {   XXH128_hash_t const expected = { 0xF942219AED80F67BULL, 0xA002AC4E5478227EULL };
-        BMK_testXXH128(sanityBuffer,  48, 0,       expected);       /* 33-64 */
+        XSUM_testXXH128(sanityBuffer,  48, 0,       expected);       /* 33-64 */
     }
     {   XXH128_hash_t const expected = { 0x7BA3C3E453A1934EULL, 0x163ADDE36C072295ULL };
-        BMK_testXXH128(sanityBuffer,  48, PRIME32, expected);       /* 33-64 */
+        XSUM_testXXH128(sanityBuffer,  48, PRIME32, expected);       /* 33-64 */
     }
     {   XXH128_hash_t const expected = { 0x5E8BAFB9F95FB803ULL, 0x4952F58181AB0042ULL };
-        BMK_testXXH128(sanityBuffer,  81, 0,       expected);       /* 65-96 */
+        XSUM_testXXH128(sanityBuffer,  81, 0,       expected);       /* 65-96 */
     }
     {   XXH128_hash_t const expected = { 0x703FBB3D7A5F755CULL, 0x2724EC7ADC750FB6ULL };
-        BMK_testXXH128(sanityBuffer,  81, PRIME32, expected);       /* 65-96 */
+        XSUM_testXXH128(sanityBuffer,  81, PRIME32, expected);       /* 65-96 */
     }
     {   XXH128_hash_t const expected = { 0xF1AEBD597CEC6B3AULL, 0x337E09641B948717ULL };
-        BMK_testXXH128(sanityBuffer, 222, 0,       expected);       /* 129-240 */
+        XSUM_testXXH128(sanityBuffer, 222, 0,       expected);       /* 129-240 */
     }
     {   XXH128_hash_t const expected = { 0xAE995BB8AF917A8DULL, 0x91820016621E97F1ULL };
-        BMK_testXXH128(sanityBuffer, 222, PRIME32, expected);       /* 129-240 */
+        XSUM_testXXH128(sanityBuffer, 222, PRIME32, expected);       /* 129-240 */
     }
     {   XXH128_hash_t const expected = { 0xCDEB804D65C6DEA4ULL, 0x1B6DE21E332DD73DULL };
-        BMK_testXXH128(sanityBuffer, 403, 0,       expected);       /* one block, last stripe is overlapping */
+        XSUM_testXXH128(sanityBuffer, 403, 0,       expected);       /* one block, last stripe is overlapping */
     }
     {   XXH128_hash_t const expected = { 0x6259F6ECFD6443FDULL, 0xBED311971E0BE8F2ULL };
-        BMK_testXXH128(sanityBuffer, 403, PRIME64, expected);       /* one block, last stripe is overlapping */
+        XSUM_testXXH128(sanityBuffer, 403, PRIME64, expected);       /* one block, last stripe is overlapping */
     }
     {   XXH128_hash_t const expected = { 0x617E49599013CB6BULL, 0x18D2D110DCC9BCA1ULL };
-        BMK_testXXH128(sanityBuffer, 512, 0,       expected);       /* one block, finishing at stripe boundary */
+        XSUM_testXXH128(sanityBuffer, 512, 0,       expected);       /* one block, finishing at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0x3CE457DE14C27708ULL, 0x925D06B8EC5B8040ULL };
-        BMK_testXXH128(sanityBuffer, 512, PRIME64, expected);       /* one block, finishing at stripe boundary */
+        XSUM_testXXH128(sanityBuffer, 512, PRIME64, expected);       /* one block, finishing at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0xDD59E2C3A5F038E0ULL, 0xF736557FD47073A5ULL };
-        BMK_testXXH128(sanityBuffer,2048, 0,       expected);       /* two blocks, finishing at block boundary */
+        XSUM_testXXH128(sanityBuffer,2048, 0,       expected);       /* two blocks, finishing at block boundary */
     }
     {   XXH128_hash_t const expected = { 0x230D43F30206260BULL, 0x7FB03F7E7186C3EAULL };
-        BMK_testXXH128(sanityBuffer,2048, PRIME32, expected);       /* two blocks, finishing at block boundary */
+        XSUM_testXXH128(sanityBuffer,2048, PRIME32, expected);       /* two blocks, finishing at block boundary */
     }
     {   XXH128_hash_t const expected = { 0x6E73A90539CF2948ULL, 0xCCB134FBFA7CE49DULL };
-        BMK_testXXH128(sanityBuffer,2240, 0,       expected);      /* two blocks, ends at stripe boundary */
+        XSUM_testXXH128(sanityBuffer,2240, 0,       expected);      /* two blocks, ends at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0xED385111126FBA6FULL, 0x50A1FE17B338995FULL };
-        BMK_testXXH128(sanityBuffer,2240, PRIME32, expected);       /* two blocks, ends at stripe boundary */
+        XSUM_testXXH128(sanityBuffer,2240, PRIME32, expected);       /* two blocks, ends at stripe boundary */
     }
     {   XXH128_hash_t const expected = { 0xCB37AEB9E5D361EDULL, 0xE89C0F6FF369B427ULL };
-        BMK_testXXH128(sanityBuffer,2367, 0,       expected);       /* two blocks, last stripe is overlapping */
+        XSUM_testXXH128(sanityBuffer,2367, 0,       expected);       /* two blocks, last stripe is overlapping */
     }
     {   XXH128_hash_t const expected = { 0x6F5360AE69C2F406ULL, 0xD23AAE4B76C31ECBULL };
-        BMK_testXXH128(sanityBuffer,2367, PRIME32, expected);       /* two blocks, last stripe is overlapping */
+        XSUM_testXXH128(sanityBuffer,2367, PRIME32, expected);       /* two blocks, last stripe is overlapping */
     }
 
     /* XXH128 with custom Secret */
@@ -1378,38 +1366,38 @@ static void BMK_sanityCheck(void)
         assert(sizeof(sanityBuffer) >= 7 + secretSize);
 
         {   XXH128_hash_t const expected = { 0x005923CCEECBE8AEULL, 0x5F70F4EA232F1D38ULL };
-            BMK_testXXH128_withSecret(NULL,           0, secret, secretSize,     expected);         /* empty string */
+            XSUM_testXXH128_withSecret(NULL,           0, secret, secretSize,     expected);         /* empty string */
         }
         {   XXH128_hash_t const expected = { 0x8A52451418B2DA4DULL, 0x3A66AF5A9819198EULL };
-            BMK_testXXH128_withSecret(sanityBuffer,   1, secret, secretSize,       expected);       /* 1-3 */
+            XSUM_testXXH128_withSecret(sanityBuffer,   1, secret, secretSize,       expected);       /* 1-3 */
         }
         {   XXH128_hash_t const expected = { 0x0B61C8ACA7D4778FULL, 0x376BD91B6432F36DULL };
-            BMK_testXXH128_withSecret(sanityBuffer,   6, secret, secretSize,       expected);       /* 4-8 */
+            XSUM_testXXH128_withSecret(sanityBuffer,   6, secret, secretSize,       expected);       /* 4-8 */
         }
         {   XXH128_hash_t const expected = { 0xAF82F6EBA263D7D8ULL, 0x90A3C2D839F57D0FULL };
-            BMK_testXXH128_withSecret(sanityBuffer,  12, secret, secretSize,       expected);       /* 9-16 */
+            XSUM_testXXH128_withSecret(sanityBuffer,  12, secret, secretSize,       expected);       /* 9-16 */
         }
     }
 
     /* secret generator */
     {   verifSample_t const expected = { { 0xB8, 0x26, 0x83, 0x7E } };
-        BMK_testSecretGenerator(NULL, 0, expected);
+        XSUM_testSecretGenerator(NULL, 0, expected);
     }
 
     {   verifSample_t const expected = { { 0xA6, 0x16, 0x06, 0x7B } };
-        BMK_testSecretGenerator(sanityBuffer, 1, expected);
+        XSUM_testSecretGenerator(sanityBuffer, 1, expected);
     }
 
     {   verifSample_t const expected = { { 0xDA, 0x2A, 0x12, 0x11 } };
-        BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_SIZE_MIN - 1, expected);
+        XSUM_testSecretGenerator(sanityBuffer, XXH3_SECRET_SIZE_MIN - 1, expected);
     }
 
     {   verifSample_t const expected = { { 0x7E, 0x48, 0x0C, 0xA7 } };
-        BMK_testSecretGenerator(sanityBuffer, XXH3_SECRET_DEFAULT_SIZE + 500, expected);
+        XSUM_testSecretGenerator(sanityBuffer, XXH3_SECRET_DEFAULT_SIZE + 500, expected);
     }
 
-    DISPLAYLEVEL(3, "\r%70s\r", "");       /* Clean display line */
-    DISPLAYLEVEL(3, "Sanity check -- all tests ok\n");
+    XSUM_logVerbose(3, "\r%70s\r", "");       /* Clean display line */
+    XSUM_logVerbose(3, "Sanity check -- all tests ok\n");
 }
 
 
@@ -1440,20 +1428,20 @@ int XSUM_isDirectory(const char* infilename)
 }
 
 /* for support of --little-endian display mode */
-static void BMK_display_LittleEndian(const void* ptr, size_t length)
+static void XSUM_display_LittleEndian(const void* ptr, size_t length)
 {
     const U8* const p = (const U8*)ptr;
     size_t idx;
     for (idx=length-1; idx<length; idx--)    /* intentional underflow to negative to detect end */
-        DISPLAYRESULT("%02x", p[idx]);
+        XSUM_output("%02x", p[idx]);
 }
 
-static void BMK_display_BigEndian(const void* ptr, size_t length)
+static void XSUM_display_BigEndian(const void* ptr, size_t length)
 {
     const U8* const p = (const U8*)ptr;
     size_t idx;
     for (idx=0; idx<length; idx++)
-        DISPLAYRESULT("%02x", p[idx]);
+        XSUM_output("%02x", p[idx]);
 }
 
 typedef union {
@@ -1500,7 +1488,7 @@ XSUM_hashStream(FILE* inFile,
             }
         }
         if (ferror(inFile)) {
-            DISPLAY("Error: a failure occurred reading the input file.\n");
+            XSUM_log("Error: a failure occurred reading the input file.\n");
             exit(1);
     }   }
 
@@ -1540,19 +1528,19 @@ static void XSUM_printLine_BSD_internal(const char* filename,
     assert(0 <= hashType && hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
     {   const char* const typeString = algoString[hashType];
         const size_t hashLength = XSUM_algoLength[hashType];
-        DISPLAYRESULT("%s (%s) = ", typeString, filename);
+        XSUM_output("%s (%s) = ", typeString, filename);
         f_displayHash(canonicalHash, hashLength);
-        DISPLAYRESULT("\n");
+        XSUM_output("\n");
 }   }
 
 static void XSUM_printLine_BSD_LE(const char* filename, const void* canonicalHash, const AlgoSelected hashType)
 {
-    XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoLE_name, BMK_display_LittleEndian);
+    XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoLE_name, XSUM_display_LittleEndian);
 }
 
 static void XSUM_printLine_BSD(const char* filename, const void* canonicalHash, const AlgoSelected hashType)
 {
-    XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoName, BMK_display_BigEndian);
+    XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoName, XSUM_display_BigEndian);
 }
 
 static void XSUM_printLine_GNU_internal(const char* filename,
@@ -1562,19 +1550,19 @@ static void XSUM_printLine_GNU_internal(const char* filename,
     assert(0 <= hashType && hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
     {   const size_t hashLength = XSUM_algoLength[hashType];
         f_displayHash(canonicalHash, hashLength);
-        DISPLAYRESULT("  %s\n", filename);
+        XSUM_output("  %s\n", filename);
 }   }
 
 static void XSUM_printLine_GNU(const char* filename,
                                const void* canonicalHash, const AlgoSelected hashType)
 {
-    XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, BMK_display_BigEndian);
+    XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, XSUM_display_BigEndian);
 }
 
 static void XSUM_printLine_GNU_LE(const char* filename,
                                   const void* canonicalHash, const AlgoSelected hashType)
 {
-    XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, BMK_display_LittleEndian);
+    XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, XSUM_display_LittleEndian);
 }
 
 typedef enum { big_endian, little_endian} Display_endianess;
@@ -1607,19 +1595,19 @@ static int XSUM_hashFile(const char* fileName,
         SET_BINARY_MODE(stdin);
     } else {
         if (XSUM_isDirectory(fileName)) {
-            DISPLAY("xxhsum: %s: Is a directory \n", fileName);
+            XSUM_log("xxhsum: %s: Is a directory \n", fileName);
             return 1;
         }
-        inFile = XXH_fopen( fileName, "rb" );
+        inFile = XSUM_fopen( fileName, "rb" );
         if (inFile==NULL) {
-            DISPLAY("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
+            XSUM_log("Error: Could not open '%s': %s. \n", fileName, strerror(errno));
             return 1;
     }   }
 
     /* Memory allocation & streaming */
     {   void* const buffer = malloc(blockSize);
         if (buffer == NULL) {
-            DISPLAY("\nError: Out of memory.\n");
+            XSUM_log("\nError: Out of memory.\n");
             fclose(inFile);
             return 1;
         }
@@ -1677,7 +1665,7 @@ static int XSUM_hashFiles(const char*const * fnList, int fnTotal,
 
     for (fnNb=0; fnNb<fnTotal; fnNb++)
         result |= XSUM_hashFile(fnList[fnNb], hashType, displayEndianess, convention);
-    DISPLAYLEVEL(2, "\r%70s\r", "");
+    XSUM_logVerbose(2, "\r%70s\r", "");
     return result;
 }
 
@@ -1748,7 +1736,7 @@ typedef struct {
  * Returns GetLine_exceedMaxLineLength, if line length is longer than MAX_LINE_LENGTH.
  * Returns GetLine_outOfMemory, if line buffer memory allocation failed.
  */
-static GetLineResult getLine(char** lineBuf, int* lineMax, FILE* inFile)
+static GetLineResult XSUM_getLine(char** lineBuf, int* lineMax, FILE* inFile)
 {
     GetLineResult result = GetLine_ok;
     size_t len = 0;
@@ -1822,10 +1810,10 @@ static int charToHex(char c)
  * Returns CanonicalFromString_invalidFormat if hashStr is not well formatted.
  * Returns CanonicalFromString_ok if hashStr is parsed successfully.
  */
-static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
-                                                     size_t dstSize,
-                                                     const char* hashStr,
-                                                     int reverseBytes)
+static CanonicalFromStringResult XSUM_canonicalFromString(unsigned char* dst,
+                                                          size_t dstSize,
+                                                          const char* hashStr,
+                                                          int reverseBytes)
 {
     size_t i;
     for (i = 0; i < dstSize; ++i) {
@@ -1848,7 +1836,7 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  * Parse single line of xxHash checksum file.
  * Returns ParseLine_invalidFormat if the line is not well formatted.
  * Returns ParseLine_ok if the line is parsed successfully.
- * And members of parseLine will be filled by parsed values.
+ * And members of XSUM_parseLine will be filled by parsed values.
  *
  *  - line must be terminated with '\0' without a trailing newline.
  *  - Since parsedLine.filename will point within given argument `line`,
@@ -1863,7 +1851,7 @@ static CanonicalFromStringResult canonicalFromString(unsigned char* dst,
  *
  *      <algorithm> <' ('> <filename> <') = '> <hexstring> <'\0'>
  */
-static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
+static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int rev)
 {
     char* const firstSpace = strchr(line, ' ');
     const char* hash_ptr;
@@ -1895,7 +1883,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
     {
     case 8:
         {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
-            if (canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr, rev)
+            if (XSUM_canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1905,7 +1893,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 
     case 16:
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
-            if (canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
+            if (XSUM_canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1915,7 +1903,7 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 
     case 32:
         {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
-            if (canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr, rev)
+            if (XSUM_canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -1938,10 +1926,10 @@ static ParseLineResult parseLine(ParsedLine* parsedLine, char* line, int rev)
 /*!
  * Parse xxHash checksum file.
  */
-static void parseFile1(ParseFileArg* parseFileArg, int rev)
+static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
 {
-    const char* const inFileName = parseFileArg->inFileName;
-    ParseFileReport* const report = &parseFileArg->report;
+    const char* const inFileName = XSUM_parseFileArg->inFileName;
+    ParseFileReport* const report = &XSUM_parseFileArg->report;
 
     unsigned long lineNumber = 0;
     memset(report, 0, sizeof(*report));
@@ -1954,46 +1942,46 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
         lineNumber++;
         if (lineNumber == 0) {
             /* This is unlikely happen, but md5sum.c has this error check. */
-            DISPLAY("%s: Error: Too many checksum lines\n", inFileName);
+            XSUM_log("%s: Error: Too many checksum lines\n", inFileName);
             report->quit = 1;
             break;
         }
 
-        {   GetLineResult const getLineResult = getLine(&parseFileArg->lineBuf,
-                                                        &parseFileArg->lineMax,
-                                                         parseFileArg->inFile);
-            if (getLineResult != GetLine_ok) {
-                if (getLineResult == GetLine_eof) break;
+        {   GetLineResult const XSUM_getLineResult = XSUM_getLine(&XSUM_parseFileArg->lineBuf,
+                                                        &XSUM_parseFileArg->lineMax,
+                                                         XSUM_parseFileArg->inFile);
+            if (XSUM_getLineResult != GetLine_ok) {
+                if (XSUM_getLineResult == GetLine_eof) break;
 
-                switch (getLineResult)
+                switch (XSUM_getLineResult)
                 {
                 case GetLine_ok:
                 case GetLine_eof:
-                    /* These cases never happen.  See above getLineResult related "if"s.
+                    /* These cases never happen.  See above XSUM_getLineResult related "if"s.
                        They exist just for make gcc's -Wswitch-enum happy. */
                     assert(0);
                     break;
 
                 default:
-                    DISPLAY("%s:%lu: Error: Unknown error.\n", inFileName, lineNumber);
+                    XSUM_log("%s:%lu: Error: Unknown error.\n", inFileName, lineNumber);
                     break;
 
                 case GetLine_exceedMaxLineLength:
-                    DISPLAY("%s:%lu: Error: Line too long.\n", inFileName, lineNumber);
+                    XSUM_log("%s:%lu: Error: Line too long.\n", inFileName, lineNumber);
                     break;
 
                 case GetLine_outOfMemory:
-                    DISPLAY("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
+                    XSUM_log("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
                     break;
                 }
                 report->quit = 1;
                 break;
         }   }
 
-        if (parseLine(&parsedLine, parseFileArg->lineBuf, rev) != ParseLine_ok) {
+        if (XSUM_parseLine(&parsedLine, XSUM_parseFileArg->lineBuf, rev) != ParseLine_ok) {
             report->nImproperlyFormattedLines++;
-            if (parseFileArg->warn) {
-                DISPLAY("%s:%lu: Error: Improperly formatted checksum line.\n",
+            if (XSUM_parseFileArg->warn) {
+                XSUM_log("%s:%lu: Error: Improperly formatted checksum line.\n",
                         inFileName, lineNumber);
             }
             continue;
@@ -2002,7 +1990,7 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
         report->nProperlyFormattedLines++;
 
         do {
-            FILE* const fp = XXH_fopen(parsedLine.filename, "rb");
+            FILE* const fp = XSUM_fopen(parsedLine.filename, "rb");
             if (fp == NULL) {
                 lineStatus = LineStatus_failedToOpen;
                 break;
@@ -2011,21 +1999,21 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
             switch (parsedLine.xxhBits)
             {
             case 32:
-                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh32, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh32, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
                     if (xxh.xxh32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;
 
             case 64:
-                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh64, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh64, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
                     if (xxh.xxh64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
                         lineStatus = LineStatus_hashOk;
                 }   }
                 break;
 
             case 128:
-                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh128, parseFileArg->blockBuf, parseFileArg->blockSize);
+                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh128, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
                     if (XXH128_isEqual(xxh.xxh128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
                         lineStatus = LineStatus_hashOk;
                 }   }
@@ -2040,14 +2028,14 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
         switch (lineStatus)
         {
         default:
-            DISPLAY("%s: Error: Unknown error.\n", inFileName);
+            XSUM_log("%s: Error: Unknown error.\n", inFileName);
             report->quit = 1;
             break;
 
         case LineStatus_failedToOpen:
             report->nOpenOrReadFailures++;
-            if (!parseFileArg->statusOnly) {
-                DISPLAYRESULT("%s:%lu: Could not open or read '%s': %s.\n",
+            if (!XSUM_parseFileArg->statusOnly) {
+                XSUM_output("%s:%lu: Could not open or read '%s': %s.\n",
                     inFileName, lineNumber, parsedLine.filename, strerror(errno));
             }
             break;
@@ -2057,13 +2045,13 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
             {   int b = 1;
                 if (lineStatus == LineStatus_hashOk) {
                     /* If --quiet is specified, don't display "OK" */
-                    if (parseFileArg->quiet) b = 0;
+                    if (XSUM_parseFileArg->quiet) b = 0;
                 } else {
                     report->nMismatchedChecksums++;
                 }
 
-                if (b && !parseFileArg->statusOnly) {
-                    DISPLAYRESULT("%s: %s\n", parsedLine.filename
+                if (b && !XSUM_parseFileArg->statusOnly) {
+                    XSUM_output("%s: %s\n", parsedLine.filename
                         , lineStatus == LineStatus_hashOk ? "OK" : "FAILED");
             }   }
             break;
@@ -2087,18 +2075,18 @@ static void parseFile1(ParseFileArg* parseFileArg, int rev)
  *    - All hash values match with its content.
  *    - (strict mode) All lines in checksum file are consistent and well formatted.
  */
-static int checkFile(const char* inFileName,
-                     const Display_endianess displayEndianess,
-                     U32 strictMode,
-                     U32 statusOnly,
-                     U32 warn,
-                     U32 quiet)
+static int XSUM_checkFile(const char* inFileName,
+                          const Display_endianess displayEndianess,
+                          U32 strictMode,
+                          U32 statusOnly,
+                          U32 warn,
+                          U32 quiet)
 {
     int result = 0;
     FILE* inFile = NULL;
-    ParseFileArg parseFileArgBody;
-    ParseFileArg* const parseFileArg = &parseFileArgBody;
-    ParseFileReport* const report = &parseFileArg->report;
+    ParseFileArg XSUM_parseFileArgBody;
+    ParseFileArg* const XSUM_parseFileArg = &XSUM_parseFileArgBody;
+    ParseFileReport* const report = &XSUM_parseFileArg->report;
 
     /* note: stdinName is special constant pointer.  It is not a string. */
     if (inFileName == stdinName) {
@@ -2109,54 +2097,54 @@ static int checkFile(const char* inFileName,
         inFileName = "stdin";
         inFile = stdin;
     } else {
-        inFile = XXH_fopen( inFileName, "rt" );
+        inFile = XSUM_fopen( inFileName, "rt" );
     }
 
     if (inFile == NULL) {
-        DISPLAY("Error: Could not open '%s': %s\n", inFileName, strerror(errno));
+        XSUM_log("Error: Could not open '%s': %s\n", inFileName, strerror(errno));
         return 0;
     }
 
-    parseFileArg->inFileName  = inFileName;
-    parseFileArg->inFile      = inFile;
-    parseFileArg->lineMax     = DEFAULT_LINE_LENGTH;
-    parseFileArg->lineBuf     = (char*) malloc((size_t)parseFileArg->lineMax);
-    parseFileArg->blockSize   = 64 * 1024;
-    parseFileArg->blockBuf    = (char*) malloc(parseFileArg->blockSize);
-    parseFileArg->strictMode  = strictMode;
-    parseFileArg->statusOnly  = statusOnly;
-    parseFileArg->warn        = warn;
-    parseFileArg->quiet       = quiet;
+    XSUM_parseFileArg->inFileName  = inFileName;
+    XSUM_parseFileArg->inFile      = inFile;
+    XSUM_parseFileArg->lineMax     = DEFAULT_LINE_LENGTH;
+    XSUM_parseFileArg->lineBuf     = (char*) malloc((size_t)XSUM_parseFileArg->lineMax);
+    XSUM_parseFileArg->blockSize   = 64 * 1024;
+    XSUM_parseFileArg->blockBuf    = (char*) malloc(XSUM_parseFileArg->blockSize);
+    XSUM_parseFileArg->strictMode  = strictMode;
+    XSUM_parseFileArg->statusOnly  = statusOnly;
+    XSUM_parseFileArg->warn        = warn;
+    XSUM_parseFileArg->quiet       = quiet;
 
-    if ( (parseFileArg->lineBuf == NULL)
-      || (parseFileArg->blockBuf == NULL) ) {
-        DISPLAY("Error: : memory allocation failed \n");
+    if ( (XSUM_parseFileArg->lineBuf == NULL)
+      || (XSUM_parseFileArg->blockBuf == NULL) ) {
+        XSUM_log("Error: : memory allocation failed \n");
         exit(1);
     }
-    parseFile1(parseFileArg, displayEndianess != big_endian);
+    XSUM_parseFile1(XSUM_parseFileArg, displayEndianess != big_endian);
 
-    free(parseFileArg->blockBuf);
-    free(parseFileArg->lineBuf);
+    free(XSUM_parseFileArg->blockBuf);
+    free(XSUM_parseFileArg->lineBuf);
 
     if (inFile != stdin) fclose(inFile);
 
     /* Show error/warning messages.  All messages are copied from md5sum.c
      */
     if (report->nProperlyFormattedLines == 0) {
-        DISPLAY("%s: no properly formatted xxHash checksum lines found\n", inFileName);
+        XSUM_log("%s: no properly formatted xxHash checksum lines found\n", inFileName);
     } else if (!statusOnly) {
         if (report->nImproperlyFormattedLines) {
-            DISPLAYRESULT("%lu %s improperly formatted\n"
+            XSUM_output("%lu %s improperly formatted\n"
                 , report->nImproperlyFormattedLines
                 , report->nImproperlyFormattedLines == 1 ? "line is" : "lines are");
         }
         if (report->nOpenOrReadFailures) {
-            DISPLAYRESULT("%lu listed %s could not be read\n"
+            XSUM_output("%lu listed %s could not be read\n"
                 , report->nOpenOrReadFailures
                 , report->nOpenOrReadFailures == 1 ? "file" : "files");
         }
         if (report->nMismatchedChecksums) {
-            DISPLAYRESULT("%lu computed %s did NOT match\n"
+            XSUM_output("%lu computed %s did NOT match\n"
                 , report->nMismatchedChecksums
                 , report->nMismatchedChecksums == 1 ? "checksum" : "checksums");
     }   }
@@ -2172,23 +2160,23 @@ static int checkFile(const char* inFileName,
 }
 
 
-static int checkFiles(const char*const* fnList, int fnTotal,
-                      const Display_endianess displayEndianess,
-                      U32 strictMode,
-                      U32 statusOnly,
-                      U32 warn,
-                      U32 quiet)
+static int XSUM_checkFiles(const char*const* fnList, int fnTotal,
+                           const Display_endianess displayEndianess,
+                           U32 strictMode,
+                           U32 statusOnly,
+                           U32 warn,
+                           U32 quiet)
 {
     int ok = 1;
 
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal==0) {
-        ok &= checkFile(stdinName, displayEndianess, strictMode, statusOnly, warn, quiet);
+        ok &= XSUM_checkFile(stdinName, displayEndianess, strictMode, statusOnly, warn, quiet);
     } else {
         int fnNb;
         for (fnNb=0; fnNb<fnTotal; fnNb++)
-            ok &= checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, warn, quiet);
+            ok &= XSUM_checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, warn, quiet);
     }
     return ok ? 0 : 1;
 }
@@ -2198,53 +2186,54 @@ static int checkFiles(const char*const* fnList, int fnTotal,
 *  Main
 **********************************************************/
 
-static int usage(const char* exename)
+static int XSUM_usage(const char* exename)
 {
-    DISPLAY( WELCOME_MESSAGE(exename) );
-    DISPLAY( "Print or verify checksums using fast non-cryptographic algorithm xxHash \n\n" );
-    DISPLAY( "Usage: %s [options] [files] \n\n", exename);
-    DISPLAY( "When no filename provided or when '-' is provided, uses stdin as input. \n");
-    DISPLAY( "Options: \n");
-    DISPLAY( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
-    DISPLAY( "  -c, --check read xxHash checksum from [files] and check them \n");
-    DISPLAY( "  -h, --help  display a long help page about advanced options \n");
+    XSUM_log( WELCOME_MESSAGE(exename) );
+    XSUM_log( "Print or verify checksums using fast non-cryptographic algorithm xxHash \n\n" );
+    XSUM_log( "Usage: %s [options] [files] \n\n", exename);
+    XSUM_log( "When no filename provided or when '-' is provided, uses stdin as input. \n");
+    XSUM_log( "Options: \n");
+    XSUM_log( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
+    XSUM_log( "  -c, --check read xxHash checksum from [files] and check them \n");
+    XSUM_log( "  -h, --help  display a long help page about advanced options \n");
     return 0;
 }
 
 
-static int usage_advanced(const char* exename)
+static int XSUM_usage_advanced(const char* exename)
 {
-    usage(exename);
-    DISPLAY( "Advanced :\n");
-    DISPLAY( "  -V, --version        Display version information \n");
-    DISPLAY( "      --tag            Produce BSD-style checksum lines \n");
-    DISPLAY( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
-    DISPLAY( "  -b                   Run benchmark \n");
-    DISPLAY( "  -b#                  Bench only algorithm variant # \n");
-    DISPLAY( "  -i#                  Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
-    DISPLAY( "  -q, --quiet          Don't display version header in benchmark mode \n");
-    DISPLAY( "\n");
-    DISPLAY( "The following four options are useful only when verifying checksums (-c): \n");
-    DISPLAY( "  -q, --quiet          Don't print OK for each successfully verified file \n");
-    DISPLAY( "      --status         Don't output anything, status code shows success \n");
-    DISPLAY( "      --strict         Exit non-zero for improperly formatted checksum lines \n");
-    DISPLAY( "      --warn           Warn about improperly formatted checksum lines \n");
+    XSUM_usage(exename);
+    XSUM_log( "Advanced :\n");
+    XSUM_log( "  -V, --version        Display version information \n");
+    XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
+    XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
+    XSUM_log( "  -b                   Run benchmark \n");
+    XSUM_log( "  -b#                  Bench only algorithm variant # \n");
+    XSUM_log( "  -i#                  Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
+    XSUM_log( "  -q, --quiet          Don't display version header in benchmark mode \n");
+    XSUM_log( "\n");
+    XSUM_log( "The following four options are useful only when verifying checksums (-c): \n");
+    XSUM_log( "  -q, --quiet          Don't print OK for each successfully verified file \n");
+    XSUM_log( "      --status         Don't output anything, status code shows success \n");
+    XSUM_log( "      --strict         Exit non-zero for improperly formatted checksum lines \n");
+    XSUM_log( "      --warn           Warn about improperly formatted checksum lines \n");
     return 0;
 }
 
-static int badusage(const char* exename)
+static int XSUM_badusage(const char* exename)
 {
-    DISPLAY("Wrong parameters\n\n");
-    usage(exename);
+    XSUM_log("Wrong parameters\n\n");
+    XSUM_usage(exename);
     return 1;
 }
 
 static void errorOut(const char* msg)
 {
-    DISPLAY("%s \n", msg); exit(1);
+    XSUM_log("%s \n", msg);
+    exit(1);
 }
 
-static const char* lastNameFromPath(const char* path)
+static const char* XSUM_lastNameFromPath(const char* path)
 {
     const char* name = path;
     if (strrchr(name, '/')) name = strrchr(name, '/') + 1;
@@ -2253,13 +2242,13 @@ static const char* lastNameFromPath(const char* path)
 }
 
 /*!
- * readU32FromCharChecked():
+ * XSUM_readU32FromCharChecked():
  * @return 0 if success, and store the result in *value.
  * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  * @return 1 if an overflow error occurs
  */
-static int readU32FromCharChecked(const char** stringPtr, U32* value)
+static int XSUM_readU32FromCharChecked(const char** stringPtr, U32* value)
 {
     static const U32 max = (((U32)(-1)) / 10) - 1;
     U32 result = 0;
@@ -2286,25 +2275,25 @@ static int readU32FromCharChecked(const char** stringPtr, U32* value)
 }
 
 /*!
- * readU32FromChar():
+ * XSUM_readU32FromChar():
  * @return: unsigned integer value read from input in `char` format.
  *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  *  Note: function will exit() program if digit sequence overflows
  */
-static U32 readU32FromChar(const char** stringPtr) {
+static U32 XSUM_readU32FromChar(const char** stringPtr) {
     U32 result;
-    if (readU32FromCharChecked(stringPtr, &result)) {
+    if (XSUM_readU32FromCharChecked(stringPtr, &result)) {
         static const char errorMsg[] = "Error: numeric value too large";
         errorOut(errorMsg);
     }
     return result;
 }
 
-static int XXH_main(int argc, const char* const* argv)
+static int XSUM_main(int argc, const char* const* argv)
 {
     int i, filenamesStart = 0;
-    const char* const exename = lastNameFromPath(argv[0]);
+    const char* const exename = XSUM_lastNameFromPath(argv[0]);
     U32 benchmarkMode = 0;
     U32 fileCheckMode = 0;
     U32 strictMode    = 0;
@@ -2313,7 +2302,7 @@ static int XXH_main(int argc, const char* const* argv)
     int explicitStdin = 0;
     U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
     static const U32 kBenchAll = 99;
-    size_t keySize    = XXH_DEFAULT_SAMPLE_SIZE;
+    size_t keySize    = XSUM_DEFAULT_SAMPLE_SIZE;
     AlgoSelected algo     = g_defaultAlgo;
     Display_endianess displayEndianess = big_endian;
     Display_convention convention = display_gnu;
@@ -2335,8 +2324,8 @@ static int XXH_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
-        if (!strcmp(argument, "--help")) { return usage_advanced(exename); }
-        if (!strcmp(argument, "--version")) { DISPLAY(FULL_WELCOME_MESSAGE(exename)); BMK_sanityCheck(); return 0; }
+        if (!strcmp(argument, "--help")) { return XSUM_usage_advanced(exename); }
+        if (!strcmp(argument, "--version")) { XSUM_log(FULL_WELCOME_MESSAGE(exename)); XSUM_sanityCheck(); return 0; }
         if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }
 
         if (!strcmp(argument, "--")) {
@@ -2357,15 +2346,15 @@ static int XXH_main(int argc, const char* const* argv)
             {
             /* Display version */
             case 'V':
-                DISPLAY(FULL_WELCOME_MESSAGE(exename)); return 0;
+                XSUM_log(FULL_WELCOME_MESSAGE(exename)); return 0;
 
-            /* Display help on usage */
+            /* Display help on XSUM_usage */
             case 'h':
-                return usage_advanced(exename);
+                return XSUM_usage_advanced(exename);
 
             /* select hash algorithm */
             case 'H': argument++;
-                switch(readU32FromChar(&argument)) {
+                switch(XSUM_readU32FromChar(&argument)) {
                     case 0 :
                     case 32: algo = algo_xxh32; break;
                     case 1 :
@@ -2373,7 +2362,7 @@ static int XXH_main(int argc, const char* const* argv)
                     case 2 :
                     case 128: algo = algo_xxh128; break;
                     default:
-                        return badusage(exename);
+                        return XSUM_badusage(exename);
                 }
                 break;
 
@@ -2395,7 +2384,7 @@ static int XXH_main(int argc, const char* const* argv)
                 benchmarkMode = 1;
                 do {
                     if (*argument == ',') argument++;
-                    selectBenchIDs = readU32FromChar(&argument); /* select one specific test */
+                    selectBenchIDs = XSUM_readU32FromChar(&argument); /* select one specific test */
                     if (selectBenchIDs < NB_TESTFUNC) {
                         g_testIDs[selectBenchIDs] = 1;
                     } else
@@ -2406,13 +2395,13 @@ static int XXH_main(int argc, const char* const* argv)
             /* Modify Nb Iterations (benchmark only) */
             case 'i':
                 argument++;
-                g_nbIterations = readU32FromChar(&argument);
+                g_nbIterations = XSUM_readU32FromChar(&argument);
                 break;
 
             /* Modify Block size (benchmark only) */
             case 'B':
                 argument++;
-                keySize = readU32FromChar(&argument);
+                keySize = XSUM_readU32FromChar(&argument);
                 break;
 
             /* Modify verbosity of benchmark output (hidden option) */
@@ -2422,28 +2411,28 @@ static int XXH_main(int argc, const char* const* argv)
                 break;
 
             default:
-                return badusage(exename);
+                return XSUM_badusage(exename);
             }
         }
     }   /* for(i=1; i<argc; i++) */
 
     /* Check benchmark mode */
     if (benchmarkMode) {
-        DISPLAYLEVEL(2, FULL_WELCOME_MESSAGE(exename) );
-        BMK_sanityCheck();
+        XSUM_logVerbose(2, FULL_WELCOME_MESSAGE(exename) );
+        XSUM_sanityCheck();
         if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, sizeof(g_testIDs));
         if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, sizeof(g_testIDs));
-        if (filenamesStart==0) return BMK_benchInternal(keySize);
-        return BMK_benchFiles(argv+filenamesStart, argc-filenamesStart);
+        if (filenamesStart==0) return XSUM_benchInternal(keySize);
+        return XSUM_benchFiles(argv+filenamesStart, argc-filenamesStart);
     }
 
     /* Check if input is defined as console; trigger an error in this case */
-    if ( (filenamesStart==0) && IS_CONSOLE(stdin) && !explicitStdin)
-        return badusage(exename);
+    if ( (filenamesStart==0) && XSUM_isConsole(stdin) && !explicitStdin)
+        return XSUM_badusage(exename);
 
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {
-        return checkFiles(argv+filenamesStart, argc-filenamesStart,
+        return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
                           displayEndianess, strictMode, statusOnly, warn, (g_displayLevel < 2) /*quiet*/);
     } else {
         return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess, convention);
@@ -2453,20 +2442,20 @@ static int XXH_main(int argc, const char* const* argv)
 /* Windows main wrapper which properly handles UTF-8 command line arguments. */
 #ifdef _WIN32
 /* Converts a UTF-16 argv to UTF-8. */
-static char** convert_argv(int argc, const wchar_t* const utf16_argv[])
+static char** XSUM_convertArgv(int argc, const wchar_t* const utf16_argv[])
 {
     char** const utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
     if (utf8_argv != NULL) {
         int i;
         for (i = 0; i < argc; i++) {
-            utf8_argv[i] = utf16_to_utf8(utf16_argv[i]);
+            utf8_argv[i] = XSUM_narrowString(utf16_argv[i], NULL);
         }
         utf8_argv[argc] = NULL;
     }
     return utf8_argv;
 }
-/* Frees arguments returned by convert_argv */
-static void free_argv(int argc, char** argv)
+/* Frees arguments returned by XSUM_convertArgv */
+static void freeargv(int argc, char** argv)
 {
     int i;
     if (argv == NULL) {
@@ -2491,10 +2480,10 @@ static void free_argv(int argc, char** argv)
  * This function is wrapped by `__wgetmainargs()` and `main()` below on MinGW
  * with Unicode disabled, but if possible, we try to use `wmain()`.
  */
-static int XXH_wmain(int argc, const wchar_t* const utf16_argv[])
+static int XSUM_wmain(int argc, const wchar_t* const utf16_argv[])
 {
     /* Convert the UTF-16 arguments to UTF-8. */
-    char** utf8_argv = convert_argv(argc, utf16_argv);
+    char** utf8_argv = XSUM_convertArgv(argc, utf16_argv);
 
     if (utf8_argv == NULL) {
         /* An unfortunate but incredibly unlikely error, */
@@ -2514,10 +2503,10 @@ static int XXH_wmain(int argc, const wchar_t* const utf16_argv[])
         setvbuf(stderr, NULL, _IONBF, 0);
 
         /* Call our real main function */
-        ret = XXH_main(argc, (const char* const *) utf8_argv);
+        ret = XSUM_main(argc, (const char* const *) utf8_argv);
 
         /* Cleanup */
-        free_argv(argc, utf8_argv);
+        XSUM_freeArgv(argc, utf8_argv);
         return ret;
     }
 }
@@ -2531,13 +2520,13 @@ extern "C"
 #endif
 int wmain(int argc, const wchar_t* utf16_argv[])
 {
-    return XXH_wmain(argc, utf16_argv);
+    return XSUM_wmain(argc, utf16_argv);
 }
 
 #else /* Non-Unicode MinGW */
 
 /*
- * Wrap `XXH_wmain()` using `main()` and `__wgetmainargs()` on MinGW without
+ * Wrap `XSUM_wmain()` using `main()` and `__wgetmainargs()` on MinGW without
  * Unicode support.
  *
  * `__wgetmainargs()` is used in the CRT startup to retrieve the arguments for
@@ -2579,10 +2568,10 @@ int main(int ansi_argc, const char* ansi_argv[])
     /* Get wmain's UTF-16 arguments. Make sure we expand wildcards. */
     if (__wgetmainargs(&utf16_argc, &utf16_argv, &utf16_envp, 1, &startinfo) < 0)
         /* In the very unlikely case of an error, use the ANSI arguments. */
-        return XXH_main(ansi_argc, ansi_argv);
+        return XSUM_main(ansi_argc, ansi_argv);
 
-    /* Call XXH_wmain with our UTF-16 arguments */
-    return XXH_wmain(utf16_argc, (const wchar_t* const *)utf16_argv);
+    /* Call XSUM_wmain with our UTF-16 arguments */
+    return XSUM_wmain(utf16_argc, (const wchar_t* const *)utf16_argv);
 }
 
 #endif /* Non-Unicode MinGW */
@@ -2592,6 +2581,6 @@ int main(int ansi_argc, const char* ansi_argv[])
 /* Wrap main normally on non-Windows platforms. */
 int main(int argc, const char* argv[])
 {
-    return XXH_main(argc, argv);
+    return XSUM_main(argc, argv);
 }
 #endif /* !Windows */

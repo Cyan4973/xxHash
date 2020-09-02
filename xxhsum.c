@@ -2455,7 +2455,7 @@ static char** XSUM_convertArgv(int argc, const wchar_t* const utf16_argv[])
     return utf8_argv;
 }
 /* Frees arguments returned by XSUM_convertArgv */
-static void freeargv(int argc, char** argv)
+static void XSUM_freeArgv(int argc, char** argv)
 {
     int i;
     if (argv == NULL) {

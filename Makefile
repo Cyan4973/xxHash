@@ -98,7 +98,8 @@ dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h
-xxhsum.o: xxhsum.c xxhash.h xxh_x86dispatch.h
+xxhsum.o: xxhsum.c programs/xxhsum/xsum_config.h programs/xxhsum/xsum_arch.h \
+    xxhash.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
 .PHONY: xxhsum_and_links

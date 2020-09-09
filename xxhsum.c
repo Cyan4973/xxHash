@@ -29,21 +29,8 @@
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
 
-
-/* ************************************
- *  Compiler Options
- **************************************/
-/* MS Visual */
-#if defined(_MSC_VER) || defined(_WIN32)
-#  ifndef _CRT_SECURE_NO_WARNINGS
-#    define _CRT_SECURE_NO_WARNINGS   /* removes visual warnings */
-#  endif
-#endif
-
-/* Under Linux at least, pull in the *64 commands */
-#ifndef _LARGEFILE64_SOURCE
-#  define _LARGEFILE64_SOURCE
-#endif
+#include "programs/xxhsum/xsum_config.h"
+#include "programs/xxhsum/xsum_arch.h"
 
 /* ************************************
  *  Includes
@@ -65,35 +52,8 @@
 #  include "xxh_x86dispatch.h"
 #endif
 
-
-/* ************************************
- *  OS-Specific Includes
- **************************************/
-#if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__)) /* UNIX-like OS */ \
-   || defined(__midipix__) || defined(__VMS))
-#  if (defined(__APPLE__) && defined(__MACH__)) || defined(__SVR4) || defined(_AIX) || defined(__hpux) /* POSIX.1-2001 (SUSv3) conformant */ \
-     || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)  /* BSD distros */
-#    define PLATFORM_POSIX_VERSION 200112L
-#  else
-#    if defined(__linux__) || defined(__linux)
-#      ifndef _POSIX_C_SOURCE
-#        define _POSIX_C_SOURCE 200112L  /* use feature test macro */
-#      endif
-#    endif
-#    include <unistd.h>  /* declares _POSIX_VERSION */
-#    if defined(_POSIX_VERSION)  /* POSIX compliant */
-#      define PLATFORM_POSIX_VERSION _POSIX_VERSION
-#    else
-#      define PLATFORM_POSIX_VERSION 0
-#    endif
-#  endif
-#endif
-#if !defined(PLATFORM_POSIX_VERSION)
-#  define PLATFORM_POSIX_VERSION -1
-#endif
-
-#if (defined(__linux__) && (PLATFORM_POSIX_VERSION >= 1)) \
- || (PLATFORM_POSIX_VERSION >= 200112L) \
+#if (defined(__linux__) && (XSUM_PLATFORM_POSIX_VERSION >= 1)) \
+ || (XSUM_PLATFORM_POSIX_VERSION >= 200112L) \
  || defined(__DJGPP__) \
  || defined(__MSYS__)
 #  include <unistd.h>   /* isatty */
@@ -125,10 +85,6 @@ static __inline int XSUM_isConsole(FILE* stdStream) {
 #  endif
 #else
 #  define SET_BINARY_MODE(file)
-#endif
-
-#if !defined(S_ISREG)
-#  define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
 
 /* Unicode helpers for Windows to make UTF-8 act as it should. */
@@ -318,132 +274,17 @@ static unsigned XSUM_isLittleEndian(void)
 }
 
 
-/* *************************************
- *  Constants
- ***************************************/
-#define LIB_VERSION XXH_VERSION_MAJOR.XXH_VERSION_MINOR.XXH_VERSION_RELEASE
-#define QUOTE(str) #str
-#define EXPAND_AND_QUOTE(str) QUOTE(str)
-#define PROGRAM_VERSION EXPAND_AND_QUOTE(LIB_VERSION)
-
-/* Show compiler versions in WELCOME_MESSAGE. CC_VERSION_FMT will return the printf specifiers,
- * and VERSION will contain the comma separated list of arguments to the CC_VERSION_FMT string. */
-#if defined(__clang_version__)
-/* Clang does its own thing. */
-#  ifdef __apple_build_version__
-#    define CC_VERSION_FMT "Apple Clang %s"
-#  else
-#    define CC_VERSION_FMT "Clang %s"
-#  endif
-#  define CC_VERSION  __clang_version__
-#elif defined(__VERSION__)
-/* GCC and ICC */
-#  define CC_VERSION_FMT "%s"
-#  ifdef __INTEL_COMPILER /* icc adds its prefix */
-#    define CC_VERSION __VERSION__
-#  else /* assume GCC */
-#    define CC_VERSION "GCC " __VERSION__
-#  endif
-#elif defined(_MSC_FULL_VER) && defined(_MSC_BUILD)
-/*
- * MSVC
- *  "For example, if the version number of the Visual C++ compiler is
- *   15.00.20706.01, the _MSC_FULL_VER macro evaluates to 150020706."
- *
- *   https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017
- */
-#  define CC_VERSION_FMT "MSVC %02i.%02i.%05i.%02i"
-#  define CC_VERSION  _MSC_FULL_VER / 10000000 % 100, _MSC_FULL_VER / 100000 % 100, _MSC_FULL_VER % 100000, _MSC_BUILD
-#elif defined(__TINYC__)
-/* tcc stores its version in the __TINYC__ macro. */
-#  define CC_VERSION_FMT "tcc %i.%i.%i"
-#  define CC_VERSION __TINYC__ / 10000 % 100, __TINYC__ / 100 % 100, __TINYC__ % 100
-#else
-#  define CC_VERSION_FMT "%s"
-#  define CC_VERSION "unknown compiler"
-#endif
-
-/* makes the next part easier */
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
-#   define ARCH_X64 1
-#   define ARCH_X86 "x86_64"
-#elif defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
-#   define ARCH_X86 "i386"
-#endif
-
-/* Try to detect the architecture. */
-#if defined(ARCH_X86)
-#  if defined(XXHSUM_DISPATCH)
-#    define ARCH ARCH_X86 " autoVec"
-#  elif defined(__AVX512F__)
-#    define ARCH ARCH_X86 " + AVX512"
-#  elif defined(__AVX2__)
-#    define ARCH ARCH_X86 " + AVX2"
-#  elif defined(__AVX__)
-#    define ARCH ARCH_X86 " + AVX"
-#  elif defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__) \
-      || defined(__SSE2__) || (defined(_M_IX86_FP) && _M_IX86_FP == 2)
-#     define ARCH ARCH_X86 " + SSE2"
-#  else
-#     define ARCH ARCH_X86
-#  endif
-#elif defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
-#  define ARCH "aarch64 + NEON"
-#elif defined(__arm__) || defined(__thumb__) || defined(__thumb2__) || defined(_M_ARM)
-/* ARM has a lot of different features that can change xxHash significantly. */
-#  if defined(__thumb2__) || (defined(__thumb__) && (__thumb__ == 2 || __ARM_ARCH >= 7))
-#    define ARCH_THUMB " Thumb-2"
-#  elif defined(__thumb__)
-#    define ARCH_THUMB " Thumb-1"
-#  else
-#    define ARCH_THUMB ""
-#  endif
-/* ARMv7 has unaligned by default */
-#  if defined(__ARM_FEATURE_UNALIGNED) || __ARM_ARCH >= 7 || defined(_M_ARMV7VE)
-#    define ARCH_UNALIGNED " + unaligned"
-#  else
-#    define ARCH_UNALIGNED ""
-#  endif
-#  if defined(__ARM_NEON) || defined(__ARM_NEON__)
-#    define ARCH_NEON " + NEON"
-#  else
-#    define ARCH_NEON ""
-#  endif
-#  define ARCH "ARMv" EXPAND_AND_QUOTE(__ARM_ARCH) ARCH_THUMB ARCH_NEON ARCH_UNALIGNED
-#elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
-#  if defined(__GNUC__) && defined(__POWER9_VECTOR__)
-#    define ARCH "ppc64 + POWER9 vector"
-#  elif defined(__GNUC__) && defined(__POWER8_VECTOR__)
-#    define ARCH "ppc64 + POWER8 vector"
-#  else
-#    define ARCH "ppc64"
-#  endif
-#elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-#  define ARCH "ppc"
-#elif defined(__AVR)
-#  define ARCH "AVR"
-#elif defined(__mips64)
-#  define ARCH "mips64"
-#elif defined(__mips)
-#  define ARCH "mips"
-#elif defined(__s390x__)
-#  define ARCH "s390x"
-#elif defined(__s390__)
-#  define ARCH "s390"
-#else
-#  define ARCH "unknown"
-#endif
 
 static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
 static const char g_bename[] = "big endian";
 #define ENDIAN_NAME (XSUM_isLittleEndian() ? g_lename : g_bename)
 static const char author[] = "Yann Collet";
-#define WELCOME_MESSAGE(exename) "%s %s by %s \n", exename, PROGRAM_VERSION, author
+#define WELCOME_MESSAGE(exename) "%s %s by %s \n", exename, XSUM_PROGRAM_VERSION, author
 #define FULL_WELCOME_MESSAGE(exename) "%s %s by %s \n" \
-                    "compiled as %i-bit %s %s with " CC_VERSION_FMT " \n", \
-                    exename, PROGRAM_VERSION, author, \
-                    g_nbBits, ARCH, ENDIAN_NAME, CC_VERSION
+                    "compiled as %i-bit %s %s with " XSUM_CC_VERSION_FMT " \n", \
+                    exename, XSUM_PROGRAM_VERSION, author, \
+                    g_nbBits, XSUM_ARCH, ENDIAN_NAME, XSUM_CC_VERSION
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)

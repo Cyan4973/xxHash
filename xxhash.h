@@ -406,7 +406,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 ************************************************************************/
 
 /* ************************************************************************
- * XXH3 is a new hash algorithm featuring:
+ * XXH3 is a more recent hash algorithm featuring:
  *  - Improved speed for both small and large inputs
  *  - True 64-bit and 128-bit outputs
  *  - SIMD acceleration
@@ -416,37 +416,30 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
  *
  *    https://fastcompression.blogspot.com/2019/03/presenting-xxh3.html
  *
- * In general, expect XXH3 to run about ~2x faster on large inputs and >3x
- * faster on small ones compared to XXH64, though exact differences depend on
- * the platform.
+ * Compared to XXH64, expect XXH3 to run approximately
+ * ~2x faster on large inputs and >3x faster on small ones,
+ * exact differences vary depending on platform.
  *
- * The algorithm is portable: Like XXH32 and XXH64, it generates the same hash
- * on all platforms.
- *
- * It benefits greatly from SIMD and 64-bit arithmetic, but does not require it.
- *
- * Almost all 32-bit and 64-bit targets that can run XXH32 smoothly can run
- * XXH3 at competitive speeds, even if XXH64 runs slowly. Further details are
- * explained in the implementation.
+ * XXH3's speed benefits greatly from SIMD and 64-bit arithmetic,
+ * but does not require it.
+ * Any 32-bit and 64-bit targets that can run XXH32 smoothly
+ * can run XXH3 at competitive speeds, even without vector support.
+ * Further details are explained in the implementation.
  *
  * Optimized implementations are provided for AVX512, AVX2, SSE2, NEON, POWER8,
- * ZVector and scalar targets. This can be controlled with the XXH_VECTOR macro.
+ * ZVector and scalar targets. This can be controlled via the XXH_VECTOR macro.
+ *
+ * XXH3 implementation is portable:
+ * it has a generic C90 formulation that can be compiled on any platform,
+ * all implementations generage exactly the same hash value on all platforms.
+ * Starting from v0.8.0, it's also labelled "stable", meaning that
+ * any future version will also generate the same hash value.
  *
  * XXH3 offers 2 variants, _64bits and _128bits.
- * When only 64 bits are needed, prefer calling the _64bits variant, as it
+ *
+ * When only 64 bits are needed, prefer invoking the _64bits variant, as it
  * reduces the amount of mixing, resulting in faster speed on small inputs.
- *
  * It's also generally simpler to manipulate a scalar return type than a struct.
- *
- * The 128-bit version adds additional strength, but it is slightly slower.
- *
- * Return values of XXH3 and XXH128 are officially finalized starting
- * with v0.8.0 and will no longer change in future versions.
- * Avoid storing values from before that release in long-term storage.
- *
- * Results produced by v0.7.x are not comparable with results from v0.7.y.
- * However, the API is completely stable, and it can safely be used for
- * ephemeral data (local sessions).
  *
  * The API supports one-shot hashing, streaming mode, and custom secrets.
  */

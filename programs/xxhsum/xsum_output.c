@@ -30,7 +30,7 @@
 int XSUM_logLevel = 2;
 
 XSUM_ATTRIBUTE((__format__(__printf__, 1, 2)))
-int XSUM_log(const char* format, ...)
+XSUM_API int XSUM_log(const char* format, ...)
 {
     int ret;
     va_list ap;
@@ -42,7 +42,7 @@ int XSUM_log(const char* format, ...)
 
 
 XSUM_ATTRIBUTE((__format__(__printf__, 1, 2)))
-int XSUM_output(const char* format, ...)
+XSUM_API int XSUM_output(const char* format, ...)
 {
     int ret;
     va_list ap;
@@ -53,7 +53,7 @@ int XSUM_output(const char* format, ...)
 }
 
 XSUM_ATTRIBUTE((__format__(__printf__, 2, 3)))
-int XSUM_logVerbose(int minLevel, const char* format, ...)
+XSUM_API int XSUM_logVerbose(int minLevel, const char* format, ...)
 {
     if (XSUM_logLevel >= minLevel) {
         int ret;

@@ -78,24 +78,24 @@ static __inline int XSUM_IS_CONSOLE(FILE* stdStream)
 #  define XSUM_SET_BINARY_MODE(file) ((void)file)
 #endif
 
-int XSUM_isConsole(FILE* stream)
+XSUM_API int XSUM_isConsole(FILE* stream)
 {
     return XSUM_IS_CONSOLE(stream);
 }
 
-void XSUM_setBinaryMode(FILE* stream)
+XSUM_API void XSUM_setBinaryMode(FILE* stream)
 {
     XSUM_SET_BINARY_MODE(stream);
 }
 
 #if !XSUM_WIN32_USE_WCHAR
 
-FILE* XSUM_fopen(const char* filename, const char* mode)
+XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 {
     return fopen(filename, mode);
 }
 XSUM_ATTRIBUTE((__format__(__printf__, 2, 0)))
-int XSUM_vfprintf(FILE* stream, const char* format, va_list ap)
+XSUM_API int XSUM_vfprintf(FILE* stream, const char* format, va_list ap)
 {
     return vfprintf(stream, format, ap);
 }
@@ -179,7 +179,7 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
  *
  * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
  */
-FILE* XSUM_fopen(const char* filename, const char* mode)
+XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 {
     FILE* f = NULL;
     wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
@@ -199,7 +199,7 @@ FILE* XSUM_fopen(const char* filename, const char* mode)
  *
  * Accepts UTF-8 filenames, unlike _stat64.
  */
-int XSUM_isDirectory(const char* filename)
+XSUM_API int XSUM_isDirectory(const char* filename)
 {
     struct __stat64 statbuf;
     int result = 0;
@@ -273,7 +273,7 @@ static int XSUM_vasprintf(char** strp, const char* format, va_list ap)
  * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
  */
 XSUM_ATTRIBUTE((__format__(__printf__, 2, 0)))
-int XSUM_vfprintf(FILE *stream, const char *format, va_list ap)
+XSUM_API int XSUM_vfprintf(FILE *stream, const char *format, va_list ap)
 {
     int result;
     char* u8_str = NULL;

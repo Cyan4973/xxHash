@@ -39,24 +39,24 @@ extern "C" {
  *
  * Functions like main(), but is passed UTF-8 arguments even on Windows.
  */
-int XSUM_main(int argc, char* argv[]);
+XSUM_API int XSUM_main(int argc, char* argv[]);
 
 /*
  * Returns whether stream is a console.
  *
  * Functionally equivalent to isatty(fileno(stream)).
  */
-int XSUM_isConsole(FILE* stream);
+XSUM_API int XSUM_isConsole(FILE* stream);
 
 /*
  * Sets stream to pure binary mode (a.k.a. no CRLF conversions).
  */
-void XSUM_setBinaryMode(FILE* stream);
+XSUM_API void XSUM_setBinaryMode(FILE* stream);
 
 /*
  * Returns whether the file at filename is a directory.
  */
-int XSUM_isDirectory(const char* filename);
+XSUM_API int XSUM_isDirectory(const char* filename);
 
 /*
  * UTF-8 stdio wrappers primarily for Windows
@@ -68,14 +68,14 @@ int XSUM_isDirectory(const char* filename);
  * Specifically, on Windows, the arguments will be converted to UTF-16
  * and passed to _wfopen().
  */
-FILE* XSUM_fopen(const char* filename, const char* mode);
+XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode);
 
 /*
  * vfprintf() wrapper which prints UTF-8 strings to Windows consoles
  * if applicable.
  */
 XSUM_ATTRIBUTE((__format__(__printf__, 2, 0)))
-int XSUM_vfprintf(FILE* stream, const char* format, va_list ap);
+XSUM_API int XSUM_vfprintf(FILE* stream, const char* format, va_list ap);
 
 #ifdef __cplusplus
 }

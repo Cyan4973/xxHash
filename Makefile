@@ -70,9 +70,10 @@ else
 endif
 
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
-XXHSUM_OBJS = xxhsum.o \
-              programs/xxhsum/xsum_os_specific.o \
-              programs/xxhsum/xsum_output.o
+
+XXHSUM_SPLIT_SRCS = programs/xxhsum/xsum_os_specific.c \
+                    programs/xxhsum/xsum_output.c
+XXHSUM_SPLIT_OBJS = $(XXHSUM_SPLIT_SRCS:.c=.o)
 XXHSUM_HEADERS = programs/xxhsum/xsum_config.h \
                  programs/xxhsum/xsum_arch.h \
                  programs/xxhsum/xsum_os_specific.h \
@@ -91,16 +92,16 @@ ifeq ($(DISPATCH),1)
 xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
 xxhsum: xxh_x86dispatch.o
 endif
-xxhsum: xxhash.o $(XXHSUM_OBJS)
+xxhsum: xxhash.o xxhsum.o $(XXHSUM_SPLIT_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
+xxhsum32: xxhash.c xxhsum.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 ## dispatch only works for x86/x64 systems
 dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
-dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
+dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h
@@ -115,8 +116,8 @@ xxh32sum xxh64sum xxh128sum: xxhsum
 	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
-xxhsum_inlinedXXH: xxhsum.c
-	$(CC) $(FLAGS) $^ -o $@$(EXT)
+xxhsum_inlinedXXH: xxhsum.c $(XXHSUM_SPLIT_SRCS)
+	$(CC) $(FLAGS) $< -o $@$(EXT)
 
 
 # library
@@ -329,7 +330,7 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
-	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(CC) xxhash.o xxhash2.o xxhsum.c $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
 MD2ROFF ?= ronn

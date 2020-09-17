@@ -34,6 +34,10 @@
 #include "programs/xxhsum/xsum_arch.h"
 #include "programs/xxhsum/xsum_os_specific.h"
 #include "programs/xxhsum/xsum_output.h"
+#ifdef XXH_INLINE_ALL
+#  include "programs/xxhsum/xsum_os_specific.c"
+#  include "programs/xxhsum/xsum_output.c"
+#endif
 
 /* ************************************
  *  Includes
@@ -1904,7 +1908,7 @@ static U32 XSUM_readU32FromChar(const char** stringPtr) {
     return result;
 }
 
-int XSUM_main(int argc, char* argv[])
+XSUM_API int XSUM_main(int argc, char* argv[])
 {
     int i, filenamesStart = 0;
     const char* const exename = XSUM_lastNameFromPath(argv[0]);

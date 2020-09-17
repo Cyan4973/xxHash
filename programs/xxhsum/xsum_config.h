@@ -169,4 +169,9 @@
 #  endif
 #endif /* XSUM_WIN32_USE_WCHAR */
 
+#ifdef XXH_INLINE_ALL
+#  define XSUM_API static
+#else
+#  define XSUM_API
+#endif
 #endif /* XSUM_CONFIG_H */

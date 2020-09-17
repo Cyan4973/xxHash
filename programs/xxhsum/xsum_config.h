@@ -54,6 +54,9 @@
 #ifndef _LARGEFILE64_SOURCE
 #  define _LARGEFILE64_SOURCE
 #endif
+#ifndef _FILE_OFFSET_BITS
+#  define _FILE_OFFSET_BITS 64
+#endif
 
 /*
  * So we can use __attribute__((__format__))

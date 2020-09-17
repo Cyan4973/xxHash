@@ -196,7 +196,7 @@ XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 {
     int r = -1;
-    wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
+    wchar_t* const wide_filename = XSUM_widenString(infilename, NULL);
     if (wide_filename != NULL) {
         r = _wstat64(wide_filename, statbuf);
         free(wide_filename);

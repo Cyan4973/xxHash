@@ -35,7 +35,7 @@
  * This file contains all of the ugly boilerplate to make xxhsum work across
  * platforms.
  */
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || XSUM_WIN32_USE_WCHAR
     typedef struct __stat64 XSUM_stat_t;
     typedef int mode_t;
 #else

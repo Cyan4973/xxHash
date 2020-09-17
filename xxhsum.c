@@ -29,8 +29,11 @@
  * Display convention is Big Endian, for both 32 and 64 bits algorithms
  */
 
+/* Transitional headers */
 #include "programs/xxhsum/xsum_config.h"
 #include "programs/xxhsum/xsum_arch.h"
+#include "programs/xxhsum/xsum_os_specific.h"
+#include "programs/xxhsum/xsum_output.h"
 
 /* ************************************
  *  Includes
@@ -50,201 +53,6 @@
 
 #ifdef XXHSUM_DISPATCH
 #  include "xxh_x86dispatch.h"
-#endif
-
-#if (defined(__linux__) && (XSUM_PLATFORM_POSIX_VERSION >= 1)) \
- || (XSUM_PLATFORM_POSIX_VERSION >= 200112L) \
- || defined(__DJGPP__) \
- || defined(__MSYS__)
-#  include <unistd.h>   /* isatty */
-#  define XSUM_isConsole(stdStream) isatty(fileno(stdStream))
-#elif defined(MSDOS) || defined(OS2)
-#  include <io.h>       /* _isatty */
-#  define XSUM_isConsole(stdStream) _isatty(_fileno(stdStream))
-#elif defined(WIN32) || defined(_WIN32)
-#  include <io.h>      /* _isatty */
-#  include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
-#  include <stdio.h>   /* FILE */
-static __inline int XSUM_isConsole(FILE* stdStream) {
-    DWORD dummy;
-    return _isatty(_fileno(stdStream)) && GetConsoleMode((HANDLE)_get_osfhandle(_fileno(stdStream)), &dummy);
-}
-#else
-#  define XSUM_isConsole(stdStream) 0
-#endif
-
-#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32)
-#  include <fcntl.h>   /* _O_BINARY */
-#  include <io.h>      /* _setmode, _fileno, _get_osfhandle */
-#  if !defined(__DJGPP__)
-#    include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
-#    include <winioctl.h> /* FSCTL_SET_SPARSE */
-#    define SET_BINARY_MODE(file) { int const unused=_setmode(_fileno(file), _O_BINARY); (void)unused; }
-#  else
-#    define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
-#  endif
-#else
-#  define SET_BINARY_MODE(file)
-#endif
-
-/* Unicode helpers for Windows to make UTF-8 act as it should. */
-#ifdef _WIN32
-/*
- * Converts a UTF-8 string to UTF-16. Acts like strdup. The string must be freed afterwards.
- * This version allows keeping the output length.
- */
-static wchar_t* XSUM_widenString(const char* str, int* lenOut)
-{
-    int const len = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-    if (lenOut != NULL) *lenOut = len;
-    if (len == 0) return NULL;
-    {   wchar_t* buf = (wchar_t*)malloc((size_t)len * sizeof(wchar_t));
-        if (buf != NULL) {
-            if (MultiByteToWideChar(CP_UTF8, 0, str, -1, buf, len) == 0) {
-                free(buf);
-                return NULL;
-       }    }
-       return buf;
-    }
-}
-
-/*
- * Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards.
- * This version allows keeping the output length.
- */
-static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
-{
-    int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
-    if (lenOut != NULL) *lenOut = len;
-    if (len == 0) return NULL;
-    {   char* const buf = (char*)malloc((size_t)len * sizeof(char));
-        if (buf != NULL) {
-            if (WideCharToMultiByte(CP_UTF8, 0, str, -1, buf, len, NULL, NULL) == 0) {
-                free(buf);
-                return NULL;
-        }    }
-        return buf;
-    }
-}
-
-/*
- * fopen wrapper that supports UTF-8
- *
- * fopen will only accept ANSI filenames, which means that we can't open Unicode filenames.
- *
- * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
- */
-static FILE* XSUM_fopen_wrapped(const char *filename, const wchar_t *mode)
-{
-    wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
-    if (wide_filename == NULL) return NULL;
-    {   FILE* const f = _wfopen(wide_filename, mode);
-        free(wide_filename);
-        return f;
-    }
-}
-
-/*
- * In case it isn't available, this is what MSVC 2019 defines in stdarg.h.
- */
-#if defined(_MSC_VER) && !defined(__clang__) && !defined(va_copy)
-#  define va_copy(destination, source) ((destination) = (source))
-#endif
-
-/*
- * fprintf wrapper that supports UTF-8.
- *
- * fprintf doesn't properly handle Unicode on Windows.
- *
- * Additionally, it is codepage sensitive on console and may crash the program.
- *
- * Instead, we use vsnprintf, and either print with fwrite or convert to UTF-16
- * for console output and use the codepage-independent WriteConsoleW.
- *
- * Credit to t-mat: https://github.com/t-mat/xxHash/commit/5691423
- */
-static int XSUM_fprintf_utf8(FILE *stream, const char *format, ...)
-{
-    int result;
-    va_list args;
-    va_list copy;
-
-    va_start(args, format);
-
-    /*
-     * To be safe, make a va_copy.
-     *
-     * Note that Microsoft doesn't use va_copy in its sample code:
-     *   https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/vsprintf-vsprintf-l-vswprintf-vswprintf-l-vswprintf-l?view=vs-2019
-     */
-    va_copy(copy, args);
-    /* Counts the number of characters needed for vsnprintf. */
-    result = _vscprintf(format, copy);
-    va_end(copy);
-
-    if (result > 0) {
-        /* Create a buffer for vsnprintf */
-        const size_t nchar = (size_t)result + 1;
-        char* u8_str = (char*)malloc(nchar * sizeof(u8_str[0]));
-
-        if (u8_str == NULL) {
-            result = -1;
-        } else {
-            /* Generate the UTF-8 string with vsnprintf. */
-            result = _vsnprintf(u8_str, nchar - 1, format, args);
-            u8_str[nchar - 1] = '\0';
-            if (result > 0) {
-                /*
-                 * Check if we are outputting to a console. Don't use XSUM_isConsole
-                 * directly -- we don't need to call _get_osfhandle twice.
-                 */
-                int fileNb = _fileno(stream);
-                intptr_t handle_raw = _get_osfhandle(fileNb);
-                HANDLE handle = (HANDLE)handle_raw;
-                DWORD dwTemp;
-
-                if (handle_raw < 0) {
-                     result = -1;
-                } else if (_isatty(fileNb) && GetConsoleMode(handle, &dwTemp)) {
-                    /*
-                     * Convert to UTF-16 and output with WriteConsoleW.
-                     *
-                     * This is codepage independent and works on Windows XP's
-                     * default msvcrt.dll.
-                     */
-                    int len;
-                    wchar_t *const u16_buf = XSUM_widenString(u8_str, &len);
-                    if (u16_buf == NULL) {
-                        result = -1;
-                    } else {
-                        if (WriteConsoleW(handle, u16_buf, (DWORD)len - 1, &dwTemp, NULL)) {
-                            result = (int)dwTemp;
-                        } else {
-                            result = -1;
-                        }
-                        free(u16_buf);
-                    }
-                } else {
-                    /* fwrite the UTF-8 string if we are printing to a file */
-                    result = (int)fwrite(u8_str, 1, nchar - 1, stream);
-                    if (result == 0) {
-                        result = -1;
-                    }
-                }
-            }
-            free(u8_str);
-        }
-    }
-    va_end(args);
-    return result;
-}
-/*
- * Since we always use literals in the "mode" argument, it is just easier to append "L" to
- * the string to make it UTF-16 and avoid the hassle of a second manual conversion.
- */
-#  define XSUM_fopen(filename, mode) XSUM_fopen_wrapped(filename, L##mode)
-#else
-#  define XSUM_fopen(filename, mode) fopen(filename, mode)
 #endif
 
 /* ************************************
@@ -272,8 +80,6 @@ static unsigned XSUM_isLittleEndian(void)
     const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static: performance detrimental  */
     return one.c[0];
 }
-
-
 
 static const int g_nbBits = (int)(sizeof(void*)*8);
 static const char g_lename[] = "little endian";
@@ -315,16 +121,6 @@ static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & X
 /* ************************************
  *  Display macros
  **************************************/
-#ifdef _WIN32
-#define XSUM_log(...)         XSUM_fprintf_utf8(stderr, __VA_ARGS__)
-#define XSUM_output(...)   XSUM_fprintf_utf8(stdout, __VA_ARGS__)
-#else
-#define XSUM_log(...)         fprintf(stderr, __VA_ARGS__)
-#define XSUM_output(...)   fprintf(stdout, __VA_ARGS__)
-#endif
-
-#define XSUM_logVerbose(l, ...) do { if (g_displayLevel>=l) XSUM_log(__VA_ARGS__); } while (0)
-static int g_displayLevel = 2;
 
 
 /* ************************************
@@ -340,7 +136,6 @@ static clock_t XSUM_clockSpan( clock_t start )
 {
     return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
 }
-
 
 static size_t XSUM_findMaxMem(U64 requiredMem)
 {
@@ -628,7 +423,7 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
                     (unsigned)bufferSize,
                     (double)1 / fastestH,
                     ((double)bufferSize / (1 MB)) / fastestH);
-    if (g_displayLevel<1)
+    if (XSUM_logLevel<1)
         XSUM_logVerbose(0, "%u, ", (unsigned)((double)1 / fastestH));
 }
 
@@ -675,7 +470,7 @@ static size_t XSUM_selectBenchedSize(const char* fileName)
 }
 
 
-static int XSUM_benchFiles(const char*const* fileNamesTable, int nbFiles)
+static int XSUM_benchFiles(char*const* fileNamesTable, int nbFiles)
 {
     int fileIdx;
     for (fileIdx=0; fileIdx<nbFiles; fileIdx++) {
@@ -1245,28 +1040,6 @@ static void XSUM_sanityCheck(void)
 /* ********************************************************
 *  File Hashing
 **********************************************************/
-#if defined(_MSC_VER)
-    typedef struct __stat64 stat_t;
-    typedef int mode_t;
-#else
-    typedef struct stat stat_t;
-#endif
-
-#include <sys/types.h>  /* struct stat / __start64 */
-#include <sys/stat.h>   /* stat() / _stat64() */
-
-int XSUM_isDirectory(const char* infilename)
-{
-    stat_t statbuf;
-#if defined(_MSC_VER)
-    int const r = _stat64(infilename, &statbuf);
-    if (!r && (statbuf.st_mode & _S_IFDIR)) return 1;
-#else
-    int const r = stat(infilename, &statbuf);
-    if (!r && S_ISDIR(statbuf.st_mode)) return 1;
-#endif
-    return 0;
-}
 
 /* for support of --little-endian display mode */
 static void XSUM_display_LittleEndian(const void* ptr, size_t length)
@@ -1433,7 +1206,7 @@ static int XSUM_hashFile(const char* fileName,
     if (fileName == stdinName) {
         inFile = stdin;
         fileName = "stdin";
-        SET_BINARY_MODE(stdin);
+        XSUM_setBinaryMode(stdin);
     } else {
         if (XSUM_isDirectory(fileName)) {
             XSUM_log("xxhsum: %s: Is a directory \n", fileName);
@@ -1493,7 +1266,7 @@ static int XSUM_hashFile(const char* fileName,
  * XSUM_hashFiles:
  * If fnTotal==0, read from stdin instead.
  */
-static int XSUM_hashFiles(const char*const * fnList, int fnTotal,
+static int XSUM_hashFiles(char*const * fnList, int fnTotal,
                           AlgoSelected hashType,
                           Display_endianess displayEndianess,
                           Display_convention convention)
@@ -2001,7 +1774,7 @@ static int XSUM_checkFile(const char* inFileName,
 }
 
 
-static int XSUM_checkFiles(const char*const* fnList, int fnTotal,
+static int XSUM_checkFiles(char*const* fnList, int fnTotal,
                            const Display_endianess displayEndianess,
                            U32 strictMode,
                            U32 statusOnly,
@@ -2131,7 +1904,7 @@ static U32 XSUM_readU32FromChar(const char** stringPtr) {
     return result;
 }
 
-static int XSUM_main(int argc, const char* const* argv)
+int XSUM_main(int argc, char* argv[])
 {
     int i, filenamesStart = 0;
     const char* const exename = XSUM_lastNameFromPath(argv[0]);
@@ -2160,7 +1933,7 @@ static int XSUM_main(int argc, const char* const* argv)
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
         if (!strcmp(argument, "--benchmark-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
         if (!strcmp(argument, "--bench-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
-        if (!strcmp(argument, "--quiet")) { g_displayLevel--; continue; }
+        if (!strcmp(argument, "--quiet")) { XSUM_logLevel--; continue; }
         if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
@@ -2248,7 +2021,7 @@ static int XSUM_main(int argc, const char* const* argv)
             /* Modify verbosity of benchmark output (hidden option) */
             case 'q':
                 argument++;
-                g_displayLevel--;
+                XSUM_logLevel--;
                 break;
 
             default:
@@ -2274,154 +2047,8 @@ static int XSUM_main(int argc, const char* const* argv)
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {
         return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
-                          displayEndianess, strictMode, statusOnly, warn, (g_displayLevel < 2) /*quiet*/);
+                          displayEndianess, strictMode, statusOnly, warn, (XSUM_logLevel < 2) /*quiet*/);
     } else {
         return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess, convention);
     }
 }
-
-/* Windows main wrapper which properly handles UTF-8 command line arguments. */
-#ifdef _WIN32
-/* Converts a UTF-16 argv to UTF-8. */
-static char** XSUM_convertArgv(int argc, const wchar_t* const utf16_argv[])
-{
-    char** const utf8_argv = (char**)malloc((size_t)(argc + 1) * sizeof(char*));
-    if (utf8_argv != NULL) {
-        int i;
-        for (i = 0; i < argc; i++) {
-            utf8_argv[i] = XSUM_narrowString(utf16_argv[i], NULL);
-        }
-        utf8_argv[argc] = NULL;
-    }
-    return utf8_argv;
-}
-/* Frees arguments returned by XSUM_convertArgv */
-static void XSUM_freeArgv(int argc, char** argv)
-{
-    int i;
-    if (argv == NULL) {
-        return;
-    }
-    for (i = 0; i < argc; i++) {
-        free(argv[i]);
-    }
-    free(argv);
-}
-
-
-/*
- * On Windows, main's argv parameter is useless. Instead of UTF-8, you get ANSI
- * encoding, and any unknown characters will show up as mojibake.
- *
- * While this doesn't affect most programs, what does happen is that we can't
- * open any files with Unicode filenames.
- *
- * We instead convert wmain's arguments to UTF-8, preserving Unicode arguments.
- *
- * This function is wrapped by `__wgetmainargs()` and `main()` below on MinGW
- * with Unicode disabled, but if possible, we try to use `wmain()`.
- */
-static int XSUM_wmain(int argc, const wchar_t* const utf16_argv[])
-{
-    /* Convert the UTF-16 arguments to UTF-8. */
-    char** utf8_argv = XSUM_convertArgv(argc, utf16_argv);
-
-    if (utf8_argv == NULL) {
-        /* An unfortunate but incredibly unlikely error, */
-        fprintf(stderr, "Error converting command line arguments!\n");
-        return 1;
-    } else {
-        int ret;
-
-        /*
-         * MinGW's terminal uses full block buffering for stderr.
-         *
-         * This is nonstandard behavior and causes text to not display until
-         * the buffer fills.
-         *
-         * `setvbuf()` can easily correct this to make text display instantly.
-         */
-        setvbuf(stderr, NULL, _IONBF, 0);
-
-        /* Call our real main function */
-        ret = XSUM_main(argc, (const char* const *) utf8_argv);
-
-        /* Cleanup */
-        XSUM_freeArgv(argc, utf8_argv);
-        return ret;
-    }
-}
-
-#if defined(_MSC_VER)                     /* MSVC always accepts wmain */ \
- || defined(_UNICODE) || defined(UNICODE) /* defined with -municode on MinGW-w64 */
-
-/* Preferred: Use the real `wmain()`. */
-#if defined(__cplusplus)
-extern "C"
-#endif
-int wmain(int argc, const wchar_t* utf16_argv[])
-{
-    return XSUM_wmain(argc, utf16_argv);
-}
-
-#else /* Non-Unicode MinGW */
-
-/*
- * Wrap `XSUM_wmain()` using `main()` and `__wgetmainargs()` on MinGW without
- * Unicode support.
- *
- * `__wgetmainargs()` is used in the CRT startup to retrieve the arguments for
- * `wmain()`, so we use it on MinGW to emulate `wmain()`.
- *
- * It is an internal function and not declared in any public headers, so we
- * have to declare it manually.
- *
- * An alternative that doesn't mess with internal APIs is `GetCommandLineW()`
- * with `CommandLineToArgvW()`, but the former doesn't expand wildcards and the
- * latter requires linking to Shell32.dll and its numerous dependencies.
- *
- * This method keeps our dependencies to kernel32.dll and the CRT.
- *
- * https://docs.microsoft.com/en-us/cpp/c-runtime-library/getmainargs-wgetmainargs?view=vs-2019
- */
-typedef struct {
-    int newmode;
-} _startupinfo;
-
-#ifdef __cplusplus
-extern "C"
-#endif
-int __cdecl __wgetmainargs(
-    int*          Argc,
-    wchar_t***    Argv,
-    wchar_t***    Env,
-    int           DoWildCard,
-    _startupinfo* StartInfo
-);
-
-int main(int ansi_argc, const char* ansi_argv[])
-{
-    int       utf16_argc;
-    wchar_t** utf16_argv;
-    wchar_t** utf16_envp;         /* Unused but required */
-    _startupinfo startinfo = {0}; /* 0 == don't change new mode */
-
-    /* Get wmain's UTF-16 arguments. Make sure we expand wildcards. */
-    if (__wgetmainargs(&utf16_argc, &utf16_argv, &utf16_envp, 1, &startinfo) < 0)
-        /* In the very unlikely case of an error, use the ANSI arguments. */
-        return XSUM_main(ansi_argc, ansi_argv);
-
-    /* Call XSUM_wmain with our UTF-16 arguments */
-    return XSUM_wmain(utf16_argc, (const wchar_t* const *)utf16_argv);
-}
-
-#endif /* Non-Unicode MinGW */
-
-#else /* Not Windows */
-
-/* Wrap main normally on non-Windows platforms. */
-int main(int argc, const char* argv[])
-{
-    return XSUM_main(argc, argv);
-}
-#endif /* !Windows */

@@ -70,7 +70,13 @@ else
 endif
 
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
-
+XXHSUM_OBJS = xxhsum.o \
+              programs/xxhsum/xsum_os_specific.o \
+              programs/xxhsum/xsum_output.o
+XXHSUM_HEADERS = programs/xxhsum/xsum_config.h \
+                 programs/xxhsum/xsum_arch.h \
+                 programs/xxhsum/xsum_os_specific.h \
+                 programs/xxhsum/xsum_output.h
 
 ## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default
@@ -85,7 +91,7 @@ ifeq ($(DISPATCH),1)
 xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
 xxhsum: xxh_x86dispatch.o
 endif
-xxhsum: xxhash.o xxhsum.o
+xxhsum: xxhash.o $(XXHSUM_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
@@ -98,7 +104,7 @@ dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h
-xxhsum.o: xxhsum.c programs/xxhsum/xsum_config.h programs/xxhsum/xsum_arch.h \
+xxhsum.o: xxhsum.c $(XXHSUM_HEADERS) \
     xxhash.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
@@ -158,9 +164,10 @@ help:  ## list documented targets
 .PHONY: clean
 clean:  ## remove all build artifacts
 	$(Q)$(RM) -r *.dSYM   # Mac OS-X specific
-	$(Q)$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
+	$(Q)$(RM) core *.o *.obj *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
+	$(Q)$(RM) programs/xxhsum/*.o programs/xxhsum/*.obj
 	@echo cleaning completed
 
 

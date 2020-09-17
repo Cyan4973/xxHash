@@ -59,7 +59,7 @@
  * So we can use __attribute__((__format__))
  */
 #ifdef __GNUC__
-#  define XSUM_ATRRIBUTE(x) __attribute__(x)
+#  define XSUM_ATTRIBUTE(x) __attribute__(x)
 #else
 #  define XSUM_ATTRIBUTE(x)
 #endif

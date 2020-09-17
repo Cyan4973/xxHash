@@ -216,6 +216,7 @@ static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 /*
  * vasprintf for Windows.
  */
+XSUM_ATTRIBUTE((__format__(__printf__, 2, 0)))
 static int XSUM_vasprintf(char** strp, const char* format, va_list ap)
 {
     int ret;

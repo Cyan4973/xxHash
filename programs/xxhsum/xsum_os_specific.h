@@ -59,6 +59,11 @@ XSUM_API void XSUM_setBinaryMode(FILE* stream);
 XSUM_API int XSUM_isDirectory(const char* filename);
 
 /*
+ * Returns the file size of the file at filename.
+ */
+XSUM_API XSUM_U64 XSUM_getFileSize(const char* filename);
+
+/*
  * UTF-8 stdio wrappers primarily for Windows
  */
 

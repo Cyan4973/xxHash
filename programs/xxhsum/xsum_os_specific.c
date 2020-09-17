@@ -36,10 +36,10 @@
  * platforms.
  */
 #if defined(_MSC_VER)
-    typedef struct __stat64 stat_t;
+    typedef struct __stat64 XSUM_stat_t;
     typedef int mode_t;
 #else
-    typedef struct stat stat_t;
+    typedef struct stat XSUM_stat_t;
 #endif
 
 #if (defined(__linux__) && (XSUM_PLATFORM_POSIX_VERSION >= 1)) \
@@ -100,17 +100,13 @@ XSUM_API int XSUM_vfprintf(FILE* stream, const char* format, va_list ap)
     return vfprintf(stream, format, ap);
 }
 
-int XSUM_isDirectory(const char* infilename)
+static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 {
-    stat_t statbuf;
 #if defined(_MSC_VER)
-    int const r = _stat64(infilename, &statbuf);
-    if (!r && (statbuf.st_mode & _S_IFDIR)) return 1;
+    return _stat64(infilename, statbuf);
 #else
-    int const r = stat(infilename, &statbuf);
-    if (!r && S_ISDIR(statbuf.st_mode)) return 1;
+    return stat(infilename, statbuf);
 #endif
-    return 0;
 }
 
 #ifndef XSUM_NO_MAIN
@@ -195,23 +191,17 @@ XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 }
 
 /*
- * Determines whether the file at path is a directory.
- *
- * Accepts UTF-8 filenames, unlike _stat64.
+ * stat() wrapper which supports UTF-8 filenames.
  */
-XSUM_API int XSUM_isDirectory(const char* filename)
+static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 {
-    struct __stat64 statbuf;
-    int result = 0;
+    int r = -1;
     wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
     if (wide_filename != NULL) {
-        if (_wstat64(wide_filename, &statbuf) == 0 /* stat fail is ok */
-              && (statbuf.st_mode & _S_IFDIR)) {
-            result = 1;
-        }
+        r = _wstat64(wide_filename, statbuf);
         free(wide_filename);
     }
-    return result;
+    return r;
 }
 
 /*
@@ -465,3 +455,30 @@ int main(int ansi_argc, char* ansi_argv[])
 #endif /* !XSUM_WIN32_USE_WMAIN */
 #endif /* !XSUM_NO_MAIN */
 #endif /* XSUM_WIN32_USE_WCHAR */
+
+
+/*
+ * Determines whether the file at filename is a directory.
+ */
+XSUM_API int XSUM_isDirectory(const char* filename)
+{
+    XSUM_stat_t statbuf;
+    int r = XSUM_stat(filename, &statbuf);
+#ifdef _MSC_VER
+    if (!r && (statbuf.st_mode & _S_IFDIR)) return 1;
+#else
+    if (!r && S_ISDIR(statbuf.st_mode)) return 1;
+#endif
+    return 0;
+}
+
+/*
+ * Returns the filesize of the file at filename.
+ */
+XSUM_API XSUM_U64 XSUM_getFileSize(const char* filename)
+{
+    XSUM_stat_t statbuf;
+    int r = XSUM_stat(filename, &statbuf);
+    if (r || !S_ISREG(statbuf.st_mode)) return 0;   /* No good... */
+    return (XSUM_U64)statbuf.st_size;
+}

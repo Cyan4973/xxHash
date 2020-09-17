@@ -59,29 +59,9 @@
 #  include "xxh_x86dispatch.h"
 #endif
 
-/* ************************************
-*  Basic Types
-**************************************/
-#if defined(__cplusplus) /* C++ */ \
- || (defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)  /* C99 */
-#  include <stdint.h>
-    typedef uint8_t  U8;
-    typedef uint32_t U32;
-    typedef uint64_t U64;
-# else
-#   include <limits.h>
-    typedef unsigned char      U8;
-#   if UINT_MAX == 0xFFFFFFFFUL
-      typedef unsigned int     U32;
-#   else
-      typedef unsigned long    U32;
-#   endif
-    typedef unsigned long long U64;
-#endif /* not C++/C99 */
-
 static unsigned XSUM_isLittleEndian(void)
 {
-    const union { U32 u; U8 c[4]; } one = { 1 };   /* don't use static: performance detrimental  */
+    const union { XSUM_U32 u; XSUM_U8 c[4]; } one = { 1 };   /* don't use static: performance detrimental  */
     return one.c[0];
 }
 
@@ -130,7 +110,7 @@ static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & X
 /* ************************************
  *  Local variables
  **************************************/
-static U32 g_nbIterations = NBLOOPS;
+static XSUM_U32 g_nbIterations = NBLOOPS;
 
 
 /* ************************************
@@ -141,7 +121,7 @@ static clock_t XSUM_clockSpan( clock_t start )
     return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
 }
 
-static size_t XSUM_findMaxMem(U64 requiredMem)
+static size_t XSUM_findMaxMem(XSUM_U64 requiredMem)
 {
     size_t const step = 64 MB;
     void* testmem = NULL;
@@ -162,21 +142,6 @@ static size_t XSUM_findMaxMem(U64 requiredMem)
     else requiredMem >>= 1;
 
     return (size_t)requiredMem;
-}
-
-
-static U64 XSUM_GetFileSize(const char* infilename)
-{
-    int r;
-#if defined(_MSC_VER)
-    struct _stat64 statbuf;
-    r = _stat64(infilename, &statbuf);
-#else
-    struct stat statbuf;
-    r = stat(infilename, &statbuf);
-#endif
-    if (r || !S_ISREG(statbuf.st_mode)) return 0;   /* No good... */
-    return (U64)statbuf.st_size;
 }
 
 /*
@@ -210,15 +175,15 @@ static char* XSUM_strcatDup(const char* s1, const char* s2)
  *
  * This is used in the sanity check - its values must not be changed.
  */
-static void XSUM_fillTestBuffer(U8* buffer, size_t len)
+static void XSUM_fillTestBuffer(XSUM_U8* buffer, size_t len)
 {
-    U64 byteGen = PRIME32;
+    XSUM_U64 byteGen = PRIME32;
     size_t i;
 
     assert(buffer != NULL);
 
     for (i=0; i<len; i++) {
-        buffer[i] = (U8)(byteGen>>56);
+        buffer[i] = (XSUM_U8)(byteGen>>56);
         byteGen *= PRIME64;
     }
 }
@@ -231,7 +196,7 @@ static void XSUM_fillTestBuffer(U8* buffer, size_t len)
  *
  * Adding a pointer to the parameter list would be messy.
  */
-static U8 g_benchSecretBuf[XXH3_SECRET_SIZE_MIN];
+static XSUM_U8 g_benchSecretBuf[XXH3_SECRET_SIZE_MIN];
 
 /*
  * Wrappers for the benchmark.
@@ -239,75 +204,75 @@ static U8 g_benchSecretBuf[XXH3_SECRET_SIZE_MIN];
  * If you would like to add other hashes to the bench, create a wrapper and add
  * it to the g_hashesToBench table. It will automatically be added.
  */
-typedef U32 (*hashFunction)(const void* buffer, size_t bufferSize, U32 seed);
+typedef XSUM_U32 (*hashFunction)(const void* buffer, size_t bufferSize, XSUM_U32 seed);
 
-static U32 localXXH32(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH32(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     return XXH32(buffer, bufferSize, seed);
 }
-static U32 localXXH64(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH64(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
-    return (U32)XXH64(buffer, bufferSize, seed);
+    return (XSUM_U32)XXH64(buffer, bufferSize, seed);
 }
-static U32 localXXH3_64b(const void* buffer, size_t bufferSize, U32 seed)
-{
-    (void)seed;
-    return (U32)XXH3_64bits(buffer, bufferSize);
-}
-static U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, U32 seed)
-{
-    return (U32)XXH3_64bits_withSeed(buffer, bufferSize, seed);
-}
-static U32 localXXH3_64b_secret(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH3_64b(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     (void)seed;
-    return (U32)XXH3_64bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf));
+    return (XSUM_U32)XXH3_64bits(buffer, bufferSize);
 }
-static U32 localXXH3_128b(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH3_64b_seeded(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    return (XSUM_U32)XXH3_64bits_withSeed(buffer, bufferSize, seed);
+}
+static XSUM_U32 localXXH3_64b_secret(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     (void)seed;
-    return (U32)(XXH3_128bits(buffer, bufferSize).low64);
+    return (XSUM_U32)XXH3_64bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf));
 }
-static U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, U32 seed)
-{
-    return (U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64);
-}
-static U32 localXXH3_128b_secret(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH3_128b(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     (void)seed;
-    return (U32)(XXH3_128bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf)).low64);
+    return (XSUM_U32)(XXH3_128bits(buffer, bufferSize).low64);
 }
-static U32 localXXH3_stream(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH3_128b_seeded(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    return (XSUM_U32)(XXH3_128bits_withSeed(buffer, bufferSize, seed).low64);
+}
+static XSUM_U32 localXXH3_128b_secret(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    (void)seed;
+    return (XSUM_U32)(XXH3_128bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf)).low64);
+}
+static XSUM_U32 localXXH3_stream(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     XXH3_state_t state;
     (void)seed;
     XXH3_64bits_reset(&state);
     XXH3_64bits_update(&state, buffer, bufferSize);
-    return (U32)XXH3_64bits_digest(&state);
+    return (XSUM_U32)XXH3_64bits_digest(&state);
 }
-static U32 localXXH3_stream_seeded(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH3_stream_seeded(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     XXH3_state_t state;
     XXH3_INITSTATE(&state);
     XXH3_64bits_reset_withSeed(&state, (XXH64_hash_t)seed);
     XXH3_64bits_update(&state, buffer, bufferSize);
-    return (U32)XXH3_64bits_digest(&state);
+    return (XSUM_U32)XXH3_64bits_digest(&state);
 }
-static U32 localXXH128_stream(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH128_stream(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     XXH3_state_t state;
     (void)seed;
     XXH3_128bits_reset(&state);
     XXH3_128bits_update(&state, buffer, bufferSize);
-    return (U32)(XXH3_128bits_digest(&state).low64);
+    return (XSUM_U32)(XXH3_128bits_digest(&state).low64);
 }
-static U32 localXXH128_stream_seeded(const void* buffer, size_t bufferSize, U32 seed)
+static XSUM_U32 localXXH128_stream_seeded(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     XXH3_state_t state;
     XXH3_INITSTATE(&state);
     XXH3_128bits_reset_withSeed(&state, (XXH64_hash_t)seed);
     XXH3_128bits_update(&state, buffer, bufferSize);
-    return (U32)(XXH3_128bits_digest(&state).low64);
+    return (XSUM_U32)(XXH3_128bits_digest(&state).low64);
 }
 
 
@@ -344,14 +309,14 @@ static const char k_testIDs_default[NB_TESTFUNC] = { 0,
 static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
                           const void* buffer, size_t bufferSize)
 {
-    U32 nbh_perIteration = (U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
+    XSUM_U32 nbh_perIteration = (XSUM_U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
     unsigned iterationNb, nbIterations = g_nbIterations + !g_nbIterations /* min 1 */;
     double fastestH = 100000000.;
     assert(HASHNAME_MAX > 2);
     XSUM_logVerbose(2, "\r%80s\r", "");       /* Clean display line */
 
     for (iterationNb = 1; iterationNb <= nbIterations; iterationNb++) {
-        U32 r=0;
+        XSUM_U32 r=0;
         clock_t cStart;
 
         XSUM_logVerbose(2, "%2u-%-*.*s : %10u ->\r",
@@ -362,7 +327,7 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
         while (clock() == cStart);   /* starts clock() at its exact beginning */
         cStart = clock();
 
-        {   U32 u;
+        {   XSUM_U32 u;
             for (u=0; u<nbh_perIteration; u++)
                 r += h(buffer, bufferSize, u);
         }
@@ -399,7 +364,7 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
                      */
                     double nbh_perSecond = (1 / ticksPerHash) + 1;
                     if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
-                    nbh_perIteration = (U32)nbh_perSecond;
+                    nbh_perIteration = (XSUM_U32)nbh_perSecond;
                 }
                 /* g_nbIterations==0 => quick evaluation, no claim of accuracy */
                 if (g_nbIterations>0) {
@@ -418,7 +383,7 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
         }   }
         {   double nbh_perSecond = (1 / fastestH) + 1;
             if (nbh_perSecond > (double)(4000U<<20)) nbh_perSecond = (double)(4000U<<20);   /* avoid overflow */
-            nbh_perIteration = (U32)nbh_perSecond;
+            nbh_perIteration = (XSUM_U32)nbh_perSecond;
         }
     }
     XSUM_logVerbose(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
@@ -464,9 +429,9 @@ static void XSUM_benchMem(const void* buffer, size_t bufferSize)
 
 static size_t XSUM_selectBenchedSize(const char* fileName)
 {
-    U64 const inFileSize = XSUM_GetFileSize(fileName);
+    XSUM_U64 const inFileSize = XSUM_getFileSize(fileName);
     size_t benchedSize = (size_t) XSUM_findMaxMem(inFileSize);
-    if ((U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
+    if ((XSUM_U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
     if (benchedSize < inFileSize) {
         XSUM_log("Not enough memory for '%s' full size; testing %i MB only...\n", fileName, (int)(benchedSize>>20));
     }
@@ -590,7 +555,7 @@ static void XSUM_checkResult128(XXH128_hash_t r1, XXH128_hash_t r2)
 }
 
 
-static void XSUM_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
+static void XSUM_testXXH32(const void* data, size_t len, XSUM_U32 seed, XSUM_U32 Nresult)
 {
     XXH32_state_t *state = XXH32_createState();
     size_t pos;
@@ -611,7 +576,7 @@ static void XSUM_testXXH32(const void* data, size_t len, U32 seed, U32 Nresult)
     XXH32_freeState(state);
 }
 
-static void XSUM_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
+static void XSUM_testXXH64(const void* data, size_t len, XSUM_U64 seed, XSUM_U64 Nresult)
 {
     XXH64_state_t *state = XXH64_createState();
     size_t pos;
@@ -632,25 +597,25 @@ static void XSUM_testXXH64(const void* data, size_t len, U64 seed, U64 Nresult)
     XXH64_freeState(state);
 }
 
-static U32 XSUM_rand(void)
+static XSUM_U32 XSUM_rand(void)
 {
-    static U64 seed = PRIME32;
+    static XSUM_U64 seed = PRIME32;
     seed *= PRIME64;
-    return (U32)(seed >> 40);
+    return (XSUM_U32)(seed >> 40);
 }
 
 
-void XSUM_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
+void XSUM_testXXH3(const void* data, size_t len, XSUM_U64 seed, XSUM_U64 Nresult)
 {
     if (len>0) assert(data != NULL);
 
-    {   U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
+    {   XSUM_U64 const Dresult = XXH3_64bits_withSeed(data, len, seed);
         XSUM_checkResult64(Dresult, Nresult);
     }
 
     /* check that the no-seed variant produces same result as seed==0 */
     if (seed == 0) {
-        U64 const Dresult = XXH3_64bits(data, len);
+        XSUM_U64 const Dresult = XXH3_64bits(data, len);
         XSUM_checkResult64(Dresult, Nresult);
     }
 
@@ -686,11 +651,11 @@ void XSUM_testXXH3(const void* data, size_t len, U64 seed, U64 Nresult)
     }
 }
 
-void XSUM_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, U64 Nresult)
+void XSUM_testXXH3_withSecret(const void* data, size_t len, const void* secret, size_t secretSize, XSUM_U64 Nresult)
 {
     if (len>0) assert(data != NULL);
 
-    {   U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
+    {   XSUM_U64 const Dresult = XXH3_64bits_withSecret(data, len, secret, secretSize);
         XSUM_checkResult64(Dresult, Nresult);
     }
 
@@ -725,7 +690,7 @@ void XSUM_testXXH3_withSecret(const void* data, size_t len, const void* secret, 
     }
 }
 
-void XSUM_testXXH128(const void* data, size_t len, U64 seed, XXH128_hash_t Nresult)
+void XSUM_testXXH128(const void* data, size_t len, XSUM_U64 seed, XXH128_hash_t Nresult)
 {
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSeed(data, len, seed);
         XSUM_checkResult128(Dresult, Nresult);
@@ -815,13 +780,13 @@ void XSUM_testXXH128_withSecret(const void* data, size_t len, const void* secret
 }
 
 #define SECRET_SAMPLE_NBBYTES 4
-typedef struct { U8 byte[SECRET_SAMPLE_NBBYTES]; } verifSample_t;
+typedef struct { XSUM_U8 byte[SECRET_SAMPLE_NBBYTES]; } verifSample_t;
 
 void XSUM_testSecretGenerator(const void* customSeed, size_t len, verifSample_t result)
 {
     static int nbTests = 1;
     const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191};
-    U8 secretBuffer[XXH3_SECRET_DEFAULT_SIZE] = {0};
+    XSUM_U8 secretBuffer[XXH3_SECRET_DEFAULT_SIZE] = {0};
     verifSample_t samples;
     int i;
 
@@ -849,7 +814,7 @@ void XSUM_testSecretGenerator(const void* customSeed, size_t len, verifSample_t 
 static void XSUM_sanityCheck(void)
 {
 #define SANITY_BUFFER_SIZE 2367
-    U8 sanityBuffer[SANITY_BUFFER_SIZE];
+    XSUM_U8 sanityBuffer[SANITY_BUFFER_SIZE];
     XSUM_fillTestBuffer(sanityBuffer, sizeof(sanityBuffer));
 
     XSUM_testXXH32(NULL,          0, 0,       0x02CC5D05);
@@ -1048,7 +1013,7 @@ static void XSUM_sanityCheck(void)
 /* for support of --little-endian display mode */
 static void XSUM_display_LittleEndian(const void* ptr, size_t length)
 {
-    const U8* const p = (const U8*)ptr;
+    const XSUM_U8* const p = (const XSUM_U8*)ptr;
     size_t idx;
     for (idx=length-1; idx<length; idx--)    /* intentional underflow to negative to detect end */
         XSUM_output("%02x", p[idx]);
@@ -1056,7 +1021,7 @@ static void XSUM_display_LittleEndian(const void* ptr, size_t length)
 
 static void XSUM_display_BigEndian(const void* ptr, size_t length)
 {
-    const U8* const p = (const U8*)ptr;
+    const XSUM_U8* const p = (const XSUM_U8*)ptr;
     size_t idx;
     for (idx=0; idx<length; idx++)
         XSUM_output("%02x", p[idx]);
@@ -1339,10 +1304,10 @@ typedef struct {
     char*           lineBuf;
     size_t          blockSize;
     char*           blockBuf;
-    U32             strictMode;
-    U32             statusOnly;
-    U32             warn;
-    U32             quiet;
+    XSUM_U32             strictMode;
+    XSUM_U32             statusOnly;
+    XSUM_U32             warn;
+    XSUM_U32             quiet;
     ParseFileReport report;
 } ParseFileArg;
 
@@ -1695,10 +1660,10 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
  */
 static int XSUM_checkFile(const char* inFileName,
                           const Display_endianess displayEndianess,
-                          U32 strictMode,
-                          U32 statusOnly,
-                          U32 warn,
-                          U32 quiet)
+                          XSUM_U32 strictMode,
+                          XSUM_U32 statusOnly,
+                          XSUM_U32 warn,
+                          XSUM_U32 quiet)
 {
     int result = 0;
     FILE* inFile = NULL;
@@ -1780,10 +1745,10 @@ static int XSUM_checkFile(const char* inFileName,
 
 static int XSUM_checkFiles(char*const* fnList, int fnTotal,
                            const Display_endianess displayEndianess,
-                           U32 strictMode,
-                           U32 statusOnly,
-                           U32 warn,
-                           U32 quiet)
+                           XSUM_U32 strictMode,
+                           XSUM_U32 statusOnly,
+                           XSUM_U32 warn,
+                           XSUM_U32 quiet)
 {
     int ok = 1;
 
@@ -1866,18 +1831,18 @@ static const char* XSUM_lastNameFromPath(const char* path)
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  * @return 1 if an overflow error occurs
  */
-static int XSUM_readU32FromCharChecked(const char** stringPtr, U32* value)
+static int XSUM_readU32FromCharChecked(const char** stringPtr, XSUM_U32* value)
 {
-    static const U32 max = (((U32)(-1)) / 10) - 1;
-    U32 result = 0;
+    static const XSUM_U32 max = (((XSUM_U32)(-1)) / 10) - 1;
+    XSUM_U32 result = 0;
     while ((**stringPtr >='0') && (**stringPtr <='9')) {
         if (result > max) return 1; /* overflow error */
         result *= 10;
-        result += (U32)(**stringPtr - '0');
+        result += (XSUM_U32)(**stringPtr - '0');
         (*stringPtr)++ ;
     }
     if ((**stringPtr=='K') || (**stringPtr=='M')) {
-        U32 const maxK = ((U32)(-1)) >> 10;
+        XSUM_U32 const maxK = ((XSUM_U32)(-1)) >> 10;
         if (result > maxK) return 1; /* overflow error */
         result <<= 10;
         if (**stringPtr=='M') {
@@ -1899,8 +1864,8 @@ static int XSUM_readU32FromCharChecked(const char** stringPtr, U32* value)
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  *  Note: function will exit() program if digit sequence overflows
  */
-static U32 XSUM_readU32FromChar(const char** stringPtr) {
-    U32 result;
+static XSUM_U32 XSUM_readU32FromChar(const char** stringPtr) {
+    XSUM_U32 result;
     if (XSUM_readU32FromCharChecked(stringPtr, &result)) {
         static const char errorMsg[] = "Error: numeric value too large";
         errorOut(errorMsg);
@@ -1912,14 +1877,14 @@ XSUM_API int XSUM_main(int argc, char* argv[])
 {
     int i, filenamesStart = 0;
     const char* const exename = XSUM_lastNameFromPath(argv[0]);
-    U32 benchmarkMode = 0;
-    U32 fileCheckMode = 0;
-    U32 strictMode    = 0;
-    U32 statusOnly    = 0;
-    U32 warn          = 0;
+    XSUM_U32 benchmarkMode = 0;
+    XSUM_U32 fileCheckMode = 0;
+    XSUM_U32 strictMode    = 0;
+    XSUM_U32 statusOnly    = 0;
+    XSUM_U32 warn          = 0;
     int explicitStdin = 0;
-    U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
-    static const U32 kBenchAll = 99;
+    XSUM_U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
+    static const XSUM_U32 kBenchAll = 99;
     size_t keySize    = XSUM_DEFAULT_SAMPLE_SIZE;
     AlgoSelected algo     = g_defaultAlgo;
     Display_endianess displayEndianess = big_endian;

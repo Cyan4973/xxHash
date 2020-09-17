@@ -169,9 +169,33 @@
 #  endif
 #endif /* XSUM_WIN32_USE_WCHAR */
 
-#ifdef XXH_INLINE_ALL
-#  define XSUM_API static
-#else
-#  define XSUM_API
+#ifndef XSUM_API
+#  ifdef XXH_INLINE_ALL
+#    define XSUM_API static
+#  else
+#    define XSUM_API
+#  endif
 #endif
+
+/* ***************************
+ * Basic types
+ * ***************************/
+
+#if defined(__cplusplus) /* C++ */ \
+ || (defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)  /* C99 */
+#  include <stdint.h>
+    typedef uint8_t  XSUM_U8;
+    typedef uint32_t XSUM_U32;
+    typedef uint64_t XSUM_U64;
+# else
+#   include <limits.h>
+    typedef unsigned char      XSUM_U8;
+#   if UINT_MAX == 0xFFFFFFFFUL
+      typedef unsigned int     XSUM_U32;
+#   else
+      typedef unsigned long    XSUM_U32;
+#   endif
+    typedef unsigned long long XSUM_U64;
+#endif /* not C++/C99 */
+
 #endif /* XSUM_CONFIG_H */

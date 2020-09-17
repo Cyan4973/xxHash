@@ -37,7 +37,9 @@
  */
 #if defined(_MSC_VER) || XSUM_WIN32_USE_WCHAR
     typedef struct __stat64 XSUM_stat_t;
+# if defined(_MSC_VER)
     typedef int mode_t;
+# endif
 #else
     typedef struct stat XSUM_stat_t;
 #endif

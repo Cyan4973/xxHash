@@ -13,7 +13,6 @@ xxh32sum
 xxh64sum
 xxh128sum
 xxhsum
-!programs/xxhsum
 xxhsum32
 xxhsum_privateXXH
 xxhsum_inlinedXXH

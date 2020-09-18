@@ -30,13 +30,13 @@
  */
 
 /* Transitional headers */
-#include "programs/xxhsum/xsum_config.h"
-#include "programs/xxhsum/xsum_arch.h"
-#include "programs/xxhsum/xsum_os_specific.h"
-#include "programs/xxhsum/xsum_output.h"
+#include "cli/xsum_config.h"
+#include "cli/xsum_arch.h"
+#include "cli/xsum_os_specific.h"
+#include "cli/xsum_output.h"
 #ifdef XXH_INLINE_ALL
-#  include "programs/xxhsum/xsum_os_specific.c"
-#  include "programs/xxhsum/xsum_output.c"
+#  include "cli/xsum_os_specific.c"
+#  include "cli/xsum_output.c"
 #endif
 
 /* ************************************

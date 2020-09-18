@@ -82,10 +82,11 @@ set_target_properties(xxhash PROPERTIES
   VERSION "${XXHASH_VERSION_STRING}")
 
 if(XXHASH_BUILD_XXHSUM)
+  set(XXHSUM_DIR "${XXHASH_DIR}/cli")
   # xxhsum
   add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c"
-                        "${XXHASH_DIR}/programs/xxhsum/xsum_os_specific.c"
-                        "${XXHASH_DIR}/programs/xxhsum/xsum_output.c"
+                        "${XXHSUM_DIR}/xsum_os_specific.c"
+                        "${XXHSUM_DIR}/xsum_output.c"
                 )
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 

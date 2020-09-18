@@ -71,13 +71,14 @@ endif
 
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
-XXHSUM_SPLIT_SRCS = programs/xxhsum/xsum_os_specific.c \
-                    programs/xxhsum/xsum_output.c
+XXHSUM_SRC_DIR = cli
+XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
+                    $(XXHSUM_SRC_DIR)/xsum_output.c
 XXHSUM_SPLIT_OBJS = $(XXHSUM_SPLIT_SRCS:.c=.o)
-XXHSUM_HEADERS = programs/xxhsum/xsum_config.h \
-                 programs/xxhsum/xsum_arch.h \
-                 programs/xxhsum/xsum_os_specific.h \
-                 programs/xxhsum/xsum_output.h
+XXHSUM_HEADERS = $(XXHSUM_SRC_DIR)/xsum_config.h \
+                 $(XXHSUM_SRC_DIR)/xsum_arch.h \
+                 $(XXHSUM_SRC_DIR)/xsum_os_specific.h \
+                 $(XXHSUM_SRC_DIR)/xsum_output.h
 
 ## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default
@@ -168,7 +169,7 @@ clean:  ## remove all build artifacts
 	$(Q)$(RM) core *.o *.obj *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
-	$(Q)$(RM) programs/xxhsum/*.o programs/xxhsum/*.obj
+	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	@echo cleaning completed
 
 

@@ -177,6 +177,10 @@
 #  endif
 #endif
 
+#ifndef XSUM_NO_TESTS
+#  define XSUM_NO_TESTS 0
+#endif
+
 /* ***************************
  * Basic types
  * ***************************/

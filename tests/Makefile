@@ -53,7 +53,7 @@ test_ppc_redefine: ppc_define.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $^
 
 xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxhsum.c
-	$(CC) $(CFLAGS) $(LDFLAGS) ../xxhash.c ../xxhsum.c -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXXH_INLINE_ALL ../xxhsum.c -o $@
 
 # Make sure that Unicode filenames work.
 # https://github.com/Cyan4973/xxHash/issues/293

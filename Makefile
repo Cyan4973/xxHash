@@ -71,6 +71,14 @@ endif
 
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
+XXHSUM_SRC_DIR = cli
+XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
+                    $(XXHSUM_SRC_DIR)/xsum_output.c
+XXHSUM_SPLIT_OBJS = $(XXHSUM_SPLIT_SRCS:.c=.o)
+XXHSUM_HEADERS = $(XXHSUM_SRC_DIR)/xsum_config.h \
+                 $(XXHSUM_SRC_DIR)/xsum_arch.h \
+                 $(XXHSUM_SRC_DIR)/xsum_os_specific.h \
+                 $(XXHSUM_SRC_DIR)/xsum_output.h
 
 ## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default
@@ -85,20 +93,21 @@ ifeq ($(DISPATCH),1)
 xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
 xxhsum: xxh_x86dispatch.o
 endif
-xxhsum: xxhash.o xxhsum.o
+xxhsum: xxhash.o xxhsum.o $(XXHSUM_SPLIT_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c  ## do not generate object (avoid mixing different ABI)
+xxhsum32: xxhash.c xxhsum.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 ## dispatch only works for x86/x64 systems
 dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
-dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c
+dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h
-xxhsum.o: xxhsum.c xxhash.h xxh_x86dispatch.h
+xxhsum.o: xxhsum.c $(XXHSUM_HEADERS) \
+    xxhash.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
 .PHONY: xxhsum_and_links
@@ -108,8 +117,8 @@ xxh32sum xxh64sum xxh128sum: xxhsum
 	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
-xxhsum_inlinedXXH: xxhsum.c
-	$(CC) $(FLAGS) $^ -o $@$(EXT)
+xxhsum_inlinedXXH: xxhsum.c $(XXHSUM_SPLIT_SRCS)
+	$(CC) $(FLAGS) $< -o $@$(EXT)
 
 
 # library
@@ -157,9 +166,10 @@ help:  ## list documented targets
 .PHONY: clean
 clean:  ## remove all build artifacts
 	$(Q)$(RM) -r *.dSYM   # Mac OS-X specific
-	$(Q)$(RM) core *.o *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
+	$(Q)$(RM) core *.o *.obj *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
+	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	@echo cleaning completed
 
 
@@ -321,7 +331,7 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
-	$(CC) xxhash.o xxhash2.o xxhsum.c -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(CC) xxhash.o xxhash2.o xxhsum.c $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
 MD2ROFF ?= ronn

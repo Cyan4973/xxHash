@@ -82,8 +82,12 @@ set_target_properties(xxhash PROPERTIES
   VERSION "${XXHASH_VERSION_STRING}")
 
 if(XXHASH_BUILD_XXHSUM)
+  set(XXHSUM_DIR "${XXHASH_DIR}/cli")
   # xxhsum
-  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
+  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c"
+                        "${XXHSUM_DIR}/xsum_os_specific.c"
+                        "${XXHSUM_DIR}/xsum_output.c"
+                )
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 
   target_link_libraries(xxhsum PRIVATE xxhash)

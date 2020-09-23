@@ -74,13 +74,15 @@ LIBXXH = libxxhash.$(SHARED_EXT_VER)
 XXHSUM_SRC_DIR = cli
 XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
                     $(XXHSUM_SRC_DIR)/xsum_output.c \
-                    $(XXHSUM_SRC_DIR)/xsum_sanity_check.c
+                    $(XXHSUM_SRC_DIR)/xsum_sanity_check.c \
+                    $(XXHSUM_SRC_DIR)/xsum_bench.c
 XXHSUM_SPLIT_OBJS = $(XXHSUM_SPLIT_SRCS:.c=.o)
 XXHSUM_HEADERS = $(XXHSUM_SRC_DIR)/xsum_config.h \
                  $(XXHSUM_SRC_DIR)/xsum_arch.h \
                  $(XXHSUM_SRC_DIR)/xsum_os_specific.h \
                  $(XXHSUM_SRC_DIR)/xsum_output.h \
-                 $(XXHSUM_SRC_DIR)/xsum_sanity_check.h
+                 $(XXHSUM_SRC_DIR)/xsum_sanity_check.h \
+                 $(XXHSUM_SRC_DIR)/xsum_bench.h
 
 ## generate CLI and libraries in release mode (default for `make`)
 .PHONY: default

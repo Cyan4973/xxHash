@@ -169,6 +169,10 @@
 #  endif
 #endif /* XSUM_WIN32_USE_WCHAR */
 
+/* ***************************
+ * xxhsum compile time options
+ * ***************************/
+
 #ifndef XSUM_API
 #  ifdef XXH_INLINE_ALL
 #    define XSUM_API static
@@ -177,8 +181,18 @@
 #  endif
 #endif
 
+/* Define to 1 to disable self tests. */
 #ifndef XSUM_NO_TESTS
 #  define XSUM_NO_TESTS 0
+#endif
+
+/* Default number of benchmark iterations */
+#ifndef XSUM_BENCH_NB_ITER
+#  define XSUM_BENCH_NB_ITER 3
+#endif
+
+#ifndef XSUM_DEFAULT_SAMPLE_SIZE
+#  define XSUM_DEFAULT_SAMPLE_SIZE (100U * (1U << 10)) /* 100 KB */
 #endif
 
 /* ***************************

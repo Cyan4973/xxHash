@@ -186,6 +186,11 @@
 #  define XSUM_NO_TESTS 0
 #endif
 
+/* Define to 1 to disable the internal benchmark. */
+#ifndef XSUM_NO_BENCH
+#  define XSUM_NO_BENCH 0
+#endif
+
 /* Default number of benchmark iterations */
 #ifndef XSUM_BENCH_NB_ITER
 #  define XSUM_BENCH_NB_ITER 3

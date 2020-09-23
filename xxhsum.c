@@ -883,10 +883,12 @@ static int XSUM_usage_advanced(const char* exename)
     XSUM_log( "  -V, --version        Display version information \n");
     XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
     XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
+#if !XSUM_NO_BENCH
     XSUM_log( "  -b                   Run benchmark \n");
     XSUM_log( "  -b#                  Bench only algorithm variant # \n");
     XSUM_log( "  -i#                  Number of times to run the benchmark (default: %u) \n", (unsigned)XSUM_BENCH_NB_ITER);
     XSUM_log( "  -q, --quiet          Don't display version header in benchmark mode \n");
+#endif
     XSUM_log( "\n");
     XSUM_log( "The following four options are useful only when verifying checksums (-c): \n");
     XSUM_log( "  -q, --quiet          Don't print OK for each successfully verified file \n");

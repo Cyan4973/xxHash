@@ -40,6 +40,41 @@
 #endif
 #include "../xxhash.h"
 
+/* ************************************
+ *  Benchmark Functions
+ **************************************/
+#if XSUM_NO_BENCH
+static int XSUM_noBench(void)
+{
+    XSUM_log("This version of xxhsum was compiled without benchmarks.\n");
+    return 1;
+}
+
+XSUM_API int XSUM_benchFiles(char*const* fileNamesTable, int nbFiles)
+{
+    (void)fileNamesTable;
+    (void)nbFiles;
+    return XSUM_noBench();
+}
+XSUM_API int XSUM_benchInternal(size_t keySize)
+{
+    (void)keySize;
+    return XSUM_noBench();
+}
+
+XSUM_API void XSUM_setBenchID(XSUM_U32 id, int fill)
+{
+    (void)id;
+    (void)fill;
+    /* nop */
+}
+XSUM_API void XSUM_setBenchIter(XSUM_U32 iter)
+{
+    (void)iter;
+    /* nop */
+}
+
+#else
 #define KB *( 1<<10)
 #define MB *( 1<<20)
 #define GB *(1U<<30)
@@ -52,9 +87,6 @@
 
 static XSUM_U32 XSUM_nbIterations = XSUM_BENCH_NB_ITER;
 
-/* ************************************
- *  Benchmark Functions
- **************************************/
 static clock_t XSUM_clockSpan( clock_t start )
 {
     return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
@@ -451,3 +483,5 @@ XSUM_API void XSUM_setBenchIter(XSUM_U32 iter)
 #undef KB
 #undef MB
 #undef GB
+
+#endif /* !XSUM_NO_BENCH */

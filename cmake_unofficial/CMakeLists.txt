@@ -89,6 +89,7 @@ if(XXHASH_BUILD_XXHSUM)
                         "${XXHSUM_DIR}/xsum_output.c"
                         "${XXHSUM_DIR}/xsum_sanity_check.c"
                         "${XXHSUM_DIR}/xsum_bench.c"
+                        "${XXHSUM_DIR}/timefn.c"
                 )
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 

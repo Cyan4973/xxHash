@@ -33,8 +33,8 @@
 #include <assert.h>            /* assert */
 #include <string.h>            /* strlen, memcpy, strerror */
 #include <errno.h>             /* errno */
-#include <time.h>              /* clock, clock_t, CLOCKS_PER_SEC */
 #include <limits.h>            /* ULONG_MAX */
+#include "timefn.h"            /* UTIL_time_t, etc */
 #ifndef XXH_STATIC_LINKING_ONLY
 #  define XXH_STATIC_LINKING_ONLY
 #endif
@@ -82,15 +82,11 @@ XSUM_API void XSUM_setBenchIter(XSUM_U32 iter)
 #define MAX_MEM    (2 GB - 64 MB)
 
 #define XSUM_TIMELOOP_S 1
-#define XSUM_TIMELOOP  (XSUM_TIMELOOP_S * CLOCKS_PER_SEC)   /* target timing per iteration */
-#define XSUM_TIMELOOP_MIN (XSUM_TIMELOOP / 2)               /* minimum timing to validate a result */
+#define XSUM_SECOND (1*1000000000ULL)                  /* 1 second in nanoseconds */
+#define XSUM_TIMELOOP  (XSUM_TIMELOOP_S * XSUM_SECOND) /* target timing per iteration */
+#define XSUM_TIMELOOP_MIN (XSUM_TIMELOOP / 2)          /* minimum timing to validate a result */
 
 static XSUM_U32 XSUM_nbIterations = XSUM_BENCH_NB_ITER;
-
-static clock_t XSUM_clockSpan( clock_t start )
-{
-    return clock() - start;   /* works even if overflow; Typical max span ~ 30 mn */
-}
 
 static size_t XSUM_findMaxMem(XSUM_U64 requiredMem)
 {
@@ -269,15 +265,14 @@ static void XSUM_benchHash(XSUM_hashFunction h, const char* hName, int testID,
 
     for (iterationNb = 1; iterationNb <= nbIterations; iterationNb++) {
         XSUM_U32 r=0;
-        clock_t cStart;
+        UTIL_time_t cStart;
 
         XSUM_logVerbose(2, "%2u-%-*.*s : %10u ->\r",
                         iterationNb,
                         XSUM_HASHNAME_MAX, XSUM_HASHNAME_MAX, hName,
                         (unsigned)bufferSize);
-        cStart = clock();
-        while (clock() == cStart);   /* starts clock() at its exact beginning */
-        cStart = clock();
+        UTIL_waitForNextTick(); /* Wait for start of timer tick */
+        cStart = UTIL_getTime();
 
         {   XSUM_U32 u;
             for (u=0; u<nbh_perIteration; u++)
@@ -285,11 +280,11 @@ static void XSUM_benchHash(XSUM_hashFunction h, const char* hName, int testID,
         }
         if (r==0) XSUM_logVerbose(3,".\r");  /* do something with r to defeat compiler "optimizing" hash away */
 
-        {   clock_t const nbTicks = XSUM_clockSpan(cStart);
+        {   PTime const nbTicks = UTIL_clockSpanNano(cStart);
             double const ticksPerHash = ((double)nbTicks / XSUM_TIMELOOP) / nbh_perIteration;
             /*
              * clock() is the only decent portable timer, but it isn't very
-             * precise.
+             * precise. UTIL_getTime and UTIL_clockSpanNano may use these.
              *
              * Sometimes, this lack of precision is enough that the benchmark
              * finishes before there are enough ticks to get a meaningful result.

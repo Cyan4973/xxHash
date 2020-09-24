@@ -40,6 +40,7 @@
 #  include "cli/xsum_os_specific.c"
 #  include "cli/xsum_output.c"
 #  include "cli/xsum_sanity_check.c"
+#  include "cli/timefn.c"
 #  include "cli/xsum_bench.c"
 #endif
 

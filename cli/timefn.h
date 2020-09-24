@@ -23,6 +23,7 @@ extern "C" {
 #if defined(_MSC_VER)
 #  include <sys/utime.h>  /* utime */
 #else
+#  include <unistd.h>     /* _POSIX_TIMERS */
 #  include <utime.h>      /* utime */
 #endif
 #include <time.h>         /* clock_t, clock, CLOCKS_PER_SEC */
@@ -57,8 +58,9 @@ extern "C" {
     typedef PTime UTIL_time_t;
     #define UTIL_TIME_INITIALIZER 0
 
-#elif (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
-    && defined(TIME_UTC) /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11 compliance */
+#elif (defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0) /* clock_gettime */ \
+    || ((defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
+       && defined(TIME_UTC)) /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11 compliance */
 
     typedef struct timespec UTIL_time_t;
     #define UTIL_TIME_INITIALIZER { 0, 0 }

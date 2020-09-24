@@ -83,19 +83,32 @@ PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 
 
 
-#elif (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
-    && defined(TIME_UTC) /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11 compliance */
+#elif (defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0) \
+    || ((defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
+        && defined(TIME_UTC)) /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11 compliance */
 
 #include <stdlib.h>   /* abort */
 #include <stdio.h>    /* perror */
 
+#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
+
+static int UTIL_getTimeImpl(UTIL_time_t *tp)
+{
+    return clock_gettime(CLOCK_REALTIME, tp) == 0;
+}
+#else
+static int UTIL_getTimeImpl(UTIL_time_t *tp)
+{
+    return timespec_get(tp, TIME_UTC) == TIME_UTC;
+}
+#endif
 UTIL_time_t UTIL_getTime(void)
 {
     /* time must be initialized, othersize it may fail msan test.
      * No good reason, likely a limitation of timespec_get() for some target */
     UTIL_time_t time = UTIL_TIME_INITIALIZER;
-    if (timespec_get(&time, TIME_UTC) != TIME_UTC) {
-        perror("timefn::timespec_get");
+    if (!UTIL_getTimeImpl(&time)) {
+        perror("timefn::UTIL_getTimeImpl");
         abort();
     }
     return time;

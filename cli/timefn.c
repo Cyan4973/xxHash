@@ -119,7 +119,7 @@ static UTIL_time_t UTIL_getSpanTime(UTIL_time_t begin, UTIL_time_t end)
     UTIL_time_t diff;
     if (end.tv_nsec < begin.tv_nsec) {
         diff.tv_sec = (end.tv_sec - 1) - begin.tv_sec;
-        diff.tv_nsec = (end.tv_nsec + 1000000000ULL) - begin.tv_nsec;
+        diff.tv_nsec = (long)((end.tv_nsec + 1000000000LL) - begin.tv_nsec);
     } else {
         diff.tv_sec = end.tv_sec - begin.tv_sec;
         diff.tv_nsec = end.tv_nsec - begin.tv_nsec;
@@ -131,8 +131,8 @@ PTime UTIL_getSpanTimeMicro(UTIL_time_t begin, UTIL_time_t end)
 {
     UTIL_time_t const diff = UTIL_getSpanTime(begin, end);
     PTime micro = 0;
-    micro += 1000000ULL * diff.tv_sec;
-    micro += diff.tv_nsec / 1000ULL;
+    micro += 1000000ULL * (PTime)diff.tv_sec;
+    micro += (unsigned long)diff.tv_nsec / 1000UL;
     return micro;
 }
 
@@ -140,8 +140,8 @@ PTime UTIL_getSpanTimeNano(UTIL_time_t begin, UTIL_time_t end)
 {
     UTIL_time_t const diff = UTIL_getSpanTime(begin, end);
     PTime nano = 0;
-    nano += 1000000000ULL * diff.tv_sec;
-    nano += diff.tv_nsec;
+    nano += 1000000000ULL * (PTime)diff.tv_sec;
+    nano += (PTime)diff.tv_nsec;
     return nano;
 }
 

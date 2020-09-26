@@ -2,7 +2,7 @@ language: c
 
 # Dump CPU info before start
 before_install:
-  - cat /proc/cpuinfo
+  - cat /proc/cpuinfo || echo /proc/cpuinfo is not present
 
 matrix:
   fast_finish: true

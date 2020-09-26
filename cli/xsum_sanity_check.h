@@ -26,7 +26,10 @@
 #ifndef XSUM_SANITY_CHECK_H
 #define XSUM_SANITY_CHECK_H
 
-#include "xsum_config.h"
+#include "xsum_config.h"  /* XSUM_API, XSUM_U8 */
+
+#include <stddef.h>   /* size_t */
+
 
 #ifdef __cplusplus
 extern "C" {

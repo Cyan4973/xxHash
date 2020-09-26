@@ -42,6 +42,14 @@ matrix:
         - CPPFLAGS=-DXXH_REROLL=1 make check   # reroll code path (#240)
         - make -C tests/bench
 
+    - name: macOS General Test
+      os: osx
+      compiler: clang
+      script:
+        - make   # test library build
+        - make clean
+        - make test MOREFLAGS='-Werror' | tee # test scenario where `stdout` is not the console
+
     - name: ARM compilation and consistency checks (Qemu)
       dist: xenial
       arch: amd64
@@ -111,7 +119,7 @@ matrix:
         - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check
         # altivec.h redefinition issue #426
         - make clean
-        - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-maltivec -mvsx -mcpu=power8 -mpower8-vector" make -C tests test_ppc_redefine 
+        - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-maltivec -mvsx -mcpu=power8 -mpower8-vector" make -C tests test_ppc_redefine
 
     - name: IBM s390x compilation and consistency checks
       dist: bionic

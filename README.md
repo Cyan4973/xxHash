@@ -220,10 +220,17 @@ thanks to great contributors.
 They are [listed here](http://www.xxhash.com/#other-languages).
 
 
+### Packaging status
+
+Many distributions bundle a package manager
+which allows easy xxhash installation as both a `libxxhash` library
+and `xxhsum` command line interface.
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/xxhash.svg)](https://repology.org/project/xxhash/versions)
+
+
 ### Special Thanks
 
-Takayuki Matsuoka, aka @t-mat, for creating `xxhsum -c` and general support during early xxh releases
-
-Mathias Westerdahl, aka @JCash, for introducing the first version of `XXH64`
-
-Devin Hussey, aka @easyaspi314, for excellent low-level optimizations on `XXH3` and `XXH128`
+- Takayuki Matsuoka, aka @t-mat, for creating `xxhsum -c` and great support during early xxh releases
+- Mathias Westerdahl, aka @JCash, for introducing the first version of `XXH64`
+- Devin Hussey, aka @easyaspi314, for incredible low-level optimizations on `XXH3` and `XXH128`

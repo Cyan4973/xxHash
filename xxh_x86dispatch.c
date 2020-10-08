@@ -44,8 +44,19 @@ extern "C" {
 #  error "Dispatching is currently only supported on x86 and x86_64."
 #endif
 
-#ifndef __GNUC__
-#  error "Dispatching requires __attribute__((__target__)) capability"
+#if defined(__GNUC__)
+#  include <immintrin.h> /* sse2 */
+#  include <emmintrin.h> /* avx2 */
+#  define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
+#  define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
+#  define XXH_TARGET_SSE2 __attribute__((__target__("sse2")))
+#elif defined(_MSC_VER)
+#  include <intrin.h>
+#  define XXH_TARGET_AVX512
+#  define XXH_TARGET_AVX2
+#  define XXH_TARGET_SSE2
+#else
+#  error "Dispatching is currently not supported for your compiler."
 #endif
 
 #define XXH_DISPATCH_AVX2    /* enable dispatch towards AVX2 */
@@ -62,18 +73,8 @@ extern "C" {
 #endif
 #include <assert.h>
 
-#if defined(__GNUC__)
-#  include <immintrin.h> /* sse2 */
-#  include <emmintrin.h> /* avx2 */
-#elif defined(_MSC_VER)
-#  include <intrin.h>
-#endif
-
 #define XXH_INLINE_ALL
 #define XXH_X86DISPATCH
-#define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
-#define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
-#define XXH_TARGET_SSE2 __attribute__((__target__("sse2")))
 #include "xxhash.h"
 
 /*

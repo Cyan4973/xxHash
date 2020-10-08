@@ -78,14 +78,6 @@ extern "C" {
 #include "xxhash.h"
 
 /*
- * Modified version of Intel's guide
- * https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
- */
-#if defined(_MSC_VER)
-# include <intrin.h>
-#endif
-
-/*
  * Support both AT&T and Intel dialects
  *
  * GCC doesn't convert AT&T syntax to Intel syntax, and will error out if
@@ -102,7 +94,6 @@ extern "C" {
 #else
 #  define I_ATT(intel, att) "{" att "|" intel "}\n\t"
 #endif
-
 
 static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
 {
@@ -133,6 +124,11 @@ static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
     abcd[3] = edx;
 #endif
 }
+
+/*
+ * Modified version of Intel's guide
+ * https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
+ */
 
 #if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
 /*

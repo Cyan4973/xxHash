@@ -44,8 +44,19 @@ extern "C" {
 #  error "Dispatching is currently only supported on x86 and x86_64."
 #endif
 
-#ifndef __GNUC__
-#  error "Dispatching requires __attribute__((__target__)) capability"
+#if defined(__GNUC__)
+#  include <immintrin.h> /* sse2 */
+#  include <emmintrin.h> /* avx2 */
+#  define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
+#  define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
+#  define XXH_TARGET_SSE2 __attribute__((__target__("sse2")))
+#elif defined(_MSC_VER)
+#  include <intrin.h>
+#  define XXH_TARGET_AVX512
+#  define XXH_TARGET_AVX2
+#  define XXH_TARGET_SSE2
+#else
+#  error "Dispatching is currently not supported for your compiler."
 #endif
 
 #define XXH_DISPATCH_AVX2    /* enable dispatch towards AVX2 */
@@ -62,27 +73,9 @@ extern "C" {
 #endif
 #include <assert.h>
 
-#if defined(__GNUC__)
-#  include <immintrin.h> /* sse2 */
-#  include <emmintrin.h> /* avx2 */
-#elif defined(_MSC_VER)
-#  include <intrin.h>
-#endif
-
 #define XXH_INLINE_ALL
 #define XXH_X86DISPATCH
-#define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
-#define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
-#define XXH_TARGET_SSE2 __attribute__((__target__("sse2")))
 #include "xxhash.h"
-
-/*
- * Modified version of Intel's guide
- * https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
- */
-#if defined(_MSC_VER)
-# include <intrin.h>
-#endif
 
 /*
  * Support both AT&T and Intel dialects
@@ -101,7 +94,6 @@ extern "C" {
 #else
 #  define I_ATT(intel, att) "{" att "|" intel "}\n\t"
 #endif
-
 
 static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
 {
@@ -132,6 +124,11 @@ static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
     abcd[3] = edx;
 #endif
 }
+
+/*
+ * Modified version of Intel's guide
+ * https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
+ */
 
 #if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
 /*

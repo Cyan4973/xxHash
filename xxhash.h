@@ -3857,9 +3857,7 @@ XXH_joinThread(xxh_thread_t thread)
  * slower than single threaded, so we warn (because 99% of the time it is just
  * forgetting -pthread) and disable.
  */
-#  warning "No compatible threading implementations for XXH3 found. \
-You may need to add `-pthread` or `-D_REENTRANT` to your compiler flags. \
-Note that WebAssembly and asm.js threads are not supported at this time."
+#  warning "No compatible threading implementations for XXH3 found. You may need to add `-pthread` or `-D_REENTRANT` to your compiler flags. Note that WebAssembly and asm.js threads are not supported at this time."
 #  undef XXH_THREADS
 #endif /* not Windows or pthreads */
 #endif /* XXH_THREADS */

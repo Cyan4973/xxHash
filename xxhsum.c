@@ -74,9 +74,9 @@ static const char g_bename[] = "big endian";
 static const char author[] = "Yann Collet";
 #define WELCOME_MESSAGE(exename) "%s %s by %s \n", exename, XSUM_PROGRAM_VERSION, author
 #define FULL_WELCOME_MESSAGE(exename) "%s %s by %s \n" \
-                    "compiled as %i-bit %s %s with " XSUM_CC_VERSION_FMT " \n", \
+                    "compiled as %i-bit %s %s with " XSUM_CC_VERSION_FMT "%s\n", \
                     exename, XSUM_PROGRAM_VERSION, author, \
-                    g_nbBits, XSUM_ARCH, ENDIAN_NAME, XSUM_CC_VERSION
+                    g_nbBits, XSUM_ARCH, ENDIAN_NAME, XSUM_CC_VERSION, XSUM_THREADED
 
 #define KB *( 1<<10)
 #define MB *( 1<<20)

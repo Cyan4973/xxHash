@@ -149,5 +149,10 @@
 #  define XSUM_ARCH "unknown"
 #endif
 
+#if defined(XXH_THREADS) && (defined(_WIN32) || (defined(_REENTRANT) && !defined(__EMSCRIPTEN__) && !defined(__wasm__)))
+#  define XSUM_THREADED " (multithreaded)"
+#else
+#  define XSUM_THREADED ""
+#endif
 
 #endif /* XSUM_ARCH_H */

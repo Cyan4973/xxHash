@@ -2111,6 +2111,72 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #endif
 
 /*
+ * Malloc's a pointer that is always aligned to align.
+ *
+ * This must be freed with `XXH_alignedFree()`.
+ *
+ * malloc typically guarantees 16 byte alignment on 64-bit systems and 8 byte
+ * alignment on 32-bit. This isn't enough for the 32 byte aligned loads in AVX2
+ * or on 32-bit, the 16 byte aligned loads in SSE2 and NEON.
+ *
+ * This underalignment previously caused a rather obvious crash which went
+ * completely unnoticed due to XXH3_createState() not actually being tested.
+ * Credit to RedSpah for noticing this bug.
+ *
+ * The alignment is done manually: Functions like posix_memalign or _mm_malloc
+ * are avoided: To maintain portability, we would have to write a fallback
+ * like this anyways, and besides, testing for the existence of library
+ * functions without relying on external build tools is impossible.
+ *
+ * The method is simple: Overallocate, manually align, and store the offset
+ * to the original behind the returned pointer.
+ *
+ * Align must be a power of 2 and 8 <= align <= 128.
+ */
+static void* XXH_alignedMalloc(size_t s, size_t align)
+{
+    XXH_ASSERT(align <= 128 && align >= 8); /* range check */
+    XXH_ASSERT((align & (align-1)) == 0);   /* power of 2 */
+    XXH_ASSERT(s != 0 && s < (s + align));  /* empty/overflow */
+    {   /* Overallocate to make room for manual realignment and an offset byte */
+        xxh_u8* base = (xxh_u8*)XXH_malloc(s + align);
+        if (base != NULL) {
+            /*
+             * Get the offset needed to align this pointer.
+             *
+             * Even if the returned pointer is aligned, there will always be
+             * at least one byte to store the offset to the original pointer.
+             */
+            size_t offset = align - ((size_t)base & (align - 1)); /* base % align */
+            /* Add the offset for the now-aligned pointer */
+            xxh_u8* ptr = base + offset;
+
+            XXH_ASSERT((size_t)ptr % align == 0);
+
+            /* Store the offset immediately before the returned pointer. */
+            ptr[-1] = (xxh_u8)offset;
+            return ptr;
+        }
+        return NULL;
+    }
+}
+/*
+ * Frees an aligned pointer allocated by XXH_alignedMalloc(). Don't pass
+ * normal malloc'd pointers, XXH_alignedMalloc has a specific data layout.
+ */
+static void XXH_alignedFree(void* p)
+{
+    if (p != NULL) {
+        xxh_u8* ptr = (xxh_u8*)p;
+        /* Get the offset byte we added in XXH_malloc. */
+        xxh_u8 offset = ptr[-1];
+        /* Free the original malloc'd pointer */
+        xxh_u8* base = ptr - offset;
+        XXH_free(base);
+    }
+}
+
+/*
  * One goal of XXH3 is to make it fast on both 32-bit and 64-bit, while
  * remaining a true 64-bit/128-bit hash function.
  *
@@ -3666,6 +3732,176 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     }
 }
 
+/*
+ * XXH3 operates in blocks which are added together.
+ *
+ * Normally, this is constantly added to the acc array on the fly, like so;
+ *   XXH = acc + sum[0->N] { accumulate(N) };
+ *
+ * Due to the properties of addition, we can actually calculate blocks in
+ * parallel if we start with a second acc starting zeroed:
+ *   XXH = (acc + sum[0->N/2] { accumulate(N) })
+ *       + (  0 + sum[N/2->N] { accumulate(N) })
+ *
+ * This is an opt-in feature, enabled by defining `-DXXH_THREADS`. It currently
+ * works on Windows and pthreads. Currently, WebAssembly and asm.js are not
+ * supported due to complications of `pthread_join` on the main thread.
+ *
+ * The latter requires `-pthread`, `-pthreads`, or `-D_REENTRANT`. It will warn
+ * if this is not met.
+ *
+ * On hashes larger than a few megabytes (somewhere around 4-16 MB depending on
+ * the platform), the overhead of setting up a single thread to do this is much
+ * less than the performance benefits of parallelization.
+ *
+ * We could technically spawn more than one thread, but there are drawbacks:
+ *  - While it is pretty safe to assume a second CPU thread (real or logical)
+ *    on almost all targets nowadays, we cannot assume any more will benefit
+ *    without an expensive check. There are still plenty of dual cores in the
+ *    consumer market.
+ *  - The error checking is simple for a single thread.
+ *     1. We split the input in half
+ *     2. We set the thread to process the second half while we process the
+ *        first half on the main thread.
+ *     3. When we are done, we check if the thread spawned successfully.
+ *       - If it succeeded, we merge the accs and mark the second half as done.
+ *       - If it failed, we just let the main thread process the second half.
+ *         This followas the same path that it would if the length did not meet
+ *         the threshold.
+ *    However, if we add more threads, we have to track *which* section we
+ *    processed which is not as simple.
+ *  - The "performance formula" is basically this:
+ *        benefit = ((R * L) / T) - (C * (T - 1)); T >= 1.
+ *    where T is the number of threads, C is the constant cost of setting up a
+ *    thread, R is the constant time it takes to process a length of input, and
+ *    L is the length of the input.
+ *    XXH3 is very fast, so R is a very small number.
+ *    Threading is only beneficial if (C * (T - 1)) < ((R * L) / T). Increasing
+ *    T makes the point where ((R * L) / T) intersects with (C * (T - 1))
+ *    require an *exponentially* larger L. Additionally, ((R * L) / T) is going
+ *    to decrease less and less as we increase T.
+ *
+ * TL;DR: Adding more threads requires significantly longer lengths and has a
+ * diminishing benefit. Therefore, we only spawn one thread with sufficient
+ * lengths.
+ */
+
+/*
+ * This is the configurable length where XXH3 should start using threads.
+ *
+ * This really depends on the platform and `XXH_VECTOR`, but 8 MB is a decent
+ * estimate.
+ */
+#ifndef XXH_THREADS_THRESHOLD
+#  define XXH_THREADS_THRESHOLD (size_t)(8UL * 0x100000UL) /* 8 MB */
+#endif
+
+#ifdef XXH_THREADS
+/*
+ * Set up a small abstraction layer for threads.
+ */
+#define XXH_THREAD_OK ((xxh_thread_rval_t)1)
+
+#ifdef _WIN32 /* Win32 threads */
+/* Avoid excess pollution, include the Windows subheaders directly */
+#include <handleapi.h>         /* HANDLE, CloseHandle */
+#include <processthreadsapi.h> /* DWORD, CreateThread, GetExitCodeThread */
+#include <synchapi.h>          /* WaitForSingleObject, INFINITE */
+typedef HANDLE xxh_thread_t;
+typedef DWORD xxh_thread_rval_t;
+static int
+XXH_createThread(xxh_thread_t* thread, DWORD (__stdcall* func)(void*), void* data)
+{
+    *thread = CreateThread(NULL, 0, func, data, 0, NULL);
+    return *thread != NULL;
+}
+static int
+XXH_joinThread(xxh_thread_t thread)
+{
+    DWORD ok = !WaitForSingleObject(thread, INFINITE);
+    if (ok != 0) {
+        DWORD status = 0;
+        ok = GetExitCodeThread(thread, &status);
+        if (ok != 0) ok = (status == XXH_THREAD_OK);
+    }
+    CloseHandle(thread);
+    return ok != 0;
+}
+
+/*
+ * pthreads. For now, WebAssembly and asm.js threads are not supported, as emcc
+ * does not allow `pthread_join` on the main thread. Perhaps an alternate
+ * solution will be found.
+ */
+#elif defined(_REENTRANT) && !defined(__EMSCRIPTEN__) && !defined(__wasm__)
+#include <pthread.h> /* pthread_t, pthread_create, pthread_join */
+typedef pthread_t xxh_thread_t;
+typedef void* xxh_thread_rval_t;
+static int
+XXH_createThread(xxh_thread_t* thread, void* (*func)(void*), void* data)
+{
+    return pthread_create(thread, NULL, func, data) == 0;
+}
+static int
+XXH_joinThread(xxh_thread_t thread)
+{
+    void* status = NULL;
+    return pthread_join(thread, &status) == 0 && status == XXH_THREAD_OK;
+}
+#else
+/*
+ * TODO: C11/C++11 threads? Do any platforms efficiently support these without
+ * supporting Win32 threads or pthreads?
+ *
+ * Either way, we technically could do a scalar implementation but it is much
+ * slower than single threaded, so we warn (because 99% of the time it is just
+ * forgetting -pthread) and disable.
+ */
+#  warning "No compatible threading implementations for XXH3 found. \
+You may need to add `-pthread` or `-D_REENTRANT` to your compiler flags. \
+Note that WebAssembly and asm.js threads are not supported at this time."
+#  undef XXH_THREADS
+#endif /* not Windows or pthreads */
+#endif /* XXH_THREADS */
+
+#ifdef XXH_THREADS /* in case it was disabled above */
+/*
+ * A data block for our threads.
+ *
+ * XXX: Some of these fields could probably be removed.
+ */
+typedef struct {
+    xxh_u64 acc[XXH_ACC_NB];
+    const xxh_u8 *input;
+    const xxh_u8 *secret;
+    size_t secretSize;
+    size_t nbStripes;
+    size_t block_len;
+    size_t nb_blocks;
+    XXH3_f_accumulate_512 f_acc512;
+    XXH3_f_scrambleAcc f_scramble;
+} XXH3_threadData_t;
+
+/*
+ * The worker for our second thread. This is used for both Win32 and pthreads.
+ */
+XXH_NO_INLINE xxh_thread_rval_t
+#ifdef _WIN32
+__stdcall /* Windows threads are stdcall (a.k.a. WINAPI) */
+#endif
+XXH3_accumulate_worker(/* XXH3_threadData_t */ void* d)
+{
+    XXH3_threadData_t* data = (XXH3_threadData_t *)d;
+    size_t n;
+    /* TODO: DRY, this loop is copied multiple times. */
+    for (n = 0; n < data->nb_blocks; n++) {
+        XXH3_accumulate(data->acc, data->input + n*data->block_len, data->secret, data->nbStripes, data->f_acc512);
+        (data->f_scramble)(data->acc, data->secret + data->secretSize - XXH_STRIPE_LEN);
+    }
+    return XXH_THREAD_OK; /* pthread_exit implicitly called */
+}
+#endif /* XXH_THREADS */
+
 XXH_FORCE_INLINE void
 XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
                       const xxh_u8* XXH_RESTRICT input, size_t len,
@@ -3677,11 +3913,66 @@ XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
     size_t const block_len = XXH_STRIPE_LEN * nbStripesPerBlock;
     size_t const nb_blocks = (len - 1) / block_len;
 
-    size_t n;
+    size_t n = 0;
 
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
+#ifdef XXH_THREADS
+    if (len >= XXH_THREADS_THRESHOLD) {
+        /*
+         * Using malloc is faster for some reason...
+         */
+        XXH3_threadData_t *threadData = (XXH3_threadData_t*)XXH_alignedMalloc(sizeof(XXH3_threadData_t), 64);
+        /*
+         * If malloc succeeds, try to start a thread, otherwise fall back to
+         * the single threaded loop after the #endif.
+         */
+        if (threadData != NULL) {
+            xxh_thread_t thread;
+            int threadLaunched;
 
-    for (n = 0; n < nb_blocks; n++) {
+            /* Fill the struct and set it to process the second half. */
+            memset(threadData->acc, 0, sizeof(threadData->acc));
+            threadData->input = input + ((nb_blocks - (nb_blocks / 2)) * block_len);
+            threadData->secret = secret;
+            threadData->secretSize = secretSize;
+            threadData->nbStripes = nbStripesPerBlock;
+            threadData->nb_blocks = nb_blocks - (nb_blocks / 2);
+            threadData->f_acc512 = f_acc512;
+            threadData->f_scramble = f_scramble;
+
+            /*
+             * Launch the thread on the second half of the input.
+             *
+             * We don't care about whether it actually started until later.
+             */
+            threadLaunched = XXH_createThread(&thread, &XXH3_accumulate_worker, threadData);
+
+            /* Process the first half on the main thread */
+            for (; n < nb_blocks / 2; n++) {
+                XXH3_accumulate(acc, input + n*block_len, secret, nbStripesPerBlock, f_acc512);
+                f_scramble(acc, secret + secretSize - XXH_STRIPE_LEN);
+            }
+
+            /*
+             * If we have launched our thread, finish it, merge its acc with
+             " the main thread's acc and mark the section as completed.
+             * If it failed, we finish up after the #endif.
+             */
+            if (threadLaunched && XXH_joinThread(thread)) {
+                size_t i;
+                /* Merge the acc fragments */
+                for (i = 0; i < XXH_ACC_NB; i++) {
+                    /* associative property */
+                    acc[i] += threadData->acc[i];
+                }
+                /* Mark that the thread successfully processed the second half */
+                n += threadData->nb_blocks;
+            }
+            XXH_alignedFree(threadData);
+        }
+    }
+#endif /* XXH_THREADS */
+    for (; n < nb_blocks; n++) {
         XXH3_accumulate(acc, input + n*block_len, secret, nbStripesPerBlock, f_acc512);
         f_scramble(acc, secret + secretSize - XXH_STRIPE_LEN);
     }
@@ -3871,71 +4162,6 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
 
 /* ===   XXH3 streaming   === */
 
-/*
- * Malloc's a pointer that is always aligned to align.
- *
- * This must be freed with `XXH_alignedFree()`.
- *
- * malloc typically guarantees 16 byte alignment on 64-bit systems and 8 byte
- * alignment on 32-bit. This isn't enough for the 32 byte aligned loads in AVX2
- * or on 32-bit, the 16 byte aligned loads in SSE2 and NEON.
- *
- * This underalignment previously caused a rather obvious crash which went
- * completely unnoticed due to XXH3_createState() not actually being tested.
- * Credit to RedSpah for noticing this bug.
- *
- * The alignment is done manually: Functions like posix_memalign or _mm_malloc
- * are avoided: To maintain portability, we would have to write a fallback
- * like this anyways, and besides, testing for the existence of library
- * functions without relying on external build tools is impossible.
- *
- * The method is simple: Overallocate, manually align, and store the offset
- * to the original behind the returned pointer.
- *
- * Align must be a power of 2 and 8 <= align <= 128.
- */
-static void* XXH_alignedMalloc(size_t s, size_t align)
-{
-    XXH_ASSERT(align <= 128 && align >= 8); /* range check */
-    XXH_ASSERT((align & (align-1)) == 0);   /* power of 2 */
-    XXH_ASSERT(s != 0 && s < (s + align));  /* empty/overflow */
-    {   /* Overallocate to make room for manual realignment and an offset byte */
-        xxh_u8* base = (xxh_u8*)XXH_malloc(s + align);
-        if (base != NULL) {
-            /*
-             * Get the offset needed to align this pointer.
-             *
-             * Even if the returned pointer is aligned, there will always be
-             * at least one byte to store the offset to the original pointer.
-             */
-            size_t offset = align - ((size_t)base & (align - 1)); /* base % align */
-            /* Add the offset for the now-aligned pointer */
-            xxh_u8* ptr = base + offset;
-
-            XXH_ASSERT((size_t)ptr % align == 0);
-
-            /* Store the offset immediately before the returned pointer. */
-            ptr[-1] = (xxh_u8)offset;
-            return ptr;
-        }
-        return NULL;
-    }
-}
-/*
- * Frees an aligned pointer allocated by XXH_alignedMalloc(). Don't pass
- * normal malloc'd pointers, XXH_alignedMalloc has a specific data layout.
- */
-static void XXH_alignedFree(void* p)
-{
-    if (p != NULL) {
-        xxh_u8* ptr = (xxh_u8*)p;
-        /* Get the offset byte we added in XXH_malloc. */
-        xxh_u8 offset = ptr[-1];
-        /* Free the original malloc'd pointer */
-        xxh_u8* base = ptr - offset;
-        XXH_free(base);
-    }
-}
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {
     XXH3_state_t* const state = (XXH3_state_t*)XXH_alignedMalloc(sizeof(XXH3_state_t), 64);

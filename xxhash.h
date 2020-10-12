@@ -3766,15 +3766,17 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
  *     3. When we are done, we check if the thread spawned successfully.
  *       - If it succeeded, we merge the accs and mark the second half as done.
  *       - If it failed, we just let the main thread process the second half.
- *         This followas the same path that it would if the length did not meet
+ *         This follows the same path that it would if the length did not meet
  *         the threshold.
  *    However, if we add more threads, we have to track *which* section we
  *    processed which is not as simple.
  *  - The "performance formula" is basically this:
- *        benefit = ((R * L) / T) - (C * (T - 1)); T >= 1.
- *    where T is the number of threads, C is the constant cost of setting up a
- *    thread, R is the constant time it takes to process a length of input, and
- *    L is the length of the input.
+ *        benefit = ((R * L) / T) - (C * (T - 1))
+ *    where:
+ *      - R is the constant time it takes to process a length of input
+ *      - L is the length of the input.
+ *      - T is the number of threads, and is greater than zero
+ *      - C is the constant cost of setting up a thread
  *    XXH3 is very fast, so R is a very small number.
  *    Threading is only beneficial if (C * (T - 1)) < ((R * L) / T). Increasing
  *    T makes the point where ((R * L) / T) intersects with (C * (T - 1))

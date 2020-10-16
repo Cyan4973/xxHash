@@ -270,11 +270,12 @@ extern "C" {
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
 
 /*!
- * @brief Obtains the xxHash version that was compiles.
+ * @brief Obtains the xxHash version.
  *
- * This is only uaeful when xxHash is compiled as a shared library.
+ * This is only useful when xxHash is compiled as a shared library, as it is
+ * independent of the version defined in the header.
  *
- * @return `XXH_VERSION_NUMBER` as of when it was compiled.
+ * @return `XXH_VERSION_NUMBER` as of when the function was compiled.
  */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
@@ -337,8 +338,8 @@ typedef uint32_t XXH32_hash_t;
  *
  * Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark): 5.4 GB/s
  *
- * @param input The block of data to be hashed, at least @p length bytes in size
- * @param length The length of @p input in bytes
+ * @param input The block of data to be hashed, at least @p length bytes in size.
+ * @param length The length of @p input, in bytes.
  * @param seed The 32-bit seed to alter the hash's output predictably.
  *
  * @pre
@@ -346,11 +347,11 @@ typedef uint32_t XXH32_hash_t;
  *   readable, contiguous memory. However, if @p length is `0`, @p input may be
  *   `NULL`. In C++, this also must be *TriviallyCopyable*.
  *
- * @return The calculated 32-bit hash
+ * @return The calculated 32-bit hash value.
  *
  * @see
  *    XXH64(), XXH3_64bits_withSeed(), XXH3_128bits_withSeed(), XXH128():
- *    Direct equivalents for the other variants of xxHash
+ *    Direct equivalents for the other variants of xxHash.
  * @see
  *    XXH32_createState(), XXH32_update(), XXH32_digest(): Streaming version.
  */
@@ -404,9 +405,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, XXH32_hash_
  *        return hash;
  *    }
  * @endcode
- *
  */
-
 
 /*!
  * @typedef struct XXH32_state_s XXH32_state_t
@@ -434,8 +433,8 @@ XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
 /*!
  * @brief Copies one @ref XXH32_state_t to another.
  *
- * @param dst_state The state to copy to
- * @param src_state The state to copy from
+ * @param dst_state The state to copy to.
+ * @param src_state The state to copy from.
  * @pre
  *   @p dst_state and @p src_state must not be `NULL` and must not overlap.
  */
@@ -452,7 +451,7 @@ XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dst_state, const XXH32_state_
  * @pre
  *   @p statePtr must not be `NULL`.
  *
- * @return @ref XXH_OK on success, @ref XXH_ERROR on failure
+ * @return @ref XXH_OK on success, @ref XXH_ERROR on failure.
  */
 XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, XXH32_hash_t seed);
 
@@ -462,8 +461,8 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, XXH32_hash_t
  * Call this to incrementally consume blocks of data.
  *
  * @param statePtr The state struct to update.
- * @param input The block of data to be hashed, at least @p length bytes in size
- * @param length The length of @p input in bytes
+ * @param input The block of data to be hashed, at least @p length bytes in size.
+ * @param length The length of @p input, in bytes.
  *
  * @pre
  *   @p statePtr must not be `NULL`.
@@ -523,7 +522,7 @@ typedef struct {
 /*!
  * @brief Converts an @ref XXH32_hash_t to a big endian @ref XXH32_canonical_t.
  *
- * @param dst The @ref XXH32_canonical_t pointer to be stored to
+ * @param dst The @ref XXH32_canonical_t pointer to be stored to.
  * @param hash The @ref XXH32_hash_t to be converted.
  *
  * @pre
@@ -611,7 +610,7 @@ typedef uint64_t XXH64_hash_t;
  *
  * @see
  *    XXH32(), XXH3_64bits_withSeed(), XXH3_128bits_withSeed(), XXH128():
- *    Direct equivalents for the other variants of xxHash
+ *    Direct equivalents for the other variants of xxHash.
  * @see
  *    XXH64_createState(), XXH64_update(), XXH64_digest(): Streaming version.
  */

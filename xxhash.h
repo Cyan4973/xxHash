@@ -962,7 +962,7 @@ struct XXH64_state_s {
  *
  * @note **This structure has a strict alignment requirement of 64 bytes.** Do
  * not allocate this with `malloc()` or `new`, it will not be sufficiently
- * aligned. Use @ref XXH3_createState(), @ref XXH3_freeState, or stack
+ * aligned. Use @ref XXH3_createState() and @ref XXH3_freeState(), or stack
  * allocation.
  *
  * Typedef'd to @ref XXH3_state_t.
@@ -1241,6 +1241,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
 #  define XXH_REROLL 0
 
 /*!
+ * @internal
  * @brief Redefines old internal names.
  *
  * For compatibility with code that uses xxHash's internals before the names
@@ -1301,17 +1302,30 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
-/*!
+/*
  * Modify the local functions below should you wish to use
  * different memory routines for malloc() and free()
  */
 #include <stdlib.h>
 
+/*!
+ * @internal
+ * @brief Modify this function to use a different routine than malloc().
+ */
 static void* XXH_malloc(size_t s) { return malloc(s); }
+
+/*!
+ * @internal
+ * @brief Modify this function to use a different routine than free().
+ */
 static void XXH_free(void* p) { free(p); }
 
-/*! and for memcpy() */
 #include <string.h>
+
+/*!
+ * @internal
+ * @brief Modify this function to use a different routine than memcpy().
+ */
 static void* XXH_memcpy(void* dest, const void* src, size_t size)
 {
     return memcpy(dest,src,size);
@@ -1403,6 +1417,56 @@ typedef XXH32_hash_t xxh_u32;
 
 /* ***   Memory access   *** */
 
+/*!
+ * @internal
+ * @fn xxh_u32 XXH_read32(const void* ptr)
+ * @brief Reads an unaligned 32-bit integer from @p ptr in native endianness.
+ *
+ * Affected by @ref XXH_FORCE_MEMORY_ACCESS.
+ *
+ * @param ptr The pointer to read from.
+ * @return The 32-bit native endian integer from the bytes at @p ptr.
+ */
+
+/*!
+ * @internal
+ * @fn xxh_u32 XXH_readLE32(const void* ptr)
+ * @brief Reads an unaligned 32-bit little endian integer from @p ptr.
+ *
+ * Affected by @ref XXH_FORCE_MEMORY_ACCESS.
+ *
+ * @param ptr The pointer to read from.
+ * @return The 32-bit little endian integer from the bytes at @p ptr.
+ */
+
+/*!
+ * @internal
+ * @fn xxh_u32 XXH_readBE32(const void* ptr)
+ * @brief Reads an unaligned 32-bit big endian integer from @p ptr.
+ *
+ * Affected by @ref XXH_FORCE_MEMORY_ACCESS.
+ *
+ * @param ptr The pointer to read from.
+ * @return The 32-bit big endian integer from the bytes at @p ptr.
+ */
+
+/*!
+ * @internal
+ * @fn xxh_u32 XXH_readLE32_align(const void* ptr, XXH_alignment align)
+ * @brief Like @ref XXH_readLE32(), but has an option for aligned reads.
+ *
+ * Affected by @ref XXH_FORCE_MEMORY_ACCESS.
+ * Note that when @ref XXH_FORCE_ALIGN_CHECK == 0, the @p align parameter is
+ * always @ref XXH_alignment::XXH_unaligned.
+ *
+ * @param ptr The pointer to read from.
+ * @param align Whether @p ptr is aligned.
+ * @pre
+ *   If @p align == @ref XXH_alignment::XXH_aligned, @p ptr must be 4 byte
+ *   aligned.
+ * @return The 32-bit little endian integer from the bytes at @p ptr.
+ */
+
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
 /*
  * Manual byteshift. Best for old compilers which don't inline memcpy.
@@ -1453,12 +1517,20 @@ static xxh_u32 XXH_read32(const void* memPtr)
 typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /*!
- * XXH_CPU_LITTLE_ENDIAN:
+ * @ingroup tuning
+ * @def XXH_CPU_LITTLE_ENDIAN
+ * @brief Whether the target is little endian.
+ *
  * Defined to 1 if the target is little endian, or 0 if it is big endian.
  * It can be defined externally, for example on the compiler command line.
  *
  * If it is not defined, a runtime check (which is usually constant folded)
  * is used instead.
+ *
+ * @note
+ *   This is not necessarily defined to an integer constant.
+ *
+ * @see XXH_isLittleEndian() for the runtime check.
  */
 #ifndef XXH_CPU_LITTLE_ENDIAN
 /*
@@ -1473,8 +1545,11 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
      || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 #    define XXH_CPU_LITTLE_ENDIAN 0
 #  else
-/*
- * runtime test, presumed to simplify to a constant by compiler
+/*!
+ * @internal
+ * @brief Runtime check for @ref XXH_CPU_LITTLE_ENDIAN.
+ *
+ * Most compilers will constant fold this.
  */
 static int XXH_isLittleEndian(void)
 {
@@ -1503,6 +1578,19 @@ static int XXH_isLittleEndian(void)
 #  define XXH_HAS_BUILTIN(x) 0
 #endif
 
+/*!
+ * @internal
+ * @def XXH_rotl32(x,r)
+ * @brief 32-bit rotate left.
+ *
+ * @param x The 32-bit integer to be rotated.
+ * @param r The number of bits to rotate.
+ * @pre
+ *   @p r > 0 && @p r < 32
+ * @note
+ *   @p x and @p r may be evaluated multiple times.
+ * @return The rotated result.
+ */
 #if !defined(NO_CLANG_BUILTIN) && XXH_HAS_BUILTIN(__builtin_rotateleft32) \
                                && XXH_HAS_BUILTIN(__builtin_rotateleft64)
 #  define XXH_rotl32 __builtin_rotateleft32
@@ -1516,6 +1604,14 @@ static int XXH_isLittleEndian(void)
 #  define XXH_rotl64(x,r) (((x) << (r)) | ((x) >> (64 - (r))))
 #endif
 
+/*!
+ * @internal
+ * @fn xxh_u32 XXH_swap32(xxh_u32 x)
+ * @brief A 32-bit byteswap.
+ *
+ * @param x The 32-bit integer to byteswap.
+ * @return @p x, byteswapped.
+ */
 #if defined(_MSC_VER)     /* Visual Studio */
 #  define XXH_swap32 _byteswap_ulong
 #elif XXH_GCC_VERSION >= 403
@@ -1534,7 +1630,15 @@ static xxh_u32 XXH_swap32 (xxh_u32 x)
 /* ***************************
 *  Memory reads
 *****************************/
-typedef enum { XXH_aligned, XXH_unaligned } XXH_alignment;
+
+/*!
+ * @internal
+ * @brief Enum to indicate whether a pointer is aligned.
+ */
+typedef enum {
+    XXH_aligned,  /*!< Aligned */
+    XXH_unaligned /*!< Possibly unaligned */
+} XXH_alignment;
 
 /*
  * XXH_FORCE_MEMORY_ACCESS==3 is an endian-independent byteshift load.
@@ -1600,11 +1704,11 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
  * @ingroup impl
  * @{
  */
-static const xxh_u32 XXH_PRIME32_1 = 0x9E3779B1U;   /* 0b10011110001101110111100110110001 */
-static const xxh_u32 XXH_PRIME32_2 = 0x85EBCA77U;   /* 0b10000101111010111100101001110111 */
-static const xxh_u32 XXH_PRIME32_3 = 0xC2B2AE3DU;   /* 0b11000010101100101010111000111101 */
-static const xxh_u32 XXH_PRIME32_4 = 0x27D4EB2FU;   /* 0b00100111110101001110101100101111 */
-static const xxh_u32 XXH_PRIME32_5 = 0x165667B1U;   /* 0b00010110010101100110011110110001 */
+static const xxh_u32 XXH_PRIME32_1 = 0x9E3779B1U;   /*!< 0b10011110001101110111100110110001 */
+static const xxh_u32 XXH_PRIME32_2 = 0x85EBCA77U;   /*!< 0b10000101111010111100101001110111 */
+static const xxh_u32 XXH_PRIME32_3 = 0xC2B2AE3DU;   /*!< 0b11000010101100101010111000111101 */
+static const xxh_u32 XXH_PRIME32_4 = 0x27D4EB2FU;   /*!< 0b00100111110101001110101100101111 */
+static const xxh_u32 XXH_PRIME32_5 = 0x165667B1U;   /*!< 0b00010110010101100110011110110001 */
 
 #ifdef XXH_OLD_NAMES
 #  define PRIME32_1 XXH_PRIME32_1
@@ -1614,6 +1718,17 @@ static const xxh_u32 XXH_PRIME32_5 = 0x165667B1U;   /* 0b00010110010101100110011
 #  define PRIME32_5 XXH_PRIME32_5
 #endif
 
+/*!
+ * @internal
+ * @brief Normal stripe processing routine.
+ *
+ * This shuffles the bits so that any bit from @p input impacts several bits in
+ * @p acc.
+ *
+ * @param acc The accumulator lane.
+ * @param input The stripe of input to mix.
+ * @return The mixed accumulator lane.
+ */
 static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
 {
     acc += input * XXH_PRIME32_2;
@@ -1670,7 +1785,16 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
     return acc;
 }
 
-/* mix all bits */
+/*!
+ * @internal
+ * @brief Mixes all bits to finalize the hash.
+ *
+ * The final mix ensures that all input bits have a chance to impact any bit in
+ * the output digest, resulting in an unbiased distribution.
+ *
+ * @param h32 The hash to avalanche.
+ * @return The avalanched hash.
+ */
 static xxh_u32 XXH32_avalanche(xxh_u32 h32)
 {
     h32 ^= h32 >> 15;
@@ -1683,6 +1807,20 @@ static xxh_u32 XXH32_avalanche(xxh_u32 h32)
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
+/*!
+ * @internal
+ * @brief Processes the last 0-15 bytes of @p ptr.
+ *
+ * There may be up to 15 bytes remaining to consume from the input.
+ * This final stage will digest them to ensure that all input bytes are present
+ * in the final mix.
+ *
+ * @param h32 The hash to finalize.
+ * @param ptr The pointer to the remaining input.
+ * @param len The remaining length, modulo 16.
+ * @param align Whether @p ptr is aligned.
+ * @return The finalized hash.
+ */
 static xxh_u32
 XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
@@ -1762,6 +1900,14 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 #  undef XXH_PROCESS4
 #endif
 
+/*!
+ * @internal
+ * @brief The implementation for @ref XXH32().
+ *
+ * @param input, len, seed Directly passed from @ref XXH32().
+ * @param align Whether @p input is aligned.
+ * @return The calculated hash.
+ */
 XXH_FORCE_INLINE xxh_u32
 XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment align)
 {
@@ -1800,9 +1946,7 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
     return XXH32_finalize(h32, input, len&15, align);
 }
 
-/*!
- * @ingroup xxh32_family
- */
+/*! @ingroup xxh32_family */
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)
 {
 #if 0

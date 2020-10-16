@@ -328,7 +328,7 @@ typedef uint32_t XXH32_hash_t;
  *   systems, and offers true 64/128 bit hash results. It provides a superior
  *   level of dispersion, and greatly reduces the risks of collisions.
  *
- * @see @ref xxh64_family, @ref xxh3_family: Other xxHash families
+ * @see @ref xxh64_family, @ref xxh3_family : Other xxHash families
  * @see @ref xxh32_impl for implementation details
  * @{
  */
@@ -2671,6 +2671,12 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 *  XXH3
 *  New generation hash designed for speed on small keys and vectorization
 ************************************************************************ */
+/*!
+ * @}
+ * @defgroup xxh3_impl XXH3 implementation
+ * @ingroup impl
+ * @{
+ */
 
 /* ===   Compiler specifics   === */
 

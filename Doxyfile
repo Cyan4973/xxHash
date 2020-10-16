@@ -24,6 +24,7 @@ FILE_PATTERNS          = xxhash.h
 # Note: xxHash's source files are technically ASCII only.
 INPUT_ENCODING         = UTF-8
 TAB_SIZE               = 4
+MARKDOWN_SUPPORT       = YES
 
 # xxHash is a C library
 OPTIMIZE_OUTPUT_FOR_C  = YES
@@ -52,3 +53,6 @@ HTML_FILE_EXTENSION    = .html
 HTML_COLORSTYLE_HUE    = 220
 HTML_COLORSTYLE_GAMMA  = 100
 HTML_COLORSTYLE_SAT    = 100
+
+# We don't want LaTeX.
+GENERATE_LATEX         = NO

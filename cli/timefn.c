@@ -36,7 +36,7 @@ PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
         }
         init = 1;
     }
-    return 1000000ULL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart;
+    return (Ptime)(1000000LL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart);
 }
 
 PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
@@ -50,7 +50,7 @@ PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
         }
         init = 1;
     }
-    return 1000000000ULL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart;
+    return (PTime)(1000000000LL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart);
 }
 
 

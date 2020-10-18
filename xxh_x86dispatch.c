@@ -33,34 +33,131 @@
  */
 
 
+/*!
+ * @file xxh_x86dispatch.c
+ *
+ * Automatic dispatcher code for the @ref xxh3_family on x86-based targets.
+ *
+ * Optional add-on.
+ *
+ * @defgroup dispatch x86 Dispatcher
+ * @{
+ */
+
 #if defined (__cplusplus)
 extern "C" {
 #endif
 
-/*
- * Dispatcher code for XXH3 on x86-based targets.
- */
 #if !(defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
 #  error "Dispatching is currently only supported on x86 and x86_64."
 #endif
 
+#ifdef __has_include
+#  define XXH_HAS_INCLUDE(header) __has_include(header)
+#else
+#  define XXH_HAS_INCLUDE(header) 0
+#endif
+
+/*!
+ * @def XXH_DISPATCH_SCALAR
+ * @brief Enables/dispatching the scalar code path.
+ *
+ * If this is defined to 0, SSE2 support is assumed. This reduces code size
+ * when the scalar path is not needed.
+ *
+ * This is automatically defined to 0 when...
+ *   - SSE2 support is enabled in the compiler
+ *   - Targeting x86_64
+ *   - Targeting Android x86
+ *   - Targeting macOS
+ */
+#ifndef XXH_DISPATCH_SCALAR
+#  if defined(__SSE2__) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2) /* SSE2 on by default */ \
+     || defined(__x86_64__) || defined(_M_X64) /* x86_64 */ \
+     || defined(__ANDROID__) || defined(__APPLEv__) /* Android or macOS */
+#     define XXH_DISPATCH_SCALAR 0 /* disable */
+#  else
+#     define XXH_DISPATCH_SCALAR 1
+#  endif
+#endif
+/*!
+ * @def XXH_DISPATCH_AVX2
+ * @brief Enables/disables dispatching for AVX2.
+ *
+ * This is automatically detected if it is not defined.
+ *  - GCC 4.7 and later are known to support AVX2.
+ *  - Visual Studio 2013 Update 2 and later are known to support AVX2.
+ *  - The GCC/Clang internal header `<avx2intrin.h>` is detected. While this is
+ *    not allowed to be included directly, it still appears in the builtin
+ *    include path and is detectable with `__has_include`.
+ *
+ * @see XXH_AVX2
+ */
+#ifndef XXH_DISPATCH_AVX2
+#  if (defined(__GNUC__) \
+       && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) /* GCC 4.7+ */ \
+   || (defined(_MSC_VER) && _MSC_VER >= 1900) /* VS 2015+ */ \
+   || (defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 180030501) /* VS 2013 Update 2 */ \
+   || XXH_HAS_INCLUDE(<avx2intrin.h>) /* GCC/Clang internal header */
+#    define XXH_DISPATCH_AVX2 1   /* enable dispatch towards AVX2 */
+#  else
+#    define XXH_DISPATCH_AVX2 0
+#  endif
+#endif /* XXH_DISPATCH_AVX2 */
+
+/*!
+ * @def XXH_DISPATCH_AVX512
+ * @brief Enables/disables dispatching for AVX512.
+ *
+ * Automatically detected if one of the following conditions is met:
+ *  - GCC 4.9 and later are known to support AVX512.
+ *  - Visual Studio 2017  and later are known to support AVX2.
+ *  - The GCC/Clang internal header `<avx512fintrin.h>` is detected. While this
+ *    is not allowed to be included directly, it still appears in the builtin
+ *    include path and is detectable with `__has_include`.
+ *
+ * @see XXH_AVX512
+ */
+#ifndef XXH_DISPATCH_AVX512
+#  if (defined(__GNUC__) \
+       && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9))) /* GCC 4.9+ */ \
+   || (defined(_MSC_VER) && _MSC_VER >= 1910) /* VS 2017+ */ \
+   || XXH_HAS_INCLUDE(<avx512fintrin.h>) /* GCC/Clang internal header */
+#    define XXH_DISPATCH_AVX512 1   /* enable dispatch towards AVX512 */
+#  else
+#    define XXH_DISPATCH_AVX512 0
+#  endif
+#endif /* XXH_DISPATCH_AVX512 */
+
+/*!
+ * @def XXH_TARGET_SSE2
+ * @brief Allows a function to be compiled with SSE2 intrinsics.
+ *
+ * Uses `__attribute__((__target__("sse2")))` on GCC to allow SSE2 to be used
+ * even with `-mno-sse2`.
+ *
+ * @def XXH_TARGET_AVX2
+ * @brief Like @ref XXH_TARGET_SSE2, but for AVX2.
+ *
+ * @def XXH_TARGET_AVX512
+ * @brief Like @ref XXH_TARGET_SSE2, but for AVX512.
+ */
 #if defined(__GNUC__)
-#  include <immintrin.h> /* sse2 */
-#  include <emmintrin.h> /* avx2 */
-#  define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
-#  define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
+#  include <emmintrin.h> /* SSE2 */
+#  if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512
+#    include <immintrin.h> /* AVX2, AVX512F */
+#  endif
 #  define XXH_TARGET_SSE2 __attribute__((__target__("sse2")))
+#  define XXH_TARGET_AVX2 __attribute__((__target__("avx2")))
+#  define XXH_TARGET_AVX512 __attribute__((__target__("avx512f")))
 #elif defined(_MSC_VER)
 #  include <intrin.h>
-#  define XXH_TARGET_AVX512
-#  define XXH_TARGET_AVX2
 #  define XXH_TARGET_SSE2
+#  define XXH_TARGET_AVX2
+#  define XXH_TARGET_AVX512
 #else
 #  error "Dispatching is currently not supported for your compiler."
 #endif
-
-#define XXH_DISPATCH_AVX2    /* enable dispatch towards AVX2 */
-#define XXH_DISPATCH_AVX512  /* enable dispatch towards AVX512 */
 
 #ifdef XXH_DISPATCH_DEBUG
 /* debug logging */
@@ -95,6 +192,13 @@ extern "C" {
 #  define I_ATT(intel, att) "{" att "|" intel "}\n\t"
 #endif
 
+/*!
+ * @internal
+ * @brief Runs CPUID.
+ *
+ * @param eax, ecx The parameters to pass to CPUID, %eax and %ecx respectively.
+ * @param abcd The array to store the result in, `{ eax, ebx, ecx, edx }`
+ */
 static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
 {
 #if defined(_MSC_VER)
@@ -131,7 +235,10 @@ static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
  */
 
 #if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
-/*
+/*!
+ * @internal
+ * @brief Runs `XGETBV`.
+ *
  * While the CPU may support AVX2, the operating system might not properly save
  * the full YMM/ZMM registers.
  *
@@ -170,15 +277,24 @@ static xxh_u64 XXH_xgetbv(void)
 #define AVX512F_CPUID_MASK (1 << 16)
 #define AVX512F_XGETBV_MASK ((7 << 5) | (1 << 2) | (1 << 1))
 
-/* Returns the best XXH3 implementation */
+/*!
+ * @internal
+ * @brief Returns the best XXH3 implementation.
+ *
+ * Runs various CPUID/XGETBV tests to try and determine the best implementation.
+ *
+ * @ret The best @ref XXH_VECTOR implementation.
+ * @see XXH_VECTOR_TYPES
+ */
 static int XXH_featureTest(void)
 {
     xxh_u32 abcd[4];
     xxh_u32 max_leaves;
     int best = XXH_SCALAR;
-#if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
+#if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512
     xxh_u64 xgetbv_val;
 #endif
+#if XXH_DISPATCH_SCALAR
 #if defined(__GNUC__) && defined(__i386__)
     xxh_u32 cpuid_supported;
     __asm__(
@@ -239,9 +355,10 @@ static int XXH_featureTest(void)
         return best;
 
     XXH_debugPrint("SSE2 support detected.");
+#endif /* XXH_DISPATCH_SCALAR */
 
     best = XXH_SSE2;
-#if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
+#if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512
     /* Make sure we have enough leaves */
     if (XXH_unlikely(max_leaves < 7))
         return best;
@@ -254,7 +371,7 @@ static int XXH_featureTest(void)
     XXH_cpuid(7, 0, abcd);
 
     xgetbv_val = XXH_xgetbv();
-#if defined(XXH_DISPATCH_AVX2)
+#if XXH_DISPATCH_AVX2
     /* Validate that AVX2 is supported by the CPU */
     if ((abcd[1] & AVX2_CPUID_MASK) != AVX2_CPUID_MASK)
         return best;
@@ -269,7 +386,7 @@ static int XXH_featureTest(void)
     XXH_debugPrint("AVX2 support detected.");
     best = XXH_AVX2;
 #endif
-#if defined(XXH_DISPATCH_AVX512)
+#if XXH_DISPATCH_AVX512
     /* Check if AVX512F is supported by the CPU */
     if ((abcd[1] & AVX512F_CPUID_MASK) != AVX512F_CPUID_MASK) {
         XXH_debugPrint("AVX512F not supported by CPU");
@@ -293,269 +410,117 @@ static int XXH_featureTest(void)
 
 /* ===   Vector implementations   === */
 
-/* ===   XXH3, default variants   === */
-
-XXH_NO_INLINE XXH64_hash_t
-XXHL64_default_scalar(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
+/*!
+ * @internal
+ * @brief Defines the various dispatch functions.
+ *
+ * TODO: Consolidate?
+ *
+ * @param suffix The suffix for the functions, e.g. sse2 or scalar
+ * @param target XXH_TARGET_* or empty.
+ */
+#define XXH_DEFINE_DISPATCH_FUNCS(suffix, target)                             \
+                                                                              \
+/* ===   XXH3, default variants   === */                                      \
+                                                                              \
+XXH_NO_INLINE target XXH64_hash_t                                             \
+XXHL64_default_##suffix(const void* XXH_RESTRICT input, size_t len)           \
+{                                                                             \
+    return XXH3_hashLong_64b_internal(                                        \
+               input, len, XXH3_kSecret, sizeof(XXH3_kSecret),                \
+               XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix        \
+    );                                                                        \
+}                                                                             \
+                                                                              \
+/* ===   XXH3, Seeded variants   === */                                       \
+                                                                              \
+XXH_NO_INLINE target XXH64_hash_t                                             \
+XXHL64_seed_##suffix(const void* XXH_RESTRICT input, size_t len,              \
+                     XXH64_hash_t seed)                                       \
+{                                                                             \
+    return XXH3_hashLong_64b_withSeed_internal(                               \
+                    input, len, seed, XXH3_accumulate_512_##suffix,           \
+                    XXH3_scrambleAcc_##suffix, XXH3_initCustomSecret_##suffix \
+    );                                                                        \
+}                                                                             \
+                                                                              \
+/* ===   XXH3, Secret variants   === */                                       \
+                                                                              \
+XXH_NO_INLINE target XXH64_hash_t                                             \
+XXHL64_secret_##suffix(const void* XXH_RESTRICT input, size_t len,            \
+                       const void* secret, size_t secretLen)                  \
+{                                                                             \
+    return XXH3_hashLong_64b_internal(                                        \
+                    input, len, secret, secretLen,                            \
+                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix   \
+    );                                                                        \
+}                                                                             \
+                                                                              \
+/* ===   XXH3 update variants   === */                                        \
+                                                                              \
+XXH_NO_INLINE target XXH_errorcode                                            \
+XXH3_64bits_update_##suffix(XXH3_state_t* state, const void* input,           \
+                            size_t len)                                       \
+{                                                                             \
+    return XXH3_update(state, (const xxh_u8*)input, len,                      \
+                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
+}                                                                             \
+                                                                              \
+/* ===   XXH128 default variants   === */                                     \
+                                                                              \
+XXH_NO_INLINE target XXH128_hash_t                                            \
+XXHL128_default_##suffix(const void* XXH_RESTRICT input, size_t len)          \
+{                                                                             \
+    return XXH3_hashLong_128b_internal(                                       \
+                    input, len, XXH3_kSecret, sizeof(XXH3_kSecret),           \
+                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix   \
+    );                                                                        \
+}                                                                             \
+                                                                              \
+/* ===   XXH128 Secret variants   === */                                      \
+                                                                              \
+XXH_NO_INLINE target XXH128_hash_t                                            \
+XXHL128_secret_##suffix(const void* XXH_RESTRICT input, size_t len,           \
+                        const void* XXH_RESTRICT secret, size_t secretLen)    \
+{                                                                             \
+    return XXH3_hashLong_128b_internal(                                       \
+                    input, len, (const xxh_u8*)secret, secretLen,             \
+                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
+}                                                                             \
+                                                                              \
+/* ===   XXH128 Seeded variants   === */                                      \
+                                                                              \
+XXH_NO_INLINE target XXH128_hash_t                                            \
+XXHL128_seed_##suffix(const void* XXH_RESTRICT input, size_t len,             \
+                      XXH64_hash_t seed)                                      \
+{                                                                             \
+    return XXH3_hashLong_128b_withSeed_internal(input, len, seed,             \
+                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix,  \
+                    XXH3_initCustomSecret_##suffix);                          \
+}                                                                             \
+                                                                              \
+/* ===   XXH128 update variants   === */                                      \
+                                                                              \
+XXH_NO_INLINE target XXH_errorcode                                            \
+XXH3_128bits_update_##suffix(XXH3_state_t* state, const void* input,          \
+                             size_t len)                                      \
+{                                                                             \
+    return XXH3_update(state, (const xxh_u8*)input, len,                      \
+                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
 }
+/* End XXH_DEFINE_DISPATCH_FUNCS */
 
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH64_hash_t
-XXHL64_default_sse2(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH64_hash_t
-XXHL64_default_avx2(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
-}
+#if XXH_DISPATCH_SCALAR
+XXH_DEFINE_DISPATCH_FUNCS(scalar, /* nothing */)
 #endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH64_hash_t
-XXHL64_default_avx512(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_64b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
-}
+XXH_DEFINE_DISPATCH_FUNCS(sse2, XXH_TARGET_SSE2)
+#if XXH_DISPATCH_AVX2
+XXH_DEFINE_DISPATCH_FUNCS(avx2, XXH_TARGET_AVX2)
 #endif
-
-/* ===   XXH3, Seeded variants   === */
-
-XXH_NO_INLINE XXH64_hash_t
-XXHL64_seed_scalar(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar, XXH3_initCustomSecret_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH64_hash_t
-XXHL64_seed_sse2(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2, XXH3_initCustomSecret_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH64_hash_t
-XXHL64_seed_avx2(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2, XXH3_initCustomSecret_avx2);
-}
+#if XXH_DISPATCH_AVX512
+XXH_DEFINE_DISPATCH_FUNCS(avx512, XXH_TARGET_AVX512)
 #endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH64_hash_t
-XXHL64_seed_avx512(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_64b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512, XXH3_initCustomSecret_avx512);
-}
-#endif
-
-/* ===   XXH3, Secret variants   === */
-
-XXH_NO_INLINE XXH64_hash_t
-XXHL64_secret_scalar(const void* XXH_RESTRICT input, size_t len, const void* secret, size_t secretLen)
-{
-    return XXH3_hashLong_64b_internal(input, len, secret, secretLen,
-                    XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH64_hash_t
-XXHL64_secret_sse2(const void* XXH_RESTRICT input, size_t len, const void* secret, size_t secretLen)
-{
-    return XXH3_hashLong_64b_internal(input, len, secret, secretLen,
-                    XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH64_hash_t
-XXHL64_secret_avx2(const void* XXH_RESTRICT input, size_t len, const void* secret, size_t secretLen)
-{
-    return XXH3_hashLong_64b_internal(input, len, secret, secretLen,
-                    XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
-}
-#endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH64_hash_t
-XXHL64_secret_avx512(const void* XXH_RESTRICT input, size_t len, const void* secret, size_t secretLen)
-{
-    return XXH3_hashLong_64b_internal(input, len, secret, secretLen,
-                    XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
-}
-#endif
-
-/* ===   XXH3 update variants   === */
-
-XXH_NO_INLINE XXH_errorcode
-XXH3_64bits_update_scalar(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH_errorcode
-XXH3_64bits_update_sse2(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH_errorcode
-XXH3_64bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
-}
-#endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
-XXH3_64bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
-}
-#endif
-
-/* ===   XXH128 default variants   === */
-
-XXH_NO_INLINE XXH128_hash_t
-XXHL128_default_scalar(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_128b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH128_hash_t
-XXHL128_default_sse2(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_128b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH128_hash_t
-XXHL128_default_avx2(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_128b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
-}
-#endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH128_hash_t
-XXHL128_default_avx512(const void* XXH_RESTRICT input, size_t len)
-{
-    return XXH3_hashLong_128b_internal(input, len, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
-}
-#endif
-
-/* ===   XXH128 Secret variants   === */
-
-XXH_NO_INLINE XXH128_hash_t
-XXHL128_secret_scalar(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
-{
-    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
-                    XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH128_hash_t
-XXHL128_secret_sse2(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
-{
-    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
-                    XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH128_hash_t
-XXHL128_secret_avx2(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
-{
-    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
-                    XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
-}
-#endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH128_hash_t
-XXHL128_secret_avx512(const void* XXH_RESTRICT input, size_t len, const void* XXH_RESTRICT secret, size_t secretLen)
-{
-    return XXH3_hashLong_128b_internal(input, len, (const xxh_u8*)secret, secretLen,
-                    XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
-}
-#endif
-
-/* ===   XXH128 Seeded variants   === */
-
-XXH_NO_INLINE XXH128_hash_t
-XXHL128_seed_scalar(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_128b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar, XXH3_initCustomSecret_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH128_hash_t
-XXHL128_seed_sse2(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_128b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2, XXH3_initCustomSecret_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH128_hash_t
-XXHL128_seed_avx2(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_128b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2, XXH3_initCustomSecret_avx2);
-}
-#endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH128_hash_t
-XXHL128_seed_avx512(const void* XXH_RESTRICT input, size_t len, XXH64_hash_t seed)
-{
-    return XXH3_hashLong_128b_withSeed_internal(input, len, seed,
-                    XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512, XXH3_initCustomSecret_avx512);
-}
-#endif
-
-/* ===   XXH128 update variants   === */
-
-XXH_NO_INLINE XXH_errorcode
-XXH3_128bits_update_scalar(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_scalar, XXH3_scrambleAcc_scalar);
-}
-
-XXH_NO_INLINE XXH_TARGET_SSE2 XXH_errorcode
-XXH3_128bits_update_sse2(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_sse2, XXH3_scrambleAcc_sse2);
-}
-
-#ifdef XXH_DISPATCH_AVX2
-XXH_NO_INLINE XXH_TARGET_AVX2 XXH_errorcode
-XXH3_128bits_update_avx2(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_avx2, XXH3_scrambleAcc_avx2);
-}
-#endif
-
-#ifdef XXH_DISPATCH_AVX512
-XXH_NO_INLINE XXH_TARGET_AVX512 XXH_errorcode
-XXH3_128bits_update_avx512(XXH3_state_t* state, const void* input, size_t len)
-{
-    return XXH3_update(state, (const xxh_u8*)input, len,
-                       XXH3_accumulate_512_avx512, XXH3_scrambleAcc_avx512);
-}
-#endif
+#undef XXH_DEFINE_DISPATCH_FUNCS
 
 /* ====    Dispatchers    ==== */
 
@@ -574,21 +539,36 @@ typedef struct {
     XXH3_dispatchx86_update                update;
 } dispatchFunctions_s;
 
+/*!
+ * @internal
+ * @brief The selected dispatch table for @ref XXH3_64bits().
+ */
 static dispatchFunctions_s g_dispatch = { NULL, NULL, NULL, NULL};
 
 #define NB_DISPATCHES 4
+
+/*!
+ * @internal
+ * @brief Table of dispatchers for @ref XXH3_64bits().
+ *
+ * @pre The indices must match @ref XXH_VECTOR_TYPE.
+ */
 static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
-        /* scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar, XXH3_64bits_update_scalar },
-        /* sse2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2,   XXH3_64bits_update_sse2 },
-#ifdef XXH_DISPATCH_AVX2
-        /* avx2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2,   XXH3_64bits_update_avx2 },
+#if XXH_DISPATCH_SCALAR
+    /* Scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar, XXH3_64bits_update_scalar },
 #else
-        /* avx2 */ { NULL, NULL, NULL, NULL },
+    /* Scalar */ { NULL, NULL, NULL, NULL },
+#endif
+    /* SSE2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2,   XXH3_64bits_update_sse2 },
+#ifdef XXH_DISPATCH_AVX2
+    /* AVX2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2,   XXH3_64bits_update_avx2 },
+#else
+    /* AVX2   */ { NULL, NULL, NULL, NULL },
 #endif
 #ifdef XXH_DISPATCH_AVX512
-        /* avx512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512, XXH3_64bits_update_avx512 }
+    /* AVX512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512, XXH3_64bits_update_avx512 }
 #else
-        /* avx512 */ { NULL, NULL, NULL, NULL }
+    /* AVX512 */ { NULL, NULL, NULL, NULL }
 #endif
 };
 
@@ -605,32 +585,54 @@ typedef struct {
     XXH3_dispatchx86_update                 update;
 } dispatch128Functions_s;
 
+
+/*!
+ * @internal
+ * @brief The selected dispatch table for @ref XXH3_64bits().
+ */
 static dispatch128Functions_s g_dispatch128 = { NULL, NULL, NULL, NULL };
 
+/*!
+ * @internal
+ * @brief Table of dispatchers for @ref XXH3_128bits().
+ *
+ * @pre The indices must match @ref XXH_VECTOR_TYPE.
+ */
 static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
-        /* scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar, XXH3_128bits_update_scalar },
-        /* sse2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2,   XXH3_128bits_update_sse2 },
-#ifdef XXH_DISPATCH_AVX2
-        /* avx2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2,   XXH3_128bits_update_avx2 },
+#if XXH_DISPATCH_SCALAR
+    /* Scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar, XXH3_128bits_update_scalar },
 #else
-        /* avx2 */ { NULL, NULL, NULL, NULL },
+    /* Scalar */ { NULL, NULL, NULL, NULL },
+#endif
+    /* SSE2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2,   XXH3_128bits_update_sse2 },
+#ifdef XXH_DISPATCH_AVX2
+    /* AVX2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2,   XXH3_128bits_update_avx2 },
+#else
+    /* AVX2   */ { NULL, NULL, NULL, NULL },
 #endif
 #ifdef XXH_DISPATCH_AVX512
-        /* avx512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512, XXH3_128bits_update_avx512 }
+    /* AVX512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512, XXH3_128bits_update_avx512 }
 #else
-        /* avx512 */ { NULL, NULL, NULL, NULL }
+    /* AVX512 */ { NULL, NULL, NULL, NULL }
 #endif
 };
 
+/*!
+ * @internal
+ * @brief Runs a CPUID check and sets the correct dispatch tables.
+ */
 static void setDispatch(void)
 {
     int vecID = XXH_featureTest();
     XXH_STATIC_ASSERT(XXH_AVX512 == NB_DISPATCHES-1);
     assert(XXH_SCALAR <= vecID && vecID <= XXH_AVX512);
-#ifndef XXH_DISPATCH_AVX512
+#if !XXH_DISPATCH_SCALAR
+    assert(vecID != XXH_SCALAR);
+#endif
+#if !XXH_DISPATCH_AVX512
     assert(vecID != XXH_AVX512);
 #endif
-#ifndef XXH_DISPATCH_AVX2
+#if !XXH_DISPATCH_AVX2
     assert(vecID != XXH_AVX2);
 #endif
     g_dispatch = k_dispatch[vecID];
@@ -744,3 +746,4 @@ XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 #if defined (__cplusplus)
 }
 #endif
+/*! @} */

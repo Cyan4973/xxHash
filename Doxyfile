@@ -20,7 +20,7 @@ QUIET                  = YES
 WARN_IF_UNDOCUMENTED   = NO
 
 # TODO: Add the other files. It is just xxhash.h for now.
-FILE_PATTERNS          = xxhash.h
+FILE_PATTERNS          = xxhash.h xxh_x86dispatch.c
 # Note: xxHash's source files are technically ASCII only.
 INPUT_ENCODING         = UTF-8
 TAB_SIZE               = 4

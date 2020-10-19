@@ -211,6 +211,8 @@ extern "C" {
 #  define XXH_CAT(A,B) A##B
 #  define XXH_NAME2(A,B) XXH_CAT(A,B)
 #  define XXH_versionNumber XXH_NAME2(XXH_NAMESPACE, XXH_versionNumber)
+#  define XXH_alignedMalloc XXH_NAME2(XXH_NAMESPACE, XXH_alignedMalloc)
+#  define XXH_alignedFree XXH_NAME2(XXH_NAMESPACE, XXH_alignedFree)
 /* XXH32 */
 #  define XXH32 XXH_NAME2(XXH_NAMESPACE, XXH32)
 #  define XXH32_createState XXH_NAME2(XXH_NAMESPACE, XXH32_createState)
@@ -279,6 +281,59 @@ extern "C" {
  */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
+/*!
+ * @ingroup public
+ * @brief Mallocs a pointer that is aligned to a certain power of 2.
+ *
+ * Acts like malloc() but takes an @p align parameter.
+ *
+ * malloc() typically guarantees 16 byte alignment on 64-bit systems and 8 byte
+ * alignment on 32-bit. This isn't enough for the 32 byte aligned loads in AVX2
+ * or on 32-bit, the 16 byte aligned loads in SSE2 and NEON.
+ *
+ * This underalignment previously caused a rather obvious crash which went
+ * completely unnoticed due to XXH3_createState() not actually being tested.
+ * Credit to RedSpah for noticing this bug.
+ *
+ * The alignment is done manually: Functions like posix_memalign() or
+ * _mm_malloc() are avoided: To maintain portability, we would have to write a
+ * fallback like this anyways, and besides, testing for the existence of
+ * library functions without relying on external build tools is impossible.
+ *
+ * The method is simple: Overallocate, manually align, and store the offset
+ * to the original in a byte behind the returned pointer.
+ *
+ * @param size The number of bytes to allocate.
+ * @param align The minimum alignment.
+ *
+ * @note
+ *   @p align will be rounded down to the nearest power of 2, then clamped from
+ *   8 to 128, inclusive.
+ *
+ * @note
+ *   Always free with @ref XXH_alignedFree().
+ * @pre
+ *   @p size must not be zero.
+ * @pre
+ *   @p size + clamp(@p align) must not overflow.
+ * @return The aligned allocated pointer, or NULL on failure.
+ * @see XXH_alignedFree(), XXH3_state_s::operator new
+ */
+XXH_PUBLIC_API void* XXH_alignedMalloc(size_t size, size_t align);
+/*!
+ * @ingroup public
+ * @brief Deallocation function for @ref XXH_alignedMalloc().
+ *
+ * Use like free().
+ *
+ * @param ptr The nullable pointer allocated by @p XXH_alignedMalloc().
+ * @pre
+ *    @p ptr must be allocated by @p XXH_alignedMalloc(). It uses a specific
+ *    layout.
+ *
+ * @see XXH_alignedMalloc(), XXH3_state_s::operator delete
+ */
+XXH_PUBLIC_API void XXH_alignedFree(void* ptr);
 
 /* ****************************
 *  Definitions
@@ -837,60 +892,6 @@ XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
 typedef struct { unsigned char digest[sizeof(XXH128_hash_t)]; } XXH128_canonical_t;
 XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
 XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
-
-/*!
- * @ingroup public
- * @brief Mallocs a pointer that is aligned to a certain power of 2.
- *
- * Acts like malloc() but takes an @p align parameter.
- *
- * malloc() typically guarantees 16 byte alignment on 64-bit systems and 8 byte
- * alignment on 32-bit. This isn't enough for the 32 byte aligned loads in AVX2
- * or on 32-bit, the 16 byte aligned loads in SSE2 and NEON.
- *
- * This underalignment previously caused a rather obvious crash which went
- * completely unnoticed due to XXH3_createState() not actually being tested.
- * Credit to RedSpah for noticing this bug.
- *
- * The alignment is done manually: Functions like posix_memalign() or
- * _mm_malloc() are avoided: To maintain portability, we would have to write a
- * fallback like this anyways, and besides, testing for the existence of
- * library functions without relying on external build tools is impossible.
- *
- * The method is simple: Overallocate, manually align, and store the offset
- * to the original in a byte behind the returned pointer.
- *
- * @param size The number of bytes to allocate.
- * @param align The minimum alignment.
- *
- * @note
- *   @p align will be rounded down to the nearest power of 2, then clamped from
- *   8 to 128, inclusive.
- *
- * @note
- *   Always free with @ref XXH_alignedFree().
- * @pre
- *   @p size must not be zero.
- * @pre
- *   @p size + clamp(@p align) must not overflow.
- * @return The aligned allocated pointer, or NULL on failure.
- * @see XXH_alignedFree(), XXH3_state_s::operator new
- */
-XXH_PUBLIC_API void* XXH_alignedMalloc(size_t size, size_t align);
-/*!
- * @ingroup public
- * @brief Deallocation function for @ref XXH_alignedMalloc().
- *
- * Use like free().
- *
- * @param ptr The nullable pointer allocated by @p XXH_alignedMalloc().
- * @pre
- *    @p ptr must be allocated by @p XXH_alignedMalloc(). It uses a specific
- *    layout.
- *
- * @see XXH_alignedMalloc(), XXH3_state_s::operator delete
- */
-XXH_PUBLIC_API void XXH_alignedFree(void* ptr);
 
 #endif  /* XXH_NO_LONG_LONG */
 
@@ -1788,6 +1789,51 @@ XXH_readLE32_align(const void* ptr, XXH_alignment align)
 /*! @ingroup public */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
+
+/*! @ingroup public */
+XXH_PUBLIC_API void*
+XXH_alignedMalloc(size_t s, size_t align)
+{
+    align &= ~(align - 1);                  /* Round down to power of 2 */
+    if (align > 128) align = 128;
+    if (align < 8) align = 8;
+    XXH_ASSERT(align <= 128 && align >= 8); /* range check */
+    XXH_ASSERT((align & (align-1)) == 0);   /* power of 2 */
+    XXH_ASSERT(s != 0 && s < (s + align));  /* empty/overflow */
+    {   /* Overallocate to make room for manual realignment and an offset byte */
+        xxh_u8* base = (xxh_u8*)XXH_malloc(s + align);
+        if (base != NULL) {
+            /*
+             * Get the offset needed to align this pointer.
+             *
+             * Even if the returned pointer is aligned, there will always be
+             * at least one byte to store the offset to the original pointer.
+             */
+            size_t offset = align - ((size_t)base & (align - 1)); /* base % align */
+            /* Add the offset for the now-aligned pointer */
+            xxh_u8* ptr = base + offset;
+
+            XXH_ASSERT((size_t)ptr % align == 0);
+
+            /* Store the offset immediately before the returned pointer. */
+            ptr[-1] = (xxh_u8)offset;
+            return ptr;
+        }
+        return NULL;
+    }
+}
+/*! @ingroup public */
+XXH_PUBLIC_API void XXH_alignedFree(void* p)
+{
+    if (p != NULL) {
+        xxh_u8* ptr = (xxh_u8*)p;
+        /* Get the offset byte we added in XXH_malloc. */
+        xxh_u8 offset = ptr[-1];
+        /* Free the original malloc'd pointer */
+        xxh_u8* base = ptr - offset;
+        XXH_free(base);
+    }
+}
 
 /* *******************************************************************
 *  32-bit hash functions
@@ -4635,50 +4681,6 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
 
 /* ===   XXH3 streaming   === */
 
-/*! @ingroup public */
-XXH_PUBLIC_API void*
-XXH_alignedMalloc(size_t s, size_t align)
-{
-    align &= ~(align - 1);                  /* Round down to power of 2 */
-    if (align > 128) align = 128;
-    if (align < 8) align = 8;
-    XXH_ASSERT(align <= 128 && align >= 8); /* range check */
-    XXH_ASSERT((align & (align-1)) == 0);   /* power of 2 */
-    XXH_ASSERT(s != 0 && s < (s + align));  /* empty/overflow */
-    {   /* Overallocate to make room for manual realignment and an offset byte */
-        xxh_u8* base = (xxh_u8*)XXH_malloc(s + align);
-        if (base != NULL) {
-            /*
-             * Get the offset needed to align this pointer.
-             *
-             * Even if the returned pointer is aligned, there will always be
-             * at least one byte to store the offset to the original pointer.
-             */
-            size_t offset = align - ((size_t)base & (align - 1)); /* base % align */
-            /* Add the offset for the now-aligned pointer */
-            xxh_u8* ptr = base + offset;
-
-            XXH_ASSERT((size_t)ptr % align == 0);
-
-            /* Store the offset immediately before the returned pointer. */
-            ptr[-1] = (xxh_u8)offset;
-            return ptr;
-        }
-        return NULL;
-    }
-}
-/*! @ingroup public */
-XXH_PUBLIC_API void XXH_alignedFree(void* p)
-{
-    if (p != NULL) {
-        xxh_u8* ptr = (xxh_u8*)p;
-        /* Get the offset byte we added in XXH_malloc. */
-        xxh_u8 offset = ptr[-1];
-        /* Free the original malloc'd pointer */
-        xxh_u8* base = ptr - offset;
-        XXH_free(base);
-    }
-}
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {

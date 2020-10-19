@@ -220,9 +220,9 @@ extern "C" {
  * Note: Comments are written in the inline assembly itself.
  */
 #ifdef __clang__
-#  define I_ATT(intel, att) att "\n\t"
+#  define XXH_I_ATT(intel, att) att "\n\t"
 #else
-#  define I_ATT(intel, att) "{" att "|" intel "}\n\t"
+#  define XXH_I_ATT(intel, att) "{" att "|" intel "}\n\t"
 #endif
 
 /*!
@@ -244,14 +244,14 @@ static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
         "#\n\t"
         "# On 32-bit x86 with PIC enabled, we are not allowed to overwrite\n\t"
         "# EBX, so we use EDI instead.\n\t"
-        I_ATT("mov     edi, ebx",   "movl    %%ebx, %%edi")
-        I_ATT("cpuid",              "cpuid"               )
-        I_ATT("xchg    edi, ebx",   "xchgl   %%ebx, %%edi")
+        XXH_I_ATT("mov     edi, ebx",   "movl    %%ebx, %%edi")
+        XXH_I_ATT("cpuid",              "cpuid"               )
+        XXH_I_ATT("xchg    edi, ebx",   "xchgl   %%ebx, %%edi")
         : "=D" (ebx),
 # else
     __asm__(
         "# Call CPUID\n\t"
-        I_ATT("cpuid",              "cpuid")
+        XXH_I_ATT("cpuid",              "cpuid")
         : "=b" (ebx),
 # endif
               "+a" (eax), "+c" (ecx), "=d" (edx));
@@ -267,7 +267,7 @@ static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
  * https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
  */
 
-#if defined(XXH_DISPATCH_AVX2) || defined(XXH_DISPATCH_AVX512)
+#if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512
 /*!
  * @internal
  * @brief Runs `XGETBV`.
@@ -303,12 +303,12 @@ static xxh_u64 XXH_xgetbv(void)
 }
 #endif
 
-#define SSE2_CPUID_MASK (1 << 26)
-#define OSXSAVE_CPUID_MASK ((1 << 26) | (1 << 27))
-#define AVX2_CPUID_MASK (1 << 5)
-#define AVX2_XGETBV_MASK ((1 << 2) | (1 << 1))
-#define AVX512F_CPUID_MASK (1 << 16)
-#define AVX512F_XGETBV_MASK ((7 << 5) | (1 << 2) | (1 << 1))
+#define XXH_SSE2_CPUID_MASK (1 << 26)
+#define XXH_OSXSAVE_CPUID_MASK ((1 << 26) | (1 << 27))
+#define XXH_AVX2_CPUID_MASK (1 << 5)
+#define XXH_AVX2_XGETBV_MASK ((1 << 2) | (1 << 1))
+#define XXH_AVX512F_CPUID_MASK (1 << 16)
+#define XXH_AVX512F_XGETBV_MASK ((7 << 5) | (1 << 2) | (1 << 1))
 
 /*!
  * @internal
@@ -343,23 +343,23 @@ static int XXH_featureTest(void)
         "# Routine is from <https://wiki.osdev.org/CPUID>.\n\t"
 
         "# Save EFLAGS\n\t"
-        I_ATT("pushfd",                           "pushfl"                    )
+        XXH_I_ATT("pushfd",                           "pushfl"                    )
         "# Store EFLAGS\n\t"
-        I_ATT("pushfd",                           "pushfl"                    )
+        XXH_I_ATT("pushfd",                           "pushfl"                    )
         "# Invert the ID bit in stored EFLAGS\n\t"
-        I_ATT("xor     dword ptr[esp], 0x200000", "xorl    $0x200000, (%%esp)")
+        XXH_I_ATT("xor     dword ptr[esp], 0x200000", "xorl    $0x200000, (%%esp)")
         "# Load stored EFLAGS (with ID bit inverted)\n\t"
-        I_ATT("popfd",                            "popfl"                     )
+        XXH_I_ATT("popfd",                            "popfl"                     )
         "# Store EFLAGS again (ID bit may or not be inverted)\n\t"
-        I_ATT("pushfd",                           "pushfl"                    )
+        XXH_I_ATT("pushfd",                           "pushfl"                    )
         "# eax = modified EFLAGS (ID bit may or may not be inverted)\n\t"
-        I_ATT("pop     eax",                      "popl    %%eax"             )
+        XXH_I_ATT("pop     eax",                      "popl    %%eax"             )
         "# eax = whichever bits were changed\n\t"
-        I_ATT("xor     eax, dword ptr[esp]",      "xorl    (%%esp), %%eax"    )
+        XXH_I_ATT("xor     eax, dword ptr[esp]",      "xorl    (%%esp), %%eax"    )
         "# Restore original EFLAGS\n\t"
-        I_ATT("popfd",                            "popfl"                     )
+        XXH_I_ATT("popfd",                            "popfl"                     )
         "# eax = zero if ID bit can't be changed, else non-zero\n\t"
-        I_ATT("and     eax, 0x200000",            "andl    $0x200000, %%eax"  )
+        XXH_I_ATT("and     eax, 0x200000",            "andl    $0x200000, %%eax"  )
         : "=a" (cpuid_supported) :: "cc");
 
     if (XXH_unlikely(!cpuid_supported)) {
@@ -384,7 +384,7 @@ static int XXH_featureTest(void)
     /*
      * Test for SSE2. The check is redundant on x86_64, but it doesn't hurt.
      */
-    if (XXH_unlikely((abcd[3] & SSE2_CPUID_MASK) != SSE2_CPUID_MASK))
+    if (XXH_unlikely((abcd[3] & XXH_SSE2_CPUID_MASK) != XXH_SSE2_CPUID_MASK))
         return best;
 
     XXH_debugPrint("SSE2 support detected.");
@@ -397,7 +397,7 @@ static int XXH_featureTest(void)
         return best;
 
     /* Test for OSXSAVE and XGETBV */
-    if ((abcd[2] & OSXSAVE_CPUID_MASK) != OSXSAVE_CPUID_MASK)
+    if ((abcd[2] & XXH_OSXSAVE_CPUID_MASK) != XXH_OSXSAVE_CPUID_MASK)
         return best;
 
     /* CPUID check for AVX features */
@@ -406,11 +406,11 @@ static int XXH_featureTest(void)
     xgetbv_val = XXH_xgetbv();
 #if XXH_DISPATCH_AVX2
     /* Validate that AVX2 is supported by the CPU */
-    if ((abcd[1] & AVX2_CPUID_MASK) != AVX2_CPUID_MASK)
+    if ((abcd[1] & XXH_AVX2_CPUID_MASK) != XXH_AVX2_CPUID_MASK)
         return best;
 
     /* Validate that the OS supports YMM registers */
-    if ((xgetbv_val & AVX2_XGETBV_MASK) != AVX2_XGETBV_MASK) {
+    if ((xgetbv_val & XXH_AVX2_XGETBV_MASK) != XXH_AVX2_XGETBV_MASK) {
         XXH_debugPrint("AVX2 supported by the CPU, but not the OS.");
         return best;
     }
@@ -421,13 +421,13 @@ static int XXH_featureTest(void)
 #endif
 #if XXH_DISPATCH_AVX512
     /* Check if AVX512F is supported by the CPU */
-    if ((abcd[1] & AVX512F_CPUID_MASK) != AVX512F_CPUID_MASK) {
+    if ((abcd[1] & XXH_AVX512F_CPUID_MASK) != XXH_AVX512F_CPUID_MASK) {
         XXH_debugPrint("AVX512F not supported by CPU");
         return best;
     }
 
     /* Validate that the OS supports ZMM registers */
-    if ((xgetbv_val & AVX512F_XGETBV_MASK) != AVX512F_XGETBV_MASK) {
+    if ((xgetbv_val & XXH_AVX512F_XGETBV_MASK) != XXH_AVX512F_XGETBV_MASK) {
         XXH_debugPrint("AVX512F supported by the CPU, but not the OS.");
         return best;
     }
@@ -492,8 +492,7 @@ XXHL64_secret_##suffix(const void* XXH_RESTRICT input, size_t len,            \
 /* ===   XXH3 update variants   === */                                        \
                                                                               \
 XXH_NO_INLINE target XXH_errorcode                                            \
-XXH3_64bits_update_##suffix(XXH3_state_t* state, const void* input,           \
-                            size_t len)                                       \
+XXH3_update_##suffix(XXH3_state_t* state, const void* input, size_t len)      \
 {                                                                             \
     return XXH3_update(state, (const xxh_u8*)input, len,                      \
                     XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
@@ -530,17 +529,8 @@ XXHL128_seed_##suffix(const void* XXH_RESTRICT input, size_t len,             \
     return XXH3_hashLong_128b_withSeed_internal(input, len, seed,             \
                     XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix,  \
                     XXH3_initCustomSecret_##suffix);                          \
-}                                                                             \
-                                                                              \
-/* ===   XXH128 update variants   === */                                      \
-                                                                              \
-XXH_NO_INLINE target XXH_errorcode                                            \
-XXH3_128bits_update_##suffix(XXH3_state_t* state, const void* input,          \
-                             size_t len)                                      \
-{                                                                             \
-    return XXH3_update(state, (const xxh_u8*)input, len,                      \
-                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
 }
+
 /* End XXH_DEFINE_DISPATCH_FUNCS */
 
 #if XXH_DISPATCH_SCALAR
@@ -570,15 +560,9 @@ typedef struct {
     XXH3_dispatchx86_hashLong64_withSeed   hashLong64_seed;
     XXH3_dispatchx86_hashLong64_withSecret hashLong64_secret;
     XXH3_dispatchx86_update                update;
-} dispatchFunctions_s;
+} XXH_dispatchFunctions_s;
 
-/*!
- * @internal
- * @brief The selected dispatch table for @ref XXH3_64bits().
- */
-static dispatchFunctions_s g_dispatch = { NULL, NULL, NULL, NULL};
-
-#define NB_DISPATCHES 4
+#define XXH_NB_DISPATCHES 4
 
 /*!
  * @internal
@@ -586,24 +570,30 @@ static dispatchFunctions_s g_dispatch = { NULL, NULL, NULL, NULL};
  *
  * @pre The indices must match @ref XXH_VECTOR_TYPE.
  */
-static const dispatchFunctions_s k_dispatch[NB_DISPATCHES] = {
+static const XXH_dispatchFunctions_s XXH_kDispatch[XXH_NB_DISPATCHES] = {
 #if XXH_DISPATCH_SCALAR
-    /* Scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar, XXH3_64bits_update_scalar },
+    /* Scalar */ { XXHL64_default_scalar, XXHL64_seed_scalar, XXHL64_secret_scalar, XXH3_update_scalar },
 #else
     /* Scalar */ { NULL, NULL, NULL, NULL },
 #endif
-    /* SSE2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2,   XXH3_64bits_update_sse2 },
-#ifdef XXH_DISPATCH_AVX2
-    /* AVX2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2,   XXH3_64bits_update_avx2 },
+    /* SSE2   */ { XXHL64_default_sse2,   XXHL64_seed_sse2,   XXHL64_secret_sse2,   XXH3_update_sse2 },
+#if XXH_DISPATCH_AVX2
+    /* AVX2   */ { XXHL64_default_avx2,   XXHL64_seed_avx2,   XXHL64_secret_avx2,   XXH3_update_avx2 },
 #else
     /* AVX2   */ { NULL, NULL, NULL, NULL },
 #endif
-#ifdef XXH_DISPATCH_AVX512
-    /* AVX512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512, XXH3_64bits_update_avx512 }
+#if XXH_DISPATCH_AVX512
+    /* AVX512 */ { XXHL64_default_avx512, XXHL64_seed_avx512, XXHL64_secret_avx512, XXH3_update_avx512 }
 #else
     /* AVX512 */ { NULL, NULL, NULL, NULL }
 #endif
 };
+/*!
+ * @internal
+ * @brief The selected dispatch table for @ref XXH3_64bits().
+ */
+static XXH_dispatchFunctions_s XXH_g_dispatch = { NULL, NULL, NULL, NULL };
+
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(const void* XXH_RESTRICT, size_t);
 
@@ -616,14 +606,8 @@ typedef struct {
     XXH3_dispatchx86_hashLong128_withSeed   hashLong128_seed;
     XXH3_dispatchx86_hashLong128_withSecret hashLong128_secret;
     XXH3_dispatchx86_update                 update;
-} dispatch128Functions_s;
+} XXH_dispatch128Functions_s;
 
-
-/*!
- * @internal
- * @brief The selected dispatch table for @ref XXH3_64bits().
- */
-static dispatch128Functions_s g_dispatch128 = { NULL, NULL, NULL, NULL };
 
 /*!
  * @internal
@@ -631,20 +615,20 @@ static dispatch128Functions_s g_dispatch128 = { NULL, NULL, NULL, NULL };
  *
  * @pre The indices must match @ref XXH_VECTOR_TYPE.
  */
-static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
+static const XXH_dispatch128Functions_s XXH_kDispatch128[XXH_NB_DISPATCHES] = {
 #if XXH_DISPATCH_SCALAR
-    /* Scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar, XXH3_128bits_update_scalar },
+    /* Scalar */ { XXHL128_default_scalar, XXHL128_seed_scalar, XXHL128_secret_scalar, XXH3_update_scalar },
 #else
     /* Scalar */ { NULL, NULL, NULL, NULL },
 #endif
-    /* SSE2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2,   XXH3_128bits_update_sse2 },
-#ifdef XXH_DISPATCH_AVX2
-    /* AVX2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2,   XXH3_128bits_update_avx2 },
+    /* SSE2   */ { XXHL128_default_sse2,   XXHL128_seed_sse2,   XXHL128_secret_sse2,   XXH3_update_sse2 },
+#if XXH_DISPATCH_AVX2
+    /* AVX2   */ { XXHL128_default_avx2,   XXHL128_seed_avx2,   XXHL128_secret_avx2,   XXH3_update_avx2 },
 #else
     /* AVX2   */ { NULL, NULL, NULL, NULL },
 #endif
-#ifdef XXH_DISPATCH_AVX512
-    /* AVX512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512, XXH3_128bits_update_avx512 }
+#if XXH_DISPATCH_AVX512
+    /* AVX512 */ { XXHL128_default_avx512, XXHL128_seed_avx512, XXHL128_secret_avx512, XXH3_update_avx512 }
 #else
     /* AVX512 */ { NULL, NULL, NULL, NULL }
 #endif
@@ -652,12 +636,18 @@ static const dispatch128Functions_s k_dispatch128[NB_DISPATCHES] = {
 
 /*!
  * @internal
+ * @brief The selected dispatch table for @ref XXH3_64bits().
+ */
+static XXH_dispatch128Functions_s XXH_g_dispatch128 = { NULL, NULL, NULL, NULL };
+
+/*!
+ * @internal
  * @brief Runs a CPUID check and sets the correct dispatch tables.
  */
-static void setDispatch(void)
+static void XXH_setDispatch(void)
 {
     int vecID = XXH_featureTest();
-    XXH_STATIC_ASSERT(XXH_AVX512 == NB_DISPATCHES-1);
+    XXH_STATIC_ASSERT(XXH_AVX512 == XXH_NB_DISPATCHES-1);
     assert(XXH_SCALAR <= vecID && vecID <= XXH_AVX512);
 #if !XXH_DISPATCH_SCALAR
     assert(vecID != XXH_SCALAR);
@@ -668,8 +658,8 @@ static void setDispatch(void)
 #if !XXH_DISPATCH_AVX2
     assert(vecID != XXH_AVX2);
 #endif
-    g_dispatch = k_dispatch[vecID];
-    g_dispatch128 = k_dispatch128[vecID];
+    XXH_g_dispatch = XXH_kDispatch[vecID];
+    XXH_g_dispatch128 = XXH_kDispatch128[vecID];
 }
 
 
@@ -680,8 +670,8 @@ XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len,
                                           XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
-    if (g_dispatch.hashLong64_default == NULL) setDispatch();
-    return g_dispatch.hashLong64_default(input, len);
+    if (XXH_g_dispatch.hashLong64_default == NULL) XXH_setDispatch();
+    return XXH_g_dispatch.hashLong64_default(input, len);
 }
 
 XXH64_hash_t XXH3_64bits_dispatch(const void* input, size_t len)
@@ -694,8 +684,8 @@ XXH3_hashLong_64b_withSeed_selection(const void* input, size_t len,
                                      XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
-    if (g_dispatch.hashLong64_seed == NULL) setDispatch();
-    return g_dispatch.hashLong64_seed(input, len, seed64);
+    if (XXH_g_dispatch.hashLong64_seed == NULL) XXH_setDispatch();
+    return XXH_g_dispatch.hashLong64_seed(input, len, seed64);
 }
 
 XXH64_hash_t XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)
@@ -708,8 +698,8 @@ XXH3_hashLong_64b_withSecret_selection(const void* input, size_t len,
                                        XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)seed64;
-    if (g_dispatch.hashLong64_secret == NULL) setDispatch();
-    return g_dispatch.hashLong64_secret(input, len, secret, secretLen);
+    if (XXH_g_dispatch.hashLong64_secret == NULL) XXH_setDispatch();
+    return XXH_g_dispatch.hashLong64_secret(input, len, secret, secretLen);
 }
 
 XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen)
@@ -720,8 +710,8 @@ XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, cons
 XXH_errorcode
 XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 {
-    if (g_dispatch.update == NULL) setDispatch();
-    return g_dispatch.update(state, (const xxh_u8*)input, len);
+    if (XXH_g_dispatch.update == NULL) XXH_setDispatch();
+    return XXH_g_dispatch.update(state, (const xxh_u8*)input, len);
 }
 
 
@@ -732,8 +722,8 @@ XXH3_hashLong_128b_defaultSecret_selection(const void* input, size_t len,
                                            XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
-    if (g_dispatch128.hashLong128_default == NULL) setDispatch();
-    return g_dispatch128.hashLong128_default(input, len);
+    if (XXH_g_dispatch128.hashLong128_default == NULL) XXH_setDispatch();
+    return XXH_g_dispatch128.hashLong128_default(input, len);
 }
 
 XXH128_hash_t XXH3_128bits_dispatch(const void* input, size_t len)
@@ -746,8 +736,8 @@ XXH3_hashLong_128b_withSeed_selection(const void* input, size_t len,
                                      XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
-    if (g_dispatch128.hashLong128_seed == NULL) setDispatch();
-    return g_dispatch128.hashLong128_seed(input, len, seed64);
+    if (XXH_g_dispatch128.hashLong128_seed == NULL) XXH_setDispatch();
+    return XXH_g_dispatch128.hashLong128_seed(input, len, seed64);
 }
 
 XXH128_hash_t XXH3_128bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)
@@ -760,8 +750,8 @@ XXH3_hashLong_128b_withSecret_selection(const void* input, size_t len,
                                         XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)seed64;
-    if (g_dispatch128.hashLong128_secret == NULL) setDispatch();
-    return g_dispatch128.hashLong128_secret(input, len, secret, secretLen);
+    if (XXH_g_dispatch128.hashLong128_secret == NULL) XXH_setDispatch();
+    return XXH_g_dispatch128.hashLong128_secret(input, len, secret, secretLen);
 }
 
 XXH128_hash_t XXH3_128bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen)
@@ -772,8 +762,8 @@ XXH128_hash_t XXH3_128bits_withSecret_dispatch(const void* input, size_t len, co
 XXH_errorcode
 XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 {
-    if (g_dispatch128.update == NULL) setDispatch();
-    return g_dispatch128.update(state, (const xxh_u8*)input, len);
+    if (XXH_g_dispatch128.update == NULL) XXH_setDispatch();
+    return XXH_g_dispatch128.update(state, (const xxh_u8*)input, len);
 }
 
 #if defined (__cplusplus)

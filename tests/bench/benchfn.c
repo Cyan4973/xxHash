@@ -18,7 +18,7 @@
 #undef NDEBUG            /* assert must not be disabled */
 #include <assert.h>      /* assert */
 
-#include "timefn.h"        /* UTIL_time_t, UTIL_getTime */
+#include "../../cli/timefn.h" /* UTIL_time_t, UTIL_getTime */
 #include "benchfn.h"
 
 

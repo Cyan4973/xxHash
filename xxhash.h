@@ -281,6 +281,12 @@ extern "C" {
  */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
+/* ****************************
+*  Definitions
+******************************/
+#include <stddef.h>   /* size_t */
+typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
+
 /*!
  * @ingroup public
  * @brief Mallocs a pointer that is aligned to a certain power of 2.
@@ -334,13 +340,6 @@ XXH_PUBLIC_API void* XXH_alignedMalloc(size_t size, size_t align);
  * @see XXH_alignedMalloc(), XXH3_state_s::operator delete
  */
 XXH_PUBLIC_API void XXH_alignedFree(void* ptr);
-
-/* ****************************
-*  Definitions
-******************************/
-#include <stddef.h>   /* size_t */
-typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
-
 
 /*-**********************************************************************
 *  32-bit hash

@@ -61,7 +61,9 @@ extern "C" {
 #elif (defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0) /* clock_gettime */ \
     || ((defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
        && defined(TIME_UTC)) /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11 compliance */
-
+#   if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
+#      include <sys/time.h>
+#   endif
     typedef struct timespec UTIL_time_t;
     #define UTIL_TIME_INITIALIZER { 0, 0 }
 

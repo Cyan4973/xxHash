@@ -88,19 +88,19 @@ The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` f
 
 | Hash Name     | Width | Bandwidth (GB/s) | Small Data Velocity | Quality | Comment |
 | ---------     | ----- | ---------------- | ----- | --- | --- |
-| __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10
-| __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10
+| __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10 |
+| __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10 |
 | _RAM sequential read_ | N/A | 28.0 GB/s  |   N/A | N/A | _for reference_
-| City64        |    64 | 22.0 GB/s        |  76.6 | 10
+| City64        |    64 | 22.0 GB/s        |  76.6 | 10 |
 | T1ha2         |    64 | 22.0 GB/s        |  99.0 |  9 | Slightly worse [collisions]
-| City128       |   128 | 21.7 GB/s        |  57.7 | 10
-| __XXH64__     |    64 | 19.4 GB/s        |  71.0 | 10
-| SpookyHash    |    64 | 19.3 GB/s        |  53.2 | 10
+| City128       |   128 | 21.7 GB/s        |  57.7 | 10 |
+| __XXH64__     |    64 | 19.4 GB/s        |  71.0 | 10 |
+| SpookyHash    |    64 | 19.3 GB/s        |  53.2 | 10 |
 | Mum           |    64 | 18.0 GB/s        |  67.0 |  9 | Slightly worse [collisions]
-| __XXH32__     |    32 |  9.7 GB/s        |  71.9 | 10
-| City32        |    32 |  9.1 GB/s        |  66.0 | 10
-| Murmur3       |    32 |  3.9 GB/s        |  56.1 | 10
-| SipHash       |    64 |  3.0 GB/s        |  43.2 | 10
+| __XXH32__     |    32 |  9.7 GB/s        |  71.9 | 10 |
+| City32        |    32 |  9.1 GB/s        |  66.0 | 10 |
+| Murmur3       |    32 |  3.9 GB/s        |  56.1 | 10 |
+| SipHash       |    64 |  3.0 GB/s        |  43.2 | 10 |
 | FNV64         |    64 |  1.2 GB/s        |  62.7 |  5 | Poor avalanche properties
 | Blake2        |   256 |  1.1 GB/s        |   5.1 | 10 | Cryptographic
 | SHA1          |   160 |  0.8 GB/s        |   5.6 | 10 | Cryptographic but broken
@@ -125,8 +125,8 @@ Otherwise, they max out at RAM speed limit.
 ## Multiple languages
 The following versions produce xxHash-compatible results in different languages.
 
-|Language                   |Author             |URL									|
-|--                         |--                 |--									|
+|Language                   |Author             |URL
+|--                         |--                 |--
 |__Java__ (XXH32 and XXH64) |Adrien Grand       |https://github.com/jpountz/lz4-java
 |__Java__ (XXH64)           |Vsevolod Tolstopyatov|https://github.com/OpenHFT/Zero-Allocation-Hashing
 |__JavaScript__ (port)      |Pierre Curto       |https://npmjs.org/package/xxhashjs
@@ -134,9 +134,8 @@ The following versions produce xxHash-compatible results in different languages.
 |__JavaScript__ (nodeJS, xxh3)|Nhan Khong       |https://github.com/ktrongnhan/xxhash-addon
 |__JSX__ (static JavaScript)|Yoshiki Shibukawa  |https://www.npmjs.org/package/xxhash.jsx
 |__Python__                 |Yue Du             |https://pypi.python.org/pypi/xxhash/
-|__C#__ (XXH32)             |Seok-ju Yun        |https://github.com/noricube/xxHashSharp
-|__C#__ (XXH64)             |Brandon Dahler     |http://www.nuget.org/packages/System.Data.HashFunction.xxHash
-|__C#__ (endian independent)|Otaku              |https://github.com/differentrain/YYProject.XXHash
+|__C#__ (port)              |Melnik Alexander   |https://github.com/uranium62/xxHash
+|__C#__ (7.0)               |Otaku              |https://github.com/differentrain/YYProject.XXHash
 |__C#__ (.net std 2.0)      |Sedat Kapanoğlu    |https://github.com/ssg/HashDepot#xxhash
 |__C++ 17__                 |Red Gavin          |https://github.com/RedSpah/xxhash_cpp
 |__PHP__                    |Nir Heimann        |https://github.com/nheimann1/php-xxhash

@@ -44,7 +44,7 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)
-set(XXHASH_BUILD_XXHSUM ON CACHE BOOL "Build the xxhsum binary")
+option(XXHASH_BUILD_XXHSUM "Build the xxhsum binary" ON)
 
 # If XXHASH is being bundled in another project, we don't want to
 # install anything.  However, we want to let people override this, so

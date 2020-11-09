@@ -3678,7 +3678,8 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
 
-#if (XXH_VECTOR == XXH_AVX512) || defined(XXH_X86DISPATCH)
+#if (XXH_VECTOR == XXH_AVX512) \
+     || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
 
 #ifndef XXH_TARGET_AVX512
 # define XXH_TARGET_AVX512  /* disable attribute target */
@@ -3784,7 +3785,8 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 
 #endif
 
-#if (XXH_VECTOR == XXH_AVX2) || defined(XXH_X86DISPATCH)
+#if (XXH_VECTOR == XXH_AVX2) \
+    || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)
 
 #ifndef XXH_TARGET_AVX2
 # define XXH_TARGET_AVX2  /* disable attribute target */
@@ -3890,6 +3892,7 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
 
 #endif
 
+/* x86dispatch always generates SSE2 */
 #if (XXH_VECTOR == XXH_SSE2) || defined(XXH_X86DISPATCH)
 
 #ifndef XXH_TARGET_SSE2

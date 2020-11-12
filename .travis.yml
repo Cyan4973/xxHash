@@ -8,24 +8,22 @@ matrix:
   fast_finish: true
   include:
 
-    - name: General linux tests (Xenial)
-      dist: xenial
+    - name: General linux x64 tests
       arch: amd64
       addons:
         apt:
           packages:
-            - clang
             - g++-multilib
             - gcc-multilib
             - cppcheck
       script:
         - make -B test-all
         - make clean
-        - make dispatch
+        - CFLAGS="-Werror" make dispatch
         - make clean
-        - CC=g++ CFLAGS="-O1 -mavx512f" make
+        - CC=g++ CFLAGS="-O1 -mavx512f -Werror" make
         - make clean
-        - CC=g++ CFLAGS="-Wall -Wextra" make DISPATCH=1
+        - CC=g++ CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1
 
 
     - name: Check results consistency on x64

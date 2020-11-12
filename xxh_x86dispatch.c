@@ -327,7 +327,6 @@ static int XXH_featureTest(void)
 #if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512
     xxh_u64 xgetbv_val;
 #endif
-#if XXH_DISPATCH_SCALAR
 #if defined(__GNUC__) && defined(__i386__)
     xxh_u32 cpuid_supported;
     __asm__(
@@ -388,7 +387,6 @@ static int XXH_featureTest(void)
         return best;
 
     XXH_debugPrint("SSE2 support detected.");
-#endif /* XXH_DISPATCH_SCALAR */
 
     best = XXH_SSE2;
 #if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512

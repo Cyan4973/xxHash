@@ -87,7 +87,7 @@
 #endif
 
 /* Try to detect the architecture. */
-#if defined(ARCH_X86)
+#if defined(XSUM_ARCH_X86)
 #  if defined(XXHSUM_DISPATCH)
 #    define XSUM_ARCH XSUM_ARCH_X86 " autoVec"
 #  elif defined(__AVX512F__)

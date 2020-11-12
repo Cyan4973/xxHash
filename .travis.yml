@@ -44,7 +44,7 @@ matrix:
       os: osx
       compiler: clang
       script:
-        - make   # test library build
+        - CFLAGS="-Werror" make   # test library build
         - make clean
         - make test MOREFLAGS='-Werror' | tee # test scenario where `stdout` is not the console
 
@@ -135,4 +135,4 @@ matrix:
         - mkdir build
         - cd build
         - cmake ..
-        - make
+        - CFLAGS=-Werror make

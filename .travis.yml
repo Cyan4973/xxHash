@@ -19,7 +19,7 @@ matrix:
       script:
         - make -B test-all
         - make clean
-        - CFLAGS="-Werror" make dispatch
+        - CFLAGS="-Werror" MOREFLAGS="-Wno-sign-conversion" make dispatch  # removing sign conversion warnings due to a bug in gcc-5's definition of some AVX512 intrinsics
         - make clean
         - CC=g++ CFLAGS="-O1 -mavx512f -Werror" make
         - make clean

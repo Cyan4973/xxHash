@@ -49,7 +49,7 @@ Comparison (single thread, Windows Seven 32 bits, using SMHasher on a Core 2 Duo
 Name            Speed       Q.Score   Author
 xxHash          5.4 GB/s     10
 CrapWow         3.2 GB/s      2       Andrew
-MumurHash 3a    2.7 GB/s     10       Austin Appleby
+MurmurHash 3a   2.7 GB/s     10       Austin Appleby
 SpookyHash      2.0 GB/s     10       Bob Jenkins
 SBox            1.4 GB/s      9       Bret Mulvey
 Lookup3         1.2 GB/s      9       Bob Jenkins

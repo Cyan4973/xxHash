@@ -118,7 +118,8 @@ extern "C" {
  * @brief Enables/disables dispatching for AVX2.
  *
  * This is automatically detected if it is not defined.
- *  - GCC 4.7 and later are known to support AVX2.
+ *  - GCC 4.7 and later are known to support AVX2, but >4.9 is required for
+ *    to get the AVX2 intrinsics and typedefs without -mavx -mavx2.
  *  - Visual Studio 2013 Update 2 and later are known to support AVX2.
  *  - The GCC/Clang internal header `<avx2intrin.h>` is detected. While this is
  *    not allowed to be included directly, it still appears in the builtin
@@ -127,8 +128,7 @@ extern "C" {
  * @see XXH_AVX2
  */
 #ifndef XXH_DISPATCH_AVX2
-#  if (defined(__GNUC__) \
-       && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) /* GCC 4.7+ */ \
+#  if (defined(__GNUC__) && (__GNUC__ > 4)) /* GCC 5.0+ */ \
    || (defined(_MSC_VER) && _MSC_VER >= 1900) /* VS 2015+ */ \
    || (defined(_MSC_FULL_VER) && _MSC_FULL_VER >= 180030501) /* VS 2013 Update 2 */ \
    || XXH_HAS_INCLUDE(<avx2intrin.h>) /* GCC/Clang internal header */

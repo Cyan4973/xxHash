@@ -61,7 +61,7 @@ extern "C" {
  * @brief Disables the AVX sanity check.
  *
  * Don't compile xxh_x86dispatch.c with options like `-mavx*`, `-march=native`,
- * or `/arch:AVX*`. It is intended to be compiled for the minumum target, and
+ * or `/arch:AVX*`. It is intended to be compiled for the minimum target, and
  * it selectively enables SSE2, AVX2, and AVX512 when it is needed.
  *
  * Using this option _globally_ allows this feature, and therefore makes it

@@ -2824,7 +2824,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 };
 /*!
  * @ingroup tuning
- * @brief Selects the minumum alignment for XXH3's accumulators.
+ * @brief Selects the minimum alignment for XXH3's accumulators.
  *
  * When using SIMD, this should match the alignment reqired for said vector
  * type, so, for example, 32 for AVX2.

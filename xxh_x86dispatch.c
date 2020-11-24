@@ -52,9 +52,7 @@
 extern "C" {
 #endif
 
-#if !(defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
-#  error "Dispatching is currently only supported on x86 and x86_64."
-#endif
+#if (defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
 
 /*!
  * @def XXH_X86DISPATCH_ALLOW_AVX
@@ -763,6 +761,8 @@ XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
     if (XXH_g_dispatch128.update == NULL) XXH_setDispatch();
     return XXH_g_dispatch128.update(state, (const xxh_u8*)input, len);
 }
+
+#endif
 
 #if defined (__cplusplus)
 }

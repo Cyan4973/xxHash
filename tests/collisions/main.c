@@ -69,13 +69,7 @@ static void hexRaw(const void* buffer, size_t size)
     }
 }
 
-void hexDisp(const void* buffer, size_t size)
-{
-    hexRaw(buffer, size);
-    printf("\n");
-}
-
-static void printHash(const void* table, size_t n, Htype_e htype)
+void printHash(const void* table, size_t n, Htype_e htype)
 {
     if ((htype == ht64) || (htype == ht32)){
         uint64_t const h64 = ((const uint64_t*)table)[n];

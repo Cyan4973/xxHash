@@ -785,11 +785,13 @@ static size_t search_collisions(
     size_t collisions = 0;
     for (size_t n=1; n<nbCandidates; n++) {
         if (isEqual(hashCandidates, n, n-1, htype)) {
+#if defined(COL_DISPLAY_DUPLICATES)
             printf("collision: ");
             printHash(hashCandidates, n, htype);
             printf(" / ");
             printHash(hashCandidates, n-1, htype);
             printf(" \n");
+#endif
             collisions++;
     }   }
 

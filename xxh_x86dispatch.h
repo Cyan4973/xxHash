@@ -55,6 +55,10 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, c
 }
 #endif
 
+/* currently we only support dispatching on X86, so no reason to do an extra function call */
+#if !(defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
+	#define XXH_DISPATCH_DISABLE_REPLACE
+#endif
 
 /* automatic replacement of XXH3 functions.
  * can be disabled by setting XXH_DISPATCH_DISABLE_REPLACE */

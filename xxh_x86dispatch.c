@@ -53,8 +53,21 @@ extern "C" {
 #endif
 
 #if !(defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
-#  error "Dispatching is currently only supported on x86 and x86_64."
-#endif
+
+/* passthrough functions, not normally called because XXH_DISPATCH_DISABLE_REPLACE is set, but available
+   for the benefit of codebases that explicitly invoke the _dispatch functions by those names */
+
+XXH64_hash_t  XXH3_64bits_dispatch(const void* input, size_t len)                                                  { return XXH3_64bits(input, len); }
+XXH64_hash_t  XXH3_64bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)                      { return XXH3_64bits_withSeed(input, len, seed); }
+XXH64_hash_t  XXH3_64bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen) { return XXH3_64bits_withSecret(input, len, secret, secretLen); }
+XXH_errorcode XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)                      { return XXH3_64bits_update(state, input, len); }
+
+XXH128_hash_t XXH3_128bits_dispatch(const void* input, size_t len)                                                  { return XXH3_128bits(input, len); }
+XXH128_hash_t XXH3_128bits_withSeed_dispatch(const void* input, size_t len, XXH64_hash_t seed)                      { return XXH3_128bits_withSeed(input, len, seed); }
+XXH128_hash_t XXH3_128bits_withSecret_dispatch(const void* input, size_t len, const void* secret, size_t secretLen) { return XXH3_128bits_withSecret(input, len, secret, secretLen); }
+XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)                      { return XXH3_128bits_update(state, input, len); }
+
+#else
 
 /*!
  * @def XXH_X86DISPATCH_ALLOW_AVX
@@ -763,6 +776,8 @@ XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
     if (XXH_g_dispatch128.update == NULL) XXH_setDispatch();
     return XXH_g_dispatch128.update(state, (const xxh_u8*)input, len);
 }
+
+#endif
 
 #if defined (__cplusplus)
 }

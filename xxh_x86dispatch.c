@@ -52,7 +52,12 @@
 extern "C" {
 #endif
 
-#if (defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
+#if !(defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64))
+
+/* some build systems complain about empty units, so define this to save trouble */
+extern int __xxh_x86dispatch_non_empty_unit;
+
+#else
 
 /*!
  * @def XXH_X86DISPATCH_ALLOW_AVX

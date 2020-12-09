@@ -4736,6 +4736,7 @@ XXH3_update(XXH3_state_t* state,
         const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
 
         state->totalLen += len;
+        XXH_ASSERT(state->bufferedSize <= XXH3_INTERNALBUFFER_SIZE);
 
         if (state->bufferedSize + len <= XXH3_INTERNALBUFFER_SIZE) {  /* fill in tmp buffer */
             XXH_memcpy(state->buffer + state->bufferedSize, input, len);

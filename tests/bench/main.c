@@ -74,7 +74,7 @@ static int readIntFromChar(const char** stringPtr)
 
 
 /**
- * longCommand():
+ * isCommand():
  * Checks if string is the same as longCommand.
  * If yes, @return 1, otherwise @return 0
  */
@@ -169,7 +169,7 @@ static int badusage(const char* exename)
     return 1;
 }
 
-int main(int argc, const char** argv)
+int main(int argc, const char* argv[])
 {
     const char* const exename = argv[0];
     int hashNb = 0;

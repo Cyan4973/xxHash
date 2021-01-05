@@ -26,7 +26,7 @@ Add lines into downstream CMakeLists.txt:
 ### Way 2: Add subdirectory
 Add lines into downstream CMakeLists.txt:
 
-    option(BUILD_SHARE_LIBS "Build shared libs" OFF) #optional
+    option(BUILD_SHARED_LIBS "Build shared libs" OFF) #optional
     ...
     set(XXHASH_BUILD_ENABLE_INLINE_API OFF) #optional
     set(XXHASH_BUILD_XXHSUM OFF) #optional

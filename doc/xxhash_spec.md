@@ -227,7 +227,7 @@ Note that accumulator convergence is more complex than 32-bit variant, and requi
 
     mergeAccumulator(acc,accN):
     acc  = acc xor round(0, accN);
-    acc  = acc * PRIME64_1
+    acc  = acc * PRIME64_1;
     return acc + PRIME64_4;
 
 which is then used in the convergence formula:

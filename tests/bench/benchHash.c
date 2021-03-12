@@ -31,7 +31,6 @@
 
 #include "benchHash.h"
 
-
 static void initBuffer(void* buffer, size_t size)
 {
     const unsigned long long k1 = 11400714785074694791ULL;   /* 0b1001111000110111011110011011000110000101111010111100101010000111 */
@@ -44,7 +43,6 @@ static void initBuffer(void* buffer, size_t size)
     }
 }
 
-
 #define MARGIN_FOR_LATENCY 1024
 #define START_MASK (MARGIN_FOR_LATENCY-1)
 
@@ -52,7 +50,7 @@ typedef size_t (*sizeFunction_f)(size_t targetSize);
 
 /*
  * bench_hash_internal():
- * Benchmarks hashfn repeateadly over single input of size `size`
+ * Benchmarks hashfn repeatedly over single input of size `size`
  * return: nb of hashes per second
  */
 static double
@@ -88,7 +86,6 @@ bench_hash_internal(BMK_benchFn_t hashfn, void* payload,
         dstCapacities[n] = dstSize;
     }
 
-
     BMK_benchParams_t params = {
         .benchFn = hashfn,
         .benchPayload = payload,
@@ -117,7 +114,6 @@ bench_hash_internal(BMK_benchFn_t hashfn, void* payload,
 
 }
 
-
 static size_t rand_1_N(size_t N) { return ((size_t)rand() % N)  + 1; }
 
 static size_t identity(size_t s) { return s; }
@@ -135,8 +131,6 @@ benchLatency(const void* src, size_t srcSize,
 
     return hash = benchfn(start, srcSize, dst, dstCapacity, NULL);
 }
-
-
 
 #ifndef SIZE_TO_HASH_PER_ROUND
 #  define SIZE_TO_HASH_PER_ROUND 200000

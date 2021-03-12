@@ -4382,7 +4382,7 @@ static XXH64_hash_t
 XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, xxh_u64 start)
 {
     xxh_u64 result64 = start;
-    uint_8t i = 0;
+    uint8_t i = 0;
 
     for (i = 0; i < 4; i++) {
         result64 += XXH3_mix2Accs(acc+2*i, secret + 16*i);

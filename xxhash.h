@@ -284,6 +284,7 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 *  Definitions
 ******************************/
 #include <stddef.h>   /* size_t */
+#include <cstdint>
 typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 
 

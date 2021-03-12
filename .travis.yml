@@ -21,9 +21,13 @@ matrix:
         - make clean
         - CFLAGS="-Werror" MOREFLAGS="-Wno-sign-conversion" make dispatch  # removing sign conversion warnings due to a bug in gcc-5's definition of some AVX512 intrinsics
         - make clean
-        - CC=g++ CFLAGS="-O1 -mavx512f -Werror" make
+        - CFLAGS="-O1 -mavx512f -Werror" make
         - make clean
-        - CC=g++ CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1
+        - CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1
+        - make clean
+        - CFLAGS="-std=c90 -pedantic -Wno-long-long -Werror" make xxhsum  # check C90 compliance
+        - make clean
+        - CFLAGS="-std=c90 -pedantic -Werror" CPPFLAGS="-DXXH_NO_LONG_LONG" make libxxhash  # do not use long-long type, effectively reduced to XXH32
 
 
     - name: Check results consistency on x64

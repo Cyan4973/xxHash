@@ -284,7 +284,7 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 *  Definitions
 ******************************/
 #include <stddef.h>   /* size_t */
-#include <cstdint>
+//#include <cstdint>
 typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 
 
@@ -4383,7 +4383,7 @@ static XXH64_hash_t
 XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, xxh_u64 start)
 {
     xxh_u64 result64 = start;
-    uint8_t i = 0;
+    int i = 0; //what if uint8_t i = 0;
 
     for (i = 0; i < 4; i++) {
         result64 += XXH3_mix2Accs(acc+2*i, secret + 16*i);

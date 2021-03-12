@@ -32,7 +32,7 @@
 
 /*
  * Advanced include, gives access to experimental symbols
- * This test ensure that xxhash.h can be included multiple times and in any
+ * This test ensures that xxhash.h can be included multiple times and in any
  * order. This order is more difficult: Without care, the declaration of
  * experimental symbols could be skipped.
  */

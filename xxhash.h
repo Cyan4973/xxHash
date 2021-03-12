@@ -1474,7 +1474,7 @@ typedef XXH32_hash_t xxh_u32;
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
 /*
- * Force direct memory access. Only works on CPU which support unaligned memory
+ * Force direct memory access. Only works on CPUs which support unaligned memory
  * access in hardware.
  */
 static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr; }
@@ -2170,7 +2170,7 @@ typedef XXH64_hash_t xxh_u64;
  */
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==2))
 
-/* Force direct memory access. Only works on CPU which support unaligned memory access in hardware */
+/* Force direct memory access. Only works on CPUs which support unaligned memory access in hardware */
 static xxh_u64 XXH_read64(const void* memPtr)
 {
     return *(const xxh_u64*) memPtr;
@@ -3584,7 +3584,7 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
         int const nbRounds = (int)len / 16;
-        int i;
+        uint_8t i;
         for (i=0; i<8; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
         }
@@ -4382,7 +4382,7 @@ static XXH64_hash_t
 XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, xxh_u64 start)
 {
     xxh_u64 result64 = start;
-    size_t i = 0;
+    uint_8t i = 0;
 
     for (i = 0; i < 4; i++) {
         result64 += XXH3_mix2Accs(acc+2*i, secret + 16*i);
@@ -5399,7 +5399,6 @@ XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2)
     if (hcmp) return hcmp;
     return (h1.low64 > h2.low64) - (h2.low64 > h1.low64);
 }
-
 
 /*======   Canonical representation   ======*/
 /*! @ingroup xxh3_family */

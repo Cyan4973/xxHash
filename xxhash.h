@@ -3584,7 +3584,7 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
         int const nbRounds = (int)len / 16;
-        uint_8t i;
+        int i;
         for (i=0; i<8; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
         }

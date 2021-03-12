@@ -13,7 +13,6 @@
 
 #include "timefn.h"
 
-
 /*-****************************************
 *  Time functions
 ******************************************/
@@ -28,13 +27,13 @@ UTIL_time_t UTIL_getTime(void) { UTIL_time_t x; QueryPerformanceCounter(&x); ret
 PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 {
     static LARGE_INTEGER ticksPerSecond;
-    static int init = 0;
+    static bool init = false;
     if (!init) {
         if (!QueryPerformanceFrequency(&ticksPerSecond)) {
             perror("timefn::QueryPerformanceFrequency");
             abort();
         }
-        init = 1;
+        init = true;
     }
     return 1000000ULL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart;
 }
@@ -42,17 +41,16 @@ PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 {
     static LARGE_INTEGER ticksPerSecond;
-    static int init = 0;
+    static bool init = 0;
     if (!init) {
         if (!QueryPerformanceFrequency(&ticksPerSecond)) {
             perror("timefn::QueryPerformanceFrequency");
             abort();
         }
-        init = 1;
+        init = true;
     }
     return 1000000000ULL*(clockEnd.QuadPart - clockStart.QuadPart)/ticksPerSecond.QuadPart;
 }
-
 
 
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -62,10 +60,10 @@ UTIL_time_t UTIL_getTime(void) { return mach_absolute_time(); }
 PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 {
     static mach_timebase_info_data_t rate;
-    static int init = 0;
+    static bool init = false;
     if (!init) {
         mach_timebase_info(&rate);
-        init = 1;
+        init = true;
     }
     return (((clockEnd - clockStart) * (PTime)rate.numer) / ((PTime)rate.denom))/1000ULL;
 }
@@ -73,14 +71,13 @@ PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd)
 {
     static mach_timebase_info_data_t rate;
-    static int init = 0;
+    static bool init = 0;
     if (!init) {
         mach_timebase_info(&rate);
         init = 1;
     }
     return ((clockEnd - clockStart) * (PTime)rate.numer) / ((PTime)rate.denom);
 }
-
 
 
 #elif (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */) \
@@ -133,7 +130,6 @@ PTime UTIL_getSpanTimeNano(UTIL_time_t begin, UTIL_time_t end)
 }
 
 
-
 #else   /* relies on standard C90 (note : clock_t measurements can be wrong when using multi-threading) */
 
 UTIL_time_t UTIL_getTime(void) { return clock(); }
@@ -141,7 +137,6 @@ PTime UTIL_getSpanTimeMicro(UTIL_time_t clockStart, UTIL_time_t clockEnd) { retu
 PTime UTIL_getSpanTimeNano(UTIL_time_t clockStart, UTIL_time_t clockEnd) { return 1000000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC; }
 
 #endif
-
 
 
 /* returns time span in microseconds */

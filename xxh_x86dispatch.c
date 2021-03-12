@@ -438,7 +438,6 @@ static int XXH_featureTest(void)
     return best;
 }
 
-
 /* ===   Vector implementations   === */
 
 /*!
@@ -592,7 +591,6 @@ static const XXH_dispatchFunctions_s XXH_kDispatch[XXH_NB_DISPATCHES] = {
  */
 static XXH_dispatchFunctions_s XXH_g_dispatch = { NULL, NULL, NULL, NULL };
 
-
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(const void* XXH_RESTRICT, size_t);
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_withSeed)(const void* XXH_RESTRICT, size_t, XXH64_hash_t);
@@ -660,7 +658,6 @@ static void XXH_setDispatch(void)
     XXH_g_dispatch128 = XXH_kDispatch128[vecID];
 }
 
-
 /* ====    XXH3 public functions    ==== */
 
 static XXH64_hash_t
@@ -711,7 +708,6 @@ XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
     if (XXH_g_dispatch.update == NULL) XXH_setDispatch();
     return XXH_g_dispatch.update(state, (const xxh_u8*)input, len);
 }
-
 
 /* ====    XXH128 public functions    ==== */
 

@@ -55,7 +55,6 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, c
 }
 #endif
 
-
 /* automatic replacement of XXH3 functions.
  * can be disabled by setting XXH_DISPATCH_DISABLE_REPLACE */
 #ifndef XXH_DISPATCH_DISABLE_REPLACE

@@ -658,7 +658,7 @@ static int XSUM_hashFile(const char* fileName,
         XSUM_setBinaryMode(stdin);
     } else {
         if (XSUM_isDirectory(fileName)) {
-            XSUM_log("xxhsum: %s: Is a directory \n", fileName);
+            XSUM_log("xxhsum: %s: Is a directory\n", fileName);
             return 1;
         }
         inFile = XSUM_fopen( fileName, "rb" );
@@ -1252,13 +1252,13 @@ static int XSUM_checkFiles(char*const* fnList, int fnTotal,
 static int XSUM_usage(const char* exename)
 {
     XSUM_log( WELCOME_MESSAGE(exename) );
-    XSUM_log( "Print or verify checksums using fast non-cryptographic algorithm xxHash \n\n" );
-    XSUM_log( "Usage: %s [options] [files] \n\n", exename);
-    XSUM_log( "When no filename provided or when '-' is provided, uses stdin as input. \n");
-    XSUM_log( "Options: \n");
-    XSUM_log( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
-    XSUM_log( "  -c, --check read xxHash checksum from [files] and check them \n");
-    XSUM_log( "  -h, --help  display a long help page about advanced options \n");
+    XSUM_log( "Print or verify checksums using fast non-cryptographic algorithm xxHash\n\n" );
+    XSUM_log( "Usage: %s [options] [files]\n\n", exename);
+    XSUM_log( "When no filename provided or when '-' is provided, uses stdin as input.\n");
+    XSUM_log( "Options:\n");
+    XSUM_log( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i)\n", (int)g_defaultAlgo);
+    XSUM_log( "  -c, --check read xxHash checksum from [files] and check them\n");
+    XSUM_log( "  -h, --help  display a long help page about advanced options\n");
     return 0;
 }
 
@@ -1266,20 +1266,20 @@ static int XSUM_usage(const char* exename)
 static int XSUM_usage_advanced(const char* exename)
 {
     XSUM_usage(exename);
-    XSUM_log( "Advanced :\n");
-    XSUM_log( "  -V, --version        Display version information \n");
-    XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
-    XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
-    XSUM_log( "  -b                   Run benchmark \n");
-    XSUM_log( "  -b#                  Bench only algorithm variant # \n");
-    XSUM_log( "  -i#                  Number of times to run the benchmark (default: %u) \n", (unsigned)g_nbIterations);
-    XSUM_log( "  -q, --quiet          Don't display version header in benchmark mode \n");
+    XSUM_log( "Advanced:\n");
+    XSUM_log( "  -V, --version        Display version information\n");
+    XSUM_log( "      --tag            Produce BSD-style checksum lines\n");
+    XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian)\n");
+    XSUM_log( "  -b                   Run benchmark\n");
+    XSUM_log( "  -b#                  Bench only algorithm variant #\n");
+    XSUM_log( "  -i#                  Number of times to run the benchmark (default: %u)\n", (unsigned)g_nbIterations);
+    XSUM_log( "  -q, --quiet          Don't display version header in benchmark mode\n");
     XSUM_log( "\n");
-    XSUM_log( "The following four options are useful only when verifying checksums (-c): \n");
-    XSUM_log( "  -q, --quiet          Don't print OK for each successfully verified file \n");
-    XSUM_log( "      --status         Don't output anything, status code shows success \n");
-    XSUM_log( "      --strict         Exit non-zero for improperly formatted checksum lines \n");
-    XSUM_log( "      --warn           Warn about improperly formatted checksum lines \n");
+    XSUM_log( "The following four options are useful only when verifying checksums (-c):\n");
+    XSUM_log( "  -q, --quiet          Don't print OK for each successfully verified file\n");
+    XSUM_log( "      --status         Don't output anything, status code shows success\n");
+    XSUM_log( "      --strict         Exit non-zero for improperly formatted checksum lines\n");
+    XSUM_log( "      --warn           Warn about improperly formatted checksum lines\n");
     return 0;
 }
 
@@ -1292,7 +1292,7 @@ static int XSUM_badusage(const char* exename)
 
 static void errorOut(const char* msg)
 {
-    XSUM_log("%s \n", msg);
+    XSUM_log("%s\n", msg);
     exit(1);
 }
 

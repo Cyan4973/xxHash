@@ -75,7 +75,7 @@ and passes all tests, ensuring reasonable quality levels.
 It also passes extended tests from [newer forks of SMHasher], featuring additional scenarios and conditions.
 
 Finally, xxHash provides its own [massive collision tester](https://github.com/Cyan4973/xxHash/tree/dev/tests/collisions),
-able to generate and compare billions of hash to test the limits of 64-bit hash algorithms.
+able to generate and compare billions of hashes to test the limits of 64-bit hash algorithms.
 On this front too, xxHash features good results, in line with the [birthday paradox].
 A more detailed analysis is documented [in the wiki](https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison).
 

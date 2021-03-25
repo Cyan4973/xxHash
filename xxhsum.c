@@ -56,6 +56,7 @@
 
 #define XXH_STATIC_LINKING_ONLY   /* *_state_t */
 #include "xxhash.h"
+#include "xxh64x2.h"
 
 #ifdef XXHSUM_DISPATCH
 #  include "xxh_x86dispatch.h"
@@ -208,6 +209,10 @@ static XSUM_U32 localXXH3_64b_secret(const void* buffer, size_t bufferSize, XSUM
     (void)seed;
     return (XSUM_U32)XXH3_64bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf));
 }
+static XSUM_U32 localXXH64X2_128b(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    return (XSUM_U32)(XXH64X2(buffer, bufferSize, seed).low64);
+}
 static XSUM_U32 localXXH3_128b(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     (void)seed;
@@ -261,7 +266,7 @@ typedef struct {
     hashFunction func;
 } hashInfo;
 
-#define NB_HASHFUNC 12
+#define NB_HASHFUNC 13
 static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH32",             &localXXH32 },
     { "XXH64",             &localXXH64 },
@@ -275,6 +280,7 @@ static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH3_stream w/seed",&localXXH3_stream_seeded },
     { "XXH128_stream",     &localXXH128_stream },
     { "XXH128_stream w/seed",&localXXH128_stream_seeded },
+    { "XXH64X2",           &localXXH64X2_128b },
 };
 
 #define NB_TESTFUNC (1 + 2 * NB_HASHFUNC)
@@ -283,7 +289,8 @@ static const char k_testIDs_default[NB_TESTFUNC] = { 0,
         1 /*XXH32*/, 0,
         1 /*XXH64*/, 0,
         1 /*XXH3*/, 0, 0, 0, 0, 0,
-        1 /*XXH128*/ };
+        1 /*XXH128*/, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1 /*XXH64X2*/ };
 
 #define HASHNAME_MAX 29
 static void XSUM_benchHash(hashFunction h, const char* hName, int testID,

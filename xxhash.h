@@ -1394,6 +1394,27 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 /* note: use after variable declarations */
 #define XXH_STATIC_ASSERT(c)  do { enum { XXH_sa = 1/(int)(!!(c)) }; } while (0)
 
+/*!
+ * @internal
+ * @def XXH_COMPILER_GUARD(var)
+ * @brief Used to prevent unwanted optimizations for @p var.
+ *
+ * It uses an empty GCC inline assembly statement with a register constraint
+ * which forces @p var into a general purpose register (eg eax, ebx, ecx
+ * on x86) and marks it as modified.
+ *
+ * This is used in a few places to avoid unwanted autovectorization (e.g.
+ * XXH32_round()). All vectorization we want is explicit via intrinsics,
+ * and _usually_ isn't wanted elsewhere.
+ *
+ * We also use it to prevent unwanted constant folding for AArch64 in
+ * XXH3_initCustomSecret_scalar().
+ */
+#ifdef __GNUC__
+#  define XXH_COMPILER_GUARD(var) __asm__ __volatile__("" : "+r" (var))
+#else
+#  define XXH_COMPILER_GUARD(var) ((void)0)
+#endif
 
 /* *************************************
 *  Basic Types
@@ -1734,13 +1755,12 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
     acc += input * XXH_PRIME32_2;
     acc  = XXH_rotl32(acc, 13);
     acc *= XXH_PRIME32_1;
-#if defined(__GNUC__) && defined(__SSE4_1__) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+#if (defined(__SSE4_1__) || defined(__aarch64__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
     /*
      * UGLY HACK:
-     * This inline assembly hack forces acc into a normal register. This is the
-     * only thing that prevents GCC and Clang from autovectorizing the XXH32
-     * loop (pragmas and attributes don't work for some reason) without globally
-     * disabling SSE4.1.
+     * A compiler fence is the only thing that prevents GCC and Clang from
+     * autovectorizing the XXH32 loop (pragmas and attributes don't work for some
+     * reason) without globally disabling SSE4.1.
      *
      * The reason we want to avoid vectorization is because despite working on
      * 4 integers at a time, there are multiple factors slowing XXH32 down on
@@ -1765,22 +1785,11 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
      *   can load data, while v3 can multiply. SSE forces them to operate
      *   together.
      *
-     * How this hack works:
-     * __asm__(""       // Declare an assembly block but don't declare any instructions
-     *          :       // However, as an Input/Output Operand,
-     *          "+r"    // constrain a read/write operand (+) as a general purpose register (r).
-     *          (acc)   // and set acc as the operand
-     * );
-     *
-     * Because of the 'r', the compiler has promised that seed will be in a
-     * general purpose register and the '+' says that it will be 'read/write',
-     * so it has to assume it has changed. It is like volatile without all the
-     * loads and stores.
-     *
-     * Since the argument has to be in a normal register (not an SSE register),
-     * each time XXH32_round is called, it is impossible to vectorize.
+     * This is also enabled on AArch64, as Clang autovectorizes it incorrectly
+     * and it is pointless writing a NEON implementation that is basically the
+     * same speed as scalar for XXH32.
      */
-    __asm__("" : "+r" (acc));
+    XXH_COMPILER_GUARD(acc);
 #endif
     return acc;
 }
@@ -2149,12 +2158,14 @@ typedef XXH64_hash_t xxh_u64;
  * also slightly faster because it fits into cache better and is more likely
  * to be inlined by the compiler.
  *
+ * Unrolling XXH64 is also disabled on AArch64. While it is a 64-bit platform,
+ * there isn't enough benefit to justify the larger code size.
+ *
  * If XXH_REROLL is defined, this is ignored and the loop is always rerolled.
  */
 #ifndef XXH_REROLL_XXH64
 #  if (defined(__ILP32__) || defined(_ILP32)) /* ILP32 is often defined on 32-bit GCC family */ \
    || !(defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64) /* x86-64 */ \
-     || defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) /* aarch64 */ \
      || defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) || defined(__powerpc64__) /* ppc64 */ \
      || defined(__mips64__) || defined(__mips64)) /* mips64 */ \
    || (!defined(SIZE_MAX) || SIZE_MAX < ULLONG_MAX) /* check limits */
@@ -3531,7 +3542,7 @@ XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
      * GCC generates much better scalar code than Clang for the rest of XXH3,
      * which is why finding a more optimal codepath is an interest.
      */
-    __asm__ ("" : "+r" (seed64));
+    XXH_COMPILER_GUARD(seed64);
 #endif
     {   xxh_u64 const input_lo = XXH_readLE64(input);
         xxh_u64 const input_hi = XXH_readLE64(input+8);
@@ -3875,12 +3886,8 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
          * On GCC & Clang, marking 'dest' as modified will cause the compiler:
          *   - do not extract the secret from sse registers in the internal loop
          *   - use less common registers, and avoid pushing these reg into stack
-         * The asm hack causes Clang to assume that XXH3_kSecretPtr aliases with
-         * customSecret, and on aarch64, this prevented LDP from merging two
-         * loads together for free. Putting the loads together before the stores
-         * properly generates LDP.
          */
-        __asm__("" : "+r" (dest));
+        XXH_COMPILER_GUARD(dest);
 #       endif
 
         /* GCC -O2 need unroll loop manually */
@@ -3989,7 +3996,7 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
          *   - do not extract the secret from sse registers in the internal loop
          *   - use less common registers, and avoid pushing these reg into stack
          */
-        __asm__("" : "+r" (dest));
+        XXH_COMPILER_GUARD(dest);
 #       endif
 
         for (i=0; i < nbRounds; ++i) {
@@ -4235,7 +4242,7 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      *   without hack: 2654.4 MB/s
      *   with hack:    3202.9 MB/s
      */
-    __asm__("" : "+r" (kSecretPtr));
+    XXH_COMPILER_GUARD(kSecretPtr);
 #endif
     /*
      * Note: in debug mode, this overrides the asm optimization
@@ -4400,7 +4407,7 @@ XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secre
          *   without hack: 2063.7 MB/s
          *   with hack:    2560.7 MB/s
          */
-        __asm__("" : "+r" (result64));
+        XXH_COMPILER_GUARD(result64);
 #endif
     }
 

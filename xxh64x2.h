@@ -25,137 +25,32 @@ XXH_FORCE_INLINE XXH128_hash_t XXH64X2_avalanche(xxh_u64 const h64, xxh_u64 cons
 static XXH128_hash_t
 XXH64X2_finalize(xxh_u64 h64, xxh_u64 hi, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
-#define XXH_PROCESS1_64X2 do {                                   \
-    xxh_u64 const d = (xxh_u64)(*ptr++) * XXH_PRIME64_5;                                     \
-    h64 ^= d;                                    \
-    h64 = XXH_rotl64(h64, 11) * XXH_PRIME64_1;                 \
-    hi  ^= d + h64;                                    \
-} while (0)
-
-#define XXH_PROCESS4_64X2 do {                                   \
-    xxh_u64 const d = (xxh_u64)(XXH_get32bits(ptr)) * XXH_PRIME64_1; \
-    ptr += 4;                                              \
-    h64 ^= d;      \
-    h64 = XXH_rotl64(h64, 23) * XXH_PRIME64_2 + XXH_PRIME64_3;     \
-    hi  ^= d + h64;      \
-} while (0)
-
-#define XXH_PROCESS8_64X2 do {                                   \
-    xxh_u64 const k1 = XXH64_round(0, XXH_get64bits(ptr)); \
-    ptr += 8;                                              \
-    h64 ^= k1;                                             \
-    h64  = XXH_rotl64(h64,27) * XXH_PRIME64_1 + XXH_PRIME64_4;     \
-    hi  ^= k1 + h64;                                    \
-} while (0)
-
-    /* Rerolled version for 32-bit targets is faster and much smaller. */
-    if (XXH_REROLL || XXH_REROLL_XXH64) {
-        len &= 31;
-        while (len >= 8) {
-            XXH_PROCESS8_64X2;
-            len -= 8;
-        }
-        if (len >= 4) {
-            XXH_PROCESS4_64X2;
-            len -= 4;
-        }
-        while (len > 0) {
-            XXH_PROCESS1_64X2;
-            --len;
-        }
-         return  XXH64X2_avalanche(h64, hi);
-    } else {
-        switch(len & 31) {
-           case 24: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 16: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case  8: XXH_PROCESS8_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 28: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 20: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 12: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case  4: XXH_PROCESS4_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 25: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 17: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case  9: XXH_PROCESS8_64X2;
-                    XXH_PROCESS1_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 29: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 21: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 13: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case  5: XXH_PROCESS4_64X2;
-                    XXH_PROCESS1_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 26: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 18: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 10: XXH_PROCESS8_64X2;
-                    XXH_PROCESS1_64X2;
-                    XXH_PROCESS1_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 30: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 22: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 14: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case  6: XXH_PROCESS4_64X2;
-                    XXH_PROCESS1_64X2;
-                    XXH_PROCESS1_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 27: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 19: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 11: XXH_PROCESS8_64X2;
-                    XXH_PROCESS1_64X2;
-                    XXH_PROCESS1_64X2;
-                    XXH_PROCESS1_64X2;
-                    return XXH64X2_avalanche(h64, hi);
-
-           case 31: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 23: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case 15: XXH_PROCESS8_64X2;
-                         /* fallthrough */
-           case  7: XXH_PROCESS4_64X2;
-                         /* fallthrough */
-           case  3: XXH_PROCESS1_64X2;
-                         /* fallthrough */
-           case  2: XXH_PROCESS1_64X2;
-                         /* fallthrough */
-           case  1: XXH_PROCESS1_64X2;
-                         /* fallthrough */
-           case  0: return XXH64X2_avalanche(h64, hi);
-        }
+    len &= 31;
+    while (len >= 8) {
+        xxh_u64 const k1 = XXH64_round(0, XXH_get64bits(ptr));
+        ptr += 8;
+        h64 ^= k1;
+        h64  = XXH_rotl64(h64,27) * XXH_PRIME64_1 + XXH_PRIME64_4;
+        hi  ^= k1 + h64;
+        len -= 8;
     }
-    /* impossible to reach */
-    XXH_ASSERT(0);
-    XXH128_hash_t const r = { 0, 0 };
-    return r;  /* unreachable, but some compilers complain without it */
+    if (len >= 4) {
+        xxh_u64 const d = (xxh_u64)(XXH_get32bits(ptr)) * XXH_PRIME64_1;
+        ptr += 4;
+        h64 ^= d;
+        h64  = XXH_rotl64(h64, 23) * XXH_PRIME64_2 + XXH_PRIME64_3;
+        hi  ^= d + h64;
+        len -= 4;
+    }
+    while (len > 0) {
+        xxh_u64 const d = (*ptr++) * XXH_PRIME64_5;
+        h64 ^= d;
+        h64 = XXH_rotl64(h64, 11) * XXH_PRIME64_1;
+        hi  ^= d + h64;
+        --len;
+    }
+    return  XXH64X2_avalanche(h64, hi);
 }
-
-#  undef XXH_PROCESS1_64X2
-#  undef XXH_PROCESS4_64X2
-#  undef XXH_PROCESS8_64X2
 
 XXH_FORCE_INLINE XXH128_hash_t
 XXH64X2_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment align)

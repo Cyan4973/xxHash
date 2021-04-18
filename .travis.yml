@@ -25,9 +25,9 @@ matrix:
         - make clean
         - CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1
         - make clean
-        - CFLAGS="-std=c90 -pedantic -Wno-long-long -Werror" make xxhsum  # check C90 compliance
-        - make clean
-        - CFLAGS="-std=c90 -pedantic -Werror" CPPFLAGS="-DXXH_NO_LONG_LONG" make libxxhash  # do not use long-long type, effectively reduced to XXH32
+        - CFLAGS="-std=c90 -pedantic -Wno-long-long -Werror" make xxhsum  # check C90 + long long compliance
+        - make c90test # strict c90, with no long long support; resulting in no XXH64_* symbol
+        - make noxxh3test # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
 
 
     - name: Check results consistency on x64

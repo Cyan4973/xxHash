@@ -125,6 +125,8 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                                    Adds one branch at the beginning of each hash.
 - `XXH_STATIC_LINKING_ONLY`: gives access to the state declaration for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
+- `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.
+                  Useful to reduce binary size, notably for applications which do not use `XXH3`.
 - `XXH_NO_LONG_LONG`: removes compilation of algorithms relying on 64-bit types (XXH3 and XXH64). Only XXH32 will be compiled.
                       Useful for targets (architectures and compilers) without 64-bit support.
 - `XXH_IMPORT`: MSVC specific: should only be defined for dynamic linking, as it prevents linkage errors.

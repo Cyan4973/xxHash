@@ -2546,7 +2546,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
     return XXH_readBE64(src);
 }
 
-
+#ifndef XXH_NO_XXH3
 
 /* *********************************************************************
 *  XXH3
@@ -5311,6 +5311,8 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
 #endif
 
 #endif  /* XXH_NO_LONG_LONG */
+
+#endif  /* XXH_NO_XXH3 */
 
 /*!
  * @}

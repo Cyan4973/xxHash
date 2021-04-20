@@ -151,9 +151,10 @@ lib: libxxhash.a libxxhash
 
 # helper targets
 
-AWK = awk
+AWK  = awk
 GREP = grep
 SORT = sort
+NM   = nm
 
 .PHONY: list
 list:  ## list all Makefile targets
@@ -305,9 +306,19 @@ c90test: CFLAGS += -std=c90 -Werror -pedantic
 c90test: xxhash.c
 	@echo ---- test strict C90 compilation [xxh32 only] ----
 	$(RM) xxhash.o
-	$(CC) $(FLAGS) $^ $(LDFLAGS) -c
+	$(CC) $(FLAGS) $^ -c
+	$(NM) xxhash.o | $(GREP) XXH64 ; test $$? -eq 1
 	$(RM) xxhash.o
 endif
+
+noxxh3test: CPPFLAGS += -DXXH_NO_XXH3
+noxxh3test: CFLAGS += -Werror -pedantic
+noxxh3test: xxhash.c
+	@echo ---- test compilation without XXH3 ----
+	$(RM) xxhash.o
+	$(CC) $(FLAGS) $^ -c
+	$(NM) xxhash.o | $(GREP) XXH3_ ; test $$? -eq 1
+	$(RM) xxhash.o
 
 .PHONY: usan
 usan: CC=clang

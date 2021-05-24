@@ -223,6 +223,9 @@ test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
 	./xxhsum xxh* | ./xxhsum -c -
 	./xxhsum -H0 xxh* | ./xxhsum -c -
+	# xxhsum -c is unable to verify checksum of file from STDIN (#470)
+	./xxhsum < README.md > .test.README.md.xxh
+	./xxhsum -c .test.README.md.xxh < README.md
 	# xxhsum -q does not display "Loading" message into stderr (#251)
 	! ./xxhsum -q xxh* 2>&1 | grep Loading
 	# xxhsum does not display "Loading" message into stderr either

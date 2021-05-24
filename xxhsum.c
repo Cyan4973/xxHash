@@ -1054,7 +1054,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
         report->nProperlyFormattedLines++;
 
         do {
-            int const fnameIsStdin = (strcmp(parsedLine.filename, stdinFileName) == 0); // "stdin"
+            int const fnameIsStdin = (strcmp(parsedLine.filename, stdinFileName) == 0); /* "stdin" */
             FILE* const fp = fnameIsStdin ? stdin : XSUM_fopen(parsedLine.filename, "rb");
             if (fp == stdin) {
                 XSUM_setBinaryMode(stdin);

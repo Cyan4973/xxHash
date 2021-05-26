@@ -1,9 +1,15 @@
 # Known critical issues:
-# - AVX512 related tests are disabled.  Because default environment of
+# - AVX512 related tests are incomplete.  Because default environment of
 #   GitHub Actions doesn't guarantee to support AVX512.
 #   As of May 2021, they're using Xeon E5-2673 (which doesn't support
 #   AVX512) and Xeon Platinum 8171M (which supports AVX512).
 #   See also https://github.com/actions/runner/issues/1069
+#
+#   In this CI script, it always run `make default` which compiles xxHash
+#   with AVX512 intrinsics.  But if test runner doesn't support AVX512,
+#   it doesn't run `make check` which tests runtime error/consistency.
+#   It means that this test stochastically detects a failure in AVX512
+#   code path.
 #
 # Known issues:
 # - This test script ignores exit code of cppcheck which can see under
@@ -94,10 +100,9 @@ jobs:
         # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
         make clean noxxh3test
 
-# As for AVX512, see "Known critical issues" at the top of this file
-#   - name: make avx512f
-#     run: |
-#       CFLAGS="-O1 -mavx512f -Werror" make clean default
+    - name: make avx512f
+      run: |
+        CFLAGS="-O1 -mavx512f -Werror" make clean default
 
     - name: test-all
       run: |
@@ -128,10 +133,11 @@ jobs:
       run: |
         CPPFLAGS="-mavx2 -DXXH_VECTOR=XXH_AVX2" make clean check
 
-# As for AVX512, see "Known critical issues" at the top of this file
-#   - name: AVX512 code path
-#     run: |
-#       CPPFLAGS="-mavx512f -DXXH_VECTOR=XXH_AVX512" make clean check
+    # As for AVX512, see "Known critical issues" at the top of this file
+    - name: AVX512 code path
+      run: |
+        # Run "make check" if /proc/cpuinfo has flags for avx512.
+        grep -q "^flags.*\bavx512\b" /proc/cpuinfo && CPPFLAGS="-mavx512f -DXXH_VECTOR=XXH_AVX512" make clean check || (echo This test runner does not support AVX512. && $(exit 0))
 
     - name: reroll code path (#240)
       run: |

@@ -1920,7 +1920,7 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 XXH_FORCE_INLINE xxh_u32
 XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment align)
 {
-    const xxh_u8* bEnd = input + len;
+    const xxh_u8* bEnd = input ? input + len : NULL;
     xxh_u32 h32;
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
@@ -2348,7 +2348,7 @@ XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
 XXH_FORCE_INLINE xxh_u64
 XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment align)
 {
-    const xxh_u8* bEnd = input + len;
+    const xxh_u8* bEnd = input ? input + len : NULL;
     xxh_u64 h64;
 
 #if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)

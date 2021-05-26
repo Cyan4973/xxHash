@@ -17,9 +17,6 @@
 # - Setup procedure for msys2 environment is painfully slow.  It takes
 #   3..5 minutes.
 #
-# - Sometimes apt-get fails to retrieve package information.
-#   I have absolutely no idea.
-#
 # Notes:
 # - You can investigate various information at the right pane of GitHub
 #   Actions report page.
@@ -30,11 +27,8 @@
 #   | git repo, commit hash     | Run actions/checkout@v2               |
 #   | gcc, tools                | Environment info                      |
 #
-# - To fail earlier, oreder of tests in the same job are roughly sorted by
+# - To fail earlier, order of tests in the same job are roughly sorted by
 #   elapsed time.
-#
-# - "ubuntu-latest" (Ubuntu 20.04) has the following software
-#   https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
 #
 # Todos:
 # - [ ] Linux: Add native ARM runner.
@@ -56,6 +50,9 @@ on: [push, pull_request]
 jobs:
 
   # Linux, x64
+  #
+  # - "ubuntu-latest" (Ubuntu 20.04) has the following software
+  #   https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
 
   ubuntu-general:
     name: Linux x64
@@ -166,6 +163,8 @@ jobs:
 
     - name: cppcheck
       run: |
+        # This test script ignores exit code of cppcheck.  See knowin issues
+        # at the top of this file.
         make clean cppcheck || echo There are some cppcheck reports
 
     - name: test-mem (valgrind)

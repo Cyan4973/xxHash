@@ -93,6 +93,7 @@ static size_t XSUM_DEFAULT_SAMPLE_SIZE = 100 KB;
 #define MAX_MEM    (2 GB - 64 MB)
 
 static const char stdinName[] = "-";
+static const char stdinFileName[] = "stdin";
 typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2 } AlgoSelected;
 static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & XSUM_usage() */
 
@@ -654,7 +655,7 @@ static int XSUM_hashFile(const char* fileName,
     /* Check file existence */
     if (fileName == stdinName) {
         inFile = stdin;
-        fileName = "stdin";
+        fileName = stdinFileName; /* "stdin" */
         XSUM_setBinaryMode(stdin);
     } else {
         if (XSUM_isDirectory(fileName)) {
@@ -1053,7 +1054,11 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
         report->nProperlyFormattedLines++;
 
         do {
-            FILE* const fp = XSUM_fopen(parsedLine.filename, "rb");
+            int const fnameIsStdin = (strcmp(parsedLine.filename, stdinFileName) == 0); /* "stdin" */
+            FILE* const fp = fnameIsStdin ? stdin : XSUM_fopen(parsedLine.filename, "rb");
+            if (fp == stdin) {
+                XSUM_setBinaryMode(stdin);
+            }
             if (fp == NULL) {
                 lineStatus = LineStatus_failedToOpen;
                 break;
@@ -1085,7 +1090,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
             default:
                 break;
             }
-            fclose(fp);
+            if (fp != stdin) fclose(fp);
         } while (0);
 
         switch (lineStatus)
@@ -1157,7 +1162,7 @@ static int XSUM_checkFile(const char* inFileName,
          * Note: Since we expect text input for xxhash -c mode,
          * we don't set binary mode for stdin.
          */
-        inFileName = "stdin";
+        inFileName = stdinFileName; /* "stdin" */
         inFile = stdin;
     } else {
         inFile = XSUM_fopen( inFileName, "rt" );

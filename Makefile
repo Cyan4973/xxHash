@@ -188,7 +188,7 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	# stdin
 	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
-	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum$(EXT) xxhash.*
 	# internal bench
 	$(RUN_ENV) ./xxhsum$(EXT) -bi0
 	# long bench command

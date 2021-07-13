@@ -55,10 +55,10 @@
 #include <errno.h>      /* errno */
 
 #define XXH_STATIC_LINKING_ONLY   /* *_state_t */
-#include "xxhash.h"
+#include "../xxhash.h"
 
 #ifdef XXHSUM_DISPATCH
-#  include "xxh_x86dispatch.h"
+#  include "../xxh_x86dispatch.h"
 #endif
 
 static unsigned XSUM_isLittleEndian(void)

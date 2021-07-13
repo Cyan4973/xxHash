@@ -351,13 +351,14 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) xxhash.o xxhash2.o $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
+MAN = $(XXHSUM_SRC_DIR)/xxhsum.1
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
-xxhsum.1: xxhsum.1.md xxhash.h
+$(MAN): $(XXHSUM_SRC_DIR)/xxhsum.1.md xxhash.h
 	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | $(SED) -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
-man: xxhsum.1  ## generate man page from markdown source
+man: $(MAN)  ## generate man page from markdown source
 
 .PHONY: clean-man
 clean-man:
@@ -390,7 +391,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	! $(GREP) -E "`printf '[ \\t]$$'`" cli/*.{c,h} *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
+	! $(GREP) -E "`printf '[ \\t]$$'`" cli/*.{c,h,1} *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 
 # =========================================================

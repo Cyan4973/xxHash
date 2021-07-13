@@ -390,7 +390,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	! $(GREP) -E "`printf '[ \\t]$$'`" cli/* *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
+	! $(GREP) -E "`printf '[ \\t]$$'`" cli/*.{c,h} *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 
 # =========================================================

@@ -377,7 +377,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace test-unicode
+test-all: test test32 test-unicode clangtest cxxtest usan test-inline listL120 trailingWhitespace
 
 .PHONY: test-tools
 test-tools:
@@ -390,7 +390,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	! $(GREP) -E "`printf '[ \\t]$$'`" xxhsum.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
+	! $(GREP) -E "`printf '[ \\t]$$'`" cli/* *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 
 # =========================================================

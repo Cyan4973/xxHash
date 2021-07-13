@@ -1,7 +1,35 @@
+# ################################################################
+# xxHash Makefile
+# Copyright (C) 2012-2020 Yann Collet
+#
+# GPL v2 License
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# You can contact the author at:
+#   - xxHash homepage: https://www.xxhash.com
+#   - xxHash source repository: https://github.com/Cyan4973/xxHash
+# ################################################################
+
 CFLAGS += -Wall -Wextra -Wundef -g
 
+CP = cp
 NM = nm
 GREP = grep
+XXHSUM_DIR = ..
+XXHSUM = $(XXHSUM_DIR)/xxhsum
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -52,8 +80,10 @@ test_ppc_redefine: ppc_define.c
 	@$(MAKE) clean
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $^
 
-xxhsum$(EXT): ../xxhash.c ../xxhash.h ../xxhsum.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXXH_INLINE_ALL ../xxhsum.c -o $@
+.PHONY: $(XXHSUM)
+$(XXHSUM):
+	$(MAKE) -C $(XXHSUM_DIR) xxhsum
+	$(CP) $(XXHSUM) .
 
 # Make sure that Unicode filenames work.
 # https://github.com/Cyan4973/xxHash/issues/293
@@ -63,7 +93,7 @@ test_unicode:
 	@echo "Skipping Unicode test, your terminal doesn't appear to support UTF-8."
 	@echo "Try with ENABLE_UNICODE=1"
 else
-test_unicode: xxhsum$(EXT) generate_unicode_test.c
+test_unicode: $(XXHSUM) generate_unicode_test.c
 	# Generate a Unicode filename test dynamically
 	# to keep UTF-8 out of the source tree.
 	$(CC) $(CFLAGS) $(LDFLAGS) generate_unicode_test.c -o generate_unicode_test$(EXT)
@@ -80,4 +110,4 @@ multiInclude_withxxhash: multiInclude.o xxhash.o
 clean:
 	@$(RM) *.o
 	@$(RM) multiInclude multiInclude_withxxhash
-	@$(RM) *.unicode generate_unicode_test$(EXT) unicode_test.* xxhsum$(EXT)
+	@$(RM) *.unicode generate_unicode_test$(EXT) unicode_test.* xxhsum*

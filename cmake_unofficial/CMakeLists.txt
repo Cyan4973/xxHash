@@ -84,7 +84,7 @@ set_target_properties(xxhash PROPERTIES
 if(XXHASH_BUILD_XXHSUM)
   set(XXHSUM_DIR "${XXHASH_DIR}/cli")
   # xxhsum
-  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c"
+  add_executable(xxhsum "${XXHSUM_DIR}/xxhsum.c"
                         "${XXHSUM_DIR}/xsum_os_specific.c"
                         "${XXHSUM_DIR}/xsum_output.c"
                         "${XXHSUM_DIR}/xsum_sanity_check.c"

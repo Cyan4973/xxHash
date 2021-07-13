@@ -72,7 +72,8 @@ endif
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 XXHSUM_SRC_DIR = cli
-XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
+XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xxhsum.c \
+                    $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
                     $(XXHSUM_SRC_DIR)/xsum_output.c \
                     $(XXHSUM_SRC_DIR)/xsum_sanity_check.c
 XXHSUM_SPLIT_OBJS = $(XXHSUM_SPLIT_SRCS:.c=.o)
@@ -95,20 +96,20 @@ ifeq ($(DISPATCH),1)
 xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
 xxhsum: xxh_x86dispatch.o
 endif
-xxhsum: xxhash.o xxhsum.o $(XXHSUM_SPLIT_OBJS)
+xxhsum: xxhash.o $(XXHSUM_SPLIT_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
+xxhsum32: xxhash.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 ## dispatch only works for x86/x64 systems
 dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
-dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c $(XXHSUM_SPLIT_SRCS)
+dispatch: xxhash.o xxh_x86dispatch.o $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h
-xxhsum.o: xxhsum.c $(XXHSUM_HEADERS) \
+xxhsum.o: $(XXHSUM_SRC_DIR)/xxhsum.c $(XXHSUM_HEADERS) \
     xxhash.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
@@ -119,7 +120,7 @@ xxh32sum xxh64sum xxh128sum: xxhsum
 	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
-xxhsum_inlinedXXH: xxhsum.c $(XXHSUM_SPLIT_SRCS)
+xxhsum_inlinedXXH: $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $< -o $@$(EXT)
 
 
@@ -187,7 +188,7 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 	# stdin
 	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
-	$(RUN_ENV) ./xxhsum$(EXT) xxhash.* xxhsum.*
+	$(RUN_ENV) ./xxhsum$(EXT) xxhash.*
 	# internal bench
 	$(RUN_ENV) ./xxhsum$(EXT) -bi0
 	# long bench command
@@ -214,9 +215,9 @@ test-mem: RUN_ENV = $(VALGRIND)
 test-mem: xxhsum check
 
 .PHONY: test32
-test32: clean xxhsum32
+test32: xxhsum32
 	@echo ---- test 32-bit ----
-	./xxhsum32 -bi1 xxhash.c
+	./xxhsum32 -bi0 xxhash.c
 
 .PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum
@@ -347,16 +348,17 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
-	$(CC) xxhash.o xxhash2.o xxhsum.c $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(CC) xxhash.o xxhash2.o $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
+MAN = $(XXHSUM_SRC_DIR)/xxhsum.1
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
-xxhsum.1: xxhsum.1.md xxhash.h
+$(MAN): $(XXHSUM_SRC_DIR)/xxhsum.1.md xxhash.h
 	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | $(SED) -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
-man: xxhsum.1  ## generate man page from markdown source
+man: $(MAN)  ## generate man page from markdown source
 
 .PHONY: clean-man
 clean-man:
@@ -376,7 +378,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 clangtest cxxtest usan test-inline listL120 trailingWhitespace test-unicode
+test-all: test test32 test-unicode clangtest cxxtest usan test-inline listL120 trailingWhitespace
 
 .PHONY: test-tools
 test-tools:
@@ -389,7 +391,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	! $(GREP) -E "`printf '[ \\t]$$'`" xxhsum.1 *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
+	! $(GREP) -E "`printf '[ \\t]$$'`" cli/*.{c,h,1} *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
 
 # =========================================================

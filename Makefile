@@ -215,9 +215,9 @@ test-mem: RUN_ENV = $(VALGRIND)
 test-mem: xxhsum check
 
 .PHONY: test32
-test32: clean xxhsum32
+test32: xxhsum32
 	@echo ---- test 32-bit ----
-	./xxhsum32 -bi1 xxhash.c
+	./xxhsum32 -bi0 xxhash.c
 
 .PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum

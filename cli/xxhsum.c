@@ -30,15 +30,15 @@
  */
 
 /* Transitional headers */
-#include "cli/xsum_config.h"
-#include "cli/xsum_arch.h"
-#include "cli/xsum_os_specific.h"
-#include "cli/xsum_output.h"
-#include "cli/xsum_sanity_check.h"
+#include "xsum_config.h"
+#include "xsum_arch.h"
+#include "xsum_os_specific.h"
+#include "xsum_output.h"
+#include "xsum_sanity_check.h"
 #ifdef XXH_INLINE_ALL
-#  include "cli/xsum_os_specific.c"
-#  include "cli/xsum_output.c"
-#  include "cli/xsum_sanity_check.c"
+#  include "xsum_os_specific.c"
+#  include "xsum_output.c"
+#  include "xsum_sanity_check.c"
 #endif
 
 /* ************************************

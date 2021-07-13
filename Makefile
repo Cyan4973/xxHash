@@ -72,7 +72,8 @@ endif
 LIBXXH = libxxhash.$(SHARED_EXT_VER)
 
 XXHSUM_SRC_DIR = cli
-XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
+XXHSUM_SPLIT_SRCS = $(XXHSUM_SRC_DIR)/xxhsum.c \
+                    $(XXHSUM_SRC_DIR)/xsum_os_specific.c \
                     $(XXHSUM_SRC_DIR)/xsum_output.c \
                     $(XXHSUM_SRC_DIR)/xsum_sanity_check.c
 XXHSUM_SPLIT_OBJS = $(XXHSUM_SPLIT_SRCS:.c=.o)
@@ -95,20 +96,20 @@ ifeq ($(DISPATCH),1)
 xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
 xxhsum: xxh_x86dispatch.o
 endif
-xxhsum: xxhash.o xxhsum.o $(XXHSUM_SPLIT_OBJS)
+xxhsum: xxhash.o $(XXHSUM_SPLIT_OBJS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
-xxhsum32: xxhash.c xxhsum.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
+xxhsum32: xxhash.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 ## dispatch only works for x86/x64 systems
 dispatch: CPPFLAGS += -DXXHSUM_DISPATCH=1
-dispatch: xxhash.o xxh_x86dispatch.o xxhsum.c $(XXHSUM_SPLIT_SRCS)
+dispatch: xxhash.o xxh_x86dispatch.o $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
 
 xxhash.o: xxhash.c xxhash.h
-xxhsum.o: xxhsum.c $(XXHSUM_HEADERS) \
+xxhsum.o: $(XXHSUM_SRC_DIR)/xxhsum.c $(XXHSUM_HEADERS) \
     xxhash.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
@@ -119,7 +120,7 @@ xxh32sum xxh64sum xxh128sum: xxhsum
 	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
-xxhsum_inlinedXXH: xxhsum.c $(XXHSUM_SPLIT_SRCS)
+xxhsum_inlinedXXH: $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $< -o $@$(EXT)
 
 
@@ -347,7 +348,7 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
-	$(CC) xxhash.o xxhash2.o xxhsum.c $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(CC) xxhash.o xxhash2.o $(XXHSUM_SPLIT_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
 	$(RM) *.o xxhsum2  # clean
 
 MD2ROFF ?= ronn

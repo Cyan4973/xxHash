@@ -9,7 +9,7 @@ Code is highly portable, and hashes are identical across all platforms (little /
 
 |Branch      |Status   |
 |------------|---------|
-|dev         | [![Build Status](https://travis-ci.org/Cyan4973/xxHash.svg?branch=dev)](https://travis-ci.org/Cyan4973/xxHash?branch=dev) |
+|dev         | [![Build Status](https://github.com/Cyan4973/xxHash/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Cyan4973/xxHash/actions?query=branch%3Adev+) |
 
 
 Benchmarks

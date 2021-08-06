@@ -1429,6 +1429,14 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #endif
 typedef XXH32_hash_t xxh_u32;
 
+#ifdef UINTPTR_MAX
+  /* Pointer arithmetic slightly beyond bounds can save some cycles but is
+   * technically UB on pointer type. Use uintptr_t when available. */
+  typedef uintptr_t xxh_u8_ptr_arith_t;
+#else
+  typedef const xxh_u8* xxh_u8_ptr_arith_t;
+#endif
+
 #ifdef XXH_OLD_NAMES
 #  define BYTE xxh_u8
 #  define U8   xxh_u8
@@ -1534,8 +1542,6 @@ static xxh_u32 XXH_read32(const void* memPtr)
 
 
 /* ***   Endianness   *** */
-typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
-
 /*!
  * @ingroup tuning
  * @def XXH_CPU_LITTLE_ENDIAN
@@ -2047,8 +2053,8 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
             state->memsize = 0;
         }
 
-        if (p <= bEnd-16) {
-            const xxh_u8* const limit = bEnd - 16;
+        if ((xxh_u8_ptr_arith_t)p <= (xxh_u8_ptr_arith_t)bEnd - 16) {
+            const xxh_u8_ptr_arith_t limit = (xxh_u8_ptr_arith_t)bEnd - 16;
             xxh_u32 v1 = state->v1;
             xxh_u32 v2 = state->v2;
             xxh_u32 v3 = state->v3;
@@ -2059,7 +2065,7 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
                 v2 = XXH32_round(v2, XXH_readLE32(p)); p+=4;
                 v3 = XXH32_round(v3, XXH_readLE32(p)); p+=4;
                 v4 = XXH32_round(v4, XXH_readLE32(p)); p+=4;
-            } while (p<=limit);
+            } while ((xxh_u8_ptr_arith_t)p<=limit);
 
             state->v1 = v1;
             state->v2 = v2;
@@ -2474,8 +2480,8 @@ XXH64_update (XXH64_state_t* state, const void* input, size_t len)
             state->memsize = 0;
         }
 
-        if (p+32 <= bEnd) {
-            const xxh_u8* const limit = bEnd - 32;
+        if ((xxh_u8_ptr_arith_t)p + 32 <= (xxh_u8_ptr_arith_t)bEnd) {
+            const xxh_u8_ptr_arith_t limit = (xxh_u8_ptr_arith_t)bEnd - 32;
             xxh_u64 v1 = state->v1;
             xxh_u64 v2 = state->v2;
             xxh_u64 v3 = state->v3;
@@ -2486,7 +2492,7 @@ XXH64_update (XXH64_state_t* state, const void* input, size_t len)
                 v2 = XXH64_round(v2, XXH_readLE64(p)); p+=8;
                 v3 = XXH64_round(v3, XXH_readLE64(p)); p+=8;
                 v4 = XXH64_round(v4, XXH_readLE64(p)); p+=8;
-            } while (p<=limit);
+            } while ((xxh_u8_ptr_arith_t)p<=limit);
 
             state->v1 = v1;
             state->v2 = v2;
@@ -4645,8 +4651,8 @@ XXH3_update(XXH3_state_t* state,
         XXH_ASSERT(input < bEnd);
 
         /* Consume input by a multiple of internal buffer size */
-        if (input+XXH3_INTERNALBUFFER_SIZE < bEnd) {
-            const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
+        if ((xxh_u8_ptr_arith_t)input + XXH3_INTERNALBUFFER_SIZE < (xxh_u8_ptr_arith_t)bEnd) {
+            const xxh_u8_ptr_arith_t limit = (xxh_u8_ptr_arith_t)bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {
                 XXH3_consumeStripes(state->acc,
                                    &state->nbStripesSoFar, state->nbStripesPerBlock,
@@ -4654,7 +4660,7 @@ XXH3_update(XXH3_state_t* state,
                                     secret, state->secretLimit,
                                     f_acc512, f_scramble);
                 input += XXH3_INTERNALBUFFER_SIZE;
-            } while (input<limit);
+            } while ((xxh_u8_ptr_arith_t)input<limit);
             /* for last partial stripe */
             memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
         }

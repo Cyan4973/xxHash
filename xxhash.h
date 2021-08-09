@@ -297,11 +297,13 @@ typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
  * Not necessarily defined to `uint32_t` but functionally equivalent.
  */
 typedef uint32_t XXH32_hash_t;
+
 #elif !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
 #   include <stdint.h>
     typedef uint32_t XXH32_hash_t;
+
 #else
 #   include <limits.h>
 #   if UINT_MAX == 0xFFFFFFFFUL
@@ -960,16 +962,18 @@ struct XXH64_state_s {
  * @brief Structure for XXH3 streaming API.
  *
  * @note This is only defined when @ref XXH_STATIC_LINKING_ONLY,
- * @ref XXH_INLINE_ALL, or @ref XXH_IMPLEMENTATION is defined. Otherwise it is
- * an opaque type. This allows fields to safely be changed.
+ * @ref XXH_INLINE_ALL, or @ref XXH_IMPLEMENTATION is defined.
+ * Otherwise it is an opaque type.
+ * Never use this definition in combination with dynamic library.
+ * This allows fields to safely be changed in the future.
  *
- * @note **This structure has a strict alignment requirement of 64 bytes.** Do
- * not allocate this with `malloc()` or `new`, it will not be sufficiently
- * aligned. Use @ref XXH3_createState() and @ref XXH3_freeState(), or stack
- * allocation.
+ * @note ** This structure has a strict alignment requirement of 64 bytes!! **
+ * Do not allocate this with `malloc()` or `new`,
+ * it will not be sufficiently aligned.
+ * Use @ref XXH3_createState() and @ref XXH3_freeState(), or stack allocation.
  *
  * Typedef'd to @ref XXH3_state_t.
- * Do not access the members of this struct directly.
+ * Do never access the members of this struct directly.
  *
  * @see XXH3_INITSTATE() for stack initialization.
  * @see XXH3_createState(), XXH3_freeState().

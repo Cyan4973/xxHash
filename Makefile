@@ -220,7 +220,7 @@ test32: xxhsum32
 	@echo ---- test 32-bit ----
 	./xxhsum32 -bi0 xxhash.c
 
-TEST_FILES = xxhsum xxhash.c xxhash.h
+TEST_FILES = xxhsum$(EXT) xxhash.c xxhash.h
 .PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe

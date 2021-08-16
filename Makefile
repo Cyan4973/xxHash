@@ -220,33 +220,34 @@ test32: xxhsum32
 	@echo ---- test 32-bit ----
 	./xxhsum32 -bi0 xxhash.c
 
+TEST_FILES = xxhsum xxhash.c xxhash.h
 .PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum
 	# xxhsum to/from pipe
-	./xxhsum xxh* | ./xxhsum -c -
-	./xxhsum -H0 xxh* | ./xxhsum -c -
+	./xxhsum $(TEST_FILES) | ./xxhsum -c -
+	./xxhsum -H0 $(TEST_FILES) | ./xxhsum -c -
 	# xxhsum -c is unable to verify checksum of file from STDIN (#470)
 	./xxhsum < README.md > .test.README.md.xxh
 	./xxhsum -c .test.README.md.xxh < README.md
 	# xxhsum -q does not display "Loading" message into stderr (#251)
-	! ./xxhsum -q xxh* 2>&1 | grep Loading
+	! ./xxhsum -q $(TEST_FILES) 2>&1 | grep Loading
 	# xxhsum does not display "Loading" message into stderr either
-	! ./xxhsum xxh* 2>&1 | grep Loading
+	! ./xxhsum $(TEST_FILES) 2>&1 | grep Loading
 	# Check that xxhsum do display filename that it failed to open.
 	LC_ALL=C ./xxhsum nonexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
 	# xxhsum to/from file, shell redirection
-	./xxhsum xxh* > .test.xxh64
-	./xxhsum --tag xxh* > .test.xxh64_tag
-	./xxhsum --little-endian xxh* > .test.le_xxh64
-	./xxhsum --tag --little-endian xxh* > .test.le_xxh64_tag
-	./xxhsum -H0 xxh* > .test.xxh32
-	./xxhsum -H0 --tag xxh* > .test.xxh32_tag
-	./xxhsum -H0 --little-endian xxh* > .test.le_xxh32
-	./xxhsum -H0 --tag --little-endian xxh* > .test.le_xxh32_tag
-	./xxhsum -H2 xxh* > .test.xxh128
-	./xxhsum -H2 --tag xxh* > .test.xxh128_tag
-	./xxhsum -H2 --little-endian xxh* > .test.le_xxh128
-	./xxhsum -H2 --tag --little-endian xxh* > .test.le_xxh128_tag
+	./xxhsum $(TEST_FILES) > .test.xxh64
+	./xxhsum --tag $(TEST_FILES) > .test.xxh64_tag
+	./xxhsum --little-endian $(TEST_FILES) > .test.le_xxh64
+	./xxhsum --tag --little-endian $(TEST_FILES) > .test.le_xxh64_tag
+	./xxhsum -H0 $(TEST_FILES) > .test.xxh32
+	./xxhsum -H0 --tag $(TEST_FILES) > .test.xxh32_tag
+	./xxhsum -H0 --little-endian $(TEST_FILES) > .test.le_xxh32
+	./xxhsum -H0 --tag --little-endian $(TEST_FILES) > .test.le_xxh32_tag
+	./xxhsum -H2 $(TEST_FILES) > .test.xxh128
+	./xxhsum -H2 --tag $(TEST_FILES) > .test.xxh128_tag
+	./xxhsum -H2 --little-endian $(TEST_FILES) > .test.le_xxh128
+	./xxhsum -H2 --tag --little-endian $(TEST_FILES) > .test.le_xxh128_tag
 	./xxhsum -c .test.xxh*
 	./xxhsum -c --little-endian .test.le_xxh*
 	./xxhsum -c .test.*_tag

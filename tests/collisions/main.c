@@ -106,7 +106,7 @@ static uint64_t avalanche64(uint64_t h64)
     return h64;
 }
 
-static unsigned char randomByte(size_t n)
+static unsigned char randomByte(uint64_t n)
 {
     uint64_t n64 = avalanche64(n+1);
     n64 *= prime64_1;
@@ -240,7 +240,7 @@ typedef struct {
     /* slab5 */
     size_t nbSlabs;
     size_t current;
-    size_t prngSeed;
+    uint64_t prngSeed;
 } sampleFactory;
 
 static void init_sampleFactory(sampleFactory* sf, uint64_t htotal)
@@ -282,7 +282,7 @@ static void free_sampleFactory(sampleFactory* sf)
 
 static void flipbit(void* buffer, uint64_t bitID)
 {
-    size_t const pos = bitID >> 3;
+    size_t const pos = (size_t)(bitID >> 3);
     unsigned char const mask = (unsigned char)(1 << (bitID & 7));
     unsigned char* const p = (unsigned char*)buffer;
     p[pos] ^= mask;
@@ -416,7 +416,7 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
      hash >>= 8;
 
      size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
-     size_t const cacheLineNb = hash & fclmask;
+     size_t const cacheLineNb = (size_t)hash & fclmask;
 
      size_t const pos1 = (cacheLineNb << 6) + (slot1 >> 2);
      unsigned const shift1 = (slot1 & 3) * 2;
@@ -456,7 +456,7 @@ static inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
      hash >>= 8;
 
      size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
-     size_t const cacheLineNb = hash & fclmask;
+     size_t const cacheLineNb = (size_t)hash & fclmask;
 
      size_t const pos1 = (cacheLineNb << 6) + (slot1 >> 2);
      unsigned const shift1 = (slot1 & 3) * 2;
@@ -709,7 +709,7 @@ static size_t search_collisions(
 
     time_t const storeTBegin = time(NULL);
     size_t const hashByteSize = (htype == ht128) ? 16 : 8;
-    size_t const tableSize = (nbPresents+1) * hashByteSize;
+    size_t const tableSize = (size_t)((nbPresents+1) * hashByteSize);
     assert(tableSize > nbPresents);  /* check tableSize calculation overflow */
     DISPLAY(" Storing hash candidates (%i MB) \n", (int)(tableSize >> 20));
 
@@ -835,6 +835,7 @@ static size_t search_collisions(
 
 
 #if defined(__MACH__) || defined(__linux__)
+
 #include <sys/resource.h>
 static size_t getProcessMemUsage(int children)
 {
@@ -843,8 +844,9 @@ static size_t getProcessMemUsage(int children)
       return (size_t)stats.ru_maxrss;
     return 0;
 }
+
 #else
-static size_t getProcessMemUsage(int ignore) { return 0; }
+static size_t getProcessMemUsage(int ignore) { (void)ignore; return 0; }
 #endif
 
 void time_collisions(searchCollisions_parameters param)

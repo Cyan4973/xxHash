@@ -432,8 +432,10 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
      static const unsigned nextValue[4] = { 1, 2, 3, 3 };
 
      bf[pos1] &= (Filter)(~(3 << shift1)); /* erase previous value */
-     bf[pos1] |= (Filter)(MAX(ex1, nextValue[existing]) << shift1);
-     bf[pos2] |= (Filter)(MAX(ex2, nextValue[existing]) << shift2);
+     unsigned const max1 = MAX(ex1, nextValue[existing]);
+     bf[pos1] |= (Filter)(max1 << shift1);
+     unsigned const max2 = MAX(ex2, nextValue[existing]);
+     bf[pos2] |= (Filter)(max2 << shift2);
 
      return addCandidates[existing];
  }

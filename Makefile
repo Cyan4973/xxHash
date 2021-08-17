@@ -318,7 +318,7 @@ c90test: xxhash.c
 endif
 
 noxxh3test: CPPFLAGS += -DXXH_NO_XXH3
-noxxh3test: CFLAGS += -Werror -pedantic
+noxxh3test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 noxxh3test: xxhash.c
 	@echo ---- test compilation without XXH3 ----
 	$(RM) xxhash.o

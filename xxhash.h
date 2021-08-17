@@ -933,6 +933,7 @@ struct XXH64_state_s {
 
 /* Old GCC versions only accept the attribute after the type in structures. */
 #if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L))   /* C11+ */ \
+    && ! (defined(__cplusplus) && (__cplusplus >= 201103L)) /* >= C++11 */ \
     && defined(__GNUC__)
 #   define XXH_ALIGN_MEMBER(align, type) type XXH_ALIGN(align)
 #else

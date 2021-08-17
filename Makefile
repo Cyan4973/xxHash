@@ -175,6 +175,8 @@ clean:  ## remove all build artifacts
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	$(MAKE) -C tests clean
+	$(MAKE) -C tests/bench clean
+	$(MAKE) -C tests/collisions clean
 	@echo cleaning completed
 
 

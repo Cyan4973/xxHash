@@ -30,12 +30,15 @@ environment:
     ARCH: "ARM64"
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
     # note: ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
-  - COMPILER: "gcc"
-    PLATFORM: "mingw64"
-  - COMPILER: "gcc"
-    PLATFORM: "mingw32"
-  - COMPILER: "gcc"
-    PLATFORM: "clang"
+# Below tests are now disabled.
+# They are flacky on Appveyor, for various reasons.
+# Moreover, their equivalent already runs correctly on Github Actions.
+#  - COMPILER: "gcc"
+#    PLATFORM: "mingw64"
+#  - COMPILER: "gcc"
+#    PLATFORM: "mingw32"
+#  - COMPILER: "gcc"
+#    PLATFORM: "clang"
 
 install:
   - ECHO Installing %COMPILER% %PLATFORM% %ARCH%

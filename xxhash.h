@@ -4653,7 +4653,7 @@ XXH3_update(XXH3_state_t* state,
         XXH_ASSERT(input < bEnd);
 
         /* Consume input by a multiple of internal buffer size */
-        if (input+XXH3_INTERNALBUFFER_SIZE < bEnd) {
+        if (bEnd - input > XXH3_INTERNALBUFFER_SIZE) {
             const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
             do {
                 XXH3_consumeStripes(state->acc,

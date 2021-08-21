@@ -40,16 +40,16 @@ extern "C" {
  *
  * Exits if any of these tests fail, printing a message to stderr.
  *
- * If XSUM_NO_TESTS is defined to non-zero, this will instead print a warning
- * if this is called (e.g. via xxhsum -b).
+ * If XSUM_NO_TESTS is defined to non-zero,
+ * this will instead print a warning if this is called (e.g. via xxhsum -b).
  */
 XSUM_API void XSUM_sanityCheck(void);
 
 /*
  * Fills a test buffer with pseudorandom data.
  *
- * This is used in the sanity check and the benchmarks - its values must not be
- * changed.
+ * This is used in the sanity check and the benchmarks.
+ * Its values must not be changed.
  */
 XSUM_API void XSUM_fillTestBuffer(XSUM_U8* buffer, size_t len);
 

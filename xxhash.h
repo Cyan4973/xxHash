@@ -1542,7 +1542,6 @@ static xxh_u32 XXH_read32(const void* memPtr)
 
 
 /* ***   Endianness   *** */
-typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
 
 /*!
  * @ingroup tuning
@@ -1552,8 +1551,8 @@ typedef enum { XXH_bigEndian=0, XXH_littleEndian=1 } XXH_endianess;
  * Defined to 1 if the target is little endian, or 0 if it is big endian.
  * It can be defined externally, for example on the compiler command line.
  *
- * If it is not defined, a runtime check (which is usually constant folded)
- * is used instead.
+ * If it is not defined,
+ * a runtime check (which is usually constant folded) is used instead.
  *
  * @note
  *   This is not necessarily defined to an integer constant.

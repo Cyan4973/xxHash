@@ -3865,19 +3865,21 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 #       endif
         int i;
 
-        const __m128i* const src16 = (const __m128i *)XXH3_kSecret;
-        __m128i* dest = (__m128i*) customSecret;
+        const void* const src16 = XXH3_kSecret;
+        __m128i* dst16 = (__m128i*) customSecret;
 #       if defined(__GNUC__) || defined(__clang__)
         /*
          * On GCC & Clang, marking 'dest' as modified will cause the compiler:
          *   - do not extract the secret from sse registers in the internal loop
          *   - use less common registers, and avoid pushing these reg into stack
          */
-        XXH_COMPILER_GUARD(dest);
+        XXH_COMPILER_GUARD(dst16);
 #       endif
+        XXH_ASSERT(((size_t)src16 & 15) == 0); /* control alignment */
+        XXH_ASSERT(((size_t)dst16 & 15) == 0);
 
         for (i=0; i < nbRounds; ++i) {
-            dest[i] = _mm_add_epi64(_mm_load_si128(src16+i), seed);
+            dst16[i] = _mm_add_epi64(_mm_load_si128((const __m128i *)src16+i), seed);
     }   }
 }
 

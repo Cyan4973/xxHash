@@ -3865,8 +3865,8 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 #       endif
         int i;
 
-        XXH_ALIGN(64)        const float* const src  = (float const*) XXH3_kSecret;
-        XXH_ALIGN(XXH_SEC_ALIGN) __m128i*       dest = (__m128i*) customSecret;
+        const __m128i* const src16 = (const __m128i *)XXH3_kSecret;
+        __m128i* dest = (__m128i*) customSecret;
 #       if defined(__GNUC__) || defined(__clang__)
         /*
          * On GCC & Clang, marking 'dest' as modified will cause the compiler:
@@ -3877,7 +3877,7 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 #       endif
 
         for (i=0; i < nbRounds; ++i) {
-            dest[i] = _mm_add_epi64(_mm_castps_si128(_mm_load_ps(src+i*4)), seed);
+            dest[i] = _mm_add_epi64(_mm_load_si128(src16+i), seed);
     }   }
 }
 

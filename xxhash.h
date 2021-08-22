@@ -545,6 +545,32 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 
+/*
+Define XXH_FALLTHROUGH macro for annotating switch case with the 'fallthrough' attribute
+introduced in CPP17 and C23.
+CPP17 : https://en.cppreference.com/w/cpp/language/attributes/fallthrough
+C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
+*/
+
+#if defined (__has_c_attribute)
+#   if __has_c_attribute(fallthrough) 
+#       define XXH_FALLTHROUGH [[fallthrough]]
+#   endif
+
+#elif defined(__cplusplus) && defined(__has_cpp_attribute) 
+#   if __has_cpp_attribute(fallthrough)
+#       define XXH_FALLTHROUGH [[fallthrough]]
+#   endif
+#endif
+
+#ifndef XXH_FALLTHROUGH
+#   if defined(__GNUC__) && __GNUC__ >= 7
+#       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
+#   else
+#       define XXH_FALLTHROUGH 
+#	endif
+#endif
+
 /*!
  * @}
  * @ingroup public
@@ -1866,41 +1892,41 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
     } else {
          switch(len&15) /* or switch(bEnd - p) */ {
            case 12:      XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 8:       XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 4:       XXH_PROCESS4;
                          return XXH32_avalanche(h32);
-
+                         
            case 13:      XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 9:       XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 5:       XXH_PROCESS4;
                          XXH_PROCESS1;
                          return XXH32_avalanche(h32);
 
            case 14:      XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 10:      XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 6:       XXH_PROCESS4;
                          XXH_PROCESS1;
                          XXH_PROCESS1;
                          return XXH32_avalanche(h32);
 
            case 15:      XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 11:      XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 7:       XXH_PROCESS4;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 3:       XXH_PROCESS1;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 2:       XXH_PROCESS1;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 1:       XXH_PROCESS1;
-                         /* fallthrough */
+                         XXH_FALLTHROUGH;
            case 0:       return XXH32_avalanche(h32);
         }
         XXH_ASSERT(0);

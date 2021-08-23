@@ -553,11 +553,11 @@ C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 */
 
 #if defined (__has_c_attribute)
-#   if __has_c_attribute(fallthrough) 
+#   if __has_c_attribute(fallthrough)
 #       define XXH_FALLTHROUGH [[fallthrough]]
 #   endif
 
-#elif defined(__cplusplus) && defined(__has_cpp_attribute) 
+#elif defined(__cplusplus) && defined(__has_cpp_attribute)
 #   if __has_cpp_attribute(fallthrough)
 #       define XXH_FALLTHROUGH [[fallthrough]]
 #   endif
@@ -567,7 +567,7 @@ C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 #   if defined(__GNUC__) && __GNUC__ >= 7
 #       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
 #   else
-#       define XXH_FALLTHROUGH 
+#       define XXH_FALLTHROUGH
 #	endif
 #endif
 
@@ -1288,10 +1288,21 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
  */
 
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-   /* prefer __packed__ structures (method 1) for gcc on armv7 and armv8 */
-#  if !defined(__clang__) && ( \
+   /* prefer __packed__ structures (method 1) for gcc on armv7+ and mips */
+#  if !defined(__clang__) && \
+( \
     (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
-    (defined(__GNUC__) && (defined(__ARM_ARCH) && __ARM_ARCH >= 7)) )
+    ( \
+        defined(__GNUC__) && ( \
+            (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || \
+            ( \
+                defined(__mips__) && \
+                (__mips <= 5 || __mips_isa_rev < 6) && \
+                (!defined(__mips16) || defined(__mips_mips16e2)) \
+            ) \
+        ) \
+    ) \
+)
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif
@@ -1897,7 +1908,7 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
                          XXH_FALLTHROUGH;
            case 4:       XXH_PROCESS4;
                          return XXH32_avalanche(h32);
-                         
+
            case 13:      XXH_PROCESS4;
                          XXH_FALLTHROUGH;
            case 9:       XXH_PROCESS4;

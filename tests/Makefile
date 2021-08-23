@@ -68,7 +68,7 @@ test_multiInclude:
 	# no symbol prefixed TESTN_ should exist
 	! $(NM) multiInclude | $(GREP) TESTN_
 	$(MAKE) clean
-	# compile with XXH_NAMESPACE
+	# compile xxhash.o with XXH_NAMESPACE
 	CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude_withxxhash
 	# symbols prefixed TESTN_ should exist in xxhash.o (though not be invoked)
 	$(NM) multiInclude_withxxhash | $(GREP) TESTN_

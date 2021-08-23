@@ -121,80 +121,76 @@ extern "C" {
 
    /*
     * This part deals with the special case where a unit wants to inline xxHash,
-    * but "xxhash.h" has previously been included without XXH_INLINE_ALL, such
-    * as part of some previously included *.h header file.
+    * but "xxhash.h" has previously been included without XXH_INLINE_ALL,
+    * such as part of some previously included *.h header file.
     * Without further action, the new include would just be ignored,
     * and functions would effectively _not_ be inlined (silent failure).
     * The following macros solve this situation by prefixing all inlined names,
     * avoiding naming collision with previous inclusions.
     */
-#  ifdef XXH_NAMESPACE
-    /* #undef all symbols, they will be redefined right after */
-#      undef XXH_versionNumber
+   /* Before that, we unconditionally #undef all symbols,
+    * in case they were already defined with XXH_NAMESPACE.
+    * They will then be redefined for XXH_INLINE_ALL
+    */
+#  undef XXH_versionNumber
     /* XXH32 */
-#      undef XXH32
-#      undef XXH32_createState
-#      undef XXH32_freeState
-#      undef XXH32_reset
-#      undef XXH32_update
-#      undef XXH32_digest
-#      undef XXH32_copyState
-#      undef XXH32_canonicalFromHash
-#      undef XXH32_hashFromCanonical
+#  undef XXH32
+#  undef XXH32_createState
+#  undef XXH32_freeState
+#  undef XXH32_reset
+#  undef XXH32_update
+#  undef XXH32_digest
+#  undef XXH32_copyState
+#  undef XXH32_canonicalFromHash
+#  undef XXH32_hashFromCanonical
     /* XXH64 */
-#      undef XXH64
-#      undef XXH64_createState
-#      undef XXH64_freeState
-#      undef XXH64_reset
-#      undef XXH64_update
-#      undef XXH64_digest
-#      undef XXH64_copyState
-#      undef XXH64_canonicalFromHash
-#      undef XXH64_hashFromCanonical
+#  undef XXH64
+#  undef XXH64_createState
+#  undef XXH64_freeState
+#  undef XXH64_reset
+#  undef XXH64_update
+#  undef XXH64_digest
+#  undef XXH64_copyState
+#  undef XXH64_canonicalFromHash
+#  undef XXH64_hashFromCanonical
     /* XXH3_64bits */
-#      undef XXH3_64bits
-#      undef XXH3_64bits_withSecret
-#      undef XXH3_64bits_withSeed
-#      undef XXH3_createState
-#      undef XXH3_freeState
-#      undef XXH3_copyState
-#      undef XXH3_64bits_reset
-#      undef XXH3_64bits_reset_withSeed
-#      undef XXH3_64bits_reset_withSecret
-#      undef XXH3_64bits_update
-#      undef XXH3_64bits_digest
-#      undef XXH3_generateSecret
+#  undef XXH3_64bits
+#  undef XXH3_64bits_withSecret
+#  undef XXH3_64bits_withSeed
+#  undef XXH3_createState
+#  undef XXH3_freeState
+#  undef XXH3_copyState
+#  undef XXH3_64bits_reset
+#  undef XXH3_64bits_reset_withSeed
+#  undef XXH3_64bits_reset_withSecret
+#  undef XXH3_64bits_update
+#  undef XXH3_64bits_digest
+#  undef XXH3_generateSecret
     /* XXH3_128bits */
-#      undef XXH128
-#      undef XXH3_128bits
-#      undef XXH3_128bits_withSeed
-#      undef XXH3_128bits_withSecret
-#      undef XXH3_128bits_reset
-#      undef XXH3_128bits_reset_withSeed
-#      undef XXH3_128bits_reset_withSecret
-#      undef XXH3_128bits_update
-#      undef XXH3_128bits_digest
-#      undef XXH128_isEqual
-#      undef XXH128_cmp
-#      undef XXH128_canonicalFromHash
-#      undef XXH128_hashFromCanonical
+#  undef XXH128
+#  undef XXH3_128bits
+#  undef XXH3_128bits_withSeed
+#  undef XXH3_128bits_withSecret
+#  undef XXH3_128bits_reset
+#  undef XXH3_128bits_reset_withSeed
+#  undef XXH3_128bits_reset_withSecret
+#  undef XXH3_128bits_update
+#  undef XXH3_128bits_digest
+#  undef XXH128_isEqual
+#  undef XXH128_cmp
+#  undef XXH128_canonicalFromHash
+#  undef XXH128_hashFromCanonical
     /* Finally, free the namespace itself */
-#      undef XXH_NAMESPACE
+#  undef XXH_NAMESPACE
 
-
-//#    error "XXH_INLINE_ALL with XXH_NAMESPACE is not supported"
-     /*
-      * Note: Alternative: #undef all symbols (it's a pretty large list).
-      * Without #error: it compiles, but functions are actually not inlined.
-      */
-#  endif
+    /* employ the namespace for XXH_INLINE_ALL */
 #  define XXH_NAMESPACE XXH_INLINE_
    /*
-    * Some identifiers (enums, type names) are not symbols, but they must
-    * still be renamed to avoid redeclaration.
+    * Some identifiers (enums, type names) are not symbols,
+    * but they must nonetheless be renamed to avoid redeclaration.
     * Alternative solution: do not redeclare them.
-    * However, this requires some #ifdefs, and is a more dispersed action.
-    * Meanwhile, renaming can be achieved in a single block
+    * However, this requires some #ifdefs, and has a more dispersed impact.
+    * Meanwhile, renaming can be achieved in a single place.
     */
 #  define XXH_IPREF(Id)   XXH_NAMESPACE ## Id
 #  define XXH_OK XXH_IPREF(XXH_OK)

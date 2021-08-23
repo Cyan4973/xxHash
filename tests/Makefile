@@ -63,17 +63,16 @@ test_multiInclude:
 	# compile with xxhash.o, to detect duplicated symbols
 	$(MAKE) multiInclude_withxxhash
 	@$(MAKE) clean
-	# Note: XXH_INLINE_ALL with XXH_NAMESPACE is currently disabled
-	# compile with XXH_NAMESPACE
-	# CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude_withxxhash
+	# compile with XXH_NAMESPACE before XXH_INLINE_ALL
+	CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude
 	# no symbol prefixed TESTN_ should exist
-	# ! $(NM) multiInclude_withxxhash | $(GREP) TESTN_
-	#$(MAKE) clean
-	# compile with XXH_NAMESPACE and without xxhash.o
-	# CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude
-	# no symbol prefixed TESTN_ should exist
-	# ! $(NM) multiInclude | $(GREP) TESTN_
-	#@$(MAKE) clean
+	! $(NM) multiInclude | $(GREP) TESTN_
+	$(MAKE) clean
+	# compile xxhash.o with XXH_NAMESPACE
+	CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude_withxxhash
+	# symbols prefixed TESTN_ should exist in xxhash.o (though not be invoked)
+	$(NM) multiInclude_withxxhash | $(GREP) TESTN_
+	$(MAKE) clean
 
 .PHONY: test_ppc_redefine
 test_ppc_redefine: ppc_define.c

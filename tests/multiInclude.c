@@ -50,9 +50,9 @@
 #include "../xxhash.h"
 
 
-int main(void)
+void hash_advanced(void)
 {
-    XXH3_state_t state;   /* part of experimental API */
+    XXH3_state_t state;   /* this type is part of experimental API */
 
     XXH3_64bits_reset(&state);
     const char input[] = "Hello World !";
@@ -61,6 +61,9 @@ int main(void)
 
     XXH64_hash_t const h = XXH3_64bits_digest(&state);
     printf("hash '%s': %08x%08x \n", input, (unsigned)(h >> 32), (unsigned)h);
+}
 
-    return 0;
+int main(void)
+{
+    hash_advanced();
 }

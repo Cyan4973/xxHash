@@ -129,7 +129,60 @@ extern "C" {
     * avoiding naming collision with previous inclusions.
     */
 #  ifdef XXH_NAMESPACE
-#    error "XXH_INLINE_ALL with XXH_NAMESPACE is not supported"
+    /* #undef all symbols, they will be redefined right after */
+#      undef XXH_versionNumber
+    /* XXH32 */
+#      undef XXH32
+#      undef XXH32_createState
+#      undef XXH32_freeState
+#      undef XXH32_reset
+#      undef XXH32_update
+#      undef XXH32_digest
+#      undef XXH32_copyState
+#      undef XXH32_canonicalFromHash
+#      undef XXH32_hashFromCanonical
+    /* XXH64 */
+#      undef XXH64
+#      undef XXH64_createState
+#      undef XXH64_freeState
+#      undef XXH64_reset
+#      undef XXH64_update
+#      undef XXH64_digest
+#      undef XXH64_copyState
+#      undef XXH64_canonicalFromHash
+#      undef XXH64_hashFromCanonical
+    /* XXH3_64bits */
+#      undef XXH3_64bits
+#      undef XXH3_64bits_withSecret
+#      undef XXH3_64bits_withSeed
+#      undef XXH3_createState
+#      undef XXH3_freeState
+#      undef XXH3_copyState
+#      undef XXH3_64bits_reset
+#      undef XXH3_64bits_reset_withSeed
+#      undef XXH3_64bits_reset_withSecret
+#      undef XXH3_64bits_update
+#      undef XXH3_64bits_digest
+#      undef XXH3_generateSecret
+    /* XXH3_128bits */
+#      undef XXH128
+#      undef XXH3_128bits
+#      undef XXH3_128bits_withSeed
+#      undef XXH3_128bits_withSecret
+#      undef XXH3_128bits_reset
+#      undef XXH3_128bits_reset_withSeed
+#      undef XXH3_128bits_reset_withSecret
+#      undef XXH3_128bits_update
+#      undef XXH3_128bits_digest
+#      undef XXH128_isEqual
+#      undef XXH128_cmp
+#      undef XXH128_canonicalFromHash
+#      undef XXH128_hashFromCanonical
+    /* Finally, free the namespace itself */
+#      undef XXH_NAMESPACE
+
+
+//#    error "XXH_INLINE_ALL with XXH_NAMESPACE is not supported"
      /*
       * Note: Alternative: #undef all symbols (it's a pretty large list).
       * Without #error: it compiles, but functions are actually not inlined.
@@ -143,7 +196,7 @@ extern "C" {
     * However, this requires some #ifdefs, and is a more dispersed action.
     * Meanwhile, renaming can be achieved in a single block
     */
-#  define XXH_IPREF(Id)   XXH_INLINE_ ## Id
+#  define XXH_IPREF(Id)   XXH_NAMESPACE ## Id
 #  define XXH_OK XXH_IPREF(XXH_OK)
 #  define XXH_ERROR XXH_IPREF(XXH_ERROR)
 #  define XXH_errorcode XXH_IPREF(XXH_errorcode)

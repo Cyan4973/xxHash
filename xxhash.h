@@ -1310,13 +1310,13 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
 
 /*!
  * @def XXH_REROLL
- * @brief Whether to reroll `XXH32_finalize` and `XXH64_finalize`.
+ * @brief Whether to reroll `XXH32_finalize`.
  *
- * For performance, `XXH32_finalize` and `XXH64_finalize` use an unrolled loop
+ * For performance, `XXH32_finalize` uses an unrolled loop
  * in the form of a switch statement.
  *
- * This is not always desirable, as it generates larger code, and depending on
- * the architecture, may even be slower
+ * This is not always desirable, as it generates larger code,
+ * and depending on the architecture, may even be slower
  *
  * This is automatically defined with `-Os`/`-Oz` on GCC and Clang.
  */
@@ -1379,7 +1379,9 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
 #endif
 
 #ifndef XXH_REROLL
-#  if defined(__OPTIMIZE_SIZE__)
+#  if defined(__OPTIMIZE_SIZE__) /* -Os, -Oz */ || \
+     (defined(__GNUC__) && !defined(__clang__))
+     /* The if/then loop is preferable to switch/case on gcc (on x64) */
 #    define XXH_REROLL 1
 #  else
 #    define XXH_REROLL 0

@@ -615,6 +615,8 @@ C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 #ifndef XXH_FALLTHROUGH
 #   if defined(__GNUC__) && __GNUC__ >= 7
 #       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
+#   elif defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__  >= 9))
+#       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
 #   else
 #       define XXH_FALLTHROUGH
 #	endif

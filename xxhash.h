@@ -601,7 +601,7 @@ CPP17 : https://en.cppreference.com/w/cpp/language/attributes/fallthrough
 C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 */
 
-#if defined (__has_c_attribute)
+#if defined (__has_c_attribute) && defined (__STDC_VERSION__) && (__STDC_VERSION__ > 201710L) /* C2x */
 #   if __has_c_attribute(fallthrough)
 #       define XXH_FALLTHROUGH [[fallthrough]]
 #   endif
@@ -615,7 +615,7 @@ C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 #ifndef XXH_FALLTHROUGH
 #   if defined(__GNUC__) && __GNUC__ >= 7
 #       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
-#   elif defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__  >= 9))
+#   elif defined(__clang__) && (__clang_major__ >= 10)
 #       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
 #   else
 #       define XXH_FALLTHROUGH

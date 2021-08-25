@@ -3748,7 +3748,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
         __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, (xxh_i64)(0U - seed64));
 
-        XXH_ALIGN(64) const __m512i* const src  = (const __m512i*) XXH3_kSecret;
+        XXH_ALIGN(64) const __m512i* const src  = (const __m512i*) ((const void*) XXH3_kSecret);
         XXH_ALIGN(64)       __m512i* const dest = (      __m512i*) customSecret;
         int i;
         for (i=0; i < nbRounds; ++i) {
@@ -3844,7 +3844,7 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
     XXH_PREFETCH(customSecret);
     {   __m256i const seed = _mm256_set_epi64x((xxh_i64)(0U - seed64), (xxh_i64)seed64, (xxh_i64)(0U - seed64), (xxh_i64)seed64);
 
-        XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) XXH3_kSecret;
+        XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) ((const void*) XXH3_kSecret);
         XXH_ALIGN(64)       __m256i*       dest = (      __m256i*) customSecret;
 
 #       if defined(__GNUC__) || defined(__clang__)

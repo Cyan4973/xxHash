@@ -615,7 +615,11 @@ C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 #ifndef XXH_FALLTHROUGH
 #   if defined(__GNUC__) && __GNUC__ >= 7
 #       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
-#   elif defined(__clang__) && (__clang_major__ >= 10)
+#   elif defined(__clang__) && (__clang_major__ >= 10) \
+     && (!defined(__APPLE__) || (__clang_major__ >= 12))
+     /* Apple clang 12 is effectively clang-10 ,
+      * see https://en.wikipedia.org/wiki/Xcode for details
+      */
 #       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
 #   else
 #       define XXH_FALLTHROUGH

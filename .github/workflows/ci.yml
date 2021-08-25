@@ -54,57 +54,104 @@ name: xxHash CI tests
 on: [push, pull_request]
 
 jobs:
+  xxhash-c-compilers:
+    name: CC=${{ matrix.cc }}, ${{ matrix.os }}
+    strategy:
+      fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix entry fails.
+      matrix:
+        include: [
+          # You can access the following values via ${{ matrix.??? }}
+          #
+          #   pkgs    : apt-get package names.  It can include multiple package names which are delimited by space.
+          #   cc      : C compiler executable.
+          #   cxx     : C++ compiler executable for `make ctocpptest`.
+          #   avx512  : Set 'true' if compiler supports avx512.  Otherwise, set 'false'.
+          #   os      : GitHub Actions YAML workflow label.  See https://github.com/actions/virtual-environments#available-environments
 
-  # Linux, x64
-  #
-  # - "ubuntu-latest" (Ubuntu 20.04) has the following software
-  #   https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
+          # cc
+          { pkgs: '',                                  cc: cc,        cxx: c++,         avx512: 'true',  os: ubuntu-latest, },
 
-  ubuntu-general:
-    name: Linux x64
-    runs-on: ubuntu-latest
+          # gcc
+          { pkgs: '',                                  cc: gcc,       cxx: g++,         avx512: 'true',  os: ubuntu-latest, },
+          { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'gcc-8   g++-8   lib32gcc-8-dev',    cc: gcc-8,     cxx: g++-8,       avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'gcc-7   g++-7   lib32gcc-7-dev',    cc: gcc-7,     cxx: g++-7,       avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'gcc-6   g++-6   lib32gcc-6-dev',    cc: gcc-6,     cxx: g++-6,       avx512: 'true',  os: ubuntu-18.04,  },
+          { pkgs: 'gcc-5   g++-5   lib32gcc-5-dev',    cc: gcc-5,     cxx: g++-5,       avx512: 'true',  os: ubuntu-18.04,  },
+          { pkgs: 'gcc-4.8 g++-4.8 lib32gcc-4.8-dev ', cc: gcc-4.8,   cxx: g++-4.8,     avx512: 'false', os: ubuntu-18.04,  },
+
+          # clang
+          { pkgs: '',                                  cc: clang,     cxx: clang++,     avx512: 'true',  os: ubuntu-latest, },
+          { pkgs: 'clang-12',                          cc: clang-12,  cxx: clang++-12,  avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-11',                          cc: clang-11,  cxx: clang++-11,  avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-10',                          cc: clang-10,  cxx: clang++-10,  avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-9',                           cc: clang-9,   cxx: clang++-9,   avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-8',                           cc: clang-8,   cxx: clang++-8,   avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-7',                           cc: clang-7,   cxx: clang++-7,   avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-6.0',                         cc: clang-6.0, cxx: clang++-6.0, avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-5.0',                         cc: clang-5.0, cxx: clang++-5.0, avx512: 'true',  os: ubuntu-18.04,  },
+          { pkgs: 'clang-4.0',                         cc: clang-4.0, cxx: clang++-4.0, avx512: 'true',  os: ubuntu-18.04,  },
+          { pkgs: 'clang-3.9',                         cc: clang-3.9, cxx: clang++-3.9, avx512: 'true',  os: ubuntu-18.04,  },
+        ]
+
+    runs-on: ${{ matrix.os }}
+    env:                        # Set environment variables
+      # We globally set CC and CXX to improve compatibility with .travis.yml
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
     steps:
     - uses: actions/checkout@v2 # https://github.com/actions/checkout
 
     - name: apt-get install
       run: |
+        sudo apt-get update
         sudo apt-get install gcc-multilib
+        sudo apt-get install ${{ matrix.pkgs }}
 
     - name: Environment info
       run: |
-        echo && gcc --version
-        echo && clang --version
-        echo && make -v
+        echo && type $CC && which $CC && $CC --version
+        echo && type $CXX && which $CXX && $CXX --version
+        echo && type make && make -v
         echo && cat /proc/cpuinfo || echo /proc/cpuinfo is not present
 
     - name: C90 + no-long-long compliance
+      if: always()
       run: |
         CFLAGS="-std=c90 -pedantic -Wno-long-long -Werror" make clean xxhsum
 
     - name: C90 + XXH_NO_LONG_LONG
+      if: always()
       run: |
         # strict c90, with no long long support; resulting in no XXH64_* symbol
         make clean c90test
 
     - name: dispatch
+      if: always()
       run: |
         # removing sign conversion warnings due to a bug in gcc-5's definition of some AVX512 intrinsics
         CFLAGS="-Werror" MOREFLAGS="-Wno-sign-conversion" make clean dispatch
 
     - name: DISPATCH=1
+      if: always()
       run: |
         CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1 clean default
 
     - name: noxxh3test
+      if: always()
       run: |
         # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
         make clean noxxh3test
 
     - name: make avx512f
+      if: ${{ matrix.avx512 == 'true' }}
       run: |
         CFLAGS="-O1 -mavx512f -Werror" make clean default
 
     - name: test-all
+      if: always()
       run: |
         make clean test-all
 

@@ -3751,6 +3751,8 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
         const __m512i* const src  = (const __m512i*) ((const void*) XXH3_kSecret);
               __m512i* const dest = (      __m512i*) customSecret;
         int i;
+        XXH_ASSERT(((size_t)src & 63) == 0); /* control alignment */
+        XXH_ASSERT(((size_t)dest & 63) == 0);
         for (i=0; i < nbRounds; ++i) {
             /* GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
              * this will warn "discards ‘const’ qualifier". */
@@ -3855,6 +3857,8 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
          */
         XXH_COMPILER_GUARD(dest);
 #       endif
+        XXH_ASSERT(((size_t)src & 31) == 0); /* control alignment */
+        XXH_ASSERT(((size_t)dest & 31) == 0);
 
         /* GCC -O2 need unroll loop manually */
         dest[0] = _mm256_add_epi64(_mm256_stream_load_si256(src+0), seed);

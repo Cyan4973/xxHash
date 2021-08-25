@@ -3748,15 +3748,17 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
         __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, (xxh_i64)(0U - seed64));
 
-        XXH_ALIGN(64) const __m512i* const src  = (const __m512i*) XXH3_kSecret;
-        XXH_ALIGN(64)       __m512i* const dest = (      __m512i*) customSecret;
+        const __m512i* const src  = (const __m512i*) ((const void*) XXH3_kSecret);
+              __m512i* const dest = (      __m512i*) customSecret;
         int i;
+        XXH_ASSERT(((size_t)src & 63) == 0); /* control alignment */
+        XXH_ASSERT(((size_t)dest & 63) == 0);
         for (i=0; i < nbRounds; ++i) {
             /* GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
              * this will warn "discards ‘const’ qualifier". */
             union {
-                XXH_ALIGN(64) const __m512i* cp;
-                XXH_ALIGN(64) void* p;
+                const __m512i* cp;
+                void* p;
             } remote_const_void;
             remote_const_void.cp = src + i;
             dest[i] = _mm512_add_epi64(_mm512_stream_load_si512(remote_const_void.p), seed);
@@ -3844,8 +3846,8 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
     XXH_PREFETCH(customSecret);
     {   __m256i const seed = _mm256_set_epi64x((xxh_i64)(0U - seed64), (xxh_i64)seed64, (xxh_i64)(0U - seed64), (xxh_i64)seed64);
 
-        XXH_ALIGN(64) const __m256i* const src  = (const __m256i*) XXH3_kSecret;
-        XXH_ALIGN(64)       __m256i*       dest = (      __m256i*) customSecret;
+        const __m256i* const src  = (const __m256i*) ((const void*) XXH3_kSecret);
+              __m256i*       dest = (      __m256i*) customSecret;
 
 #       if defined(__GNUC__) || defined(__clang__)
         /*
@@ -3855,6 +3857,8 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
          */
         XXH_COMPILER_GUARD(dest);
 #       endif
+        XXH_ASSERT(((size_t)src & 31) == 0); /* control alignment */
+        XXH_ASSERT(((size_t)dest & 31) == 0);
 
         /* GCC -O2 need unroll loop manually */
         dest[0] = _mm256_add_epi64(_mm256_stream_load_si256(src+0), seed);

@@ -476,6 +476,16 @@ static void XSUM_testXXH128(const void* data, const XSUM_testdata128_t* testData
         XSUM_checkResult128(Dresult, Nresult);
     }
 
+    /* check that the combination of
+     * XXH3_generateSecret_fromSeed() and XXH3_128bits_withSecretandSeed()
+     * results in exactly the same hash generation as XXH3_64bits_withSeed() */
+    {   char secretBuffer[XXH3_SECRET_DEFAULT_SIZE+1];
+        char* const secret = secretBuffer + 1;  /* intentional unalignment */
+        XXH3_generateSecret_fromSeed(secret, seed);
+        {   XXH128_hash_t const Dresult = XXH3_128bits_withSecretandSeed(data, len, secret, XXH3_SECRET_DEFAULT_SIZE, seed);
+            XSUM_checkResult128(Dresult, Nresult);
+    }   }
+
     /* streaming API test */
     {   XXH3_state_t *state = XXH3_createState();
         assert(state != NULL);

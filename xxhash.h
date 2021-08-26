@@ -300,6 +300,7 @@ extern "C" {
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
+#  define XXH3_128bits_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecretandSeed)
 #  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
 #  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
 #  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
@@ -1179,7 +1180,14 @@ XXH3_64bits_withSecretandSeed(const void* data, size_t len,
                               const void* secret, size_t secretSize,
                               XXH64_hash_t seed);
 
-/* simple short-cut to pre-selected XXH3_128bits variant */
+XXH_PUBLIC_API XXH128_hash_t
+XXH3_128bits_withSecretandSeed(const void* data, size_t len,
+                              const void* secret, size_t secretSize,
+                              XXH64_hash_t seed64);
+
+/* XXH128() :
+ * simple alias to pre-selected XXH3_128bits variant
+ */
 XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 
 
@@ -4571,7 +4579,7 @@ XXH3_64bits_withSecretandSeed(const void* input, size_t len, const void* secret,
 {
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
-    return XXH3_64bits_internal(input, len, seed, secret, secretSize, XXH3_hashLong_64b_withSecret);
+    return XXH3_hashLong_64b_withSecret(input, len, seed, secret, secretSize);
 }
 
 
@@ -5184,9 +5192,10 @@ XXH3_hashLong_128b_default(const void* XXH_RESTRICT input, size_t len,
 }
 
 /*
- * It's important for performance that XXH3_hashLong is not inlined.
+ * It's important for performance to pass @secretLen (when it's static)
+ * to the compiler, so that it can properly optimize the vectorized loop.
  */
-XXH_NO_INLINE XXH128_hash_t
+XXH_FORCE_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSecret(const void* XXH_RESTRICT input, size_t len,
                               XXH64_hash_t seed64,
                               const void* XXH_RESTRICT secret, size_t secretLen)
@@ -5277,6 +5286,15 @@ XXH3_128bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
     return XXH3_128bits_internal(input, len, seed,
                                  XXH3_kSecret, sizeof(XXH3_kSecret),
                                  XXH3_hashLong_128b_withSeed);
+}
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API XXH128_hash_t
+XXH3_128bits_withSecretandSeed(const void* input, size_t len, const void* secret, size_t secretSize, XXH64_hash_t seed)
+{
+    if (len <= XXH3_MIDSIZE_MAX)
+        return XXH3_128bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
+    return XXH3_hashLong_128b_withSecret(input, len, seed, secret, secretSize);
 }
 
 /*! @ingroup xxh3_family */

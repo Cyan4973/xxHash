@@ -4450,9 +4450,11 @@ XXH3_hashLong_64b_internal(const void* XXH_RESTRICT input, size_t len,
 }
 
 /*
- * It's important for performance that XXH3_hashLong is not inlined.
+ * It's important for performance to transmit secret's size (when it's static)
+ * so that the compiler can properly optimize the vectorized loop.
+ * This makes a big performance difference for "medium" keys (<1 KB) when using AVX instruction set.
  */
-XXH_NO_INLINE XXH64_hash_t
+XXH_FORCE_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT input, size_t len,
                              XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
@@ -4461,11 +4463,10 @@ XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT input, size_t len,
 }
 
 /*
- * It's important for performance that XXH3_hashLong is not inlined.
- * Since the function is not inlined, the compiler may not be able to understand that,
- * in some scenarios, its `secret` argument is actually a compile time constant.
- * This variant enforces that the compiler can detect that,
- * and uses this opportunity to streamline the generated code for better performance.
+ * It's preferable for performance that XXH3_hashLong is not inlined,
+ * as it results in a smaller function for small data, easier to the instruction cache.
+ * Note that inside this no_inline function, we do inline the internal loop,
+ * and provide a statically defined secret size to allow optimization of vector loop.
  */
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_default(const void* XXH_RESTRICT input, size_t len,

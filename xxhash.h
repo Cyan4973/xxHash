@@ -284,6 +284,7 @@ extern "C" {
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
 #  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
+#  define XXH3_64bits_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecretandSeed)
 #  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
 #  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
 #  define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
@@ -293,6 +294,7 @@ extern "C" {
 #  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
 #  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
 #  define XXH3_generateSecret XXH_NAME2(XXH_NAMESPACE, XXH3_generateSecret)
+#  define XXH3_generateSecret_fromSeed XXH_NAME2(XXH_NAMESPACE, XXH3_generateSecret_fromSeed)
 /* XXH3_128bits */
 #  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)

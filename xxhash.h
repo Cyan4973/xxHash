@@ -4579,7 +4579,7 @@ XXH3_64bits_withSecretandSeed(const void* input, size_t len, const void* secret,
 {
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
-    return XXH3_hashLong_64b_withSecret(input, len, seed, secret, secretSize);
+    return XXH3_hashLong_64b_withSecret(input, len, seed, (const xxh_u8*)secret, secretSize);
 }
 
 

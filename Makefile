@@ -397,6 +397,9 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 trailingWhitespace:
 	! $(GREP) -E "`printf '[ \\t]$$'`" cli/*.{c,h,1} *.c *.h LICENSE Makefile cmake_unofficial/CMakeLists.txt
 
+.PHONY: lint-unicode
+lint-unicode:
+	./tests/unicode_lint.sh
 
 # =========================================================
 # make install is validated only for the following targets

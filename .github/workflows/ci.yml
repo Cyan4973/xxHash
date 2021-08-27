@@ -228,6 +228,10 @@ jobs:
       run: |
         make clean usan
 
+    - name: Lint Unicode in root-dir, cli/, tests/, tests/bench/, tests/collisions/.
+      run: |
+        make lint-unicode
+
 
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test

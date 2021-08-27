@@ -3769,7 +3769,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
         XXH_ASSERT(((size_t)dest & 63) == 0);
         for (i=0; i < nbRounds; ++i) {
             /* GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
-             * this will warn "discards ‘const’ qualifier". */
+             * this will warn "discards 'const' qualifier". */
             union {
                 const __m512i* cp;
                 void* p;

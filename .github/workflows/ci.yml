@@ -224,6 +224,10 @@ jobs:
       run: |
         make clean test-mem
 
+    - name: usan
+      run: |
+        make clean usan
+
 
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test

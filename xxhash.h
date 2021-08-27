@@ -1501,7 +1501,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  elif defined(__cplusplus) && (__cplusplus >= 201103L)            /* C++11 */
 #    define XXH_STATIC_ASSERT_WITH_MESSAGE(c,m) do { static_assert((c),m); } while(0)
 #  else
-#    define XXH_STATIC_ASSERT_WITH_MESSAGE(c,m) do { char XXH_sa[(c) ? 1 : -1]; (void) XXH_sa; } while(0)
+#    define XXH_STATIC_ASSERT_WITH_MESSAGE(c,m) do { void xxh_sa(int x[1 - 2 * ((c) ? 0 : 1)]); (void) xxh_sa; } while(0)
 #  endif
 #  define XXH_STATIC_ASSERT(c) XXH_STATIC_ASSERT_WITH_MESSAGE(c,#c)
 #endif

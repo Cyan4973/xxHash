@@ -3684,7 +3684,7 @@ XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT input,
                      const void* XXH_RESTRICT secret)
 {
-    XXH_ALIGN(64) __m512i* const xacc = (__m512i *) acc;
+    __m512i* const xacc = (__m512i *) acc;
     XXH_ASSERT((((size_t)acc) & 63) == 0);
     XXH_STATIC_ASSERT(XXH_STRIPE_LEN == sizeof(__m512i));
 
@@ -3733,7 +3733,7 @@ XXH3_scrambleAcc_avx512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 63) == 0);
     XXH_STATIC_ASSERT(XXH_STRIPE_LEN == sizeof(__m512i));
-    {   XXH_ALIGN(64) __m512i* const xacc = (__m512i*) acc;
+    {   __m512i* const xacc = (__m512i*) acc;
         const __m512i prime32 = _mm512_set1_epi32((int)XXH_PRIME32_1);
 
         /* xacc[0] ^= (xacc[0] >> 47) */
@@ -3794,7 +3794,7 @@ XXH3_accumulate_512_avx2( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 31) == 0);
-    {   XXH_ALIGN(32) __m256i* const xacc    =       (__m256i *) acc;
+    {   __m256i* const xacc    =       (__m256i *) acc;
         /* Unaligned. This is mainly for pointer arithmetic, and because
          * _mm256_loadu_si256 requires  a const __m256i * pointer for some reason. */
         const         __m256i* const xinput  = (const __m256i *) input;
@@ -3826,7 +3826,7 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void
 XXH3_scrambleAcc_avx2(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 31) == 0);
-    {   XXH_ALIGN(32) __m256i* const xacc = (__m256i*) acc;
+    {   __m256i* const xacc = (__m256i*) acc;
         /* Unaligned. This is mainly for pointer arithmetic, and because
          * _mm256_loadu_si256 requires a const __m256i * pointer for some reason. */
         const         __m256i* const xsecret = (const __m256i *) secret;
@@ -3900,7 +3900,7 @@ XXH3_accumulate_512_sse2( void* XXH_RESTRICT acc,
 {
     /* SSE2 is just a half-scale version of the AVX2 version. */
     XXH_ASSERT((((size_t)acc) & 15) == 0);
-    {   XXH_ALIGN(16) __m128i* const xacc    =       (__m128i *) acc;
+    {   __m128i* const xacc    =       (__m128i *) acc;
         /* Unaligned. This is mainly for pointer arithmetic, and because
          * _mm_loadu_si128 requires a const __m128i * pointer for some reason. */
         const         __m128i* const xinput  = (const __m128i *) input;
@@ -3932,7 +3932,7 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void
 XXH3_scrambleAcc_sse2(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
-    {   XXH_ALIGN(16) __m128i* const xacc = (__m128i*) acc;
+    {   __m128i* const xacc = (__m128i*) acc;
         /* Unaligned. This is mainly for pointer arithmetic, and because
          * _mm_loadu_si128 requires a const __m128i * pointer for some reason. */
         const         __m128i* const xsecret = (const __m128i *) secret;
@@ -4001,7 +4001,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
     {
-        XXH_ALIGN(16) uint64x2_t* const xacc = (uint64x2_t *) acc;
+        uint64x2_t* const xacc = (uint64x2_t *) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
         uint8_t const* const xinput = (const uint8_t *) input;
         uint8_t const* const xsecret  = (const uint8_t *) secret;
@@ -4158,7 +4158,7 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT input,
                      const void* XXH_RESTRICT secret)
 {
-    XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc; /* presumed aligned */
+    xxh_u64* const xacc = (xxh_u64*) acc; /* presumed aligned */
     const xxh_u8* const xinput  = (const xxh_u8*) input;  /* no alignment restriction */
     const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
@@ -4174,7 +4174,7 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc_scalar(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
-    XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
+    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
     const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
     XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);

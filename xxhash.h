@@ -594,36 +594,39 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 
+#ifdef __has_attribute
+# define XXH_HAS_ATTRIBUTE(x) __has_attribute(x)
+#else
+# define XXH_HAS_ATTRIBUTE(x) 0
+#endif
+
+/* C-language Attributes are added in C23. */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ > 201710L) && defined(__has_c_attribute)
+# define XXH_HAS_C_ATTRIBUTE(x) __has_c_attribute(x)
+#else
+# define XXH_HAS_C_ATTRIBUTE(x) 0
+#endif
+
+#if defined(__cplusplus) && defined(__has_cpp_attribute)
+# define XXH_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
+#else
+# define XXH_HAS_CPP_ATTRIBUTE(x) 0
+#endif
+
 /*
 Define XXH_FALLTHROUGH macro for annotating switch case with the 'fallthrough' attribute
 introduced in CPP17 and C23.
 CPP17 : https://en.cppreference.com/w/cpp/language/attributes/fallthrough
 C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
 */
-
-#if defined (__has_c_attribute) && defined (__STDC_VERSION__) && (__STDC_VERSION__ > 201710L) /* C2x */
-#   if __has_c_attribute(fallthrough)
-#       define XXH_FALLTHROUGH [[fallthrough]]
-#   endif
-
-#elif defined(__cplusplus) && defined(__has_cpp_attribute)
-#   if __has_cpp_attribute(fallthrough)
-#       define XXH_FALLTHROUGH [[fallthrough]]
-#   endif
-#endif
-
-#ifndef XXH_FALLTHROUGH
-#   if defined(__GNUC__) && __GNUC__ >= 7
-#       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
-#   elif defined(__clang__) && (__clang_major__ >= 10) \
-     && (!defined(__APPLE__) || (__clang_major__ >= 12))
-     /* Apple clang 12 is effectively clang-10 ,
-      * see https://en.wikipedia.org/wiki/Xcode for details
-      */
-#       define XXH_FALLTHROUGH __attribute__ ((fallthrough))
-#   else
-#       define XXH_FALLTHROUGH
-#	endif
+#if XXH_HAS_C_ATTRIBUTE(x)
+# define XXH_FALLTHROUGH [[fallthrough]]
+#elif XXH_HAS_CPP_ATTRIBUTE(x)
+# define XXH_FALLTHROUGH [[fallthrough]]
+#elif XXH_HAS_ATTRIBUTE(__fallthrough__)
+# define XXH_FALLTHROUGH __attribute__ ((fallthrough))
+#else
+# define XXH_FALLTHROUGH
 #endif
 
 /*!

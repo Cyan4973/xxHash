@@ -3265,6 +3265,21 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
     r128.high64 = product_high;
     return r128;
 
+    /*
+     * MSVC for ARM64's __umulh method.
+     *
+     * This compiles to the same MUL + UMULH as GCC/Clang's __uint128_t method.
+     */
+#elif defined(_M_ARM64)
+
+#ifndef _MSC_VER
+#   pragma intrinsic(__umulh)
+#endif
+    XXH128_hash_t r128;
+    r128.low64  = lhs * rhs;
+    r128.high64 = __umulh(lhs, rhs);
+    return r128;
+
 #else
     /*
      * Portable scalar method. Optimized for 32-bit and 64-bit ALUs.

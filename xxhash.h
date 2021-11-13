@@ -324,7 +324,7 @@ extern "C" {
  * This is only useful when xxHash is compiled as a shared library, as it is
  * independent of the version defined in the header.
  *
- * @return `XXH_VERSION_NUMBER` as of when the libray was compiled.
+ * @return `XXH_VERSION_NUMBER` as of when the library was compiled.
  */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 

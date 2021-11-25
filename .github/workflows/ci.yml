@@ -334,7 +334,7 @@ jobs:
 
     - name: make
       run: |
-        CFLAGS="-Werror" make clean default
+        CFLAGS="-Werror -Wdocumentation" make clean default
 
     - name: make test
       run: |

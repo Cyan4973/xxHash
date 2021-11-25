@@ -1256,17 +1256,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
  * Prefer these methods in priority order (0 > 3 > 1 > 2)
  */
 #  define XXH_FORCE_MEMORY_ACCESS 0
-/*!
- * @def XXH_ACCEPT_NULL_INPUT_POINTER
- * @brief Whether to add explicit `NULL` checks.
- *
- * If the input pointer is `NULL` and the length is non-zero, xxHash's default
- * behavior is to dereference it, triggering a segfault.
- *
- * When this macro is enabled, xxHash actively checks the input for a null pointer.
- * If it is, the result for null input pointers is the same as a zero-length input.
- */
-#  define XXH_ACCEPT_NULL_INPUT_POINTER 0
+
 /*!
  * @def XXH_FORCE_ALIGN_CHECK
  * @brief If defined to non-zero, adds a special path for aligned inputs (XXH32()
@@ -1363,10 +1353,6 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t s
 )
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
-#endif
-
-#ifndef XXH_ACCEPT_NULL_INPUT_POINTER   /* can be defined externally */
-#  define XXH_ACCEPT_NULL_INPUT_POINTER 0
 #endif
 
 #ifndef XXH_FORCE_ALIGN_CHECK  /* can be defined externally */
@@ -1958,6 +1944,8 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
     h32  = XXH_rotl32(h32, 17) * XXH_PRIME32_4;     \
 } while (0)
 
+    if (ptr==NULL) XXH_ASSERT(len == 0);
+
     /* Compact rerolled version */
     if (XXH_REROLL) {
         len &= 15;
@@ -2034,17 +2022,12 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 XXH_FORCE_INLINE xxh_u32
 XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment align)
 {
-    const xxh_u8* bEnd = input ? input + len : NULL;
     xxh_u32 h32;
 
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
-    if (input==NULL) {
-        len=0;
-        bEnd=input=(const xxh_u8*)(size_t)16;
-    }
-#endif
+    if (input==NULL) XXH_ASSERT(len == 0);
 
     if (len>=16) {
+        const xxh_u8* const bEnd = input + len;
         const xxh_u8* const limit = bEnd - 15;
         xxh_u32 v1 = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
         xxh_u32 v2 = seed + XXH_PRIME32_2;
@@ -2130,12 +2113,10 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t s
 XXH_PUBLIC_API XXH_errorcode
 XXH32_update(XXH32_state_t* state, const void* input, size_t len)
 {
-    if (input==NULL)
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
+    if (input==NULL) {
+        XXH_ASSERT(len == 0);
         return XXH_OK;
-#else
-        return XXH_ERROR;
-#endif
+    }
 
     {   const xxh_u8* p = (const xxh_u8*)input;
         const xxh_u8* const bEnd = p + len;
@@ -2427,6 +2408,7 @@ static xxh_u64 XXH64_avalanche(xxh_u64 h64)
 static xxh_u64
 XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
+    if (ptr==NULL) XXH_ASSERT(len == 0);
     len &= 31;
     while (len >= 8) {
         xxh_u64 const k1 = XXH64_round(0, XXH_get64bits(ptr));
@@ -2462,18 +2444,12 @@ XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
 XXH_FORCE_INLINE xxh_u64
 XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment align)
 {
-    const xxh_u8* bEnd = input ? input + len : NULL;
     xxh_u64 h64;
-
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
-    if (input==NULL) {
-        len=0;
-        bEnd=input=(const xxh_u8*)(size_t)32;
-    }
-#endif
+    if (input==NULL) XXH_ASSERT(len == 0);
 
     if (len>=32) {
-        const xxh_u8* const limit = bEnd - 32;
+        const xxh_u8* const bEnd = input + len;
+        const xxh_u8* const limit = bEnd - 31;
         xxh_u64 v1 = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
         xxh_u64 v2 = seed + XXH_PRIME64_2;
         xxh_u64 v3 = seed + 0;
@@ -2484,7 +2460,7 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
             v2 = XXH64_round(v2, XXH_get64bits(input)); input+=8;
             v3 = XXH64_round(v3, XXH_get64bits(input)); input+=8;
             v4 = XXH64_round(v4, XXH_get64bits(input)); input+=8;
-        } while (input<=limit);
+        } while (input<limit);
 
         h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
         h64 = XXH64_mergeRound(h64, v1);
@@ -2560,12 +2536,10 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t s
 XXH_PUBLIC_API XXH_errorcode
 XXH64_update (XXH64_state_t* state, const void* input, size_t len)
 {
-    if (input==NULL)
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
+    if (input==NULL) {
+        XXH_ASSERT(len == 0);
         return XXH_OK;
-#else
-        return XXH_ERROR;
-#endif
+    }
 
     {   const xxh_u8* p = (const xxh_u8*)input;
         const xxh_u8* const bEnd = p + len;
@@ -4742,12 +4716,10 @@ XXH3_update(XXH3_state_t* state,
             XXH3_f_accumulate_512 f_acc512,
             XXH3_f_scrambleAcc f_scramble)
 {
-    if (input==NULL)
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER>=1)
+    if (input==NULL) {
+        XXH_ASSERT(len == 0);
         return XXH_OK;
-#else
-        return XXH_ERROR;
-#endif
+    }
 
     {   const xxh_u8* const bEnd = input + len;
         const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;

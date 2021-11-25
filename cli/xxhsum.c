@@ -1414,7 +1414,9 @@ XSUM_API int XSUM_main(int argc, char* argv[])
             {
             /* Display version */
             case 'V':
-                XSUM_log(FULL_WELCOME_MESSAGE(exename)); return 0;
+                XSUM_log(FULL_WELCOME_MESSAGE(exename));
+                XSUM_sanityCheck(); 
+                return 0;
 
             /* Display help on XSUM_usage */
             case 'h':

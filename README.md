@@ -119,10 +119,6 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                          This may also increase performance depending on compiler and architecture.
 - `XXH_REROLL`: Reduces the size of the generated code by not unrolling some loops.
                 Impact on performance may vary, depending on platform and algorithm.
-- `XXH_ACCEPT_NULL_INPUT_POINTER`: if set to `1`, when input is a `NULL` pointer,
-                                   xxHash'd result is the same as a zero-length input
-                                   (instead of a dereference segfault).
-                                   Adds one branch at the beginning of each hash.
 - `XXH_STATIC_LINKING_ONLY`: gives access to the state declaration for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.

@@ -42,6 +42,10 @@ endif()
 if(NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "xxHash build type: ${CMAKE_BUILD_TYPE}")
 endif()
+# Enable assert() statements in debug builds
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  add_compile_definitions(XXH_DEBUGLEVEL=1)
+endif()
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(XXHASH_BUILD_XXHSUM "Build the xxhsum binary" ON)

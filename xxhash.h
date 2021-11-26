@@ -1511,7 +1511,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
  * We also use it to prevent unwanted constant folding for AArch64 in
  * XXH3_initCustomSecret_scalar().
  */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #  define XXH_COMPILER_GUARD(var) __asm__ __volatile__("" : "+r" (var))
 #else
 #  define XXH_COMPILER_GUARD(var) ((void)0)

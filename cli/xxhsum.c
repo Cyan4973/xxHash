@@ -106,11 +106,6 @@ static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & X
 
 
 /* ************************************
- *  Display macros
- **************************************/
-
-
-/* ************************************
  *  Local variables
  **************************************/
 static XSUM_U32 g_nbIterations = NBLOOPS;
@@ -589,7 +584,7 @@ static void XSUM_printLine_BSD_internal(const char* filename,
                                         const char* algoString[],
                                         XSUM_displayHash_f f_displayHash)
 {
-    assert(0 <= hashType && hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
+    assert(0 <= hashType && (size_t)hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
     {   const char* const typeString = algoString[hashType];
         const size_t hashLength = XSUM_algoLength[hashType];
         XSUM_output("%s (%s) = ", typeString, filename);
@@ -611,7 +606,7 @@ static void XSUM_printLine_GNU_internal(const char* filename,
                                const void* canonicalHash, const AlgoSelected hashType,
                                XSUM_displayHash_f f_displayHash)
 {
-    assert(0 <= hashType && hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
+    assert(0 <= hashType && (size_t)hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
     {   const size_t hashLength = XSUM_algoLength[hashType];
         f_displayHash(canonicalHash, hashLength);
         XSUM_output("  %s\n", filename);
@@ -1415,7 +1410,7 @@ XSUM_API int XSUM_main(int argc, char* argv[])
             /* Display version */
             case 'V':
                 XSUM_log(FULL_WELCOME_MESSAGE(exename));
-                XSUM_sanityCheck(); 
+                XSUM_sanityCheck();
                 return 0;
 
             /* Display help on XSUM_usage */

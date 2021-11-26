@@ -229,7 +229,7 @@ extern "C" {
  * @internal
  * @brief Runs CPUID.
  *
- * @param eax, ecx The parameters to pass to CPUID, %eax and %ecx respectively.
+ * @param eax , ecx The parameters to pass to CPUID, %eax and %ecx respectively.
  * @param abcd The array to store the result in, `{ eax, ebx, ecx, edx }`
  */
 static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)

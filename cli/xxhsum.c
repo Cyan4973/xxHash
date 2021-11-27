@@ -186,9 +186,25 @@ static XSUM_U32 localXXH32(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     return XXH32(buffer, bufferSize, seed);
 }
+static XSUM_U32 localXXH32_stream(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    XXH32_state_t state;
+    (void)seed;
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, buffer, bufferSize);
+    return (XSUM_U32)XXH32_digest(&state);
+}
 static XSUM_U32 localXXH64(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     return (XSUM_U32)XXH64(buffer, bufferSize, seed);
+}
+static XSUM_U32 localXXH64_stream(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    XXH64_state_t state;
+    (void)seed;
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, buffer, bufferSize);
+    return (XSUM_U32)XXH64_digest(&state);
 }
 static XSUM_U32 localXXH3_64b(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
@@ -257,8 +273,7 @@ typedef struct {
     hashFunction func;
 } hashInfo;
 
-#define NB_HASHFUNC 12
-static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
+static const hashInfo g_hashesToBench[] = {
     { "XXH32",             &localXXH32 },
     { "XXH64",             &localXXH64 },
     { "XXH3_64b",          &localXXH3_64b },
@@ -267,11 +282,14 @@ static const hashInfo g_hashesToBench[NB_HASHFUNC] = {
     { "XXH128",            &localXXH3_128b },
     { "XXH128 w/seed",     &localXXH3_128b_seeded },
     { "XXH128 w/secret",   &localXXH3_128b_secret },
+    { "XXH32_stream",      &localXXH32_stream },
+    { "XXH64_stream",      &localXXH64_stream },
     { "XXH3_stream",       &localXXH3_stream },
     { "XXH3_stream w/seed",&localXXH3_stream_seeded },
     { "XXH128_stream",     &localXXH128_stream },
     { "XXH128_stream w/seed",&localXXH128_stream_seeded },
 };
+#define NB_HASHFUNC (sizeof(g_hashesToBench) / sizeof(*g_hashesToBench))
 
 #define NB_TESTFUNC (1 + 2 * NB_HASHFUNC)
 static char g_testIDs[NB_TESTFUNC] = { 0 };
@@ -283,7 +301,7 @@ static const char k_testIDs_default[NB_TESTFUNC] = { 0,
 
 #define HASHNAME_MAX 29
 static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
-                          const void* buffer, size_t bufferSize)
+                           const void* buffer, size_t bufferSize)
 {
     XSUM_U32 nbh_perIteration = (XSUM_U32)((300 MB) / (bufferSize+1)) + 1;  /* first iteration conservatively aims for 300 MB/s */
     unsigned iterationNb, nbIterations = g_nbIterations + !g_nbIterations /* min 1 */;
@@ -384,7 +402,7 @@ static void XSUM_benchMem(const void* buffer, size_t bufferSize)
     assert((((size_t)buffer) & 15) == 0);  /* ensure alignment */
     XSUM_fillTestBuffer(g_benchSecretBuf, sizeof(g_benchSecretBuf));
     {   int i;
-        for (i = 1; i < NB_TESTFUNC; i++) {
+        for (i = 1; i < (int)NB_TESTFUNC; i++) {
             int const hashFuncID = (i-1) / 2;
             assert(g_hashesToBench[hashFuncID].name != NULL);
             if (g_testIDs[i] == 0) continue;

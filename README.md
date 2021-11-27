@@ -119,7 +119,7 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                          This may also increase performance depending on compiler and architecture.
 - `XXH_REROLL`: Reduces the size of the generated code by not unrolling some loops.
                 Impact on performance may vary, depending on platform and algorithm.
-- `XXH_STATIC_LINKING_ONLY`: gives access to the state declaration for static allocation.
+- `XXH_STATIC_LINKING_ONLY`: gives access to internal state declaration, required for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.
                   Useful to reduce binary size, notably for applications which do not use `XXH3`.
@@ -130,8 +130,10 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            If, for some reason, the compiler cannot simplify the runtime test, it can cost performance.
                            It's possible to skip auto-detection and simply state that the architecture is little-endian by setting this macro to 1.
                            Setting it to 0 states big-endian.
+- `XXH_DEBUGLEVEL` : When set to any value >= 1, enables `assert()` statements.
+                     This (slightly) slows down execution, but may help finding bugs during debugging sessions.
 
-For the Command Line Interface `xxhsum`, the following environment variables can also be set :
+When compiling the Command Line Interface `xxhsum` with `make`, the following environment variables can also be set :
 - `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
 
 

@@ -321,16 +321,16 @@ extern "C" {
 /*!
  * @brief Obtains the xxHash version.
  *
- * This is only useful when xxHash is compiled as a shared library, as it is
- * independent of the version defined in the header.
+ * This is mostly useful when xxHash is compiled as a shared library,
+ * since the returned value comes from the library, as opposed to header file.
  *
- * @return `XXH_VERSION_NUMBER` as of when the library was compiled.
+ * @return `XXH_VERSION_NUMBER` of the invoked library.
  */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
 
 /* ****************************
-*  Definitions
+*  Common basic types
 ******************************/
 #include <stddef.h>   /* size_t */
 typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
@@ -374,10 +374,9 @@ typedef uint32_t XXH32_hash_t;
  * Contains functions used in the classic 32-bit xxHash algorithm.
  *
  * @note
- *   XXH32 is considered rather weak by today's standards.
- *   The @ref xxh3_family provides competitive speed for both 32-bit and 64-bit
- *   systems, and offers true 64/128 bit hash results. It provides a superior
- *   level of dispersion, and greatly reduces the risks of collisions.
+ *   XXH32 is useful for older platforms, with no or poor 64-bit performance.
+ *   Note that @ref xxh3_family provides competitive speed
+ *   for both 32-bit and 64-bit systems, and offers true 64/128 bit hash results.
  *
  * @see @ref xxh64_family, @ref xxh3_family : Other xxHash families
  * @see @ref xxh32_impl for implementation details
@@ -672,8 +671,8 @@ typedef uint64_t XXH64_hash_t;
  *
  * @note
  *   XXH3 provides competitive speed for both 32-bit and 64-bit systems,
- *   and offers true 64/128 bit hash results. It provides a superior level of
- *   dispersion, and greatly reduces the risks of collisions.
+ *   and offers true 64/128 bit hash results.
+ *   It provides better speed for systems with vector processing capabilities.
  */
 
 
@@ -805,7 +804,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
  * Whenever unsure about the "randomness" of the blob of bytes,
  * consider relabelling it as a "custom seed" instead,
  * and employ "XXH3_generateSecret()" (see below)
- * to generate a high entropy secret derived from the custom seed.
+ * to generate a proper high entropy secret derived from the custom seed.
  */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 

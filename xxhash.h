@@ -1620,7 +1620,7 @@ static xxh_u32 XXH_read32(const void* ptr)
 static xxh_u32 XXH_read32(const void* memPtr)
 {
     xxh_u32 val;
-    memcpy(&val, memPtr, sizeof(val));
+    XXH_memcpy(&val, memPtr, sizeof(val));
     return val;
 }
 
@@ -2084,7 +2084,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 /*! @ingroup xxh32_family */
 XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t* srcState)
 {
-    memcpy(dstState, srcState, sizeof(*dstState));
+    XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
 /*! @ingroup xxh32_family */
@@ -2097,7 +2097,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t s
     state.v[2] = seed + 0;
     state.v[3] = seed - XXH_PRIME32_1;
     /* do not write into reserved, planned to be removed in a future version */
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
+    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
 }
 
@@ -2197,7 +2197,7 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 {
     XXH_STATIC_ASSERT(sizeof(XXH32_canonical_t) == sizeof(XXH32_hash_t));
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
-    memcpy(dst, &hash, sizeof(*dst));
+    XXH_memcpy(dst, &hash, sizeof(*dst));
 }
 /*! @ingroup xxh32_family */
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src)
@@ -2263,7 +2263,7 @@ static xxh_u64 XXH_read64(const void* ptr)
 static xxh_u64 XXH_read64(const void* memPtr)
 {
     xxh_u64 val;
-    memcpy(&val, memPtr, sizeof(val));
+    XXH_memcpy(&val, memPtr, sizeof(val));
     return val;
 }
 
@@ -2500,7 +2500,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 /*! @ingroup xxh64_family */
 XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t* srcState)
 {
-    memcpy(dstState, srcState, sizeof(*dstState));
+    XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
 /*! @ingroup xxh64_family */
@@ -2513,7 +2513,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t s
     state.v[2] = seed + 0;
     state.v[3] = seed - XXH_PRIME64_1;
      /* do not write into reserved64, might be removed in a future version */
-    memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
+    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
     return XXH_OK;
 }
 
@@ -2597,7 +2597,7 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_canonical_t) == sizeof(XXH64_hash_t));
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
-    memcpy(dst, &hash, sizeof(*dst));
+    XXH_memcpy(dst, &hash, sizeof(*dst));
 }
 
 /*! @ingroup xxh64_family */
@@ -3035,7 +3035,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_revb(xxh_u64x2 val)
 XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr)
 {
     xxh_u64x2 ret;
-    memcpy(&ret, ptr, sizeof(xxh_u64x2));
+    XXH_memcpy(&ret, ptr, sizeof(xxh_u64x2));
 # if XXH_VSX_BE
     ret = XXH_vec_revb(ret);
 # endif
@@ -3599,7 +3599,7 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
 XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 {
     if (!XXH_CPU_LITTLE_ENDIAN) v64 = XXH_swap64(v64);
-    memcpy(dst, &v64, sizeof(v64));
+    XXH_memcpy(dst, &v64, sizeof(v64));
 }
 
 /* Several intrinsic functions below are supposed to accept __int64 as argument,
@@ -4592,7 +4592,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 XXH_PUBLIC_API void
 XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
 {
-    memcpy(dst_state, src_state, sizeof(*dst_state));
+    XXH_memcpy(dst_state, src_state, sizeof(*dst_state));
 }
 
 static void
@@ -4699,13 +4699,14 @@ XXH3_update(XXH3_state_t* state,
         state->totalLen += len;
         XXH_ASSERT(state->bufferedSize <= XXH3_INTERNALBUFFER_SIZE);
 
-        if (state->bufferedSize + len <= XXH3_INTERNALBUFFER_SIZE) {  /* fill in tmp buffer */
+        /* small input : just fill in tmp buffer */
+        if (state->bufferedSize + len <= XXH3_INTERNALBUFFER_SIZE) {
             XXH_memcpy(state->buffer + state->bufferedSize, input, len);
             state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
         }
-        /* total input is now > XXH3_INTERNALBUFFER_SIZE */
 
+        /* total input is now > XXH3_INTERNALBUFFER_SIZE */
         #define XXH3_INTERNALBUFFER_STRIPES (XXH3_INTERNALBUFFER_SIZE / XXH_STRIPE_LEN)
         XXH_STATIC_ASSERT(XXH3_INTERNALBUFFER_SIZE % XXH_STRIPE_LEN == 0);   /* clean multiple */
 
@@ -4738,7 +4739,7 @@ XXH3_update(XXH3_state_t* state,
                 input += XXH3_INTERNALBUFFER_SIZE;
             } while (input<limit);
             /* for last partial stripe */
-            memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
+            XXH_memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
         }
         XXH_ASSERT(input < bEnd);
 
@@ -4768,7 +4769,7 @@ XXH3_digest_long (XXH64_hash_t* acc,
      * Digest on a local copy. This way, the state remains unaltered, and it can
      * continue ingesting more input afterwards.
      */
-    memcpy(acc, state->acc, sizeof(state->acc));
+    XXH_memcpy(acc, state->acc, sizeof(state->acc));
     if (state->bufferedSize >= XXH_STRIPE_LEN) {
         size_t const nbStripes = (state->bufferedSize - 1) / XXH_STRIPE_LEN;
         size_t nbStripesSoFar = state->nbStripesSoFar;
@@ -4785,8 +4786,8 @@ XXH3_digest_long (XXH64_hash_t* acc,
         xxh_u8 lastStripe[XXH_STRIPE_LEN];
         size_t const catchupSize = XXH_STRIPE_LEN - state->bufferedSize;
         XXH_ASSERT(state->bufferedSize > 0);  /* there is always some input buffered */
-        memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
-        memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
+        XXH_memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
+        XXH_memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
         XXH3_accumulate_512(acc,
                             lastStripe,
                             secret + state->secretLimit - XXH_SECRET_LASTACC_START);
@@ -4820,7 +4821,7 @@ XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSee
 {
     XXH_ASSERT(secretBuffer != NULL);
     if (customSeedSize == 0) {
-        memcpy(secretBuffer, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
+        XXH_memcpy(secretBuffer, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
         return;
     }
     XXH_ASSERT(customSeed != NULL);
@@ -4839,21 +4840,21 @@ XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSee
         */
         {   size_t toFill = XXH_MIN(customSeedSize, sizeof(seeds));
             size_t filled = toFill;
-            memcpy(seeds, customSeed, toFill);
+            XXH_memcpy(seeds, customSeed, toFill);
             while (filled < sizeof(seeds)) {
                 toFill = XXH_MIN(filled, sizeof(seeds) - filled);
-                memcpy((char*)seeds + filled, seeds, toFill);
+                XXH_memcpy((char*)seeds + filled, seeds, toFill);
                 filled += toFill;
         }   }
 
         /* generate secret */
-        memcpy(secretBuffer, &scrambler, sizeof(scrambler));
+        XXH_memcpy(secretBuffer, &scrambler, sizeof(scrambler));
         for (segnb=1; segnb < nbSegments; segnb++) {
             size_t const segmentStart = segnb * segmentSize;
             XXH128_canonical_t segment;
             XXH128_canonicalFromHash(&segment,
                 XXH128(&scrambler, sizeof(scrambler), XXH_readLE64(seeds + segnb) + segnb) );
-            memcpy((char*)secretBuffer + segmentStart, &segment, sizeof(segment));
+            XXH_memcpy((char*)secretBuffer + segmentStart, &segment, sizeof(segment));
     }   }
 }
 
@@ -5371,8 +5372,8 @@ XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash)
         hash.high64 = XXH_swap64(hash.high64);
         hash.low64  = XXH_swap64(hash.low64);
     }
-    memcpy(dst, &hash.high64, sizeof(hash.high64));
-    memcpy((char*)dst + sizeof(hash.high64), &hash.low64, sizeof(hash.low64));
+    XXH_memcpy(dst, &hash.high64, sizeof(hash.high64));
+    XXH_memcpy((char*)dst + sizeof(hash.high64), &hash.low64, sizeof(hash.low64));
 }
 
 /*! @ingroup xxh3_family */

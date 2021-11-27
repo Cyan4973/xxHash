@@ -988,10 +988,7 @@ struct XXH32_state_s {
  */
 struct XXH64_state_s {
    XXH64_hash_t total_len;    /*!< Total length hashed. This is always 64-bit. */
-   XXH64_hash_t v1;           /*!< First accumulator lane */
-   XXH64_hash_t v2;           /*!< Second accumulator lane */
-   XXH64_hash_t v3;           /*!< Third accumulator lane */
-   XXH64_hash_t v4;           /*!< Fourth accumulator lane */
+   XXH64_hash_t v[4];         /*!< Accumulator lanes */
    XXH64_hash_t mem64[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[32]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem64 */
    XXH32_hash_t reserved32;   /*!< Reserved field, needed for padding anyways*/
@@ -2512,10 +2509,10 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t s
 {
     XXH64_state_t state;   /* use a local state to memcpy() in order to avoid strict-aliasing warnings */
     memset(&state, 0, sizeof(state));
-    state.v1 = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
-    state.v2 = seed + XXH_PRIME64_2;
-    state.v3 = seed + 0;
-    state.v4 = seed - XXH_PRIME64_1;
+    state.v[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
+    state.v[1] = seed + XXH_PRIME64_2;
+    state.v[2] = seed + 0;
+    state.v[3] = seed - XXH_PRIME64_1;
      /* do not write into reserved64, might be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
     return XXH_OK;
@@ -2543,32 +2540,24 @@ XXH64_update (XXH64_state_t* state, const void* input, size_t len)
 
         if (state->memsize) {   /* tmp buffer is full */
             XXH_memcpy(((xxh_u8*)state->mem64) + state->memsize, input, 32-state->memsize);
-            state->v1 = XXH64_round(state->v1, XXH_readLE64(state->mem64+0));
-            state->v2 = XXH64_round(state->v2, XXH_readLE64(state->mem64+1));
-            state->v3 = XXH64_round(state->v3, XXH_readLE64(state->mem64+2));
-            state->v4 = XXH64_round(state->v4, XXH_readLE64(state->mem64+3));
+            state->v[0] = XXH64_round(state->v[0], XXH_readLE64(state->mem64+0));
+            state->v[1] = XXH64_round(state->v[1], XXH_readLE64(state->mem64+1));
+            state->v[2] = XXH64_round(state->v[2], XXH_readLE64(state->mem64+2));
+            state->v[3] = XXH64_round(state->v[3], XXH_readLE64(state->mem64+3));
             p += 32 - state->memsize;
             state->memsize = 0;
         }
 
         if (p+32 <= bEnd) {
             const xxh_u8* const limit = bEnd - 32;
-            xxh_u64 v1 = state->v1;
-            xxh_u64 v2 = state->v2;
-            xxh_u64 v3 = state->v3;
-            xxh_u64 v4 = state->v4;
 
             do {
-                v1 = XXH64_round(v1, XXH_readLE64(p)); p+=8;
-                v2 = XXH64_round(v2, XXH_readLE64(p)); p+=8;
-                v3 = XXH64_round(v3, XXH_readLE64(p)); p+=8;
-                v4 = XXH64_round(v4, XXH_readLE64(p)); p+=8;
+                state->v[0] = XXH64_round(state->v[0], XXH_readLE64(p)); p+=8;
+                state->v[1] = XXH64_round(state->v[1], XXH_readLE64(p)); p+=8;
+                state->v[2] = XXH64_round(state->v[2], XXH_readLE64(p)); p+=8;
+                state->v[3] = XXH64_round(state->v[3], XXH_readLE64(p)); p+=8;
             } while (p<=limit);
 
-            state->v1 = v1;
-            state->v2 = v2;
-            state->v3 = v3;
-            state->v4 = v4;
         }
 
         if (p < bEnd) {
@@ -2587,18 +2576,13 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* state)
     xxh_u64 h64;
 
     if (state->total_len >= 32) {
-        xxh_u64 const v1 = state->v1;
-        xxh_u64 const v2 = state->v2;
-        xxh_u64 const v3 = state->v3;
-        xxh_u64 const v4 = state->v4;
-
-        h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
-        h64 = XXH64_mergeRound(h64, v1);
-        h64 = XXH64_mergeRound(h64, v2);
-        h64 = XXH64_mergeRound(h64, v3);
-        h64 = XXH64_mergeRound(h64, v4);
+        h64 = XXH_rotl64(state->v[0], 1) + XXH_rotl64(state->v[1], 7) + XXH_rotl64(state->v[2], 12) + XXH_rotl64(state->v[3], 18);
+        h64 = XXH64_mergeRound(h64, state->v[0]);
+        h64 = XXH64_mergeRound(h64, state->v[1]);
+        h64 = XXH64_mergeRound(h64, state->v[2]);
+        h64 = XXH64_mergeRound(h64, state->v[3]);
     } else {
-        h64  = state->v3 /*seed*/ + XXH_PRIME64_5;
+        h64  = state->v[2] /*seed*/ + XXH_PRIME64_5;
     }
 
     h64 += (xxh_u64) state->total_len;

@@ -965,10 +965,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* 
 struct XXH32_state_s {
    XXH32_hash_t total_len_32; /*!< Total length hashed, modulo 2^32 */
    XXH32_hash_t large_len;    /*!< Whether the hash is >= 16 (handles @ref total_len_32 overflow) */
-   XXH32_hash_t v1;           /*!< First accumulator lane */
-   XXH32_hash_t v2;           /*!< Second accumulator lane */
-   XXH32_hash_t v3;           /*!< Third accumulator lane */
-   XXH32_hash_t v4;           /*!< Fourth accumulator lane */
+   XXH32_hash_t v[4];         /*!< Accumulator lanes */
    XXH32_hash_t mem32[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[16]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem32 */
    XXH32_hash_t reserved;     /*!< Reserved field. Do not read or write to it, it may be removed. */
@@ -2099,10 +2096,10 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t s
 {
     XXH32_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
     memset(&state, 0, sizeof(state));
-    state.v1 = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
-    state.v2 = seed + XXH_PRIME32_2;
-    state.v3 = seed + 0;
-    state.v4 = seed - XXH_PRIME32_1;
+    state.v[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+    state.v[1] = seed + XXH_PRIME32_2;
+    state.v[2] = seed + 0;
+    state.v[3] = seed - XXH_PRIME32_1;
     /* do not write into reserved, planned to be removed in a future version */
     memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
     return XXH_OK;
@@ -2133,10 +2130,10 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
         if (state->memsize) {   /* some data left from previous update */
             XXH_memcpy((xxh_u8*)(state->mem32) + state->memsize, input, 16-state->memsize);
             {   const xxh_u32* p32 = state->mem32;
-                state->v1 = XXH32_round(state->v1, XXH_readLE32(p32)); p32++;
-                state->v2 = XXH32_round(state->v2, XXH_readLE32(p32)); p32++;
-                state->v3 = XXH32_round(state->v3, XXH_readLE32(p32)); p32++;
-                state->v4 = XXH32_round(state->v4, XXH_readLE32(p32));
+                state->v[0] = XXH32_round(state->v[0], XXH_readLE32(p32)); p32++;
+                state->v[1] = XXH32_round(state->v[1], XXH_readLE32(p32)); p32++;
+                state->v[2] = XXH32_round(state->v[2], XXH_readLE32(p32)); p32++;
+                state->v[3] = XXH32_round(state->v[3], XXH_readLE32(p32));
             }
             p += 16-state->memsize;
             state->memsize = 0;
@@ -2144,22 +2141,14 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
 
         if (p <= bEnd-16) {
             const xxh_u8* const limit = bEnd - 16;
-            xxh_u32 v1 = state->v1;
-            xxh_u32 v2 = state->v2;
-            xxh_u32 v3 = state->v3;
-            xxh_u32 v4 = state->v4;
 
             do {
-                v1 = XXH32_round(v1, XXH_readLE32(p)); p+=4;
-                v2 = XXH32_round(v2, XXH_readLE32(p)); p+=4;
-                v3 = XXH32_round(v3, XXH_readLE32(p)); p+=4;
-                v4 = XXH32_round(v4, XXH_readLE32(p)); p+=4;
+                state->v[0] = XXH32_round(state->v[0], XXH_readLE32(p)); p+=4;
+                state->v[1] = XXH32_round(state->v[1], XXH_readLE32(p)); p+=4;
+                state->v[2] = XXH32_round(state->v[2], XXH_readLE32(p)); p+=4;
+                state->v[3] = XXH32_round(state->v[3], XXH_readLE32(p)); p+=4;
             } while (p<=limit);
 
-            state->v1 = v1;
-            state->v2 = v2;
-            state->v3 = v3;
-            state->v4 = v4;
         }
 
         if (p < bEnd) {
@@ -2178,12 +2167,12 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
     xxh_u32 h32;
 
     if (state->large_len) {
-        h32 = XXH_rotl32(state->v1, 1)
-            + XXH_rotl32(state->v2, 7)
-            + XXH_rotl32(state->v3, 12)
-            + XXH_rotl32(state->v4, 18);
+        h32 = XXH_rotl32(state->v[0], 1)
+            + XXH_rotl32(state->v[1], 7)
+            + XXH_rotl32(state->v[2], 12)
+            + XXH_rotl32(state->v[3], 18);
     } else {
-        h32 = state->v3 /* == seed */ + XXH_PRIME32_5;
+        h32 = state->v[2] /* == seed */ + XXH_PRIME32_5;
     }
 
     h32 += state->total_len_32;

@@ -60,7 +60,7 @@ XSUM_API void XSUM_fillTestBuffer(XSUM_U8* buffer, size_t len)
 
 /* ************************************************
  * Self-test:
- * ensure results consistency accross platforms
+ * ensure results consistency across platforms
  *********************************************** */
 #if XSUM_NO_TESTS
 XSUM_API void XSUM_sanityCheck(void)

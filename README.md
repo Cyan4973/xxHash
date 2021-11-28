@@ -110,8 +110,8 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            It is (slightly) detrimental on platform with good unaligned memory access performance (same instruction for both aligned and unaligned accesses).
                            This option is automatically disabled on `x86`, `x64` and `aarch64`, and enabled on all other platforms.
 - `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). Available instruction sets are `XXH_SCALAR`, `XXH_SSE2`, `XXH_AVX2`, `XXH_AVX512`, `XXH_NEON` and `XXH_VSX`. Compiler may require additional flags to ensure proper support (for example, `gcc` on linux will require `-mavx2` for AVX2, and `-mavx512f` for AVX512).
-- `XXH_NO_PREFETCH` : disable prefetching. XXH3 only.
-- `XXH_PREFETCH_DIST` : select prefecting distance. XXH3 only.
+- `XXH_NO_PREFETCH` : disable prefetching. Some platforms or situations may perform better without prefetching. XXH3 only.
+- `XXH_PREFETCH_DIST` : select prefetching distance. For close-to-metal adaptation to specific hardware platforms. XXH3 only.
 - `XXH_NO_INLINE_HINTS`: By default, xxHash uses `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.
                          Defining this macro to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not.
                          This is very useful when optimizing for smallest binary size,
@@ -119,23 +119,21 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                          This may also increase performance depending on compiler and architecture.
 - `XXH_REROLL`: Reduces the size of the generated code by not unrolling some loops.
                 Impact on performance may vary, depending on platform and algorithm.
-- `XXH_ACCEPT_NULL_INPUT_POINTER`: if set to `1`, when input is a `NULL` pointer,
-                                   xxHash'd result is the same as a zero-length input
-                                   (instead of a dereference segfault).
-                                   Adds one branch at the beginning of each hash.
-- `XXH_STATIC_LINKING_ONLY`: gives access to the state declaration for static allocation.
+- `XXH_STATIC_LINKING_ONLY`: gives access to internal state declaration, required for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.
                   Useful to reduce binary size, notably for applications which do not use `XXH3`.
 - `XXH_NO_LONG_LONG`: removes compilation of algorithms relying on 64-bit types (XXH3 and XXH64). Only XXH32 will be compiled.
                       Useful for targets (architectures and compilers) without 64-bit support.
 - `XXH_IMPORT`: MSVC specific: should only be defined for dynamic linking, as it prevents linkage errors.
-- `XXH_CPU_LITTLE_ENDIAN`: By default, endianess is determined by a runtime test resolved at compile time.
+- `XXH_CPU_LITTLE_ENDIAN`: By default, endianness is determined by a runtime test resolved at compile time.
                            If, for some reason, the compiler cannot simplify the runtime test, it can cost performance.
                            It's possible to skip auto-detection and simply state that the architecture is little-endian by setting this macro to 1.
                            Setting it to 0 states big-endian.
+- `XXH_DEBUGLEVEL` : When set to any value >= 1, enables `assert()` statements.
+                     This (slightly) slows down execution, but may help finding bugs during debugging sessions.
 
-For the Command Line Interface `xxhsum`, the following environment variables can also be set :
+When compiling the Command Line Interface `xxhsum` with `make`, the following environment variables can also be set :
 - `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
 
 

@@ -23,20 +23,18 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-#include "xsum_config.h"
-#include "xsum_output.h"
+#include "xsum_output.h"  /* XSUM_logLevel */
 #include "xsum_bench.h"
 #include "xsum_sanity_check.h" /* XSUM_fillTestBuffer */
 #include "xsum_os_specific.h"  /* XSUM_getFileSize */
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
 #ifndef XXH_STATIC_LINKING_ONLY
 #  define XXH_STATIC_LINKING_ONLY
 #endif
 #include "../xxhash.h"
 
-#include <stdio.h>  /* FILE */
+#include <stdlib.h>  /* malloc, free */
+#include <assert.h>
+#include <string.h>  /* strlen, memcpy */
 #include <time.h>   /* clock_t, clock, CLOCKS_PER_SEC */
 #include <errno.h>  /* errno */
 

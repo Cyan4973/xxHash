@@ -30,12 +30,11 @@
  */
 
 /* Transitional headers */
-#include "xsum_config.h"
-#include "xsum_arch.h"
-#include "xsum_os_specific.h"
-#include "xsum_output.h"
-#include "xsum_sanity_check.h"
-#include "xsum_bench.h"
+#include "xsum_arch.h"         /* XSUM_PROGRAM_VERSION */
+#include "xsum_os_specific.h"  /* XSUM_setBinaryMode */
+#include "xsum_output.h"       /* XSUM_output */
+#include "xsum_sanity_check.h" /* XSUM_sanityCheck */
+#include "xsum_bench.h"        /* NBLOOPS_DEFAULT */
 #ifdef XXH_INLINE_ALL
 #  include "xsum_os_specific.c"
 #  include "xsum_output.c"
@@ -46,12 +45,8 @@
 /* ************************************
  *  Includes
  **************************************/
-#include <limits.h>
 #include <stdlib.h>     /* malloc, calloc, free, exit */
-#include <string.h>     /* strcmp, memcpy */
-#include <stdio.h>      /* fprintf, fopen, ftello64, fread, stdin, stdout, _fileno (when present) */
-#include <sys/types.h>  /* stat, stat64, _stat64 */
-#include <sys/stat.h>   /* stat, stat64, _stat64 */
+#include <string.h>     /* strerror, strcmp, memcpy */
 #include <assert.h>     /* assert */
 #include <errno.h>      /* errno */
 

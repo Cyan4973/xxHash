@@ -175,6 +175,7 @@ extern "C" {
 #  undef XXH3_128bits_reset
 #  undef XXH3_128bits_reset_withSeed
 #  undef XXH3_128bits_reset_withSecret
+#  undef XXH3_128bits_reset_withSecretandSeed
 #  undef XXH3_128bits_update
 #  undef XXH3_128bits_digest
 #  undef XXH128_isEqual
@@ -306,6 +307,7 @@ extern "C" {
 #  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
 #  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
 #  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
+#  define XXH3_128bits_reset_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecretandSeed)
 #  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
 #  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
 #  define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
@@ -803,13 +805,17 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
  * This makes it more difficult for an external actor to prepare an intentional collision.
  * The main condition is that secretSize *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
- * However, the quality of produced hash values depends on secret's entropy.
- * Technically, the secret must look like a bunch of random bytes.
+ * However, the quality of the secret impacts the dispersion of the hash algorithm.
+ * Therefore, the secret _must_ look like a bunch of random bytes.
  * Avoid "trivial" or structured data such as repeated sequences or a text document.
- * Whenever unsure about the "randomness" of the blob of bytes,
- * consider relabelling it as a "custom seed" instead,
- * and employ "XXH3_generateSecret()" (see below)
- * to generate a proper high entropy secret derived from the custom seed.
+ * Whenever in doubt about the "randomness" of the blob of bytes,
+ * consider employing "XXH3_generateSecret()" instead (see below).
+ * It will generate a proper high entropy secret derived from the blob of bytes.
+ * Another advantage of using XXH3_generateSecret() is that
+ * it guarantees that all bits within the initial blob of bytes
+ * will impact every bit of the output.
+ * This is not necessarily the case when using the blob of bytes directly
+ * because, when hashing _small_ inputs, only a portion of the secret is employed.
  */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
@@ -1204,6 +1210,11 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
                                     const void* secret, size_t secretSize,
                                     XXH64_hash_t seed64);
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
+                                     const void* secret, size_t secretSize,
+                                     XXH64_hash_t seed64);
 
 
 #endif  /* XXH_NO_LONG_LONG */
@@ -5374,7 +5385,7 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 /* ===   XXH3 128-bit streaming   === */
 
 /*
- * All the functions are actually the same as for 64-bit streaming variant.
+ * All initialization and update functions are identical to 64-bit streaming variant.
  * The only difference is the finalization routine.
  */
 
@@ -5382,31 +5393,28 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset(XXH3_state_t* statePtr)
 {
-    if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
-    return XXH_OK;
+    return XXH3_64bits_reset(statePtr);
 }
 
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
 {
-    if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, secret, secretSize);
-    if (secret == NULL) return XXH_ERROR;
-    if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
-    return XXH_OK;
+    return XXH3_64bits_reset_withSecret(statePtr, secret, secretSize);
 }
 
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
-    if (statePtr == NULL) return XXH_ERROR;
-    if (seed==0) return XXH3_128bits_reset(statePtr);
-    if (seed != statePtr->seed) XXH3_initCustomSecret(statePtr->customSecret, seed);
-    XXH3_reset_internal(statePtr, seed, NULL, XXH_SECRET_DEFAULT_SIZE);
-    return XXH_OK;
+    return XXH3_64bits_reset_withSeed(statePtr, seed);
+}
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API XXH_errorcode
+XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr, const void* secret, size_t secretSize, XXH64_hash_t seed)
+{
+    return XXH3_64bits_reset_withSecretandSeed(statePtr, secret, secretSize, seed);
 }
 
 /*! @ingroup xxh3_family */

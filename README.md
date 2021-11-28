@@ -110,8 +110,8 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                            It is (slightly) detrimental on platform with good unaligned memory access performance (same instruction for both aligned and unaligned accesses).
                            This option is automatically disabled on `x86`, `x64` and `aarch64`, and enabled on all other platforms.
 - `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). Available instruction sets are `XXH_SCALAR`, `XXH_SSE2`, `XXH_AVX2`, `XXH_AVX512`, `XXH_NEON` and `XXH_VSX`. Compiler may require additional flags to ensure proper support (for example, `gcc` on linux will require `-mavx2` for AVX2, and `-mavx512f` for AVX512).
-- `XXH_NO_PREFETCH` : disable prefetching. XXH3 only.
-- `XXH_PREFETCH_DIST` : select prefetching distance. XXH3 only.
+- `XXH_NO_PREFETCH` : disable prefetching. Some platforms or situations may perform better without prefetching. XXH3 only.
+- `XXH_PREFETCH_DIST` : select prefetching distance. For close-to-metal adaptation to specific hardware platforms. XXH3 only.
 - `XXH_NO_INLINE_HINTS`: By default, xxHash uses `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.
                          Defining this macro to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not.
                          This is very useful when optimizing for smallest binary size,

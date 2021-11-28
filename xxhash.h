@@ -4060,7 +4060,8 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
                     const void* XXH_RESTRICT secret)
 {
-          xxh_u64x2* const xacc     =       (xxh_u64x2*) acc;    /* presumed aligned */
+    /* presumed aligned */
+    unsigned long long* const xacc = (unsigned long long*) acc;
     xxh_u64x2 const* const xinput   = (xxh_u64x2 const*) input;   /* no alignment restriction */
     xxh_u64x2 const* const xsecret  = (xxh_u64x2 const*) secret;    /* no alignment restriction */
     xxh_u64x2 const v32 = { 32, 32 };
@@ -4075,14 +4076,18 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
         xxh_u32x4 const shuffled = (xxh_u32x4)vec_rl(data_key, v32);
         /* product = ((xxh_u64x2)data_key & 0xFFFFFFFF) * ((xxh_u64x2)shuffled & 0xFFFFFFFF); */
         xxh_u64x2 const product  = XXH_vec_mulo((xxh_u32x4)data_key, shuffled);
-        xacc[i] += product;
+        /* acc_vec = xacc[i]; */
+        xxh_u64x2 acc_vec        = vec_xl(0, xacc + 2 * i);
+        acc_vec += product;
 
         /* swap high and low halves */
 #ifdef __s390x__
-        xacc[i] += vec_permi(data_vec, data_vec, 2);
+        acc_vec += vec_permi(data_vec, data_vec, 2);
 #else
-        xacc[i] += vec_xxpermdi(data_vec, data_vec, 2);
+        acc_vec += vec_xxpermdi(data_vec, data_vec, 2);
 #endif
+        /* xacc[i] = acc_vec; */
+        vec_xst(acc_vec, 0, xacc + 2 * i);
     }
 }
 

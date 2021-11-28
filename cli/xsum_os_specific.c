@@ -112,7 +112,7 @@ static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 }
 
 #ifndef XSUM_NO_MAIN
-int main(int argc, char* argv[])
+int main(int argc, const char* argv[])
 {
     return XSUM_main(argc, argv);
 }

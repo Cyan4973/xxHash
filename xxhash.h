@@ -4711,7 +4711,7 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
          * when operating accumulators directly into state.
          * Operating into stack space seems to enable proper optimization.
          * clang, on the other hand, doesn't seem to need this trick */
-        xxh_u64 acc[8]; memcpy(acc, state->acc, sizeof(acc));
+        XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64 acc[8]; memcpy(acc, state->acc, sizeof(acc));
 #else
         xxh_u64* XXH_RESTRICT const acc = state->acc;
 #endif

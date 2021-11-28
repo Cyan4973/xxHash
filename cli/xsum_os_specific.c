@@ -383,7 +383,7 @@ static int XSUM_wmain(int argc, wchar_t* utf16_argv[])
         setvbuf(stderr, NULL, _IONBF, 0);
 
         /* Call our real main function */
-        ret = XSUM_main(argc, utf8_argv);
+        ret = XSUM_main(argc, (void*)utf8_argv);
 
         /* Cleanup */
         XSUM_freeArgv(argc, utf8_argv);
@@ -439,7 +439,7 @@ int __cdecl __wgetmainargs(
     _startupinfo* StartInfo
 );
 
-int main(int ansi_argc, char* ansi_argv[])
+int main(int ansi_argc, const char* ansi_argv[])
 {
     int       utf16_argc;
     wchar_t** utf16_argv;

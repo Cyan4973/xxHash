@@ -157,6 +157,7 @@ extern "C" {
 #  undef XXH3_64bits
 #  undef XXH3_64bits_withSecret
 #  undef XXH3_64bits_withSeed
+#  undef XXH3_64bits_withSecretandSeed
 #  undef XXH3_createState
 #  undef XXH3_freeState
 #  undef XXH3_copyState
@@ -174,6 +175,7 @@ extern "C" {
 #  undef XXH3_128bits_reset
 #  undef XXH3_128bits_reset_withSeed
 #  undef XXH3_128bits_reset_withSecret
+#  undef XXH3_128bits_reset_withSecretandSeed
 #  undef XXH3_128bits_update
 #  undef XXH3_128bits_digest
 #  undef XXH128_isEqual
@@ -284,23 +286,28 @@ extern "C" {
 #  define XXH3_64bits XXH_NAME2(XXH_NAMESPACE, XXH3_64bits)
 #  define XXH3_64bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecret)
 #  define XXH3_64bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSeed)
+#  define XXH3_64bits_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_withSecretandSeed)
 #  define XXH3_createState XXH_NAME2(XXH_NAMESPACE, XXH3_createState)
 #  define XXH3_freeState XXH_NAME2(XXH_NAMESPACE, XXH3_freeState)
 #  define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
 #  define XXH3_64bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset)
 #  define XXH3_64bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
 #  define XXH3_64bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
+#  define XXH3_64bits_reset_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecretandSeed)
 #  define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
 #  define XXH3_64bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_digest)
 #  define XXH3_generateSecret XXH_NAME2(XXH_NAMESPACE, XXH3_generateSecret)
+#  define XXH3_generateSecret_fromSeed XXH_NAME2(XXH_NAMESPACE, XXH3_generateSecret_fromSeed)
 /* XXH3_128bits */
 #  define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #  define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #  define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
 #  define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
+#  define XXH3_128bits_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecretandSeed)
 #  define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
 #  define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
 #  define XXH3_128bits_reset_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
+#  define XXH3_128bits_reset_withSecretandSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecretandSeed)
 #  define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
 #  define XXH3_128bits_digest XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_digest)
 #  define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
@@ -798,13 +805,17 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSeed(const void* data, size_t len, X
  * It's possible to provide any blob of bytes as a "secret" to generate the hash.
  * This makes it more difficult for an external actor to prepare an intentional collision.
  * The main condition is that secretSize *must* be large enough (>= XXH3_SECRET_SIZE_MIN).
- * However, the quality of produced hash values depends on secret's entropy.
- * Technically, the secret must look like a bunch of random bytes.
+ * However, the quality of the secret impacts the dispersion of the hash algorithm.
+ * Therefore, the secret _must_ look like a bunch of random bytes.
  * Avoid "trivial" or structured data such as repeated sequences or a text document.
- * Whenever unsure about the "randomness" of the blob of bytes,
- * consider relabelling it as a "custom seed" instead,
- * and employ "XXH3_generateSecret()" (see below)
- * to generate a proper high entropy secret derived from the custom seed.
+ * Whenever in doubt about the "randomness" of the blob of bytes,
+ * consider employing "XXH3_generateSecret()" instead (see below).
+ * It will generate a proper high entropy secret derived from the blob of bytes.
+ * Another advantage of using XXH3_generateSecret() is that
+ * it guarantees that all bits within the initial blob of bytes
+ * will impact every bit of the output.
+ * This is not necessarily the case when using the blob of bytes directly
+ * because, when hashing _small_ inputs, only a portion of the secret is employed.
  */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
@@ -1066,7 +1077,7 @@ struct XXH3_state_s {
        /*!< The internal buffer. @see XXH32_state_s::mem32 */
    XXH32_hash_t bufferedSize;
        /*!< The amount of memory in @ref buffer, @see XXH32_state_s::memsize */
-   XXH32_hash_t reserved32;
+   XXH32_hash_t useSeed;
        /*!< Reserved field. Needed for padding on 64-bit. */
    size_t nbStripesSoFar;
        /*!< Number or stripes processed. */
@@ -1100,6 +1111,12 @@ struct XXH3_state_s {
  * it's still necessary to use XXH3_NNbits_reset*() afterwards.
  */
 #define XXH3_INITSTATE(XXH3_state_ptr)   { (XXH3_state_ptr)->seed = 0; }
+
+
+/* XXH128() :
+ * simple alias to pre-selected XXH3_128bits variant
+ */
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 
 
 /* ===   Experimental API   === */
@@ -1137,8 +1154,67 @@ struct XXH3_state_s {
 XXH_PUBLIC_API void XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize);
 
 
-/* simple short-cut to pre-selected XXH3_128bits variant */
-XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
+/*
+ * XXH3_generateSecret_fromSeed():
+ *
+ * Generate the same secret as the _withSeed() variants.
+ *
+ * The resulting secret has a length of XXH3_SECRET_DEFAULT_SIZE (necessarily).
+ * @secretBuffer must be already allocated, of size at least XXH3_SECRET_DEFAULT_SIZE bytes.
+ *
+ * The generated secret can be used in combination with
+ *`*_withSecret()` and `_withSecretandSeed()` variants.
+ * This generator is notably useful in combination with `_withSecretandSeed()`,
+ * as a way to emulate a faster `_withSeed()` variant.
+ */
+XXH_PUBLIC_API void XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed);
+
+/*
+ * *_withSecretandSeed() :
+ * These variants generate hash values using either
+ * @seed for "short" keys (< XXH3_MIDSIZE_MAX = 240 bytes)
+ * or @secret for "large" keys (>= XXH3_MIDSIZE_MAX).
+ *
+ * This generally benefits speed, compared to `_withSeed()` or `_withSecret()`.
+ * `_withSeed()` has to generate the secret on the fly for "large" keys.
+ * It's fast, but can be perceptible for "not so large" keys (< 1 KB).
+ * `_withSecret()` has to generate the masks on the fly for "small" keys,
+ * which requires more instructions than _withSeed() variants.
+ * Therefore, _withSecretandSeed variant combines the best of both worlds.
+ *
+ * When @secret has been generated by XXH3_generateSecret_fromSeed(),
+ * this variant produces *exactly* the same results as `_withSeed()` variant,
+ * hence offering only a pure speed benefit on "large" input,
+ * by skipping the need to regenerate the secret for every large input.
+ *
+ * Another usage scenario is to hash the secret to a 64-bit hash value,
+ * for example with XXH3_64bits(), which then becomes the seed,
+ * and then employ both the seed and the secret in _withSecretandSeed().
+ * On top of speed, an added benefit is that each bit in the secret
+ * has a 50% chance to swap each bit in the output,
+ * via its impact to the seed.
+ * This is not guaranteed when using the secret directly in "small data" scenarios,
+ * because only portions of the secret are employed for small data.
+ */
+XXH_PUBLIC_API XXH64_hash_t
+XXH3_64bits_withSecretandSeed(const void* data, size_t len,
+                              const void* secret, size_t secretSize,
+                              XXH64_hash_t seed);
+
+XXH_PUBLIC_API XXH128_hash_t
+XXH3_128bits_withSecretandSeed(const void* data, size_t len,
+                               const void* secret, size_t secretSize,
+                               XXH64_hash_t seed64);
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
+                                    const void* secret, size_t secretSize,
+                                    XXH64_hash_t seed64);
+
+XXH_PUBLIC_API XXH_errorcode
+XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
+                                     const void* secret, size_t secretSize,
+                                     XXH64_hash_t seed64);
 
 
 #endif  /* XXH_NO_LONG_LONG */
@@ -4394,9 +4470,11 @@ XXH3_hashLong_64b_internal(const void* XXH_RESTRICT input, size_t len,
 }
 
 /*
- * It's important for performance that XXH3_hashLong is not inlined.
+ * It's important for performance to transmit secret's size (when it's static)
+ * so that the compiler can properly optimize the vectorized loop.
+ * This makes a big performance difference for "medium" keys (<1 KB) when using AVX instruction set.
  */
-XXH_NO_INLINE XXH64_hash_t
+XXH_FORCE_INLINE XXH64_hash_t
 XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT input, size_t len,
                              XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
@@ -4405,11 +4483,10 @@ XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT input, size_t len,
 }
 
 /*
- * It's important for performance that XXH3_hashLong is not inlined.
- * Since the function is not inlined, the compiler may not be able to understand that,
- * in some scenarios, its `secret` argument is actually a compile time constant.
- * This variant enforces that the compiler can detect that,
- * and uses this opportunity to streamline the generated code for better performance.
+ * It's preferable for performance that XXH3_hashLong is not inlined,
+ * as it results in a smaller function for small data, easier to the instruction cache.
+ * Note that inside this no_inline function, we do inline the internal loop,
+ * and provide a statically defined secret size to allow optimization of vector loop.
  */
 XXH_NO_INLINE XXH64_hash_t
 XXH3_hashLong_64b_default(const void* XXH_RESTRICT input, size_t len,
@@ -4509,6 +4586,14 @@ XXH3_64bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
     return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSeed);
 }
 
+XXH_PUBLIC_API XXH64_hash_t
+XXH3_64bits_withSecretandSeed(const void* input, size_t len, const void* secret, size_t secretSize, XXH64_hash_t seed)
+{
+    if (len <= XXH3_MIDSIZE_MAX)
+        return XXH3_64bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
+    return XXH3_hashLong_64b_withSecret(input, len, seed, (const xxh_u8*)secret, secretSize);
+}
+
 
 /* ===   XXH3 streaming   === */
 
@@ -4602,8 +4687,8 @@ XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
 
 static void
 XXH3_reset_internal(XXH3_state_t* statePtr,
-                           XXH64_hash_t seed,
-                           const void* secret, size_t secretSize)
+                    XXH64_hash_t seed,
+                    const void* secret, size_t secretSize)
 {
     size_t const initStart = offsetof(XXH3_state_t, bufferedSize);
     size_t const initLength = offsetof(XXH3_state_t, nbStripesPerBlock) - initStart;
@@ -4620,6 +4705,7 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
     statePtr->acc[6] = XXH_PRIME64_5;
     statePtr->acc[7] = XXH_PRIME32_1;
     statePtr->seed = seed;
+    statePtr->useSeed = (seed != 0);
     statePtr->extSecret = (const unsigned char*)secret;
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     statePtr->secretLimit = secretSize - XXH_STRIPE_LEN;
@@ -4652,8 +4738,21 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
     if (statePtr == NULL) return XXH_ERROR;
     if (seed==0) return XXH3_64bits_reset(statePtr);
-    if (seed != statePtr->seed) XXH3_initCustomSecret(statePtr->customSecret, seed);
+    if ((seed != statePtr->seed) || (statePtr->extSecret != NULL))
+        XXH3_initCustomSecret(statePtr->customSecret, seed);
     XXH3_reset_internal(statePtr, seed, NULL, XXH_SECRET_DEFAULT_SIZE);
+    return XXH_OK;
+}
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API XXH_errorcode
+XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr, const void* secret, size_t secretSize, XXH64_hash_t seed64)
+{
+    if (statePtr == NULL) return XXH_ERROR;
+    if (secret == NULL) return XXH_ERROR;
+    if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
+    XXH3_reset_internal(statePtr, seed64, secret, secretSize);
+    statePtr->useSeed = 1; /* always, even if seed64==0 */
     return XXH_OK;
 }
 
@@ -4862,57 +4961,12 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
                               (xxh_u64)state->totalLen * XXH_PRIME64_1);
     }
     /* totalLen <= XXH3_MIDSIZE_MAX: digesting a short input */
-    if (state->seed)
+    if (state->useSeed)
         return XXH3_64bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
     return XXH3_64bits_withSecret(state->buffer, (size_t)(state->totalLen),
                                   secret, state->secretLimit + XXH_STRIPE_LEN);
 }
 
-
-#define XXH_MIN(x, y) (((x) > (y)) ? (y) : (x))
-
-/*! @ingroup xxh3_family */
-XXH_PUBLIC_API void
-XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize)
-{
-    XXH_ASSERT(secretBuffer != NULL);
-    if (customSeedSize == 0) {
-        XXH_memcpy(secretBuffer, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
-        return;
-    }
-    XXH_ASSERT(customSeed != NULL);
-
-    {   size_t const segmentSize = sizeof(XXH128_hash_t);
-        size_t const nbSegments = XXH_SECRET_DEFAULT_SIZE / segmentSize;
-        XXH128_canonical_t scrambler;
-        XXH64_hash_t seeds[12];
-        size_t segnb;
-        XXH_ASSERT(nbSegments == 12);
-        XXH_ASSERT(segmentSize * nbSegments == XXH_SECRET_DEFAULT_SIZE); /* exact multiple */
-        XXH128_canonicalFromHash(&scrambler, XXH128(customSeed, customSeedSize, 0));
-
-        /*
-        * Copy customSeed to seeds[], truncating or repeating as necessary.
-        */
-        {   size_t toFill = XXH_MIN(customSeedSize, sizeof(seeds));
-            size_t filled = toFill;
-            XXH_memcpy(seeds, customSeed, toFill);
-            while (filled < sizeof(seeds)) {
-                toFill = XXH_MIN(filled, sizeof(seeds) - filled);
-                XXH_memcpy((char*)seeds + filled, seeds, toFill);
-                filled += toFill;
-        }   }
-
-        /* generate secret */
-        XXH_memcpy(secretBuffer, &scrambler, sizeof(scrambler));
-        for (segnb=1; segnb < nbSegments; segnb++) {
-            size_t const segmentStart = segnb * segmentSize;
-            XXH128_canonical_t segment;
-            XXH128_canonicalFromHash(&segment,
-                XXH128(&scrambler, sizeof(scrambler), XXH_readLE64(seeds + segnb) + segnb) );
-            XXH_memcpy((char*)secretBuffer + segmentStart, &segment, sizeof(segment));
-    }   }
-}
 
 
 /* ==========================================
@@ -5215,9 +5269,10 @@ XXH3_hashLong_128b_default(const void* XXH_RESTRICT input, size_t len,
 }
 
 /*
- * It's important for performance that XXH3_hashLong is not inlined.
+ * It's important for performance to pass @secretLen (when it's static)
+ * to the compiler, so that it can properly optimize the vectorized loop.
  */
-XXH_NO_INLINE XXH128_hash_t
+XXH_FORCE_INLINE XXH128_hash_t
 XXH3_hashLong_128b_withSecret(const void* XXH_RESTRICT input, size_t len,
                               XXH64_hash_t seed64,
                               const void* XXH_RESTRICT secret, size_t secretLen)
@@ -5312,6 +5367,15 @@ XXH3_128bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
 
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH128_hash_t
+XXH3_128bits_withSecretandSeed(const void* input, size_t len, const void* secret, size_t secretSize, XXH64_hash_t seed)
+{
+    if (len <= XXH3_MIDSIZE_MAX)
+        return XXH3_128bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
+    return XXH3_hashLong_128b_withSecret(input, len, seed, secret, secretSize);
+}
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API XXH128_hash_t
 XXH128(const void* input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_128bits_withSeed(input, len, seed);
@@ -5321,7 +5385,7 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 /* ===   XXH3 128-bit streaming   === */
 
 /*
- * All the functions are actually the same as for 64-bit streaming variant.
+ * All initialization and update functions are identical to 64-bit streaming variant.
  * The only difference is the finalization routine.
  */
 
@@ -5329,31 +5393,28 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset(XXH3_state_t* statePtr)
 {
-    if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
-    return XXH_OK;
+    return XXH3_64bits_reset(statePtr);
 }
 
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
 {
-    if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, secret, secretSize);
-    if (secret == NULL) return XXH_ERROR;
-    if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
-    return XXH_OK;
+    return XXH3_64bits_reset_withSecret(statePtr, secret, secretSize);
 }
 
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
-    if (statePtr == NULL) return XXH_ERROR;
-    if (seed==0) return XXH3_128bits_reset(statePtr);
-    if (seed != statePtr->seed) XXH3_initCustomSecret(statePtr->customSecret, seed);
-    XXH3_reset_internal(statePtr, seed, NULL, XXH_SECRET_DEFAULT_SIZE);
-    return XXH_OK;
+    return XXH3_64bits_reset_withSeed(statePtr, seed);
+}
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API XXH_errorcode
+XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr, const void* secret, size_t secretSize, XXH64_hash_t seed)
+{
+    return XXH3_64bits_reset_withSecretandSeed(statePtr, secret, secretSize, seed);
 }
 
 /*! @ingroup xxh3_family */
@@ -5441,6 +5502,69 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
     h.low64  = XXH_readBE64(src->digest + 8);
     return h;
 }
+
+
+
+/* ==========================================
+ * Secret generators
+ * ==========================================
+ */
+#define XXH_MIN(x, y) (((x) > (y)) ? (y) : (x))
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API void
+XXH3_generateSecret(void* secretBuffer, const void* customSeed, size_t customSeedSize)
+{
+    XXH_ASSERT(secretBuffer != NULL);
+    if (customSeedSize == 0) {
+        memcpy(secretBuffer, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
+        return;
+    }
+    XXH_ASSERT(customSeed != NULL);
+
+    {   size_t const segmentSize = sizeof(XXH128_hash_t);
+        size_t const nbSegments = XXH_SECRET_DEFAULT_SIZE / segmentSize;
+        XXH128_canonical_t scrambler;
+        XXH64_hash_t seeds[12];
+        size_t segnb;
+        XXH_ASSERT(nbSegments == 12);
+        XXH_ASSERT(segmentSize * nbSegments == XXH_SECRET_DEFAULT_SIZE); /* exact multiple */
+        XXH128_canonicalFromHash(&scrambler, XXH128(customSeed, customSeedSize, 0));
+
+        /*
+        * Copy customSeed to seeds[], truncating or repeating as necessary.
+        */
+        {   size_t toFill = XXH_MIN(customSeedSize, sizeof(seeds));
+            size_t filled = toFill;
+            memcpy(seeds, customSeed, toFill);
+            while (filled < sizeof(seeds)) {
+                toFill = XXH_MIN(filled, sizeof(seeds) - filled);
+                memcpy((char*)seeds + filled, seeds, toFill);
+                filled += toFill;
+        }   }
+
+        /* generate secret */
+        memcpy(secretBuffer, &scrambler, sizeof(scrambler));
+        for (segnb=1; segnb < nbSegments; segnb++) {
+            size_t const segmentStart = segnb * segmentSize;
+            XXH128_canonical_t segment;
+            XXH128_canonicalFromHash(&segment,
+                XXH128(&scrambler, sizeof(scrambler), XXH_readLE64(seeds + segnb) + segnb) );
+            memcpy((char*)secretBuffer + segmentStart, &segment, sizeof(segment));
+    }   }
+}
+
+/*! @ingroup xxh3_family */
+XXH_PUBLIC_API void
+XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed)
+{
+    XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
+    XXH3_initCustomSecret(secret, seed);
+    XXH_ASSERT(secretBuffer != NULL);
+    memcpy(secretBuffer, secret, XXH_SECRET_DEFAULT_SIZE);
+}
+
+
 
 /* Pop our optimization override from above */
 #if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \

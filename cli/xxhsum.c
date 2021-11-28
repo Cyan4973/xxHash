@@ -189,7 +189,6 @@ static XSUM_U32 localXXH32(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 static XSUM_U32 localXXH32_stream(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     XXH32_state_t state;
-    (void)seed;
     XXH32_reset(&state, seed);
     XXH32_update(&state, buffer, bufferSize);
     return (XSUM_U32)XXH32_digest(&state);
@@ -201,7 +200,6 @@ static XSUM_U32 localXXH64(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 static XSUM_U32 localXXH64_stream(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
     XXH64_state_t state;
-    (void)seed;
     XXH64_reset(&state, seed);
     XXH64_update(&state, buffer, bufferSize);
     return (XSUM_U32)XXH64_digest(&state);
@@ -219,6 +217,10 @@ static XSUM_U32 localXXH3_64b_secret(const void* buffer, size_t bufferSize, XSUM
 {
     (void)seed;
     return (XSUM_U32)XXH3_64bits_withSecret(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf));
+}
+static XSUM_U32 localXXH3_64b_secSeed(const void* buffer, size_t bufferSize, XSUM_U32 seed)
+{
+    return (XSUM_U32)XXH3_64bits_withSecretandSeed(buffer, bufferSize, g_benchSecretBuf, sizeof(g_benchSecretBuf), seed);
 }
 static XSUM_U32 localXXH3_128b(const void* buffer, size_t bufferSize, XSUM_U32 seed)
 {
@@ -279,6 +281,7 @@ static const hashInfo g_hashesToBench[] = {
     { "XXH3_64b",          &localXXH3_64b },
     { "XXH3_64b w/seed",   &localXXH3_64b_seeded },
     { "XXH3_64b w/secret", &localXXH3_64b_secret },
+    { "XXH3_64b w/sec+seed",&localXXH3_64b_secSeed },
     { "XXH128",            &localXXH3_128b },
     { "XXH128 w/seed",     &localXXH3_128b_seeded },
     { "XXH128 w/secret",   &localXXH3_128b_secret },
@@ -296,7 +299,7 @@ static char g_testIDs[NB_TESTFUNC] = { 0 };
 static const char k_testIDs_default[NB_TESTFUNC] = { 0,
         1 /*XXH32*/, 0,
         1 /*XXH64*/, 0,
-        1 /*XXH3*/, 0, 0, 0, 0, 0,
+        1 /*XXH3*/, 0, 0, 0, 0, 0, 0, 0,
         1 /*XXH128*/ };
 
 #define HASHNAME_MAX 29

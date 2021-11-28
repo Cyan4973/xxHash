@@ -1104,8 +1104,8 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         XSUM_logVerbose(2, FULL_WELCOME_MESSAGE(exename) );
         XSUM_sanityCheck();
         g_nbIterations = nbIterations;
-        if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, g_nbTestFunctions);
-        if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, g_nbTestFunctions);
+        if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, (size_t)g_nbTestFunctions);
+        if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, (size_t)g_nbTestFunctions);
         if (filenamesStart==0) return XSUM_benchInternal(keySize);
         return XSUM_benchFiles(argv+filenamesStart, argc-filenamesStart);
     }

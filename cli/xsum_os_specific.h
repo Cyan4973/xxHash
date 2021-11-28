@@ -39,7 +39,7 @@ extern "C" {
  *
  * Functions like main(), but is passed UTF-8 arguments even on Windows.
  */
-XSUM_API int XSUM_main(int argc, char* argv[]);
+XSUM_API int XSUM_main(int argc, const char* argv[]);
 
 /*
  * Returns whether stream is a console.

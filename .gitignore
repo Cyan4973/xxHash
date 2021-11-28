@@ -19,7 +19,7 @@ xxhsum_inlinedXXH
 dispatch
 tests/generate_unicode_test
 
-# compilation chain
+# local conf
 .clang_complete
 
 # Mac OS-X artefacts

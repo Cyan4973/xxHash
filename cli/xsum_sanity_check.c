@@ -23,16 +23,16 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-#include "xsum_config.h"
 #include "xsum_sanity_check.h"
-#include "xsum_output.h"
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
+#include "xsum_output.h"  /* XSUM_log */
 #ifndef XXH_STATIC_LINKING_ONLY
 #  define XXH_STATIC_LINKING_ONLY
 #endif
 #include "../xxhash.h"
+
+#include <stdlib.h>  /* exit */
+#include <assert.h>
+#include <string.h>  /* memcmp */
 
 /* use #define to make them constant, required for initialization */
 #define PRIME32 2654435761U

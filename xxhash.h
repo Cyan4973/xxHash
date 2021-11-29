@@ -1377,18 +1377,16 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 #  define XXH_NO_INLINE_HINTS 0
 
 /*!
- * @def XXH_REROLL
- * @brief Whether to reroll `XXH32_finalize`.
+ * @def XXH32_ENDJMP
+ * @brief Whether to use a jump for `XXH32_finalize`.
  *
- * For performance, `XXH32_finalize` uses an unrolled loop
- * in the form of a switch statement.
+ * For performance, `XXH32_finalize` uses multiple branches in the finalizer.
+ * This is generally preferable for performance,
+ * but depending on exact architecture, a jmp may be preferable.
  *
- * This is not always desirable, as it generates larger code,
- * and depending on the architecture, may even be slower
- *
- * This is automatically defined with `-Os`/`-Oz` on GCC and Clang.
+ * This setting is only possibly making a difference for very small inputs.
  */
-#  define XXH_REROLL 0
+#  define XXH32_ENDJMP 0
 
 /*!
  * @internal
@@ -1442,14 +1440,9 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 #  endif
 #endif
 
-#ifndef XXH_REROLL
-#  if defined(__OPTIMIZE_SIZE__) /* -Os, -Oz */ || \
-     (defined(__GNUC__) && !defined(__clang__))
-     /* The if/then loop is preferable to switch/case on gcc (on x64) */
-#    define XXH_REROLL 1
-#  else
-#    define XXH_REROLL 0
-#  endif
+#ifndef XXH32_ENDJMP
+/* generally preferable for performance */
+#  define XXH32_ENDJMP 0
 #endif
 
 /*!
@@ -2015,8 +2008,8 @@ XXH32_finalize(xxh_u32 h32, const xxh_u8* ptr, size_t len, XXH_alignment align)
 
     if (ptr==NULL) XXH_ASSERT(len == 0);
 
-    /* Compact rerolled version */
-    if (XXH_REROLL) {
+    /* Compact rerolled version; generally faster */
+    if (!XXH32_ENDJMP) {
         len &= 15;
         while (len >= 4) {
             XXH_PROCESS4;

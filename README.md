@@ -117,8 +117,9 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                          This is very useful when optimizing for smallest binary size,
                          and is automatically defined when compiling with `-O0`, `-Os`, `-Oz`, or `-fno-inline` on GCC and Clang.
                          This may also increase performance depending on compiler and architecture.
-- `XXH_REROLL`: Reduces the size of the generated code by not unrolling some loops.
-                Impact on performance may vary, depending on platform and algorithm.
+- `XXH32_ENDJMP`: Switch multi-branch finalization stage of XXH32 by a single jump.
+                  This is generally undesirable for performance, especially when hashing inputs of random sizes.
+                  But depending on exact architecture and compiler, a jump might provide slightly better performance on small inputs. Disabled by default.
 - `XXH_STATIC_LINKING_ONLY`: gives access to internal state declaration, required for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.

@@ -540,7 +540,7 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
     size_t hash_len;
 
     parsedLine->filename = NULL;
-    parsedLine->algo = algo_xxh64; /* default */
+    parsedLine->algo = algo_xxh64; /* default - will be overwritten */
     if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     if (firstSpace[1] == '(') {
@@ -553,40 +553,46 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
         hash_ptr = lastSpace + 1;
         hash_len = strlen(hash_ptr);
         if (!memcmp(line, "XXH3", 4)) parsedLine->algo = algo_xxh3;
+        if (!memcmp(line, "XXH32", 5)) parsedLine->algo = algo_xxh32;
+        if (!memcmp(line, "XXH64", 5)) parsedLine->algo = algo_xxh64;
+        if (!memcmp(line, "XXH128", 6)) parsedLine->algo = algo_xxh128;
     } else {
         hash_ptr = line;
         hash_len = (size_t)(firstSpace - line);
+        if (hash_len==8) parsedLine->algo = algo_xxh32;
+        if (hash_len==16) parsedLine->algo = algo_xxh64;
+        if (hash_len==32) parsedLine->algo = algo_xxh128;
     }
 
     switch (hash_len)
     {
     case 8:
+        if (parsedLine->algo != algo_xxh32) return ParseLine_invalidFormat;
         {   XXH32_canonical_t* xxh32c = &parsedLine->canonical.xxh32;
             if (XSUM_canonicalFromString(xxh32c->digest, sizeof(xxh32c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
-            parsedLine->algo = algo_xxh32;
             break;
         }
 
     case 16:
+        if (parsedLine->algo != algo_xxh64 && parsedLine->algo != algo_xxh3) return ParseLine_invalidFormat;
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
             if (XSUM_canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
-            assert(parsedLine->algo == algo_xxh3 || parsedLine->algo == algo_xxh64);
             break;
         }
 
     case 32:
+        if (parsedLine->algo != algo_xxh128) return ParseLine_invalidFormat;
         {   XXH128_canonical_t* xxh128c = &parsedLine->canonical.xxh128;
             if (XSUM_canonicalFromString(xxh128c->digest, sizeof(xxh128c->digest), hash_ptr, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
-            parsedLine->algo = algo_xxh128;
             break;
         }
 

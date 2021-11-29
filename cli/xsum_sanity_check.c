@@ -90,9 +90,10 @@ typedef struct {
     XXH128_hash_t Nresult;
 } XSUM_testdata128_t;
 
-#define SECRET_SAMPLE_NBBYTES 4
+#define SECRET_SAMPLE_NBBYTES 5
 typedef struct {
-    XSUM_U32 len;
+    XSUM_U32 seedLen;
+    XSUM_U32 secretLen;
     XSUM_U8 byte[SECRET_SAMPLE_NBBYTES];
 } XSUM_testdata_sample_t;
 
@@ -213,11 +214,12 @@ static const XSUM_testdata128_t XSUM_XXH128_withSecret_testdata[] = {
     { 12, 0, { 0xAF82F6EBA263D7D8ULL, 0x90A3C2D839F57D0FULL } }   /*  9 - 16 */
 };
 
+#define SECRET_SIZE_MAX 9867
 static const XSUM_testdata_sample_t XSUM_XXH3_generateSecret_testdata[] = {
-    {                              0, { 0xB8, 0x26, 0x83, 0x7E } },
-    {                              1, { 0xA6, 0x16, 0x06, 0x7B } },
-    {     XXH3_SECRET_SIZE_MIN -   1, { 0xDA, 0x2A, 0x12, 0x11 } },
-    { XXH3_SECRET_DEFAULT_SIZE + 500, { 0x7E, 0x48, 0x0C, 0xA7 } }
+    {                              0, 192, { 0xE7, 0x8C, 0x77, 0x77, 0x00 } },
+    {                              1, 240, { 0x2B, 0x3E, 0xDE, 0xC1, 0x00 } },
+    {     XXH3_SECRET_SIZE_MIN -   1, 277, { 0xE8, 0x39, 0x6C, 0xCC, 0x7B } },
+    { XXH3_SECRET_DEFAULT_SIZE + 500, SECRET_SIZE_MAX, { 0xD6, 0x1C, 0x41, 0x17, 0xB3 } }
 };
 
 static void XSUM_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
@@ -616,20 +618,21 @@ static void XSUM_testXXH128_withSecret(const void* data, const void* secret, siz
 static void XSUM_testSecretGenerator(const void* customSeed, const XSUM_testdata_sample_t* testData)
 {
     static int nbTests = 1;
-    const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191};
-    XSUM_U8 secretBuffer[XXH3_SECRET_DEFAULT_SIZE] = {0};
+    const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191, 241 };  /* position of sampled bytes */
+    XSUM_U8 secretBuffer[SECRET_SIZE_MAX] = {0};
     XSUM_U8 samples[SECRET_SAMPLE_NBBYTES];
     int i;
 
-    XXH3_generateSecret(secretBuffer, customSeed, testData->len);
+    assert(testData->secretLen <= SECRET_SIZE_MAX);
+    XXH3_generateSecret(secretBuffer, testData->secretLen, customSeed, testData->seedLen);
     for (i=0; i<SECRET_SAMPLE_NBBYTES; i++) {
         samples[i] = secretBuffer[sampleIndex[i]];
     }
     if (memcmp(samples, testData->byte, sizeof(testData->byte))) {
         XSUM_log("\rError: Secret generation test %i: Internal sanity check failed. \n", nbTests);
-        XSUM_log("\rGot { 0x%02X, 0x%02X, 0x%02X, 0x%02X }, expected { 0x%02X, 0x%02X, 0x%02X, 0x%02X } \n",
-                samples[0], samples[1], samples[2], samples[3],
-                testData->byte[0], testData->byte[1], testData->byte[2], testData->byte[3] );
+        XSUM_log("\rGot { 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X }, expected { 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X } \n",
+                samples[0], samples[1], samples[2], samples[3], samples[4],
+                testData->byte[0], testData->byte[1], testData->byte[2], testData->byte[3], testData->byte[4] );
         exit(1);
     }
     nbTests++;
@@ -678,6 +681,7 @@ XSUM_API void XSUM_sanityCheck(void)
     }
     /* secret generator */
     for (i = 0; i < (sizeof(XSUM_XXH3_generateSecret_testdata)/sizeof(XSUM_XXH3_generateSecret_testdata[0])); i++) {
+        assert(XSUM_XXH3_generateSecret_testdata[i].seedLen <= SANITY_BUFFER_SIZE);
         XSUM_testSecretGenerator(sanityBuffer, &XSUM_XXH3_generateSecret_testdata[i]);
     }
 

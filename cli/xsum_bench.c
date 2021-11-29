@@ -31,6 +31,9 @@
 #  define XXH_STATIC_LINKING_ONLY
 #endif
 #include "../xxhash.h"
+#ifdef XXHSUM_DISPATCH
+#  include "../xxh_x86dispatch.h"  /* activate _dispatch() redirectors */
+#endif
 
 #include <stdlib.h>  /* malloc, free */
 #include <assert.h>

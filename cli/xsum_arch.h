@@ -79,7 +79,7 @@
 #endif
 
 /* makes the next part easier */
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
+#if !defined(_M_ARM64EC) && (defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64))
 #   define XSUM_ARCH_X64 1
 #   define XSUM_ARCH_X86 "x86_64"
 #elif defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
@@ -102,29 +102,34 @@
 #  else
 #     define XSUM_ARCH XSUM_ARCH_X86
 #  endif
-#elif defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+#elif defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
 #  define XSUM_ARCH "aarch64 + NEON"
 #elif defined(__arm__) || defined(__thumb__) || defined(__thumb2__) || defined(_M_ARM)
 /* ARM has a lot of different features that can change xxHash significantly. */
-#  if defined(__thumb2__) || (defined(__thumb__) && (__thumb__ == 2 || __ARM_ARCH >= 7))
+#  if defined(_M_ARM) || defined(__thumb2__) || (defined(__thumb__) && (__thumb__ == 2 || __ARM_ARCH >= 7))
 #    define XSUM_ARCH_THUMB " Thumb-2"
 #  elif defined(__thumb__)
 #    define XSUM_ARCH_THUMB " Thumb-1"
 #  else
 #    define XSUM_ARCH_THUMB ""
 #  endif
+#  if defined(_M_ARM)
+#    define XSUM_ARM_VER 7
+#  else
+#    define XSUM_ARM_VER __ARM_ARCH
+#  endif
 /* ARMv7 has unaligned by default */
-#  if defined(__ARM_FEATURE_UNALIGNED) || __ARM_ARCH >= 7 || defined(_M_ARMV7VE)
+#  if defined(__ARM_FEATURE_UNALIGNED) || __ARM_ARCH >= 7 || defined(_M_ARM)
 #    define XSUM_ARCH_UNALIGNED " + unaligned"
 #  else
 #    define XSUM_ARCH_UNALIGNED ""
 #  endif
-#  if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#  if defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(_M_ARM_ARMV7VE)
 #    define XSUM_ARCH_NEON " + NEON"
 #  else
 #    define XSUM_ARCH_NEON ""
 #  endif
-#  define XSUM_ARCH "ARMv" XSUM_EXPAND_AND_QUOTE(__ARM_ARCH) XSUM_ARCH_THUMB XSUM_ARCH_NEON XSUM_ARCH_UNALIGNED
+#  define XSUM_ARCH "ARMv" XSUM_EXPAND_AND_QUOTE(XSUM_ARM_VER) XSUM_ARCH_THUMB XSUM_ARCH_NEON XSUM_ARCH_UNALIGNED
 #elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__)
 #  if defined(__GNUC__) && defined(__POWER9_VECTOR__)
 #    define XSUM_ARCH "ppc64 + POWER9 vector"

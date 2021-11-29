@@ -5514,12 +5514,15 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_generateSecret(void* secretBuffer, size_t secretSize, const void* customSeed, size_t customSeedSize)
 {
     XXH_ASSERT(secretBuffer != NULL);
+    if (secretBuffer == NULL) return XXH_ERROR;
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
+    if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
     if (customSeedSize == 0) {
         customSeed = XXH3_kSecret;
         customSeedSize = XXH_SECRET_DEFAULT_SIZE;
     }
     XXH_ASSERT(customSeed != NULL);
+    if (customSeed == NULL) return XXH_ERROR;
 
     /* Fill secretBuffer with a copy of customSeed - repeat as needed */
     {   size_t pos = 0;

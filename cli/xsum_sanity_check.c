@@ -214,10 +214,10 @@ static const XSUM_testdata128_t XSUM_XXH128_withSecret_testdata[] = {
 };
 
 static const XSUM_testdata_sample_t XSUM_XXH3_generateSecret_testdata[] = {
-    {                              0, { 0xB8, 0x26, 0x83, 0x7E } },
-    {                              1, { 0xA6, 0x16, 0x06, 0x7B } },
-    {     XXH3_SECRET_SIZE_MIN -   1, { 0xDA, 0x2A, 0x12, 0x11 } },
-    { XXH3_SECRET_DEFAULT_SIZE + 500, { 0x7E, 0x48, 0x0C, 0xA7 } }
+    {                              0, { 0xE7, 0x8C, 0x77, 0x77 } },
+    {                              1, { 0x2B, 0x3E, 0xDE, 0x67 } },
+    {     XXH3_SECRET_SIZE_MIN -   1, { 0xE8, 0x39, 0x6C, 0x16 } },
+    { XXH3_SECRET_DEFAULT_SIZE + 500, { 0xD6, 0x1C, 0x41, 0x69 } }
 };
 
 static void XSUM_checkResult32(XXH32_hash_t r1, XXH32_hash_t r2)
@@ -616,12 +616,12 @@ static void XSUM_testXXH128_withSecret(const void* data, const void* secret, siz
 static void XSUM_testSecretGenerator(const void* customSeed, const XSUM_testdata_sample_t* testData)
 {
     static int nbTests = 1;
-    const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191};
+    const int sampleIndex[SECRET_SAMPLE_NBBYTES] = { 0, 62, 131, 191};  /* position of sampled bytes */
     XSUM_U8 secretBuffer[XXH3_SECRET_DEFAULT_SIZE] = {0};
     XSUM_U8 samples[SECRET_SAMPLE_NBBYTES];
     int i;
 
-    XXH3_generateSecret(secretBuffer, customSeed, testData->len);
+    XXH3_generateSecret(secretBuffer, sizeof(secretBuffer), customSeed, testData->len);
     for (i=0; i<SECRET_SAMPLE_NBBYTES; i++) {
         samples[i] = secretBuffer[sampleIndex[i]];
     }

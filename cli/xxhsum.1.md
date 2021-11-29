@@ -37,8 +37,8 @@ OPTIONS
   Displays xxhsum version and exits
 
 * `-H`<HASHTYPE>:
-  Hash selection. <HASHTYPE> means `0`=32bits, `1`=64bits, `2`=128bits.
-  Alternatively, <HASHTYPE> `32`=32bits, `64`=64bits, `128`=128bits.
+  Hash selection. <HASHTYPE> means `0`=XXH32, `1`=XXH64, `2`=XXH128, `3`=XXH3.
+  Alternatively, <HASHTYPE> `32`=XXH32, `64`=XXH64, `128`=XXH128.
   Default value is `1` (64bits)
 
 * `--tag`:

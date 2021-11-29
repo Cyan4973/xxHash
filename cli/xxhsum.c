@@ -882,7 +882,7 @@ static int XSUM_usage(const char* exename)
     XSUM_log( "Usage: %s [options] [files] \n\n", exename);
     XSUM_log( "When no filename provided or when '-' is provided, uses stdin as input. \n");
     XSUM_log( "Options: \n");
-    XSUM_log( "  -H#         algorithm selection: 0,1,2 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
+    XSUM_log( "  -H#         algorithm selection: 0,1,2,3 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
     XSUM_log( "  -c, --check read xxHash checksum from [files] and check them \n");
     XSUM_log( "  -h, --help  display a long help page about advanced options \n");
     return 0;

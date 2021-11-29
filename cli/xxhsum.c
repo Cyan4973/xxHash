@@ -77,7 +77,7 @@ static const char author[] = "Yann Collet";
 
 static const char stdinName[] = "-";
 static const char stdinFileName[] = "stdin";
-typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2 } AlgoSelected;
+typedef enum { algo_xxh32=0, algo_xxh64=1, algo_xxh128=2, algo_xxh3=3 } AlgoSelected;
 static AlgoSelected g_defaultAlgo = algo_xxh64;    /* required within main() & XSUM_usage() */
 
 /* <16 hex char> <SPC> <SPC> <filename> <'\0'>
@@ -115,9 +115,9 @@ static void XSUM_display_BigEndian(const void* ptr, size_t length)
 }
 
 typedef union {
-    XXH32_hash_t   xxh32;
-    XXH64_hash_t   xxh64;
-    XXH128_hash_t xxh128;
+    XXH32_hash_t  hash32;
+    XXH64_hash_t  hash64;  /* also for xxh3_64bits */
+    XXH128_hash_t hash128;
 } Multihash;
 
 /*
@@ -132,12 +132,12 @@ XSUM_hashStream(FILE* inFile,
 {
     XXH32_state_t state32;
     XXH64_state_t state64;
-    XXH3_state_t state128;
+    XXH3_state_t  state3;
 
     /* Init */
     (void)XXH32_reset(&state32, XXHSUM32_DEFAULT_SEED);
     (void)XXH64_reset(&state64, XXHSUM64_DEFAULT_SEED);
-    (void)XXH3_128bits_reset(&state128);
+    (void)XXH3_128bits_reset(&state3);
 
     /* Load file & update hash */
     {   size_t readSize;
@@ -151,7 +151,10 @@ XSUM_hashStream(FILE* inFile,
                 (void)XXH64_update(&state64, buffer, readSize);
                 break;
             case algo_xxh128:
-                (void)XXH3_128bits_update(&state128, buffer, readSize);
+                (void)XXH3_128bits_update(&state3, buffer, readSize);
+                break;
+            case algo_xxh3:
+                (void)XXH3_64bits_update(&state3, buffer, readSize);
                 break;
             default:
                 assert(0);
@@ -166,13 +169,16 @@ XSUM_hashStream(FILE* inFile,
         switch(hashType)
         {
         case algo_xxh32:
-            finalHash.xxh32 = XXH32_digest(&state32);
+            finalHash.hash32 = XXH32_digest(&state32);
             break;
         case algo_xxh64:
-            finalHash.xxh64 = XXH64_digest(&state64);
+            finalHash.hash64 = XXH64_digest(&state64);
             break;
         case algo_xxh128:
-            finalHash.xxh128 = XXH3_128bits_digest(&state128);
+            finalHash.hash128 = XXH3_128bits_digest(&state3);
+            break;
+        case algo_xxh3:
+            finalHash.hash64 = XXH3_64bits_digest(&state3);
             break;
         default:
             assert(0);
@@ -182,9 +188,9 @@ XSUM_hashStream(FILE* inFile,
 }
 
                                        /* algo_xxh32, algo_xxh64, algo_xxh128 */
-static const char* XSUM_algoName[] =    { "XXH32",    "XXH64",    "XXH128" };
-static const char* XSUM_algoLE_name[] = { "XXH32_LE", "XXH64_LE", "XXH128_LE" };
-static const size_t XSUM_algoLength[] = { 4,          8,          16 };
+static const char* XSUM_algoName[] =    { "XXH32",    "XXH64",    "XXH128",    "XXH3" };
+static const char* XSUM_algoLE_name[] = { "XXH32_LE", "XXH64_LE", "XXH128_LE", "XXH3_LE" };
+static const size_t XSUM_algoLength[] = { 4,          8,          16,          8 };
 
 #define XSUM_TABLE_ELT_SIZE(table)   (sizeof(table) / sizeof(*table))
 
@@ -294,20 +300,26 @@ static int XSUM_hashFile(const char* fileName,
     {
     case algo_xxh32:
         {   XXH32_canonical_t hcbe32;
-            (void)XXH32_canonicalFromHash(&hcbe32, hashValue.xxh32);
+            (void)XXH32_canonicalFromHash(&hcbe32, hashValue.hash32);
             f_displayLine(fileName, &hcbe32, hashType);
             break;
         }
     case algo_xxh64:
         {   XXH64_canonical_t hcbe64;
-            (void)XXH64_canonicalFromHash(&hcbe64, hashValue.xxh64);
+            (void)XXH64_canonicalFromHash(&hcbe64, hashValue.hash64);
             f_displayLine(fileName, &hcbe64, hashType);
             break;
         }
     case algo_xxh128:
         {   XXH128_canonical_t hcbe128;
-            (void)XXH128_canonicalFromHash(&hcbe128, hashValue.xxh128);
+            (void)XXH128_canonicalFromHash(&hcbe128, hashValue.hash128);
             f_displayLine(fileName, &hcbe128, hashType);
+            break;
+        }
+    case algo_xxh3:
+        {   XXH64_canonical_t hcbe64;
+            (void)XXH64_canonicalFromHash(&hcbe64, hashValue.hash64);
+            f_displayLine(fileName, &hcbe64, hashType);
             break;
         }
     default:
@@ -370,9 +382,9 @@ typedef union {
 } Canonical;
 
 typedef struct {
-    Canonical   canonical;
-    const char* filename;
-    int         xxhBits;    /* canonical type: 32:xxh32, 64:xxh64, 128:xxh128 */
+    Canonical    canonical;
+    const char*  filename;
+    AlgoSelected algo;
 } ParsedLine;
 
 typedef struct {
@@ -391,10 +403,10 @@ typedef struct {
     char*           lineBuf;
     size_t          blockSize;
     char*           blockBuf;
-    XSUM_U32             strictMode;
-    XSUM_U32             statusOnly;
-    XSUM_U32             warn;
-    XSUM_U32             quiet;
+    XSUM_U32        strictMode;
+    XSUM_U32        statusOnly;
+    XSUM_U32        warn;
+    XSUM_U32        quiet;
     ParseFileReport report;
 } ParseFileArg;
 
@@ -528,8 +540,7 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
     size_t hash_len;
 
     parsedLine->filename = NULL;
-    parsedLine->xxhBits = 0;
-
+    parsedLine->algo = algo_xxh64; /* default */
     if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     if (firstSpace[1] == '(') {
@@ -541,9 +552,7 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
         rev = strstr(line, "_LE") != NULL; /* was output little-endian */
         hash_ptr = lastSpace + 1;
         hash_len = strlen(hash_ptr);
-        /* NOTE: This currently ignores the hash description at the start of the string.
-         * In the future we should parse it and verify that it matches the hash length.
-         * It could also be used to allow both XXH64 & XXH3_64bits to be differentiated. */
+        if (!memcmp(line, "XXH3", 4)) parsedLine->algo = algo_xxh3;
     } else {
         hash_ptr = line;
         hash_len = (size_t)(firstSpace - line);
@@ -557,7 +566,7 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
-            parsedLine->xxhBits = 32;
+            parsedLine->algo = algo_xxh32;
             break;
         }
 
@@ -567,7 +576,7 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
-            parsedLine->xxhBits = 64;
+            assert(parsedLine->algo == algo_xxh3 || parsedLine->algo == algo_xxh64);
             break;
         }
 
@@ -577,7 +586,7 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
-            parsedLine->xxhBits = 128;
+            parsedLine->algo = algo_xxh128;
             break;
         }
 
@@ -670,31 +679,31 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
                 break;
             }
             lineStatus = LineStatus_hashFailed;
-            switch (parsedLine.xxhBits)
-            {
-            case 32:
-                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh32, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
-                    if (xxh.xxh32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
+            {   Multihash const xxh = XSUM_hashStream(fp, parsedLine.algo, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
+                switch (parsedLine.algo)
+                {
+                case algo_xxh32:
+                    if (xxh.hash32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
                         lineStatus = LineStatus_hashOk;
-                }   }
-                break;
+                    }
+                    break;
 
-            case 64:
-                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh64, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
-                    if (xxh.xxh64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
+                case algo_xxh64:
+                case algo_xxh3:
+                    if (xxh.hash64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
                         lineStatus = LineStatus_hashOk;
-                }   }
-                break;
+                    }
+                    break;
 
-            case 128:
-                {   Multihash const xxh = XSUM_hashStream(fp, algo_xxh128, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
-                    if (XXH128_isEqual(xxh.xxh128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
+                case algo_xxh128:
+                    if (XXH128_isEqual(xxh.hash128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
                         lineStatus = LineStatus_hashOk;
-                }   }
-                break;
+                    }
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
+                }
             }
             if (fp != stdin) fclose(fp);
         } while (0);
@@ -1038,6 +1047,10 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
                     case 64: algo = algo_xxh64; break;
                     case 2 :
                     case 128: algo = algo_xxh128; break;
+                    case 3 : /* xxh3 - necessarily uses BSD convention to avoid confusion with XXH64 */
+                        algo = algo_xxh3;
+                        convention = display_bsd;
+                        break;
                     default:
                         return XSUM_badusage(exename);
                 }

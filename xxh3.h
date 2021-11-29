@@ -42,7 +42,7 @@
  * but it is still provided for compatibility with source code
  * which used to include it directly.
  *
- * Programs are now highly discourage to include xxh3.h.
+ * Programs are now highly discouraged to include xxh3.h.
  * Include `xxhash.h` instead, which is the officially supported interface.
  *
  * In the future, xxh3.h will start to generate warnings, then errors,

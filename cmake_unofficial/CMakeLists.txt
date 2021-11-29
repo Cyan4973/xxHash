@@ -42,9 +42,13 @@ endif()
 if(NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "xxHash build type: ${CMAKE_BUILD_TYPE}")
 endif()
+# Enable assert() statements in debug builds
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  add_compile_definitions(XXH_DEBUGLEVEL=1)
+endif()
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)
-set(XXHASH_BUILD_XXHSUM ON CACHE BOOL "Build the xxhsum binary")
+option(XXHASH_BUILD_XXHSUM "Build the xxhsum binary" ON)
 
 # If XXHASH is being bundled in another project, we don't want to
 # install anything.  However, we want to let people override this, so
@@ -78,12 +82,18 @@ if (BUILD_SHARED_LIBS)
   target_compile_definitions(xxhash PUBLIC XXH_EXPORT)
 endif ()
 set_target_properties(xxhash PROPERTIES
-  SOVERSION "${XXHASH_VERSION_STRING}"
+  SOVERSION "${XXHASH_LIB_SOVERSION}"
   VERSION "${XXHASH_VERSION_STRING}")
 
 if(XXHASH_BUILD_XXHSUM)
+  set(XXHSUM_DIR "${XXHASH_DIR}/cli")
   # xxhsum
-  add_executable(xxhsum "${XXHASH_DIR}/xxhsum.c")
+  add_executable(xxhsum "${XXHSUM_DIR}/xxhsum.c"
+                        "${XXHSUM_DIR}/xsum_os_specific.c"
+                        "${XXHSUM_DIR}/xsum_output.c"
+                        "${XXHSUM_DIR}/xsum_sanity_check.c"
+                        "${XXHSUM_DIR}/xsum_bench.c"
+                )
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 
   target_link_libraries(xxhsum PRIVATE xxhash)
@@ -95,23 +105,6 @@ include (CheckCCompilerFlag)
 if (XXHASH_C_FLAGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${XXHASH_C_FLAGS}")
 endif()
-foreach (flag
-    -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow
-    -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement
-    -Wstrict-prototypes -Wundef)
-  # Because https://gcc.gnu.org/wiki/FAQ#wnowarning
-  string(REGEX REPLACE "\\-Wno\\-(.+)" "-W\\1" flag_to_test "${flag}")
-  string(REGEX REPLACE "[^a-zA-Z0-9]+" "_" test_name "CFLAG_${flag_to_test}")
-
-  check_c_compiler_flag("${ADD_COMPILER_FLAGS_PREPEND} ${flag_to_test}" ${test_name})
-
-  if(${test_name})
-    set(CMAKE_C_FLAGS "${flag} ${CMAKE_C_FLAGS}")
-  endif()
-
-  unset(test_name)
-  unset(flag_to_test)
-endforeach (flag)
 
 if(NOT XXHASH_BUNDLED_MODE)
   include(GNUInstallDirs)
@@ -165,4 +158,16 @@ if(NOT XXHASH_BUNDLED_MODE)
   install(EXPORT xxHashTargets
     DESTINATION ${xxHash_CONFIG_INSTALL_DIR}
     NAMESPACE ${PROJECT_NAME}::)
+
+  # configure and install pkg-config
+  set(PREFIX ${CMAKE_INSTALL_PREFIX})
+  set(EXECPREFIX "\${prefix}")
+  set(INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+  set(LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+  set(VERSION "${XXHASH_VERSION_STRING}")
+  configure_file(${XXHASH_DIR}/libxxhash.pc.in ${CMAKE_BINARY_DIR}/libxxhash.pc @ONLY)
+
+  install(FILES ${CMAKE_BINARY_DIR}/libxxhash.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
 endif(NOT XXHASH_BUNDLED_MODE)

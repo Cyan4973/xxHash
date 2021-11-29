@@ -63,11 +63,13 @@ The algorithm collect and transform input in _stripes_ of 16 bytes. The transfor
 
 The algorithm uses 32-bits addition, multiplication, rotate, shift and xor operations. Many operations require some 32-bits prime number constants, all defined below:
 
-    static const u32 PRIME32_1 = 0x9E3779B1U;  // 0b10011110001101110111100110110001
-    static const u32 PRIME32_2 = 0x85EBCA77U;  // 0b10000101111010111100101001110111
-    static const u32 PRIME32_3 = 0xC2B2AE3DU;  // 0b11000010101100101010111000111101
-    static const u32 PRIME32_4 = 0x27D4EB2FU;  // 0b00100111110101001110101100101111
-    static const u32 PRIME32_5 = 0x165667B1U;  // 0b00010110010101100110011110110001
+```c
+  static const u32 PRIME32_1 = 0x9E3779B1U;  // 0b10011110001101110111100110110001
+  static const u32 PRIME32_2 = 0x85EBCA77U;  // 0b10000101111010111100101001110111
+  static const u32 PRIME32_3 = 0xC2B2AE3DU;  // 0b11000010101100101010111000111101
+  static const u32 PRIME32_4 = 0x27D4EB2FU;  // 0b00100111110101001110101100101111
+  static const u32 PRIME32_5 = 0x165667B1U;  // 0b00010110010101100110011110110001
+```
 
 These constants are prime numbers, and feature a good mix of bits 1 and 0, neither too regular, nor too dissymmetric. These properties help dispersion capabilities.
 
@@ -75,10 +77,12 @@ These constants are prime numbers, and feature a good mix of bits 1 and 0, neith
 
 Each accumulator gets an initial value based on optional `seed` input. Since the `seed` is optional, it can be `0`.
 
-        u32 acc1 = seed + PRIME32_1 + PRIME32_2;
-        u32 acc2 = seed + PRIME32_2;
-        u32 acc3 = seed + 0;
-        u32 acc4 = seed - PRIME32_1;
+```c
+  u32 acc1 = seed + PRIME32_1 + PRIME32_2;
+  u32 acc2 = seed + PRIME32_2;
+  u32 acc3 = seed + 0;
+  u32 acc4 = seed - PRIME32_1;
+```
 
 #### Special case: input is less than 16 bytes
 
@@ -86,7 +90,9 @@ When the input is too small (< 16 bytes), the algorithm will not process any str
 
 In this case, a simplified initialization is performed, using a single accumulator:
 
-      u32 acc  = seed + PRIME32_5;
+```c
+  u32 acc  = seed + PRIME32_5;
+```
 
 The algorithm then proceeds directly to step 4.
 
@@ -100,9 +106,11 @@ Each lane read its associated 32-bit value using __little-endian__ convention.
 
 For each {lane, accumulator}, the update process is called a _round_, and applies the following formula:
 
-    accN = accN + (laneN * PRIME32_2);
-    accN = accN <<< 13;
-    accN = accN * PRIME32_1;
+```c
+  accN = accN + (laneN * PRIME32_2);
+  accN = accN <<< 13;
+  accN = accN * PRIME32_1;
+```
 
 This shuffles the bits so that any bit from input _lane_ impacts several bits in output _accumulator_. All operations are performed modulo 2^32.
 
@@ -113,13 +121,17 @@ When that happens, move to step 3.
 
 All 4 lane accumulators from the previous steps are merged to produce a single remaining accumulator of the same width (32-bit). The associated formula is as follows:
 
-    acc = (acc1 <<< 1) + (acc2 <<< 7) + (acc3 <<< 12) + (acc4 <<< 18);
+```c
+  acc = (acc1 <<< 1) + (acc2 <<< 7) + (acc3 <<< 12) + (acc4 <<< 18);
+```
 
 ### Step 4. Add input length
 
 The input total length is presumed known at this stage. This step is just about adding the length to accumulator, so that it participates to final mixing.
 
-    acc = acc + (u32)inputLength;
+```c
+  acc = acc + (u32)inputLength;
+```
 
 Note that, if input length is so large that it requires more than 32-bits, only the lower 32-bits are added to the accumulator.
 
@@ -128,19 +140,21 @@ Note that, if input length is so large that it requires more than 32-bits, only 
 There may be up to 15 bytes remaining to consume from the input.
 The final stage will digest them according to following pseudo-code:
 
-    while (remainingLength >= 4) {
-        lane = read_32bit_little_endian(input_ptr);
-        acc = acc + lane * PRIME32_3;
-        acc = (acc <<< 17) * PRIME32_4;
-        input_ptr += 4; remainingLength -= 4;
-    }
+```c
+  while (remainingLength >= 4) {
+      lane = read_32bit_little_endian(input_ptr);
+      acc = acc + lane * PRIME32_3;
+      acc = (acc <<< 17) * PRIME32_4;
+      input_ptr += 4; remainingLength -= 4;
+  }
 
-    while (remainingLength >= 1) {
-        lane = read_byte(input_ptr);
-        acc = acc + lane * PRIME32_5;
-        acc = (acc <<< 11) * PRIME32_1;
-        input_ptr += 1; remainingLength -= 1;
-    }
+  while (remainingLength >= 1) {
+      lane = read_byte(input_ptr);
+      acc = acc + lane * PRIME32_5;
+      acc = (acc <<< 11) * PRIME32_1;
+      input_ptr += 1; remainingLength -= 1;
+  }
+```
 
 This process ensures that all input bytes are present in the final mix.
 
@@ -148,11 +162,13 @@ This process ensures that all input bytes are present in the final mix.
 
 The final mix ensures that all input bits have a chance to impact any bit in the output digest, resulting in an unbiased distribution. This is also called avalanche effect.
 
-    acc = acc xor (acc >> 15);
-    acc = acc * PRIME32_2;
-    acc = acc xor (acc >> 13);
-    acc = acc * PRIME32_3;
-    acc = acc xor (acc >> 16);
+```c
+  acc = acc xor (acc >> 15);
+  acc = acc * PRIME32_2;
+  acc = acc xor (acc >> 13);
+  acc = acc * PRIME32_3;
+  acc = acc xor (acc >> 16);
+```
 
 ### Step 7. Output
 
@@ -172,22 +188,26 @@ The algorithm collects and transforms input in _stripes_ of 32 bytes. The transf
 
 The algorithm uses 64-bit addition, multiplication, rotate, shift and xor operations. Many operations require some 64-bit prime number constants, all defined below:
 
-    static const u64 PRIME64_1 = 0x9E3779B185EBCA87ULL;  // 0b1001111000110111011110011011000110000101111010111100101010000111
-    static const u64 PRIME64_2 = 0xC2B2AE3D27D4EB4FULL;  // 0b1100001010110010101011100011110100100111110101001110101101001111
-    static const u64 PRIME64_3 = 0x165667B19E3779F9ULL;  // 0b0001011001010110011001111011000110011110001101110111100111111001
-    static const u64 PRIME64_4 = 0x85EBCA77C2B2AE63ULL;  // 0b1000010111101011110010100111011111000010101100101010111001100011
-    static const u64 PRIME64_5 = 0x27D4EB2F165667C5ULL;  // 0b0010011111010100111010110010111100010110010101100110011111000101
+```c
+  static const u64 PRIME64_1 = 0x9E3779B185EBCA87ULL;  // 0b1001111000110111011110011011000110000101111010111100101010000111
+  static const u64 PRIME64_2 = 0xC2B2AE3D27D4EB4FULL;  // 0b1100001010110010101011100011110100100111110101001110101101001111
+  static const u64 PRIME64_3 = 0x165667B19E3779F9ULL;  // 0b0001011001010110011001111011000110011110001101110111100111111001
+  static const u64 PRIME64_4 = 0x85EBCA77C2B2AE63ULL;  // 0b1000010111101011110010100111011111000010101100101010111001100011
+  static const u64 PRIME64_5 = 0x27D4EB2F165667C5ULL;  // 0b0010011111010100111010110010111100010110010101100110011111000101
+```
 
 These constants are prime numbers, and feature a good mix of bits 1 and 0, neither too regular, nor too dissymmetric. These properties help dispersion capabilities.
 
-### Step 1. Initialise internal accumulators
+### Step 1. Initialize internal accumulators
 
 Each accumulator gets an initial value based on optional `seed` input. Since the `seed` is optional, it can be `0`.
 
-        u64 acc1 = seed + PRIME64_1 + PRIME64_2;
-        u64 acc2 = seed + PRIME64_2;
-        u64 acc3 = seed + 0;
-        u64 acc4 = seed - PRIME64_1;
+```c
+  u64 acc1 = seed + PRIME64_1 + PRIME64_2;
+  u64 acc2 = seed + PRIME64_2;
+  u64 acc3 = seed + 0;
+  u64 acc4 = seed - PRIME64_1;
+```
 
 #### Special case: input is less than 32 bytes
 
@@ -195,7 +215,9 @@ When the input is too small (< 32 bytes), the algorithm will not process any str
 
 In this case, a simplified initialization is performed, using a single accumulator:
 
-      u64 acc  = seed + PRIME64_5;
+```c
+  u64 acc  = seed + PRIME64_5;
+```
 
 The algorithm then proceeds directly to step 4.
 
@@ -209,10 +231,12 @@ Each lane read its associated 64-bit value using __little-endian__ convention.
 
 For each {lane, accumulator}, the update process is called a _round_, and applies the following formula:
 
-    round(accN,laneN):
-    accN = accN + (laneN * PRIME64_2);
-    accN = accN <<< 31;
-    return accN * PRIME64_1;
+```c
+  round(accN,laneN):
+  accN = accN + (laneN * PRIME64_2);
+  accN = accN <<< 31;
+  return accN * PRIME64_1;
+```
 
 This shuffles the bits so that any bit from input _lane_ impacts several bits in output _accumulator_. All operations are performed modulo 2^64.
 
@@ -225,52 +249,60 @@ All 4 lane accumulators from previous steps are merged to produce a single remai
 
 Note that accumulator convergence is more complex than 32-bit variant, and requires to define another function called _mergeAccumulator()_:
 
-    mergeAccumulator(acc,accN):
-    acc  = acc xor round(0, accN);
-    acc  = acc * PRIME64_1
-    return acc + PRIME64_4;
+```c
+  mergeAccumulator(acc,accN):
+  acc  = acc xor round(0, accN);
+  acc  = acc * PRIME64_1;
+  return acc + PRIME64_4;
+```
 
 which is then used in the convergence formula:
 
-    acc = (acc1 <<< 1) + (acc2 <<< 7) + (acc3 <<< 12) + (acc4 <<< 18);
-    acc = mergeAccumulator(acc, acc1);
-    acc = mergeAccumulator(acc, acc2);
-    acc = mergeAccumulator(acc, acc3);
-    acc = mergeAccumulator(acc, acc4);
+```c
+  acc = (acc1 <<< 1) + (acc2 <<< 7) + (acc3 <<< 12) + (acc4 <<< 18);
+  acc = mergeAccumulator(acc, acc1);
+  acc = mergeAccumulator(acc, acc2);
+  acc = mergeAccumulator(acc, acc3);
+  acc = mergeAccumulator(acc, acc4);
+```
 
 ### Step 4. Add input length
 
 The input total length is presumed known at this stage. This step is just about adding the length to accumulator, so that it participates to final mixing.
 
-    acc = acc + inputLength;
+```c
+  acc = acc + inputLength;
+```
 
 ### Step 5. Consume remaining input
 
 There may be up to 31 bytes remaining to consume from the input.
 The final stage will digest them according to following pseudo-code:
 
-    while (remainingLength >= 8) {
-        lane = read_64bit_little_endian(input_ptr);
-        acc = acc xor round(0, lane);
-        acc = (acc <<< 27) * PRIME64_1;
-        acc = acc + PRIME64_4;
-        input_ptr += 8; remainingLength -= 8;
-    }
+```c
+  while (remainingLength >= 8) {
+      lane = read_64bit_little_endian(input_ptr);
+      acc = acc xor round(0, lane);
+      acc = (acc <<< 27) * PRIME64_1;
+      acc = acc + PRIME64_4;
+      input_ptr += 8; remainingLength -= 8;
+  }
 
-    if (remainingLength >= 4) {
-        lane = read_32bit_little_endian(input_ptr);
-        acc = acc xor (lane * PRIME64_1);
-        acc = (acc <<< 23) * PRIME64_2;
-        acc = acc + PRIME64_3;
-        input_ptr += 4; remainingLength -= 4;
-    }
+  if (remainingLength >= 4) {
+      lane = read_32bit_little_endian(input_ptr);
+      acc = acc xor (lane * PRIME64_1);
+      acc = (acc <<< 23) * PRIME64_2;
+      acc = acc + PRIME64_3;
+      input_ptr += 4; remainingLength -= 4;
+  }
 
-    while (remainingLength >= 1) {
-        lane = read_byte(input_ptr);
-        acc = acc xor (lane * PRIME64_5);
-        acc = (acc <<< 11) * PRIME64_1;
-        input_ptr += 1; remainingLength -= 1;
-    }
+  while (remainingLength >= 1) {
+      lane = read_byte(input_ptr);
+      acc = acc xor (lane * PRIME64_5);
+      acc = (acc <<< 11) * PRIME64_1;
+      input_ptr += 1; remainingLength -= 1;
+  }
+```
 
 This process ensures that all input bytes are present in the final mix.
 
@@ -278,11 +310,13 @@ This process ensures that all input bytes are present in the final mix.
 
 The final mix ensures that all input bits have a chance to impact any bit in the output digest, resulting in an unbiased distribution. This is also called avalanche effect.
 
-    acc = acc xor (acc >> 33);
-    acc = acc * PRIME64_2;
-    acc = acc xor (acc >> 29);
-    acc = acc * PRIME64_3;
-    acc = acc xor (acc >> 32);
+```c
+  acc = acc xor (acc >> 33);
+  acc = acc * PRIME64_2;
+  acc = acc xor (acc >> 29);
+  acc = acc * PRIME64_3;
+  acc = acc xor (acc >> 32);
+```
 
 ### Step 7. Output
 

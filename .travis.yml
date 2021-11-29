@@ -2,30 +2,32 @@ language: c
 
 # Dump CPU info before start
 before_install:
-  - cat /proc/cpuinfo
+  - cat /proc/cpuinfo || echo /proc/cpuinfo is not present
 
 matrix:
   fast_finish: true
   include:
 
-    - name: General linux tests (Xenial)
-      dist: xenial
+    - name: General linux x64 tests
       arch: amd64
       addons:
         apt:
           packages:
-            - clang
             - g++-multilib
             - gcc-multilib
             - cppcheck
       script:
         - make -B test-all
         - make clean
-        - make dispatch
+        - CFLAGS="-Werror" MOREFLAGS="-Wno-sign-conversion" make dispatch  # removing sign conversion warnings due to a bug in gcc-5's definition of some AVX512 intrinsics
         - make clean
-        - CC=g++ CFLAGS="-O1 -mavx512f" make
+        - CFLAGS="-O1 -mavx512f -Werror" make
         - make clean
-        - CC=g++ CFLAGS="-Wall -Wextra" make DISPATCH=1
+        - CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1
+        - make clean
+        - CFLAGS="-std=c90 -pedantic -Wno-long-long -Werror" make xxhsum  # check C90 + long long compliance
+        - make c90test # strict c90, with no long long support; resulting in no XXH64_* symbol
+        - make noxxh3test # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
 
 
     - name: Check results consistency on x64
@@ -41,6 +43,14 @@ matrix:
         - make clean
         - CPPFLAGS=-DXXH_REROLL=1 make check   # reroll code path (#240)
         - make -C tests/bench
+
+    - name: macOS General Test
+      os: osx
+      compiler: clang
+      script:
+        - CFLAGS="-Werror" make   # test library build
+        - make clean
+        - make test MOREFLAGS='-Werror' | tee # test scenario where `stdout` is not the console
 
     - name: ARM compilation and consistency checks (Qemu)
       dist: xenial
@@ -111,7 +121,7 @@ matrix:
         - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" make check
         # altivec.h redefinition issue #426
         - make clean
-        - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-maltivec -mvsx -mcpu=power8 -mpower8-vector" make -C tests test_ppc_redefine 
+        - CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-maltivec -mvsx -mcpu=power8 -mpower8-vector" make -C tests test_ppc_redefine
 
     - name: IBM s390x compilation and consistency checks
       dist: bionic
@@ -129,4 +139,4 @@ matrix:
         - mkdir build
         - cd build
         - cmake ..
-        - make
+        - CFLAGS=-Werror make

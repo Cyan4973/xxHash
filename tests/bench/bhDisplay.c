@@ -84,7 +84,8 @@ static void bench_throughput_oneHash_smallInputs(Bench_Entry hashDesc, size_t si
 
 void bench_throughput_smallInputs(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax)
 {
-    printf("Throughput small inputs of fixed size : \n");
+    printf("Throughput small inputs of fixed size (from %zu to %zu bytes): \n",
+            sizeMin, sizeMax);
     for (int i=0; i<nbHashes; i++)
         bench_throughput_oneHash_smallInputs(hashDescTable[i], sizeMin, sizeMax);
 }

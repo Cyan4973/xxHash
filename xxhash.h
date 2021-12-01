@@ -2708,17 +2708,21 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #    define XXH_unlikely(x) (x)
 #endif
 
-#if defined(__GNUC__)
-#  if defined(__AVX2__)
-#    include <immintrin.h>
-#  elif defined(__SSE2__)
-#    include <emmintrin.h>
-#  elif defined(__ARM_NEON__) || defined(__ARM_NEON)
+#if defined(__GNUC__) || defined(__clang__)
+#  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
+   || defined(__aarch64__)  || defined(_M_ARM) \
+   || defined(_M_ARM64)     || defined(_M_ARM64EC)
 #    define inline __inline__  /* circumvent a clang bug */
 #    include <arm_neon.h>
 #    undef inline
+#  elif defined(__AVX2__)
+#    include <immintrin.h>
+#  elif defined(__SSE2__)
+#    include <emmintrin.h>
 #  endif
-#elif defined(_MSC_VER)
+#endif
+
+#if defined(_MSC_VER)
 #  include <intrin.h>
 #endif
 
@@ -2856,20 +2860,20 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #endif
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
-#  if defined(__AVX512F__)
-#    define XXH_VECTOR XXH_AVX512
-#  elif defined(__AVX2__)
-#    define XXH_VECTOR XXH_AVX2
-#  elif defined(__SSE2__) || defined(_M_AMD64) || defined(_M_X64) || (defined(_M_IX86_FP) && (_M_IX86_FP == 2))
-#    define XXH_VECTOR XXH_SSE2
-#  elif ( \
+#  if ( \
         defined(__ARM_NEON__) || defined(__ARM_NEON) /* gcc */ \
-     || defined(_M_ARM64) || defined(_M_ARM_ARMV7VE) /* msvc */ \
+     || defined(_M_ARM) || defined(_M_ARM64) || defined(_M_ARM64EC) /* msvc */ \
    ) && ( \
         defined(_WIN32) || defined(__LITTLE_ENDIAN__) /* little endian only */ \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) \
    )
 #    define XXH_VECTOR XXH_NEON
+#  elif defined(__AVX512F__)
+#    define XXH_VECTOR XXH_AVX512
+#  elif defined(__AVX2__)
+#    define XXH_VECTOR XXH_AVX2
+#  elif defined(__SSE2__) || defined(_M_AMD64) || defined(_M_X64) || (defined(_M_IX86_FP) && (_M_IX86_FP == 2))
+#    define XXH_VECTOR XXH_SSE2
 #  elif (defined(__PPC64__) && defined(__POWER8_VECTOR__)) \
      || (defined(__s390x__) && defined(__VEC__)) \
      && defined(__GNUC__) /* TODO: IBM XL */
@@ -3019,8 +3023,8 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
  * }
  */
 # if !defined(XXH_NO_VZIP_HACK) /* define to disable */ \
-   && defined(__GNUC__) \
-   && !defined(__aarch64__) && !defined(__arm64__) && !defined(_M_ARM64)
+   && (defined(__GNUC__) || defined(__clang__)) \
+   && (defined(__arm__) || defined(__thumb__) || defined(_M_ARM))
 #  define XXH_SPLIT_IN_PLACE(in, outLo, outHi)                                              \
     do {                                                                                    \
       /* Undocumented GCC/Clang operand modifier: %e0 = lower D half, %f0 = upper D half */ \
@@ -3236,7 +3240,6 @@ XXH_mult32to64(xxh_u64 x, xxh_u64 y)
    return (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF);
 }
 #elif defined(_MSC_VER) && defined(_M_IX86)
-#    include <intrin.h>
 #    define XXH_mult32to64(x, y) __emulu((unsigned)(x), (unsigned)(y))
 #else
 /*
@@ -3276,7 +3279,7 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      * In that case it is best to use the portable one.
      * https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677
      */
-#if defined(__GNUC__) && !defined(__wasm__) \
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(__wasm__) \
     && defined(__SIZEOF_INT128__) \
     || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
 
@@ -3293,7 +3296,7 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *
      * This compiles to single operand MUL on x64.
      */
-#elif defined(_M_X64) || defined(_M_IA64)
+#elif (defined(_M_X64) || defined(_M_IA64)) && !defined(_M_ARM64EC)
 
 #ifndef _MSC_VER
 #   pragma intrinsic(_umul128)
@@ -3310,7 +3313,7 @@ XXH_mult64to128(xxh_u64 lhs, xxh_u64 rhs)
      *
      * This compiles to the same MUL + UMULH as GCC/Clang's __uint128_t method.
      */
-#elif defined(_M_ARM64)
+#elif defined(_M_ARM64) || defined(_M_ARM64EC)
 
 #ifndef _MSC_VER
 #   pragma intrinsic(__umulh)

@@ -345,16 +345,21 @@ jobs:
         make clean test MOREFLAGS='-Werror' | tee
 
 
-  # Windows, { VC++2019, VC++2017 } x { x64, Win32, ARM, ARM64 }
+  # Windows, { VC++2022, VC++2019, VC++2017 } x { x64, Win32, ARM, ARM64 }
   #
   # - Default shell for Windows environment is PowerShell Core.
   #   https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
+  #
+  # - "windows-2022" uses Visual Studio 2022.
+  #   https://github.com/actions/virtual-environments/blob/main/images/win/Windows2022-Readme.md#visual-studio-enterprise-2022
   #
   # - "windows-2019" uses Visual Studio 2019.
   #   https://github.com/actions/virtual-environments/blob/main/images/win/Windows2019-Readme.md#visual-studio-enterprise-2019
   #
   # - "windows-2016" uses Visual Studio 2017.
   #   https://github.com/actions/virtual-environments/blob/main/images/win/Windows2016-Readme.md#visual-studio-enterprise-2017
+  #   "windows-2016" will be removed on March 15, 2022.
+  #   https://github.com/actions/virtual-environments/issues/4312
 
   windows-visualc-general:
     name: ${{ matrix.system.vc }}, ${{ matrix.arch }}
@@ -363,8 +368,9 @@ jobs:
       fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix failed.
       matrix:
         system: [
+          { os: windows-2022, vc: "VC++ 2022" },
           { os: windows-2019, vc: "VC++ 2019" },
-          { os: windows-2016, vc: "VC++ 2017" },
+          { os: windows-2016, vc: "VC++ 2017" }, # windows-2016 will be removed on March 15, 2022.
         ]
         arch: [ x64, Win32, ARM, ARM64 ]
     steps:

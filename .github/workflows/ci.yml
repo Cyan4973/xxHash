@@ -322,11 +322,19 @@ jobs:
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-  # macOS
 
-  macos-latest-general:
-    name: macOS general test
-    runs-on: macos-latest
+  # macOS, { 10.15, 11 }
+
+  macos-general:
+    name: ${{ matrix.system.os }}
+    runs-on: ${{ matrix.system.os }}
+    strategy:
+      fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix failed.
+      matrix:
+        system: [
+          { os: macos-11    },
+          { os: macos-10.15 },
+        ]
     steps:
     - uses: actions/checkout@v2
 

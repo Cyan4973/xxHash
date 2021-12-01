@@ -260,32 +260,73 @@ jobs:
 
   qemu-consistency:
     name: QEMU ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix failed.
       matrix:
         include: [
-          { name: ARM,      xcc_pkg: gcc-arm-linux-gnueabi,     xcc: arm-linux-gnueabi-gcc,     xemu_pkg: qemu-system-arm,    xemu: qemu-arm-static     },
-          { name: ARM64,    xcc_pkg: gcc-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc,     xemu_pkg: qemu-system-arm,    xemu: qemu-aarch64-static },
-          { name: PPC64LE-gcc9,  xcc_pkg: gcc-9-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-9,  xemu_pkg: qemu-system-ppc, xemu: qemu-ppc64le-static },
-          { name: PPC64LE-gcc10, xcc_pkg: gcc-10-powerpc64le-linux-gnu, xcc: powerpc64le-linux-gnu-gcc-10, xemu_pkg: qemu-system-ppc, xemu: qemu-ppc64le-static },
-          { name: PPC64-gcc9,    xcc_pkg: gcc-9-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-9,    xemu_pkg: qemu-system-ppc, xemu: qemu-ppc64-static },
-          { name: PPC64-gcc10,   xcc_pkg: gcc-10-powerpc64-linux-gnu,   xcc: powerpc64-linux-gnu-gcc-10,   xemu_pkg: qemu-system-ppc, xemu: qemu-ppc64-static },
-          { name: S390X,    xcc_pkg: gcc-s390x-linux-gnu,       xcc: s390x-linux-gnu-gcc,       xemu_pkg: qemu-system-s390x,  xemu: qemu-s390x-static   },
-          { name: MIPS,     xcc_pkg: gcc-mips-linux-gnu,        xcc: mips-linux-gnu-gcc,        xemu_pkg: qemu-system-mips,   xemu: qemu-mips-static    },
+          { name: 'ARM',             xcc_pkg: gcc-arm-linux-gnueabi,        xcc: arm-linux-gnueabi-gcc,        xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-latest, },
+          { name: 'ARM64',           xcc_pkg: gcc-aarch64-linux-gnu,        xcc: aarch64-linux-gnu-gcc,        xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-latest, },
+          { name: 'PPC64LE',         xcc_pkg: gcc-powerpc64le-linux-gnu,    xcc: powerpc64le-linux-gnu-gcc,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-latest, },
+          { name: 'PPC64',           xcc_pkg: gcc-powerpc64-linux-gnu,      xcc: powerpc64-linux-gnu-gcc,      xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-latest, },
+          { name: 'S390X',           xcc_pkg: gcc-s390x-linux-gnu,          xcc: s390x-linux-gnu-gcc,          xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-latest, },
+          { name: 'MIPS',            xcc_pkg: gcc-mips-linux-gnu,           xcc: mips-linux-gnu-gcc,           xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-latest, },
+
+          { name: 'ARM, gcc-10',     xcc_pkg: gcc-10-arm-linux-gnueabi,     xcc: arm-linux-gnueabi-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
+          { name: 'ARM64, gcc-10',   xcc_pkg: gcc-10-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          { name: 'PPC64LE, gcc-10', xcc_pkg: gcc-10-powerpc64le-linux-gnu, xcc: powerpc64le-linux-gnu-gcc-10, xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
+          { name: 'PPC64, gcc-10',   xcc_pkg: gcc-10-powerpc64-linux-gnu,   xcc: powerpc64-linux-gnu-gcc-10,   xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
+          { name: 'S390X, gcc-10',   xcc_pkg: gcc-10-s390x-linux-gnu,       xcc: s390x-linux-gnu-gcc-10,       xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
+          { name: 'MIPS, gcc-10',    xcc_pkg: gcc-10-mips-linux-gnu,        xcc: mips-linux-gnu-gcc-10,        xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
+
+          { name: 'ARM, gcc-9',      xcc_pkg: gcc-9-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
+          { name: 'ARM64, gcc-9',    xcc_pkg: gcc-9-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          { name: 'PPC64LE, gcc-9',  xcc_pkg: gcc-9-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-9,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
+          { name: 'PPC64, gcc-9',    xcc_pkg: gcc-9-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-9,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
+          { name: 'S390X, gcc-9',    xcc_pkg: gcc-9-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-9,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
+          { name: 'MIPS, gcc-9',     xcc_pkg: gcc-9-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-9,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
+
+          { name: 'ARM, gcc-8',      xcc_pkg: gcc-8-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
+          { name: 'ARM64, gcc-8',    xcc_pkg: gcc-8-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          { name: 'PPC64LE, gcc-8',  xcc_pkg: gcc-8-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-8,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
+          { name: 'PPC64, gcc-8',    xcc_pkg: gcc-8-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-8,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
+          { name: 'S390X, gcc-8',    xcc_pkg: gcc-8-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-8,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
+          # ubuntu-20.04 fails to retrieve gcc-8-mips-linux-gnu for some reason.
+          { name: 'MIPS, gcc-8',     xcc_pkg: gcc-8-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-8,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-18.04, },
+
+          { name: 'ARM, gcc-7',      xcc_pkg: gcc-7-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-7,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-18.04, },
+          { name: 'ARM64, gcc-7',    xcc_pkg: gcc-7-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-7,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-18.04, },
+          { name: 'PPC64LE, gcc-7',  xcc_pkg: gcc-7-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-7,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-18.04, },
+          { name: 'PPC64, gcc-7',    xcc_pkg: gcc-7-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-7,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-18.04, },
+          { name: 'S390X, gcc-7',    xcc_pkg: gcc-7-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-7,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-18.04, },
+          { name: 'MIPS, gcc-7',     xcc_pkg: gcc-7-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-7,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-18.04, },
+
+          { name: 'ARM, gcc-6',      xcc_pkg: gcc-6-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-6,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-18.04, },
+          { name: 'ARM64, gcc-6',    xcc_pkg: gcc-6-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-6,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-18.04, },
+          { name: 'PPC64LE, gcc-6',  xcc_pkg: gcc-6-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-6,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-18.04, },
+          { name: 'PPC64, gcc-6',    xcc_pkg: gcc-6-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-6,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-18.04, },
+          { name: 'S390X, gcc-6',    xcc_pkg: gcc-6-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-6,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-18.04, },
+          { name: 'MIPS, gcc-6',     xcc_pkg: gcc-6-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-6,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-18.04, },
         ]
     env:                        # Set environment variables
       XCC: ${{ matrix.xcc }}
       XEMU: ${{ matrix.xemu }}
     steps:
     - uses: actions/checkout@v2 # https://github.com/actions/checkout
-    - name: apt update & install
+    - name: apt update & install (1)
       run: |
         sudo apt-get update
         sudo apt-get install gcc-multilib g++-multilib qemu-utils qemu-user-static
+
+    - name: Environment info (1)
+      run: |
+        echo && apt-cache search "^gcc-" | grep "linux" | sort
+
+    - name: apt update & install (2)
+      run: |
         sudo apt-get install ${{ matrix.xcc_pkg }} ${{ matrix.xemu_pkg }}
 
-    - name: Environment info
+    - name: Environment info (2)
       run: |
         echo && which $XCC
         echo && $XCC --version

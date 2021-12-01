@@ -4843,7 +4843,7 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
             XXH_ASSERT(state->nbStripesPerBlock >= state->nbStripesSoFar);
             /* join to current block's end */
             {   size_t const nbStripesToEnd = state->nbStripesPerBlock - state->nbStripesSoFar;
-                XXH_ASSERT(nbStripes <= nbStripes);
+                XXH_ASSERT(nbStripesToEnd <= nbStripes);
                 XXH3_accumulate(acc, input, secret + state->nbStripesSoFar * XXH_SECRET_CONSUME_RATE, nbStripesToEnd, f_acc512);
                 f_scramble(acc, secret + state->secretLimit);
                 state->nbStripesSoFar = 0;

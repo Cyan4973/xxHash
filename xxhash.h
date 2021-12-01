@@ -3037,6 +3037,29 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
       (outHi) = vshrn_n_u64  ((in), 32);                                                  \
     } while (0)
 # endif
+
+/*!
+ * @ingroup tuning
+ * @brief Controls the NEON to scalar ratio for XXH3
+ *
+ * On aarch64, it is beneficial to use both scalar *and* NEON code to utilize
+ * both pipelines. This results in a ~15-30% speedup compared to pure NEON,
+ * depending on the compiler.
+ *
+ * The default uses 6 lanes for NEON and 2 lanes for scalar.
+ *
+ * This is disabled for code size optimizations, and it does not benefit ARMv7.
+ *
+ * Must be either 2, 4, 6, or 8.
+ */
+# ifndef XXH3_NEON_LANES
+#  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
+   && !defined(__OPTIMIZE_SIZE__)
+#   define XXH3_NEON_LANES 6
+#  else
+#   define XXH3_NEON_LANES XXH_ACC_NB
+#  endif
+# endif
 #endif  /* XXH_VECTOR == XXH_NEON */
 
 /*
@@ -3684,6 +3707,7 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
     typedef long long xxh_i64;
 #endif
 
+
 /*
  * XXH3_accumulate_512 is the tightest loop for long inputs, and it is the most optimized.
  *
@@ -3706,6 +3730,53 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
  *
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
+
+/*!
+ * @internal
+ * @brief Scalar round for @ref XXH3_accumulate_512_scalar.
+ */
+XXH_FORCE_INLINE void
+XXH3_scalarRound(void* XXH_RESTRICT acc,
+                 void const* XXH_RESTRICT input,
+                 void const* XXH_RESTRICT secret,
+                 size_t i)
+{
+    xxh_u64* xacc = (xxh_u64*) acc;
+    xxh_u8 const* xinput = (xxh_u8 const*) input;
+    xxh_u8 const* xsecret = (xxh_u8 const *)secret;
+    XXH_ASSERT(i < XXH_ACC_NB);
+    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
+    {
+        xxh_u64 const data_val = XXH_readLE64(xinput + 8*i);
+        xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + i*8);
+        xacc[i ^ 1] += data_val; /* swap adjacent lanes */
+        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+    }
+}
+
+/*!
+ * @internal
+ * @brief Scalar scramble step for @ref XXH3_scrambleAcc_scalar
+ */
+
+XXH_FORCE_INLINE void
+XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
+                         void const* XXH_RESTRICT secret,
+                         size_t i)
+{
+    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
+    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
+    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
+    XXH_ASSERT(i < XXH_ACC_NB);
+    {
+        xxh_u64 const key64 = XXH_readLE64(xsecret + 8*i);
+        xxh_u64 acc64 = xacc[i];
+        acc64 = XXH_xorshift64(acc64, 47);
+        acc64 ^= key64;
+        acc64 *= XXH_PRIME32_1;
+        xacc[i] = acc64;
+    }
+}
 
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
@@ -4035,6 +4106,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
+    XXH_STATIC_ASSERT(XXH3_NEON_LANES > 0 && XXH3_NEON_LANES <= XXH_ACC_NB && XXH3_NEON_LANES % 2 == 0);
     {
         uint64x2_t* const xacc = (uint64x2_t *) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
@@ -4042,7 +4114,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
         uint8_t const* const xsecret  = (const uint8_t *) secret;
 
         size_t i;
-        for (i=0; i < XXH_STRIPE_LEN / sizeof(uint64x2_t); i++) {
+        for (i=0; i < XXH3_NEON_LANES / 2; i++) {
             /* data_vec = xinput[i]; */
             uint8x16_t data_vec    = vld1q_u8(xinput  + (i * 16));
             /* key_vec  = xsecret[i];  */
@@ -4063,6 +4135,10 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
 
         }
+        /* AArch64 uses both scalar and neon at the same time */
+        for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
+            XXH3_scalarRound(acc, input, secret, i);
+        }
     }
 }
 
@@ -4076,7 +4152,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         uint32x2_t prime       = vdup_n_u32 (XXH_PRIME32_1);
 
         size_t i;
-        for (i=0; i < XXH_STRIPE_LEN/sizeof(uint64x2_t); i++) {
+        for (i=0; i < XXH3_NEON_LANES / 2; i++) {
             /* xacc[i] ^= (xacc[i] >> 47); */
             uint64x2_t acc_vec  = xacc[i];
             uint64x2_t shifted  = vshrq_n_u64 (acc_vec, 47);
@@ -4116,7 +4192,12 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
                 /* xacc[i] += (prod_hi & 0xFFFFFFFF) * XXH_PRIME32_1; */
                 xacc[i] = vmlal_u32(xacc[i], data_key_lo, prime);
             }
-    }   }
+        }
+        /* AArch64 uses both scalar and neon at the same time */
+        for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
+            XXH3_scalarScrambleRound(acc, secret, i);
+        }
+    }
 }
 
 #endif
@@ -4198,33 +4279,18 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT input,
                      const void* XXH_RESTRICT secret)
 {
-    xxh_u64* const xacc = (xxh_u64*) acc; /* presumed aligned */
-    const xxh_u8* const xinput  = (const xxh_u8*) input;  /* no alignment restriction */
-    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
-    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
     for (i=0; i < XXH_ACC_NB; i++) {
-        xxh_u64 const data_val = XXH_readLE64(xinput + 8*i);
-        xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + i*8);
-        xacc[i ^ 1] += data_val; /* swap adjacent lanes */
-        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+        XXH3_scalarRound(acc, input, secret, i);
     }
 }
 
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc_scalar(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
-    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
-    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
     size_t i;
-    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
     for (i=0; i < XXH_ACC_NB; i++) {
-        xxh_u64 const key64 = XXH_readLE64(xsecret + 8*i);
-        xxh_u64 acc64 = xacc[i];
-        acc64 = XXH_xorshift64(acc64, 47);
-        acc64 ^= key64;
-        acc64 *= XXH_PRIME32_1;
-        xacc[i] = acc64;
+        XXH3_scalarScrambleRound(acc, secret, i);
     }
 }
 

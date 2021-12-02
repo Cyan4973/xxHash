@@ -978,7 +978,7 @@ struct XXH32_state_s {
    XXH32_hash_t v[4];         /*!< Accumulator lanes */
    XXH32_hash_t mem32[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[16]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem32 */
-   XXH32_hash_t reserved;     /*!< Reserved field. Do not read or write to it, it may be removed. */
+   XXH32_hash_t reserved;     /*!< Reserved field. Do not read nor write to it. */
 };   /* typedef'd to XXH32_state_t */
 
 
@@ -1002,7 +1002,7 @@ struct XXH64_state_s {
    XXH64_hash_t mem64[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[32]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem64 */
    XXH32_hash_t reserved32;   /*!< Reserved field, needed for padding anyways*/
-   XXH64_hash_t reserved64;   /*!< Reserved field. Do not read or write to it, it may be removed. */
+   XXH64_hash_t reserved64;   /*!< Reserved field. Do not read or write to it. */
 };   /* typedef'd to XXH64_state_t */
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* >= C11 */
@@ -2158,14 +2158,12 @@ XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t
 /*! @ingroup xxh32_family */
 XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t seed)
 {
-    XXH32_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state));
-    state.v[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
-    state.v[1] = seed + XXH_PRIME32_2;
-    state.v[2] = seed + 0;
-    state.v[3] = seed - XXH_PRIME32_1;
-    /* do not write into reserved, planned to be removed in a future version */
-    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
+    XXH_ASSERT(statePtr != NULL);
+    memset(statePtr, 0, sizeof(*statePtr));
+    statePtr->v[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+    statePtr->v[1] = seed + XXH_PRIME32_2;
+    statePtr->v[2] = seed + 0;
+    statePtr->v[3] = seed - XXH_PRIME32_1;
     return XXH_OK;
 }
 
@@ -2574,14 +2572,12 @@ XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t
 /*! @ingroup xxh64_family */
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t seed)
 {
-    XXH64_state_t state;   /* use a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state));
-    state.v[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
-    state.v[1] = seed + XXH_PRIME64_2;
-    state.v[2] = seed + 0;
-    state.v[3] = seed - XXH_PRIME64_1;
-     /* do not write into reserved64, might be removed in a future version */
-    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
+    XXH_ASSERT(statePtr != NULL);
+    memset(statePtr, 0, sizeof(*statePtr));
+    statePtr->v[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
+    statePtr->v[1] = seed + XXH_PRIME64_2;
+    statePtr->v[2] = seed + 0;
+    statePtr->v[3] = seed - XXH_PRIME64_1;
     return XXH_OK;
 }
 

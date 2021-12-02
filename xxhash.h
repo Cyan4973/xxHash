@@ -3046,15 +3046,38 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
  * @ingroup tuning
  * @brief Controls the NEON to scalar ratio for XXH3
  *
- * On aarch64, it is beneficial to use both scalar *and* NEON code to utilize
- * both pipelines. This results in a ~15-30% speedup compared to pure NEON,
- * depending on the compiler.
+ * On AArch64 when not optimizing for size, XXH3 will run 6 lanes using NEON and
+ * 2 lanes on scalar by default.
  *
- * The default uses 6 lanes for NEON and 2 lanes for scalar.
+ * This can be set to 2, 4, 6, or 8. ARMv7 will default to all 8 NEON lanes, as the
+ * emulated 64-bit arithmetic is too slow.
  *
- * This is disabled for code size optimizations, and it does not benefit ARMv7.
+ * Modern ARM CPUs are _very_ sensitive to how their pipelines are used.
  *
- * Must be either 2, 4, 6, or 8.
+ * For example, the Cortex-A73 can dispatch 3 micro-ops per cycle, but it can't
+ * have more than 2 NEON (F0/F1) micro-ops. If you are only using NEON instructions,
+ * you are only using 2/3 of the CPU bandwidth.
+ *
+ * This is even more noticable on the more advanced cores like the A76 which
+ * can dispatch 8 micro-ops per cycle, but still only 2 NEON micro-ops at once.
+ *
+ * Therefore, @ref XXH3_NEON_LANES lanes will be processed using NEON, and the
+ * remaining lanes will use scalar instructions. This improves the bandwidth
+ * and also gives the integer pipelines something to do besides twiddling loop
+ * counters and pointers.
+ *
+ * This change benefits CPUs with large micro-op buffers without negatively affecting
+ * other CPUs:
+ *
+ *  | Chipset               | Dispatch type       | NEON only | 6:2 hybrid | Diff. |
+ *  |:----------------------|:--------------------|----------:|-----------:|------:|
+ *  | Snapdragon 730 (A76)  | 2 NEON/8 micro-ops  |  8.8 GB/s |  10.1 GB/s |  ~16% |
+ *  | Snapdragon 835 (A73)  | 2 NEON/3 micro-ops  |  5.1 GB/s |   5.3 GB/s |   ~5% |
+ *  | Marvell PXA1928 (A53) | In-order dual-issue |  1.9 GB/s |   1.9 GB/s |    0% |
+ *
+ * It also seems to fix some bad codegen on GCC, making it almost as fast as clang.
+ *
+ * @see XXH3_accumulate_512_neon()
  */
 # ifndef XXH3_NEON_LANES
 #  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
@@ -3734,53 +3757,6 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
 
-/*!
- * @internal
- * @brief Scalar round for @ref XXH3_accumulate_512_scalar.
- */
-XXH_FORCE_INLINE void
-XXH3_scalarRound(void* XXH_RESTRICT acc,
-                 void const* XXH_RESTRICT input,
-                 void const* XXH_RESTRICT secret,
-                 size_t i)
-{
-    xxh_u64* xacc = (xxh_u64*) acc;
-    xxh_u8 const* xinput = (xxh_u8 const*) input;
-    xxh_u8 const* xsecret = (xxh_u8 const *)secret;
-    XXH_ASSERT(i < XXH_ACC_NB);
-    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
-    {
-        xxh_u64 const data_val = XXH_readLE64(xinput + 8*i);
-        xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + i*8);
-        xacc[i ^ 1] += data_val; /* swap adjacent lanes */
-        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
-    }
-}
-
-/*!
- * @internal
- * @brief Scalar scramble step for @ref XXH3_scrambleAcc_scalar
- */
-
-XXH_FORCE_INLINE void
-XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
-                         void const* XXH_RESTRICT secret,
-                         size_t i)
-{
-    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
-    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
-    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
-    XXH_ASSERT(i < XXH_ACC_NB);
-    {
-        xxh_u64 const key64 = XXH_readLE64(xsecret + 8*i);
-        xxh_u64 acc64 = xacc[i];
-        acc64 = XXH_xorshift64(acc64, 47);
-        acc64 ^= key64;
-        acc64 *= XXH_PRIME32_1;
-        xacc[i] = acc64;
-    }
-}
-
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
 
@@ -4103,6 +4079,25 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 
 #if (XXH_VECTOR == XXH_NEON)
 
+/* forward declarations for the scalar routines */
+XXH_FORCE_INLINE void
+XXH3_scalarRound(void* XXH_RESTRICT acc, void const* XXH_RESTRICT input,
+                 void const* XXH_RESTRICT secret, size_t lane);
+
+XXH_FORCE_INLINE void
+XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
+                         void const* XXH_RESTRICT secret, size_t lane);
+
+/*!
+ * @internal
+ * @brief The bulk processing loop for NEON.
+ *
+ * The NEON code path is actually partially scalar when running on AArch64. This
+ * is to optimize the pipelining and can have up to 15% speedup depending on the
+ * CPU, and it also mitigates some GCC codegen issues.
+ *
+ * @see XXH3_NEON_LANES for configuring this and details about this optimization.
+ */
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
@@ -4117,6 +4112,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
         uint8_t const* const xsecret  = (const uint8_t *) secret;
 
         size_t i;
+        /* NEON for the first few lanes (these loops are normally interleaved) */
         for (i=0; i < XXH3_NEON_LANES / 2; i++) {
             /* data_vec = xinput[i]; */
             uint8x16_t data_vec    = vld1q_u8(xinput  + (i * 16));
@@ -4138,7 +4134,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
 
         }
-        /* AArch64 uses both scalar and neon at the same time */
+        /* Scalar for the remainder. This may be a zero iteration loop. */
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarRound(acc, input, secret, i);
         }
@@ -4155,6 +4151,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         uint32x2_t prime       = vdup_n_u32 (XXH_PRIME32_1);
 
         size_t i;
+        /* NEON for the first few lanes (these loops are normally interleaved) */
         for (i=0; i < XXH3_NEON_LANES / 2; i++) {
             /* xacc[i] ^= (xacc[i] >> 47); */
             uint64x2_t acc_vec  = xacc[i];
@@ -4196,7 +4193,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
                 xacc[i] = vmlal_u32(xacc[i], data_key_lo, prime);
             }
         }
-        /* AArch64 uses both scalar and neon at the same time */
+        /* Scalar for the remainder. This may be a zero iteration loop. */
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarScrambleRound(acc, secret, i);
         }
@@ -4277,6 +4274,36 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 /* scalar variants - universal */
 
+/*!
+ * @internal
+ * @brief Scalar round for @ref XXH3_accumulate_512_scalar().
+ *
+ * This is extracted to its own function because the NEON path uses a combination
+ * of NEON and scalar.
+ */
+XXH_FORCE_INLINE void
+XXH3_scalarRound(void* XXH_RESTRICT acc,
+                 void const* XXH_RESTRICT input,
+                 void const* XXH_RESTRICT secret,
+                 size_t lane)
+{
+    xxh_u64* xacc = (xxh_u64*) acc;
+    xxh_u8 const* xinput  = (xxh_u8 const*) input;
+    xxh_u8 const* xsecret = (xxh_u8 const*) secret;
+    XXH_ASSERT(lane < XXH_ACC_NB);
+    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
+    {
+        xxh_u64 const data_val = XXH_readLE64(xinput + lane * 8);
+        xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + lane * 8);
+        xacc[lane ^ 1] += data_val; /* swap adjacent lanes */
+        xacc[lane] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+    }
+}
+
+/*!
+ * @internal
+ * @brief Processes a 64 byte block of data using the scalar path.
+ */
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT input,
@@ -4288,6 +4315,36 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
     }
 }
 
+/*!
+ * @internal
+ * @brief Scalar scramble step for @ref XXH3_scrambleAcc_scalar().
+ *
+ * This is extracted to its own function because the NEON path uses a combination
+ * of NEON and scalar.
+ */
+XXH_FORCE_INLINE void
+XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
+                         void const* XXH_RESTRICT secret,
+                         size_t lane)
+{
+    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
+    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
+    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
+    XXH_ASSERT(lane < XXH_ACC_NB);
+    {
+        xxh_u64 const key64 = XXH_readLE64(xsecret + lane * 8);
+        xxh_u64 acc64 = xacc[lane];
+        acc64 = XXH_xorshift64(acc64, 47);
+        acc64 ^= key64;
+        acc64 *= XXH_PRIME32_1;
+        xacc[lane] = acc64;
+    }
+}
+
+/*!
+ * @internal
+ * @brief Scrambles the accumulators after a large chunk has been read
+ */
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc_scalar(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
@@ -4315,8 +4372,9 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      * placed sequentially, in order, at the top of the unrolled loop.
      *
      * While MOVK is great for generating constants (2 cycles for a 64-bit
-     * constant compared to 4 cycles for LDR), long MOVK chains stall the
-     * integer pipelines:
+     * constant compared to 4 cycles for LDR), it fights for bandwidth with
+     * the arithmetic instructions.
+     *
      *   I   L   S
      * MOVK
      * MOVK
@@ -4333,6 +4391,9 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      *  ADD LDR
      *  SUB     STR
      *          STR
+     *
+     * See XXH3_NEON_LANES for details on the pipsline.
+     *
      * XXH3_64bits_withSeed, len == 256, Snapdragon 835
      *   without hack: 2654.4 MB/s
      *   with hack:    3202.9 MB/s

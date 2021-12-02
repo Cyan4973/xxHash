@@ -271,6 +271,7 @@ jobs:
           { name: 'PPC64',           xcc_pkg: gcc-powerpc64-linux-gnu,      xcc: powerpc64-linux-gnu-gcc,      xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-latest, },
           { name: 'S390X',           xcc_pkg: gcc-s390x-linux-gnu,          xcc: s390x-linux-gnu-gcc,          xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-latest, },
           { name: 'MIPS',            xcc_pkg: gcc-mips-linux-gnu,           xcc: mips-linux-gnu-gcc,           xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-latest, },
+          { name: 'M68K',            xcc_pkg: gcc-m68k-linux-gnu,           xcc: m68k-linux-gnu-gcc,           xemu_pkg: qemu-system-m68k,  xemu: qemu-m68k-static,    os: ubuntu-latest, },
 
           { name: 'ARM, gcc-10',     xcc_pkg: gcc-10-arm-linux-gnueabi,     xcc: arm-linux-gnueabi-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
           { name: 'ARM64, gcc-10',   xcc_pkg: gcc-10-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
@@ -360,6 +361,11 @@ jobs:
 
     - name: MIPS (XXH_VECTOR=[ scalar ])
       if: ${{ matrix.name == 'MIPS' }}
+      run: |
+        LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
+
+    - name: M68K (XXH_VECTOR=[ scalar ])
+      if: ${{ matrix.name == 'M68K' }}
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 

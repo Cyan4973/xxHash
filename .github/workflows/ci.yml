@@ -253,6 +253,8 @@ jobs:
         cd build
         cmake ..
         CFLAGS=-Werror make
+        mkdir test_install_dir
+        DESTDIR=test_install_dir cmake --install .
 
 
   # Linux, { ARM, ARM64, PPC64LE, PPC64, S390X }

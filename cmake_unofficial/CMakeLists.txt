@@ -122,7 +122,7 @@ if(NOT XXHASH_BUNDLED_MODE)
     install(TARGETS xxhsum
       EXPORT xxHashTargets
       RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-    install(FILES "${XXHASH_DIR}/xxhsum.1"
+    install(FILES "${XXHSUM_DIR}/xxhsum.1"
       DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
   endif(XXHASH_BUILD_XXHSUM)
 

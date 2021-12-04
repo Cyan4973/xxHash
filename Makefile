@@ -457,6 +457,7 @@ endif
 
 INSTALL_PROGRAM ?= $(INSTALL)
 INSTALL_DATA    ?= $(INSTALL) -m 644
+INSTALL_DIR     ?= $(INSTALL) -d -m 755
 
 
 # Escape special symbols by putting each character into its separate class
@@ -496,7 +497,7 @@ libxxhash.pc: libxxhash.pc.in
 .PHONY: install
 install: lib libxxhash.pc xxhsum  ## install libraries, CLI, links and man page
 	@echo Installing libxxhash
-	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(LIBDIR)
+	$(Q)$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)
 	$(Q)$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
 	$(Q)$(INSTALL_PROGRAM) $(LIBXXH) $(DESTDIR)$(LIBDIR)
 	$(Q)ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
@@ -508,19 +509,20 @@ ifeq ($(DISPATCH),1)
 	$(Q)$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
 endif
 	@echo Installing pkgconfig
-	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(PKGCONFIGDIR)/
+	$(Q)$(INSTALL_DIR) $(DESTDIR)$(PKGCONFIGDIR)/
 	$(Q)$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
 	@echo Installing xxhsum
-	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)/ $(DESTDIR)$(MANDIR)/
+	$(Q)$(INSTALL_DIR) $(DESTDIR)$(BINDIR)/
 	$(Q)$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
 	@echo Installing man pages
+	$(Q)$(INSTALL_DIR) $(DESTDIR)$(MANDIR)/
 	$(Q)$(INSTALL_DATA) $(MAN) $(DESTDIR)$(MANDIR)/xxhsum.1
-	$(Q)ln -sf $(MAN) $(DESTDIR)$(MANDIR)/xxh32sum.1
-	$(Q)ln -sf $(MAN) $(DESTDIR)$(MANDIR)/xxh64sum.1
-	$(Q)ln -sf $(MAN) $(DESTDIR)$(MANDIR)/xxh128sum.1
+	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
+	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
+	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh128sum.1
 	@echo xxhash installation completed
 
 .PHONY: uninstall

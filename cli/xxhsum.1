@@ -1,14 +1,14 @@
-.TH "XXHSUM" "1" "November 2021" "xxhsum 0.8.1" "User Commands"
+.TH "XXHSUM" "1" "December 2021" "xxhsum 0.8.1" "User Commands"
 .SH "NAME"
 \fBxxhsum\fR \- print or check xxHash non\-cryptographic checksums
 .SH "SYNOPSIS"
 \fBxxhsum [<OPTION>] \|\.\|\.\|\. [<FILE>] \|\.\|\.\|\.\fR \fBxxhsum \-b [<OPTION>] \|\.\|\.\|\.\fR
 .P
-\fBxxh32sum\fR is equivalent to \fBxxhsum \-H0\fR \fBxxh64sum\fR is equivalent to \fBxxhsum \-H1\fR \fBxxh128sum\fR is equivalent to \fBxxhsum \-H2\fR
+\fBxxh32sum\fR is equivalent to \fBxxhsum \-H0\fR, \fBxxh64sum\fR is equivalent to \fBxxhsum \-H1\fR, \fBxxh128sum\fR is equivalent to \fBxxhsum \-H2\fR
 .SH "DESCRIPTION"
 Print or check xxHash (32, 64 or 128 bits) checksums\. When no \fIFILE\fR, read standard input, except if it\'s the console\. When \fIFILE\fR is \fB\-\fR, read standard input even if it\'s the console\.
 .P
-\fBxxhsum\fR supports a command line syntax similar but not identical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch (\fB\-b\fR, \fB\-t\fR); \fBxxhsum\fR always treats files as binary file; \fBxxhsum\fR has a hash bit width switch (\fB\-H\fR);
+\fBxxhsum\fR supports a command line syntax similar but not identical to md5sum(1)\. Differences are: \fBxxhsum\fR doesn\'t have text/binary mode switch (\fB\-b\fR, \fB\-t\fR); \fBxxhsum\fR always treats files as binary file; \fBxxhsum\fR has a hash selection switch (\fB\-H\fR);
 .P
 As xxHash is a fast non\-cryptographic checksum algorithm, \fBxxhsum\fR should not be used for security related purposes\.
 .P
@@ -19,7 +19,7 @@ As xxHash is a fast non\-cryptographic checksum algorithm, \fBxxhsum\fR should n
 Displays xxhsum version and exits
 .TP
 \fB\-H\fR\fIHASHTYPE\fR
-Hash selection\. \fIHASHTYPE\fR means \fB0\fR=XXH32, \fB1\fR=XXH64, \fB2\fR=XXH128, \fB3\fR=XXH3\. Alternatively, \fIHASHTYPE\fR \fB32\fR=XXH32, \fB64\fR=XXH64, \fB128\fR=XXH128\. Default value is \fB1\fR (64bits)
+Hash selection\. \fIHASHTYPE\fR means \fB0\fR=XXH32, \fB1\fR=XXH64, \fB2\fR=XXH128, \fB3\fR=XXH3\. Note that \fB\-H3\fR triggers \fB\-\-tag\fR, which can\'t be skipped (this is to reduce risks of confusion with \fB\-H2\fR (\fBXXH64\fR))\. Alternatively, \fIHASHTYPE\fR \fB32\fR=XXH32, \fB64\fR=XXH64, \fB128\fR=XXH128\. Default value is \fB1\fR (64bits)
 .TP
 \fB\-\-tag\fR
 Output in the BSD style\.

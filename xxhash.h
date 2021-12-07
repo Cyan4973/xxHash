@@ -1402,13 +1402,16 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
  */
 
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
-   /* prefer __packed__ structures (method 1) for gcc on armv7+ and mips */
+   /* prefer __packed__ structures (method 1) for gcc on armv7+, gcc arm without
+    * unaligned access, and mips */
 #  if !defined(__clang__) && \
 ( \
     (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
     ( \
         defined(__GNUC__) && ( \
-            (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || \
+            (defined(__ARM_ARCH) \
+                 && (__ARM_ARCH >= 7 || !defined(__ARM_FEATURE_UNALIGNED)) \
+            ) || \
             ( \
                 defined(__mips__) && \
                 (__mips <= 5 || __mips_isa_rev < 6) && \
@@ -3043,6 +3046,30 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 # endif
 
 /*!
+ * @internal
+ * @brief `vld1q_u64` but faster and alignment-safe.
+ *
+ * On AArch64, unaligned access is always safe, but on ARMv7-a, it is only
+ * *conditionally* safe (`vld1` has an alignment bit like `movdq[ua]` in x86).
+ *
+ * GCC for AArch64 sees `vld1q_u8` as an intrinsic instead of a load, so it
+ * prohibits load-store optimizations. Therefore, a direct dereference is used.
+ *
+ * Otherwise, `vld1q_u8` is used with `vreinterpretq_u8_u64` to do a safe
+ * unaligned load.
+ */
+#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__)
+XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr) /* silence -Wcast-align */
+{
+    return *(uint64x2_t const*)ptr;
+}
+#else
+XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
+{
+    return vreinterpretq_u64_u8(vld1q_u8((uint8_t const*)ptr));
+}
+#endif
+/*!
  * @ingroup tuning
  * @brief Controls the NEON to scalar ratio for XXH3
  *
@@ -3751,7 +3778,8 @@ XXH3_scalarRound(void* XXH_RESTRICT acc,
     XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
     {
         xxh_u64 const data_val = XXH_readLE64(xinput + 8*i);
-        xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + i*8);
+        xxh_u64 const key_val = XXH_readLE64(xsecret + i*8);
+        xxh_u64 const data_key = data_val ^ key_val;
         xacc[i ^ 1] += data_val; /* swap adjacent lanes */
         xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
     }
@@ -4117,31 +4145,33 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
         uint8_t const* const xsecret  = (const uint8_t *) secret;
 
         size_t i;
-        for (i=0; i < XXH3_NEON_LANES / 2; i++) {
-            /* data_vec = xinput[i]; */
-            uint8x16_t data_vec    = vld1q_u8(xinput  + (i * 16));
-            /* key_vec  = xsecret[i];  */
-            uint8x16_t key_vec     = vld1q_u8(xsecret + (i * 16));
-            uint64x2_t data_key;
-            uint32x2_t data_key_lo, data_key_hi;
-            /* xacc[i] += swap(data_vec); */
-            uint64x2_t const data64  = vreinterpretq_u64_u8(data_vec);
-            uint64x2_t const swapped = vextq_u64(data64, data64, 1);
-            xacc[i] = vaddq_u64 (xacc[i], swapped);
-            /* data_key = data_vec ^ key_vec; */
-            data_key = vreinterpretq_u64_u8(veorq_u8(data_vec, key_vec));
-            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF);
-             * data_key_hi = (uint32x2_t) (data_key >> 32);
-             * data_key = UNDEFINED; */
-            XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
-            /* xacc[i] += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
-            xacc[i] = vmlal_u32 (xacc[i], data_key_lo, data_key_hi);
-
-        }
         /* AArch64 uses both scalar and neon at the same time */
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarRound(acc, input, secret, i);
         }
+        for (i=0; i < XXH3_NEON_LANES / 2; i++) {
+            uint64x2_t acc_vec = xacc[i];
+            /* data_vec = xinput[i]; */
+            uint64x2_t data_vec = XXH_vld1q_u64(xinput  + (i * 16));
+            /* key_vec  = xsecret[i];  */
+            uint64x2_t key_vec  = XXH_vld1q_u64(xsecret + (i * 16));
+            uint64x2_t data_key;
+            uint32x2_t data_key_lo, data_key_hi;
+            /* acc_vec_2 = swap(data_vec) */
+            uint64x2_t acc_vec_2 = vextq_u64(data_vec, data_vec, 1);
+            /* data_key = data_vec ^ key_vec; */
+            data_key = veorq_u64(data_vec, key_vec);
+            /* data_key_lo = (uint32x2_t) (data_key & 0xFFFFFFFF);
+             * data_key_hi = (uint32x2_t) (data_key >> 32);
+             * data_key = UNDEFINED; */
+            XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
+            /* acc_vec_2 += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
+            acc_vec_2 = vmlal_u32 (acc_vec_2, data_key_lo, data_key_hi);
+            /* xacc[i] += acc_vec_2; */
+            acc_vec = vaddq_u64 (acc_vec, acc_vec_2);
+            xacc[i] = acc_vec;
+        }
+
     }
 }
 
@@ -4155,15 +4185,19 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         uint32x2_t prime       = vdup_n_u32 (XXH_PRIME32_1);
 
         size_t i;
+        /* AArch64 uses both scalar and neon at the same time */
+        for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
+            XXH3_scalarScrambleRound(acc, secret, i);
+        }
         for (i=0; i < XXH3_NEON_LANES / 2; i++) {
             /* xacc[i] ^= (xacc[i] >> 47); */
             uint64x2_t acc_vec  = xacc[i];
-            uint64x2_t shifted  = vshrq_n_u64 (acc_vec, 47);
-            uint64x2_t data_vec = veorq_u64   (acc_vec, shifted);
+            uint64x2_t shifted  = vshrq_n_u64   (acc_vec, 47);
+            uint64x2_t data_vec = veorq_u64     (acc_vec, shifted);
 
             /* xacc[i] ^= xsecret[i]; */
-            uint8x16_t key_vec  = vld1q_u8    (xsecret + (i * 16));
-            uint64x2_t data_key = veorq_u64   (data_vec, vreinterpretq_u64_u8(key_vec));
+            uint64x2_t key_vec  = XXH_vld1q_u64 (xsecret + (i * 16));
+            uint64x2_t data_key = veorq_u64     (data_vec, key_vec);
 
             /* xacc[i] *= XXH_PRIME32_1 */
             uint32x2_t data_key_lo, data_key_hi;
@@ -4191,15 +4225,12 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
                  */
                 uint64x2_t prod_hi = vmull_u32 (data_key_hi, prime);
                 /* xacc[i] = prod_hi << 32; */
-                xacc[i] = vshlq_n_u64(prod_hi, 32);
+                prod_hi = vshlq_n_u64(prod_hi, 32);
                 /* xacc[i] += (prod_hi & 0xFFFFFFFF) * XXH_PRIME32_1; */
-                xacc[i] = vmlal_u32(xacc[i], data_key_lo, prime);
+                xacc[i] = vmlal_u32(prod_hi, data_key_lo, prime);
             }
         }
-        /* AArch64 uses both scalar and neon at the same time */
-        for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
-            XXH3_scalarScrambleRound(acc, secret, i);
-        }
+
     }
 }
 
@@ -4283,6 +4314,13 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT secret)
 {
     size_t i;
+    /* ARM GCC refuses to unroll this loop, resulting in a 24% slowdown on ARMv6. */
+#if defined(__GNUC__) && !defined(__clang__) \
+  && (defined(__arm__) || defined(__thumb2__)) \
+  && defined(__ARM_FEATURE_UNALIGNED) /* no unaligned access just wastes bytes */ \
+  && !defined(__OPTIMIZE_SIZE__)
+#  pragma GCC unroll 8
+#endif
     for (i=0; i < XXH_ACC_NB; i++) {
         XXH3_scalarRound(acc, input, secret, i);
     }

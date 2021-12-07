@@ -1292,7 +1292,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
  *     Use `memcpy()`. Safe and portable. Note that most modern compilers will
  *     eliminate the function call and treat it as an unaligned access.
  *
- *  - `XXH_FORCE_MEMORY_ACCESS=1`: `__attribute__((packed))`
+ *  - `XXH_FORCE_MEMORY_ACCESS=1`: `__attribute__((aligned(1)))`
  *   @par
  *     Depends on compiler extensions and is therefore not portable.
  *     This method is safe _if_ your compiler supports it,
@@ -1403,20 +1403,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 
 #ifndef XXH_FORCE_MEMORY_ACCESS   /* can be defined externally, on command line for example */
    /* prefer __packed__ structures (method 1) for gcc on armv7+ and mips */
-#  if !defined(__clang__) && \
-( \
-    (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
-    ( \
-        defined(__GNUC__) && ( \
-            (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || \
-            ( \
-                defined(__mips__) && \
-                (__mips <= 5 || __mips_isa_rev < 6) && \
-                (!defined(__mips16) || defined(__mips_mips16e2)) \
-            ) \
-        ) \
-    ) \
-)
+#  ifdef __GNUC__
 #    define XXH_FORCE_MEMORY_ACCESS 1
 #  endif
 #endif
@@ -1665,18 +1652,19 @@ static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr;
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
 /*
- * __pack instructions are safer but compiler specific, hence potentially
- * problematic for some compilers.
- *
- * Currently only defined for GCC and ICC.
+ * __attribute__((aligned(1))) is supported by gcc and clang. Originally the
+ * documentation claimed that it only increased the alignment, but actually it
+ * can decrease it on gcc, clang, and icc:
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69502,
+ * https://gcc.godbolt.org/z/xYez1j67Y.
  */
 #ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; } __attribute__((packed)) unalign;
 #endif
 static xxh_u32 XXH_read32(const void* ptr)
 {
-    typedef union { xxh_u32 u32; } __attribute__((packed)) xxh_unalign;
-    return ((const xxh_unalign*)ptr)->u32;
+    typedef __attribute__((aligned(1))) xxh_u32 xxh_unalign32;
+    return *((const xxh_unalign32*)ptr);
 }
 
 #else
@@ -2306,18 +2294,19 @@ static xxh_u64 XXH_read64(const void* memPtr)
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==1))
 
 /*
- * __pack instructions are safer, but compiler specific, hence potentially
- * problematic for some compilers.
- *
- * Currently only defined for GCC and ICC.
+ * __attribute__((aligned(1))) is supported by gcc and clang. Originally the
+ * documentation claimed that it only increased the alignment, but actually it
+ * can decrease it on gcc, clang, and icc:
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69502,
+ * https://gcc.godbolt.org/z/xYez1j67Y.
  */
 #ifdef XXH_OLD_NAMES
 typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) unalign64;
 #endif
 static xxh_u64 XXH_read64(const void* ptr)
 {
-    typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) xxh_unalign64;
-    return ((const xxh_unalign64*)ptr)->u64;
+    typedef __attribute__((aligned(1))) xxh_u64 xxh_unalign64;
+    return *((const xxh_unalign64*)ptr);
 }
 
 #else

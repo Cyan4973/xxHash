@@ -978,7 +978,7 @@ struct XXH32_state_s {
    XXH32_hash_t v[4];         /*!< Accumulator lanes */
    XXH32_hash_t mem32[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[16]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem32 */
-   XXH32_hash_t reserved;     /*!< Reserved field. Do not read or write to it, it may be removed. */
+   XXH32_hash_t reserved;     /*!< Reserved field. Do not read nor write to it. */
 };   /* typedef'd to XXH32_state_t */
 
 
@@ -1002,7 +1002,7 @@ struct XXH64_state_s {
    XXH64_hash_t mem64[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[32]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem64 */
    XXH32_hash_t reserved32;   /*!< Reserved field, needed for padding anyways*/
-   XXH64_hash_t reserved64;   /*!< Reserved field. Do not read or write to it, it may be removed. */
+   XXH64_hash_t reserved64;   /*!< Reserved field. Do not read or write to it. */
 };   /* typedef'd to XXH64_state_t */
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* >= C11 */
@@ -2161,14 +2161,12 @@ XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t
 /*! @ingroup xxh32_family */
 XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t seed)
 {
-    XXH32_state_t state;   /* using a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state));
-    state.v[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
-    state.v[1] = seed + XXH_PRIME32_2;
-    state.v[2] = seed + 0;
-    state.v[3] = seed - XXH_PRIME32_1;
-    /* do not write into reserved, planned to be removed in a future version */
-    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved));
+    XXH_ASSERT(statePtr != NULL);
+    memset(statePtr, 0, sizeof(*statePtr));
+    statePtr->v[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+    statePtr->v[1] = seed + XXH_PRIME32_2;
+    statePtr->v[2] = seed + 0;
+    statePtr->v[3] = seed - XXH_PRIME32_1;
     return XXH_OK;
 }
 
@@ -2577,14 +2575,12 @@ XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t
 /*! @ingroup xxh64_family */
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t seed)
 {
-    XXH64_state_t state;   /* use a local state to memcpy() in order to avoid strict-aliasing warnings */
-    memset(&state, 0, sizeof(state));
-    state.v[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
-    state.v[1] = seed + XXH_PRIME64_2;
-    state.v[2] = seed + 0;
-    state.v[3] = seed - XXH_PRIME64_1;
-     /* do not write into reserved64, might be removed in a future version */
-    XXH_memcpy(statePtr, &state, sizeof(state) - sizeof(state.reserved64));
+    XXH_ASSERT(statePtr != NULL);
+    memset(statePtr, 0, sizeof(*statePtr));
+    statePtr->v[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
+    statePtr->v[1] = seed + XXH_PRIME64_2;
+    statePtr->v[2] = seed + 0;
+    statePtr->v[3] = seed - XXH_PRIME64_1;
     return XXH_OK;
 }
 
@@ -3073,15 +3069,38 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  * @ingroup tuning
  * @brief Controls the NEON to scalar ratio for XXH3
  *
- * On aarch64, it is beneficial to use both scalar *and* NEON code to utilize
- * both pipelines. This results in a ~15-30% speedup compared to pure NEON,
- * depending on the compiler.
+ * On AArch64 when not optimizing for size, XXH3 will run 6 lanes using NEON and
+ * 2 lanes on scalar by default.
  *
- * The default uses 6 lanes for NEON and 2 lanes for scalar.
+ * This can be set to 2, 4, 6, or 8. ARMv7 will default to all 8 NEON lanes, as the
+ * emulated 64-bit arithmetic is too slow.
  *
- * This is disabled for code size optimizations, and it does not benefit ARMv7.
+ * Modern ARM CPUs are _very_ sensitive to how their pipelines are used.
  *
- * Must be either 2, 4, 6, or 8.
+ * For example, the Cortex-A73 can dispatch 3 micro-ops per cycle, but it can't
+ * have more than 2 NEON (F0/F1) micro-ops. If you are only using NEON instructions,
+ * you are only using 2/3 of the CPU bandwidth.
+ *
+ * This is even more noticable on the more advanced cores like the A76 which
+ * can dispatch 8 micro-ops per cycle, but still only 2 NEON micro-ops at once.
+ *
+ * Therefore, @ref XXH3_NEON_LANES lanes will be processed using NEON, and the
+ * remaining lanes will use scalar instructions. This improves the bandwidth
+ * and also gives the integer pipelines something to do besides twiddling loop
+ * counters and pointers.
+ *
+ * This change benefits CPUs with large micro-op buffers without negatively affecting
+ * other CPUs:
+ *
+ *  | Chipset               | Dispatch type       | NEON only | 6:2 hybrid | Diff. |
+ *  |:----------------------|:--------------------|----------:|-----------:|------:|
+ *  | Snapdragon 730 (A76)  | 2 NEON/8 micro-ops  |  8.8 GB/s |  10.1 GB/s |  ~16% |
+ *  | Snapdragon 835 (A73)  | 2 NEON/3 micro-ops  |  5.1 GB/s |   5.3 GB/s |   ~5% |
+ *  | Marvell PXA1928 (A53) | In-order dual-issue |  1.9 GB/s |   1.9 GB/s |    0% |
+ *
+ * It also seems to fix some bad codegen on GCC, making it almost as fast as clang.
+ *
+ * @see XXH3_accumulate_512_neon()
  */
 # ifndef XXH3_NEON_LANES
 #  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
@@ -3761,54 +3780,6 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
  * Both XXH3_64bits and XXH3_128bits use this subroutine.
  */
 
-/*!
- * @internal
- * @brief Scalar round for @ref XXH3_accumulate_512_scalar.
- */
-XXH_FORCE_INLINE void
-XXH3_scalarRound(void* XXH_RESTRICT acc,
-                 void const* XXH_RESTRICT input,
-                 void const* XXH_RESTRICT secret,
-                 size_t i)
-{
-    xxh_u64* xacc = (xxh_u64*) acc;
-    xxh_u8 const* xinput = (xxh_u8 const*) input;
-    xxh_u8 const* xsecret = (xxh_u8 const *)secret;
-    XXH_ASSERT(i < XXH_ACC_NB);
-    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
-    {
-        xxh_u64 const data_val = XXH_readLE64(xinput + 8*i);
-        xxh_u64 const key_val = XXH_readLE64(xsecret + i*8);
-        xxh_u64 const data_key = data_val ^ key_val;
-        xacc[i ^ 1] += data_val; /* swap adjacent lanes */
-        xacc[i] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
-    }
-}
-
-/*!
- * @internal
- * @brief Scalar scramble step for @ref XXH3_scrambleAcc_scalar
- */
-
-XXH_FORCE_INLINE void
-XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
-                         void const* XXH_RESTRICT secret,
-                         size_t i)
-{
-    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
-    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
-    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
-    XXH_ASSERT(i < XXH_ACC_NB);
-    {
-        xxh_u64 const key64 = XXH_readLE64(xsecret + 8*i);
-        xxh_u64 acc64 = xacc[i];
-        acc64 = XXH_xorshift64(acc64, 47);
-        acc64 ^= key64;
-        acc64 *= XXH_PRIME32_1;
-        xacc[i] = acc64;
-    }
-}
-
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
 
@@ -4131,6 +4102,25 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 
 #if (XXH_VECTOR == XXH_NEON)
 
+/* forward declarations for the scalar routines */
+XXH_FORCE_INLINE void
+XXH3_scalarRound(void* XXH_RESTRICT acc, void const* XXH_RESTRICT input,
+                 void const* XXH_RESTRICT secret, size_t lane);
+
+XXH_FORCE_INLINE void
+XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
+                         void const* XXH_RESTRICT secret, size_t lane);
+
+/*!
+ * @internal
+ * @brief The bulk processing loop for NEON.
+ *
+ * The NEON code path is actually partially scalar when running on AArch64. This
+ * is to optimize the pipelining and can have up to 15% speedup depending on the
+ * CPU, and it also mitigates some GCC codegen issues.
+ *
+ * @see XXH3_NEON_LANES for configuring this and details about this optimization.
+ */
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
@@ -4230,7 +4220,6 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
                 xacc[i] = vmlal_u32(prod_hi, data_key_lo, prime);
             }
         }
-
     }
 }
 
@@ -4308,6 +4297,36 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 /* scalar variants - universal */
 
+/*!
+ * @internal
+ * @brief Scalar round for @ref XXH3_accumulate_512_scalar().
+ *
+ * This is extracted to its own function because the NEON path uses a combination
+ * of NEON and scalar.
+ */
+XXH_FORCE_INLINE void
+XXH3_scalarRound(void* XXH_RESTRICT acc,
+                 void const* XXH_RESTRICT input,
+                 void const* XXH_RESTRICT secret,
+                 size_t lane)
+{
+    xxh_u64* xacc = (xxh_u64*) acc;
+    xxh_u8 const* xinput  = (xxh_u8 const*) input;
+    xxh_u8 const* xsecret = (xxh_u8 const*) secret;
+    XXH_ASSERT(lane < XXH_ACC_NB);
+    XXH_ASSERT(((size_t)acc & (XXH_ACC_ALIGN-1)) == 0);
+    {
+        xxh_u64 const data_val = XXH_readLE64(xinput + lane * 8);
+        xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + lane * 8);
+        xacc[lane ^ 1] += data_val; /* swap adjacent lanes */
+        xacc[lane] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+    }
+}
+
+/*!
+ * @internal
+ * @brief Processes a 64 byte block of data using the scalar path.
+ */
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT input,
@@ -4326,6 +4345,36 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
     }
 }
 
+/*!
+ * @internal
+ * @brief Scalar scramble step for @ref XXH3_scrambleAcc_scalar().
+ *
+ * This is extracted to its own function because the NEON path uses a combination
+ * of NEON and scalar.
+ */
+XXH_FORCE_INLINE void
+XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
+                         void const* XXH_RESTRICT secret,
+                         size_t lane)
+{
+    xxh_u64* const xacc = (xxh_u64*) acc;   /* presumed aligned */
+    const xxh_u8* const xsecret = (const xxh_u8*) secret;   /* no alignment restriction */
+    XXH_ASSERT((((size_t)acc) & (XXH_ACC_ALIGN-1)) == 0);
+    XXH_ASSERT(lane < XXH_ACC_NB);
+    {
+        xxh_u64 const key64 = XXH_readLE64(xsecret + lane * 8);
+        xxh_u64 acc64 = xacc[lane];
+        acc64 = XXH_xorshift64(acc64, 47);
+        acc64 ^= key64;
+        acc64 *= XXH_PRIME32_1;
+        xacc[lane] = acc64;
+    }
+}
+
+/*!
+ * @internal
+ * @brief Scrambles the accumulators after a large chunk has been read
+ */
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc_scalar(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
@@ -4353,8 +4402,9 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      * placed sequentially, in order, at the top of the unrolled loop.
      *
      * While MOVK is great for generating constants (2 cycles for a 64-bit
-     * constant compared to 4 cycles for LDR), long MOVK chains stall the
-     * integer pipelines:
+     * constant compared to 4 cycles for LDR), it fights for bandwidth with
+     * the arithmetic instructions.
+     *
      *   I   L   S
      * MOVK
      * MOVK
@@ -4371,6 +4421,9 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      *  ADD LDR
      *  SUB     STR
      *          STR
+     *
+     * See XXH3_NEON_LANES for details on the pipsline.
+     *
      * XXH3_64bits_withSeed, len == 256, Snapdragon 835
      *   without hack: 2654.4 MB/s
      *   with hack:    3202.9 MB/s
@@ -5610,7 +5663,7 @@ XXH128_hashFromCanonical(const XXH128_canonical_t* src)
  */
 #define XXH_MIN(x, y) (((x) > (y)) ? (y) : (x))
 
-static void XXH3_combine16(void* dst, XXH128_hash_t h128)
+XXH_FORCE_INLINE void XXH3_combine16(void* dst, XXH128_hash_t h128)
 {
     XXH_writeLE64( dst, XXH_readLE64(dst) ^ h128.low64 );
     XXH_writeLE64( (char*)dst+8, XXH_readLE64((char*)dst+8) ^ h128.high64 );
@@ -5620,16 +5673,24 @@ static void XXH3_combine16(void* dst, XXH128_hash_t h128)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_generateSecret(void* secretBuffer, size_t secretSize, const void* customSeed, size_t customSeedSize)
 {
+#if (XXH_DEBUGLEVEL >= 1)
     XXH_ASSERT(secretBuffer != NULL);
-    if (secretBuffer == NULL) return XXH_ERROR;
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
+#else
+    /* production mode, assert() are disabled */
+    if (secretBuffer == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
+#endif
+
     if (customSeedSize == 0) {
         customSeed = XXH3_kSecret;
         customSeedSize = XXH_SECRET_DEFAULT_SIZE;
     }
+#if (XXH_DEBUGLEVEL >= 1)
     XXH_ASSERT(customSeed != NULL);
+#else
     if (customSeed == NULL) return XXH_ERROR;
+#endif
 
     /* Fill secretBuffer with a copy of customSeed - repeat as needed */
     {   size_t pos = 0;

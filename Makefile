@@ -332,14 +332,15 @@ c90test: xxhash.c
 	$(RM) xxhash.o
 endif
 
+.PHONY: noxxh3test
 noxxh3test: CPPFLAGS += -DXXH_NO_XXH3
 noxxh3test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+noxxh3test: OFILE = xxh_noxxh3.o
 noxxh3test: xxhash.c
 	@echo ---- test compilation without XXH3 ----
-	$(RM) xxhash.o
-	$(CC) $(FLAGS) $^ -c
-	$(NM) xxhash.o | $(GREP) XXH3_ ; test $$? -eq 1
-	$(RM) xxhash.o
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
+	$(RM) $(OFILE)
 
 .PHONY: usan
 usan: CC=clang
@@ -387,7 +388,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools
+test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test
 
 .PHONY: test-inline
 test-inline:

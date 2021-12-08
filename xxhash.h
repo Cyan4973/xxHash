@@ -1449,6 +1449,22 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
+#if defined(XXH_NO_STDLIB)
+
+/* When requesting to disable any mention of stdlib,
+ * the library loses the ability to invoked malloc / free.
+ * In practice, it means that functions like `XXH*_createState()`
+ * will always fail, and return NULL.
+ * This flag is useful in situations where
+ * xxhash.h is integrated into some kernel, embedded or limited environment
+ * without access to dynamic allocation.
+ */
+
+static void* XXH_malloc(size_t s) { (void)s; return NULL; }
+static void XXH_free(void* p) { (void)p; }
+
+#else
+
 /*
  * Modify the local functions below should you wish to use
  * different memory routines for malloc() and free()
@@ -1466,6 +1482,8 @@ static void* XXH_malloc(size_t s) { return malloc(s); }
  * @brief Modify this function to use a different routine than free().
  */
 static void XXH_free(void* p) { free(p); }
+
+#endif  /* XXH_NO_STDLIB */
 
 #include <string.h>
 

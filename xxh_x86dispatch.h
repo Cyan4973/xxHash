@@ -1,6 +1,6 @@
 /*
  * xxHash - XXH3 Dispatcher for x86-based targets
- * Copyright (C) 2020 Yann Collet
+ * Copyright (C) 2020-2021 Yann Collet
  *
  * BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
  *

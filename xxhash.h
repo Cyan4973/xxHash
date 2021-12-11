@@ -323,9 +323,11 @@ extern "C" {
 #endif
 
 #if defined (__GNUC__)
-# define XXH_CONSTF __attribute__((const))
+# define XXH_CONSTF  __attribute__((const))
+# define XXH_MALLOCF __attribute__((malloc))
 #else
 # define XXH_CONSTF  /* disable */
+# define XXH_MALLOCF
 #endif
 
 /* *************************************
@@ -489,7 +491,7 @@ typedef struct XXH32_state_s XXH32_state_t;
  * Must be freed with XXH32_freeState().
  * @return An allocated XXH32_state_t on success, `NULL` on failure.
  */
-XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
+XXH_PUBLIC_API XXH_MALLOCF XXH32_state_t* XXH32_createState(void);
 /*!
  * @brief Frees an @ref XXH32_state_t.
  *
@@ -726,7 +728,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64(const void* input, size_t length, XXH64_hash_t
  * @see XXH64_state_s for details.
  */
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
-XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void);
+XXH_PUBLIC_API XXH_MALLOCF XXH64_state_t* XXH64_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
 XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state, const XXH64_state_t* src_state);
 
@@ -847,7 +849,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len,
  * @see XXH3_state_s for details.
  */
 typedef struct XXH3_state_s XXH3_state_t;
-XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void);
+XXH_PUBLIC_API XXH_MALLOCF XXH3_state_t* XXH3_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
 XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
 
@@ -1471,7 +1473,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
  * without access to dynamic allocation.
  */
 
-static void* XXH_malloc(size_t s) { (void)s; return NULL; }
+static XXH_CONSTF void* XXH_malloc(size_t s) { (void)s; return NULL; }
 static void XXH_free(void* p) { (void)p; }
 
 #else
@@ -1486,7 +1488,7 @@ static void XXH_free(void* p) { (void)p; }
  * @internal
  * @brief Modify this function to use a different routine than malloc().
  */
-static void* XXH_malloc(size_t s) { return malloc(s); }
+static XXH_MALLOCF void* XXH_malloc(size_t s) { return malloc(s); }
 
 /*!
  * @internal
@@ -4796,7 +4798,7 @@ XXH3_64bits_withSecretandSeed(const void* input, size_t len, const void* secret,
  *
  * Align must be a power of 2 and 8 <= align <= 128.
  */
-static void* XXH_alignedMalloc(size_t s, size_t align)
+static XXH_MALLOCF void* XXH_alignedMalloc(size_t s, size_t align)
 {
     XXH_ASSERT(align <= 128 && align >= 8); /* range check */
     XXH_ASSERT((align & (align-1)) == 0);   /* power of 2 */

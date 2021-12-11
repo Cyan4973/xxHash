@@ -4629,13 +4629,19 @@ XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT input, size_t len,
     return XXH3_hashLong_64b_internal(input, len, secret, secretLen, XXH3_accumulate_512, XXH3_scrambleAcc);
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define XXH_PURE __attribute__((pure))
+#else
+#  define XXH_PURE
+#endif
+
 /*
  * It's preferable for performance that XXH3_hashLong is not inlined,
  * as it results in a smaller function for small data, easier to the instruction cache.
  * Note that inside this no_inline function, we do inline the internal loop,
  * and provide a statically defined secret size to allow optimization of vector loop.
  */
-XXH_NO_INLINE XXH64_hash_t
+XXH_NO_INLINE XXH64_hash_t XXH_PURE
 XXH3_hashLong_64b_default(const void* XXH_RESTRICT input, size_t len,
                           XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {

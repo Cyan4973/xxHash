@@ -342,6 +342,16 @@ noxxh3test: xxhash.c
 	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
 	$(RM) $(OFILE)
 
+.PHONY: nostdlibtest
+nostdlibtest: CPPFLAGS += -DXXH_NO_STDLIB
+nostdlibtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+nostdlibtest: OFILE = xxh_nostdlib.o
+nostdlibtest: xxhash.c
+	@echo ---- test compilation without \<stdlib.h\> ----
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) "U _free" ; test $$? -eq 1
+	$(RM) $(OFILE)
+
 .PHONY: usan
 usan: CC=clang
 usan: CXX=clang++
@@ -388,7 +398,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test
+test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test nostdlibtest
 
 .PHONY: test-inline
 test-inline:

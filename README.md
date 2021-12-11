@@ -121,6 +121,11 @@ The following macros can be set at compilation time to modify libxxhash's behavi
 - `XXH32_ENDJMP`: Switch multi-branch finalization stage of XXH32 by a single jump.
                   This is generally undesirable for performance, especially when hashing inputs of random sizes.
                   But depending on exact architecture and compiler, a jump might provide slightly better performance on small inputs. Disabled by default.
+- `XXH_NO_STDLIB`: Disable invocation of `<stdlib.h>` functions, notably `malloc()` and `free()`.
+                   `libxxhash`'s `XXH*_createState()` will always fail and return `NULL`.
+                   But one-shot hashing (like `XXH32()`) or streaming using statically allocated states
+                   still work as expected.
+                   This build flag is useful for embedded environments without dynamic allocation.
 - `XXH_STATIC_LINKING_ONLY`: gives access to internal state declaration, required for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.

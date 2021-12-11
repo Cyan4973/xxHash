@@ -898,7 +898,7 @@ static int XSUM_usage_advanced(const char* exename)
     XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
     XSUM_log( "  -b                   Run benchmark \n");
     XSUM_log( "  -b#                  Bench only algorithm variant # \n");
-    XSUM_log( "  -i#                  Number of times to run the benchmark (default: %u) \n", NBLOOPS_DEFAULT);
+    XSUM_log( "  -i#                  Number of times to run the benchmark (default: %i) \n", NBLOOPS_DEFAULT);
     XSUM_log( "  -q, --quiet          Don't display version header in benchmark mode \n");
     XSUM_log( "\n");
     XSUM_log( "The following four options are useful only when verifying checksums (-c): \n");

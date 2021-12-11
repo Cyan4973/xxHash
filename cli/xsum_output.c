@@ -23,6 +23,7 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
+#include "xsum_output.h"
 #include "xsum_os_specific.h"  /* XSUM_API */
 
 int XSUM_logLevel = 2;

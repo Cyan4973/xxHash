@@ -349,7 +349,7 @@ nostdlibtest: OFILE = xxh_nostdlib.o
 nostdlibtest: xxhash.c
 	@echo ---- test compilation without \<stdlib.h\> ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
-	$(NM) $(OFILE) | $(GREP) "U _free" ; test $$? -eq 1
+	$(NM) $(OFILE) | $(GREP) "U _free\|U free" ; test $$? -eq 1
 	$(RM) $(OFILE)
 
 .PHONY: usan

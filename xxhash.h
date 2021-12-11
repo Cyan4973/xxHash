@@ -227,18 +227,6 @@ extern "C" {
  * Contains details on the public xxHash functions.
  * @{
  */
-/* specific declaration modes for Windows */
-#if !defined(XXH_INLINE_ALL) && !defined(XXH_PRIVATE_API)
-#  if defined(WIN32) && defined(_MSC_VER) && (defined(XXH_IMPORT) || defined(XXH_EXPORT))
-#    ifdef XXH_EXPORT
-#      define XXH_PUBLIC_API __declspec(dllexport)
-#    elif XXH_IMPORT
-#      define XXH_PUBLIC_API __declspec(dllimport)
-#    endif
-#  else
-#    define XXH_PUBLIC_API   /* do nothing */
-#  endif
-#endif
 
 #ifdef XXH_DOXYGEN
 /*!
@@ -318,6 +306,29 @@ extern "C" {
 
 
 /* *************************************
+*  Compiler specifics
+***************************************/
+
+/* specific declaration modes for Windows */
+#if !defined(XXH_INLINE_ALL) && !defined(XXH_PRIVATE_API)
+#  if defined(WIN32) && defined(_MSC_VER) && (defined(XXH_IMPORT) || defined(XXH_EXPORT))
+#    ifdef XXH_EXPORT
+#      define XXH_PUBLIC_API __declspec(dllexport)
+#    elif XXH_IMPORT
+#      define XXH_PUBLIC_API __declspec(dllimport)
+#    endif
+#  else
+#    define XXH_PUBLIC_API   /* do nothing */
+#  endif
+#endif
+
+#if defined (__GNUC__)
+# define XXH_CONSTF __attribute__((const))
+#else
+# define XXH_CONSTF  /* disable */
+#endif
+
+/* *************************************
 *  Version
 ***************************************/
 #define XXH_VERSION_MAJOR    0
@@ -333,7 +344,7 @@ extern "C" {
  *
  * @return `XXH_VERSION_NUMBER` of the invoked library.
  */
-XXH_PUBLIC_API unsigned XXH_versionNumber (void);
+XXH_PUBLIC_API XXH_CONSTF unsigned XXH_versionNumber (void);
 
 
 /* ****************************

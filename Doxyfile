@@ -42,6 +42,9 @@ PREDEFINED             = "XXH_DOXYGEN=" \
                          "XSUM_API=" \
                          "XXH_STATIC_LINKING_ONLY" \
                          "XXH_IMPLEMENTATION" \
+                         "XXH_PUREF=[[gnu::pure]]" \
+                         "XXH_CONSTF=[[gnu::const]]" \
+                         "XXH_MALLOCF=[[gnu::malloc]]" \
                          "XXH_ALIGN(N)=alignas(N)" \
                          "XXH_ALIGN_MEMBER(align,type)=alignas(align) type"
 

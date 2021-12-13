@@ -36,7 +36,7 @@
 /*!
  * @file xxh_x86dispatch.c
  *
- * Automatic dispatcher code for the @ref xxh3_family on x86-based targets.
+ * Automatic dispatcher code for the @ref XXH3_family on x86-based targets.
  *
  * Optional add-on.
  *
@@ -316,7 +316,7 @@ static xxh_u64 XXH_xgetbv(void)
  *
  * Runs various CPUID/XGETBV tests to try and determine the best implementation.
  *
- * @ret The best @ref XXH_VECTOR implementation.
+ * @return The best @ref XXH_VECTOR implementation.
  * @see XXH_VECTOR_TYPES
  */
 static int XXH_featureTest(void)

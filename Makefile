@@ -505,11 +505,14 @@ libxxhash.pc: libxxhash.pc.in
           $< > $@
 
 
-.PHONY: install
-install: lib libxxhash.pc xxhsum  ## install libraries, CLI, links and man page
-	@echo Installing libxxhash
+install_libxxhash.a: libxxhash.a
+	@echo Installing libxxhash.a
 	$(Q)$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)
 	$(Q)$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
+
+install_libxxhash: libxxhash
+	@echo Installing libxxhash
+	$(Q)$(INSTALL_DIR) $(DESTDIR)$(LIBDIR)
 	$(Q)$(INSTALL_PROGRAM) $(LIBXXH) $(DESTDIR)$(LIBDIR)
 	$(Q)ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT_MAJOR)
 	$(Q)ln -sf $(LIBXXH) $(DESTDIR)$(LIBDIR)/libxxhash.$(SHARED_EXT)
@@ -519,21 +522,30 @@ install: lib libxxhash.pc xxhsum  ## install libraries, CLI, links and man page
 ifeq ($(DISPATCH),1)
 	$(Q)$(INSTALL_DATA) xxh_x86dispatch.h $(DESTDIR)$(INCLUDEDIR)
 endif
+
+install_libxxhash.pc: libxxhash.pc
 	@echo Installing pkgconfig
 	$(Q)$(INSTALL_DIR) $(DESTDIR)$(PKGCONFIGDIR)/
 	$(Q)$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
+
+install_xxhsum: xxhsum
 	@echo Installing xxhsum
 	$(Q)$(INSTALL_DIR) $(DESTDIR)$(BINDIR)/
 	$(Q)$(INSTALL_PROGRAM) xxhsum $(DESTDIR)$(BINDIR)/xxhsum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
+
+install_man:
 	@echo Installing man pages
 	$(Q)$(INSTALL_DIR) $(DESTDIR)$(MANDIR)/
 	$(Q)$(INSTALL_DATA) $(MAN) $(DESTDIR)$(MANDIR)/xxhsum.1
 	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh32sum.1
 	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh64sum.1
 	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh128sum.1
+
+.PHONY: install
+install: install_libxxhash.a install_libxxhash install_libxxhash.pc install_xxhsum install_man ## install libraries, CLI, links and man page
 	@echo xxhash installation completed
 
 .PHONY: uninstall

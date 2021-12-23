@@ -342,6 +342,16 @@ noxxh3test: xxhash.c
 	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
 	$(RM) $(OFILE)
 
+.PHONY: nostreamtest
+nostreamtest: CPPFLAGS += -DXXH_NO_STREAM
+nostreamtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+nostreamtest: OFILE = xxh_nostream.o
+nostreamtest: xxhash.c
+	@echo ---- test compilation without streaming ----
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) update ; test $$? -eq 1
+	$(RM) $(OFILE)
+
 .PHONY: nostdlibtest
 nostdlibtest: CPPFLAGS += -DXXH_NO_STDLIB
 nostdlibtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support

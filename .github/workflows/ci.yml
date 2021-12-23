@@ -139,10 +139,21 @@ jobs:
       run: |
         CFLAGS="-Wall -Wextra -Werror" make DISPATCH=1 clean default
 
+    - name: XXH_SIZE_OPT == 2
+      if: always()
+      run: |
+        CFLAGS="-Os -DXXH_SIZE_OPT=2 -Wall -Wextra -Werror" make clean xxhsum
+
     - name: noxxh3test
       if: always()
       run: |
         # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
+        make clean noxxh3test
+
+    - name: nostreamtest
+      if: always()
+      run: |
+        # check library can be compiled with XXH_NO_STREAM, resulting in no streaming symbols
         make clean noxxh3test
 
     - name: make avx512f

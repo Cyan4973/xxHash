@@ -3365,6 +3365,7 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
 #    if defined(__GNUC__) && !defined(__APPLE_ALTIVEC__)
 #      define __APPLE_ALTIVEC__
 #    endif
+#    define vector __vector
 #    include <altivec.h>
 #  endif
 

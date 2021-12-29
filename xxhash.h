@@ -3512,7 +3512,9 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
 #if defined(XXH_NO_PREFETCH)
 #  define XXH_PREFETCH(ptr)  (void)(ptr)  /* disabled */
 #else
-#  if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))  /* _mm_prefetch() not defined outside of x86/x64 */
+#  if XXH_SIZE_OPT >= 1
+#    define XXH_PREFETCH(ptr) (void)(ptr)
+#  elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))  /* _mm_prefetch() not defined outside of x86/x64 */
 #    include <mmintrin.h>   /* https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx */
 #    define XXH_PREFETCH(ptr)  _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
 #  elif defined(__GNUC__) && ( (__GNUC__ >= 4) || ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 1) ) )
@@ -3941,6 +3943,14 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(16 < len && len <= 128);
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
+#if XXH_SIZE_OPT >= 1
+        /* Smaller and cleaner, but slightly slower. */
+        size_t i = (len - 1) / 32;
+        do {
+            acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
+            acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
+        } while (i-- != 0);
+#else
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
@@ -3955,7 +3965,7 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         }
         acc += XXH3_mix16B(input+0, secret+0, seed);
         acc += XXH3_mix16B(input+len-16, secret+16, seed);
-
+#endif
         return XXH3_avalanche(acc);
     }
 }
@@ -4960,10 +4970,12 @@ XXH3_hashLong_64b_withSeed_internal(const void* input, size_t len,
                                     XXH3_f_scrambleAcc f_scramble,
                                     XXH3_f_initCustomSecret f_initSec)
 {
+#if XXH_SIZE_OPT <= 0
     if (seed == 0)
         return XXH3_hashLong_64b_internal(input, len,
                                           XXH3_kSecret, sizeof(XXH3_kSecret),
                                           f_acc512, f_scramble);
+#endif
     {   XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
         f_initSec(secret, seed);
         return XXH3_hashLong_64b_internal(input, len, secret, sizeof(secret),
@@ -5012,7 +5024,6 @@ XXH3_64bits_internal(const void* XXH_RESTRICT input, size_t len,
 
 /* ===   Public entry point   === */
 
-/* TODO: streaming single shot XXH3? */
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t length)
 {
@@ -5231,7 +5242,7 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
 }
 
 #ifndef XXH3_STREAM_USE_STACK
-# ifndef __clang__ /* clang doesn't need additional stack space */
+# if XXH_SIZE_OPT <= 0 && !defined(__clang__) /* clang doesn't need additional stack space */
 #   define XXH3_STREAM_USE_STACK 1
 # endif
 #endif
@@ -5606,6 +5617,16 @@ XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     {   XXH128_hash_t acc;
         acc.low64 = len * XXH_PRIME64_1;
         acc.high64 = 0;
+
+#if XXH_SIZE_OPT >= 1
+        {
+            /* Smaller, but slightly slower. */
+            size_t i = (len - 1) / 32;
+            do {
+                acc = XXH128_mix32B(acc, input+16*i, input+len-16*(i+1), secret+32*i, seed);
+            } while (i-- != 0);
+        }
+#else
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
@@ -5616,6 +5637,7 @@ XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
             acc = XXH128_mix32B(acc, input+16, input+len-32, secret+32, seed);
         }
         acc = XXH128_mix32B(acc, input, input+len-16, secret, seed);
+#endif
         {   XXH128_hash_t h128;
             h128.low64  = acc.low64 + acc.high64;
             h128.high64 = (acc.low64    * XXH_PRIME64_1)

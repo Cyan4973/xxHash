@@ -1632,7 +1632,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 
 /*!
  * @def XXH_NO_STREAM
- * @brief Disablea the streaming API.
+ * @brief Disables the streaming API.
  *
  * When xxHash is not inlined and the streaming functions are not used, disabling
  * the streaming functions can improve code size significantly, especially with

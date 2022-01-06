@@ -547,6 +547,7 @@ typedef uint32_t XXH32_hash_t;
  */
 XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32 (const void* input, size_t length, XXH32_hash_t seed);
 
+#ifndef XXH_NO_STREAM
 /*!
  * Streaming functions generate the xxHash value from an incremental input.
  * This method is slower than single-call functions, due to state management.
@@ -655,6 +656,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* 
  * @return The calculated xxHash32 value from that state.
  */
 XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_digest (const XXH32_state_t* statePtr);
+#endif /* !XXH_NO_STREAM */
 
 /*******   Canonical representation   *******/
 
@@ -814,6 +816,7 @@ typedef uint64_t XXH64_hash_t;
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64(const void* input, size_t length, XXH64_hash_t seed);
 
 /*******   Streaming   *******/
+#ifndef XXH_NO_STREAM
 /*!
  * @brief The opaque state struct for the XXH64 streaming API.
  *
@@ -827,7 +830,7 @@ XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state, const XXH64_state_
 XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_digest (const XXH64_state_t* statePtr);
-
+#endif /* !XXH_NO_STREAM */
 /*******   Canonical representation   *******/
 typedef struct { unsigned char digest[sizeof(XXH64_hash_t)]; } XXH64_canonical_t;
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
@@ -949,6 +952,7 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSecret(const void* data, s
 
 
 /*******   Streaming   *******/
+#ifndef XXH_NO_STREAM
 /*
  * Streaming requires state maintenance.
  * This operation costs memory and CPU.
@@ -991,6 +995,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr
 
 XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
+#endif /* !XXH_NO_STREAM */
 
 /* note : canonical representation of XXH3 is the same as XXH64
  * since they both produce XXH64_hash_t values */
@@ -1035,6 +1040,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSeed(const void* data, s
 XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
 
 /*******   Streaming   *******/
+#ifndef XXH_NO_STREAM
 /*
  * Streaming requires state maintenance.
  * This operation costs memory and CPU.
@@ -1053,6 +1059,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH3_state_t* statePt
 
 XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
 XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
+#endif /* !XXH_NO_STREAM */
 
 /* Following helper functions make it possible to compare XXH128_hast_t values.
  * Since XXH128_hash_t is a structure, this capability is not offered by the language.
@@ -1398,6 +1405,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t
 XXH3_128bits_withSecretandSeed(const void* input, size_t length,
                                const void* secret, size_t secretSize,
                                XXH64_hash_t seed64);
+#ifndef XXH_NO_STREAM
 /*! @copydoc XXH3_64bits_withSecretandSeed() */
 XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
@@ -1408,7 +1416,7 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
                                      const void* secret, size_t secretSize,
                                      XXH64_hash_t seed64);
-
+#endif /* !XXH_NO_STREAM */
 
 #endif  /* !XXH_NO_XXH3 */
 #endif  /* XXH_NO_LONG_LONG */
@@ -1521,6 +1529,34 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 #  define XXH_FORCE_MEMORY_ACCESS 0
 
 /*!
+ * @def XXH_SIZE_OPT
+ * @brief Controls how much xxHash optimizes for size.
+ *
+ * xxHash, when compiled, tends to result in a rather large binary size. This
+ * is mostly due to heavy usage to forced inlining and constant folding of the
+ * @ref XXH3_family to increase performance.
+ *
+ * However, some developers prefer size over speed. This option can
+ * significantly reduce the size of the generated code. When using the `-Os`
+ * or `-Oz` options on GCC or Clang, this is defined to 1 by default,
+ * otherwise it is defined to 0.
+ *
+ * Most of these size optimizations can be controlled manually.
+ *
+ * This is a number from 0-2.
+ *  - `XXH_SIZE_OPT` == 0: Default. xxHash makes no size optimizations. Speed
+ *    comes first.
+ *  - `XXH_SIZE_OPT` == 1: Default for `-Os` and `-Oz`. xxHash is more
+ *    conservative and disables hacks that increase code size. It implies the
+ *    options @ref XXH_NO_INLINE_HINTS == 1, @ref XXH_FORCE_ALIGN_CHECK == 0,
+ *    and @ref XXH3_NEON_LANES == 8 if they are not already defined.
+ *  - `XXH_SIZE_OPT` == 2: xxHash tries to make itself as small as possible.
+ *    Performance may cry. For example, the single shot functions just use the
+ *    streaming API.
+ */
+#  define XXH_SIZE_OPT 0
+
+/*!
  * @def XXH_FORCE_ALIGN_CHECK
  * @brief If defined to non-zero, adds a special path for aligned inputs (XXH32()
  * and XXH64() only).
@@ -1541,8 +1577,10 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
  *
  * In these cases, the alignment check can be removed by setting this macro to 0.
  * Then the code will always use unaligned memory access.
- * Align check is automatically disabled on x86, x64 & arm64,
+ * Align check is automatically disabled on x86, x64, ARM64, and some ARM chips
  * which are platforms known to offer good unaligned memory accesses performance.
+ *
+ * It is also disabled by default when @ref XXH_SIZE_OPT >= 1.
  *
  * This option does not affect XXH3 (only XXH32 and XXH64).
  */
@@ -1565,8 +1603,8 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
  * XXH_NO_INLINE_HINTS marks all internal functions as static, giving the
  * compiler full control on whether to inline or not.
  *
- * When not optimizing (-O0), optimizing for size (-Os, -Oz), or using
- * -fno-inline with GCC or Clang, this will automatically be defined.
+ * When not optimizing (-O0), using `-fno-inline` with GCC or Clang, or if
+ * @ref XXH_SIZE_OPT >= 1, this will automatically be defined.
  */
 #  define XXH_NO_INLINE_HINTS 0
 
@@ -1591,6 +1629,17 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
  */
 #  define XXH_OLD_NAMES
 #  undef XXH_OLD_NAMES /* don't actually use, it is ugly. */
+
+/*!
+ * @def XXH_NO_STREAM
+ * @brief Disables the streaming API.
+ *
+ * When xxHash is not inlined and the streaming functions are not used, disabling
+ * the streaming functions can improve code size significantly, especially with
+ * the @ref XXH3_family which tends to make constant folded copies of itself.
+ */
+#  define XXH_NO_STREAM
+#  undef XXH_NO_STREAM /* don't actually */
 #endif /* XXH_DOXYGEN */
 /*!
  * @}
@@ -1605,9 +1654,19 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 #  endif
 #endif
 
+#ifndef XXH_SIZE_OPT
+   /* default to 1 for -Os or -Oz */
+#  if (defined(__GNUC__) || defined(__clang__)) && defined(__OPTIMIZE_SIZE__)
+#    define XXH_SIZE_OPT 1
+#  else
+#    define XXH_SIZE_OPT 0
+#  endif
+#endif
+
 #ifndef XXH_FORCE_ALIGN_CHECK  /* can be defined externally */
-   /* don't check on x86, aarch64, or arm when unaligned access is available */
-#  if defined(__i386)  || defined(__x86_64__) || defined(__aarch64__) || defined(__ARM_FEATURE_UNALIGNED) \
+   /* don't check on sizeopt, x86, aarch64, or arm when unaligned access is available */
+#  if XXH_SIZE_OPT >= 1 || \
+      defined(__i386)  || defined(__x86_64__) || defined(__aarch64__) || defined(__ARM_FEATURE_UNALIGNED) \
    || defined(_M_IX86) || defined(_M_X64)     || defined(_M_ARM64)    || defined(_M_ARM) /* visual */
 #    define XXH_FORCE_ALIGN_CHECK 0
 #  else
@@ -1616,8 +1675,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 #endif
 
 #ifndef XXH_NO_INLINE_HINTS
-#  if defined(__OPTIMIZE_SIZE__) /* -Os, -Oz */ \
-   || defined(__NO_INLINE__)     /* -O0, -fno-inline */
+#  if XXH_SIZE_OPT >= 1 || defined(__NO_INLINE__)  /* -O0, -fno-inline */
 #    define XXH_NO_INLINE_HINTS 1
 #  else
 #    define XXH_NO_INLINE_HINTS 0
@@ -1638,7 +1696,9 @@ XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
-#if defined(XXH_NO_STDLIB)
+#if defined(XXH_NO_STREAM)
+/* nothing */
+#elif defined(XXH_NO_STDLIB)
 
 /* When requesting to disable any mention of stdlib,
  * the library loses the ability to invoked malloc / free.
@@ -2322,7 +2382,7 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)
 {
-#if 0
+#if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH32_state_t state;
     XXH32_reset(&state, seed);
@@ -2341,6 +2401,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t s
 
 
 /*******   Hash streaming   *******/
+#ifndef XXH_NO_STREAM
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 {
@@ -2445,7 +2506,7 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 
     return XXH32_finalize(h32, (const xxh_u8*)state->mem32, state->memsize, XXH_aligned);
 }
-
+#endif /* !XXH_NO_STREAM */
 
 /*******   Canonical representation   *******/
 
@@ -2764,7 +2825,7 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
 /*! @ingroup XXH64_family */
 XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, XXH64_hash_t seed)
 {
-#if 0
+#if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH64_state_t state;
     XXH64_reset(&state, seed);
@@ -2782,7 +2843,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, XXH64_hash_t s
 }
 
 /*******   Hash Streaming   *******/
-
+#ifndef XXH_NO_STREAM
 /*! @ingroup XXH64_family*/
 XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 {
@@ -2884,7 +2945,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* state)
 
     return XXH64_finalize(h64, (const xxh_u8*)state->mem64, (size_t)state->total_len, XXH_aligned);
 }
-
+#endif /* !XXH_NO_STREAM */
 
 /******* Canonical representation   *******/
 
@@ -3163,7 +3224,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
  */
 #if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
   && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
-  && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
+  && defined(__OPTIMIZE__) && XXH_SIZE_OPT <= 0 /* respect -O0 and -Os */
 #  pragma GCC push_options
 #  pragma GCC optimize("-O2")
 #endif
@@ -3333,7 +3394,7 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  */
 # ifndef XXH3_NEON_LANES
 #  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
-   && !defined(__OPTIMIZE_SIZE__)
+   && XXH_SIZE_OPT <= 0
 #   define XXH3_NEON_LANES 6
 #  else
 #   define XXH3_NEON_LANES XXH_ACC_NB
@@ -3460,7 +3521,9 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
 #if defined(XXH_NO_PREFETCH)
 #  define XXH_PREFETCH(ptr)  (void)(ptr)  /* disabled */
 #else
-#  if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))  /* _mm_prefetch() not defined outside of x86/x64 */
+#  if XXH_SIZE_OPT >= 1
+#    define XXH_PREFETCH(ptr) (void)(ptr)
+#  elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))  /* _mm_prefetch() not defined outside of x86/x64 */
 #    include <mmintrin.h>   /* https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx */
 #    define XXH_PREFETCH(ptr)  _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
 #  elif defined(__GNUC__) && ( (__GNUC__ >= 4) || ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 1) ) )
@@ -3889,6 +3952,14 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(16 < len && len <= 128);
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
+#if XXH_SIZE_OPT >= 1
+        /* Smaller and cleaner, but slightly slower. */
+        size_t i = (len - 1) / 32;
+        do {
+            acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
+            acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
+        } while (i-- != 0);
+#else
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
@@ -3903,7 +3974,7 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         }
         acc += XXH3_mix16B(input+0, secret+0, seed);
         acc += XXH3_mix16B(input+len-16, secret+16, seed);
-
+#endif
         return XXH3_avalanche(acc);
     }
 }
@@ -4576,7 +4647,7 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
 #if defined(__GNUC__) && !defined(__clang__) \
   && (defined(__arm__) || defined(__thumb2__)) \
   && defined(__ARM_FEATURE_UNALIGNED) /* no unaligned access just wastes bytes */ \
-  && !defined(__OPTIMIZE_SIZE__)
+  && XXH_SIZE_OPT <= 0
 #  pragma GCC unroll 8
 #endif
     for (i=0; i < XXH_ACC_NB; i++) {
@@ -4735,7 +4806,10 @@ typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
 
 #endif
 
-
+#if XXH_SIZE_OPT >= 1 /* don't do SIMD for initialization */
+#  undef XXH3_initCustomSecret
+#  define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
+#endif
 
 #ifndef XXH_PREFETCH_DIST
 #  ifdef __clang__
@@ -4905,10 +4979,12 @@ XXH3_hashLong_64b_withSeed_internal(const void* input, size_t len,
                                     XXH3_f_scrambleAcc f_scramble,
                                     XXH3_f_initCustomSecret f_initSec)
 {
+#if XXH_SIZE_OPT <= 0
     if (seed == 0)
         return XXH3_hashLong_64b_internal(input, len,
                                           XXH3_kSecret, sizeof(XXH3_kSecret),
                                           f_acc512, f_scramble);
+#endif
     {   XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
         f_initSec(secret, seed);
         return XXH3_hashLong_64b_internal(input, len, secret, sizeof(secret),
@@ -4987,7 +5063,7 @@ XXH3_64bits_withSecretandSeed(const void* input, size_t length, const void* secr
 
 
 /* ===   XXH3 streaming   === */
-
+#ifndef XXH_NO_STREAM
 /*
  * Malloc's a pointer that is always aligned to align.
  *
@@ -5175,7 +5251,7 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
 }
 
 #ifndef XXH3_STREAM_USE_STACK
-# ifndef __clang__ /* clang doesn't need additional stack space */
+# if XXH_SIZE_OPT <= 0 && !defined(__clang__) /* clang doesn't need additional stack space */
 #   define XXH3_STREAM_USE_STACK 1
 # endif
 #endif
@@ -5357,7 +5433,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
     return XXH3_64bits_withSecret(state->buffer, (size_t)(state->totalLen),
                                   secret, state->secretLimit + XXH_STRIPE_LEN);
 }
-
+#endif /* !XXH_NO_STREAM */
 
 
 /* ==========================================
@@ -5550,6 +5626,16 @@ XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     {   XXH128_hash_t acc;
         acc.low64 = len * XXH_PRIME64_1;
         acc.high64 = 0;
+
+#if XXH_SIZE_OPT >= 1
+        {
+            /* Smaller, but slightly slower. */
+            size_t i = (len - 1) / 32;
+            do {
+                acc = XXH128_mix32B(acc, input+16*i, input+len-16*(i+1), secret+32*i, seed);
+            } while (i-- != 0);
+        }
+#else
         if (len > 32) {
             if (len > 64) {
                 if (len > 96) {
@@ -5560,6 +5646,7 @@ XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
             acc = XXH128_mix32B(acc, input+16, input+len-32, secret+32, seed);
         }
         acc = XXH128_mix32B(acc, input, input+len-16, secret, seed);
+#endif
         {   XXH128_hash_t h128;
             h128.low64  = acc.low64 + acc.high64;
             h128.high64 = (acc.low64    * XXH_PRIME64_1)
@@ -5774,7 +5861,7 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 
 
 /* ===   XXH3 128-bit streaming   === */
-
+#ifndef XXH_NO_STREAM
 /*
  * All initialization and update functions are identical to 64-bit streaming variant.
  * The only difference is the finalization routine.
@@ -5841,7 +5928,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
     return XXH3_128bits_withSecret(state->buffer, (size_t)(state->totalLen),
                                    secret, state->secretLimit + XXH_STRIPE_LEN);
 }
-
+#endif /* !XXH_NO_STREAM */
 /* 128-bit utility functions */
 
 #include <string.h>   /* memcmp, memcpy */
@@ -5968,7 +6055,7 @@ XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed)
 /* Pop our optimization override from above */
 #if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
   && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
-  && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) /* respect -O0 and -Os */
+  && defined(__OPTIMIZE__) && XXH_SIZE_OPT <= 0 /* respect -O0 and -Os */
 #  pragma GCC pop_options
 #endif
 

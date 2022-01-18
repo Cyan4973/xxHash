@@ -71,7 +71,6 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, c
 
 # undef  XXH128
 # define XXH128 XXH3_128bits_withSeed_dispatch
-# define XXH3_128bits XXH3_128bits_dispatch
 # undef  XXH3_128bits
 # define XXH3_128bits XXH3_128bits_dispatch
 # undef  XXH3_128bits_withSeed

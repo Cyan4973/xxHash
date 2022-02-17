@@ -90,6 +90,26 @@ XXHSUM_HEADERS = $(XXHSUM_SRC_DIR)/xsum_config.h \
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
+ifeq ($(AARCH64_DISPATCH),1)
+.PHONY: all
+all: lib xxhsum
+
+## xxhsum is the command line interface (CLI)
+xxhsum: CPPFLAGS += -DXXHSUM_AARCH64_DISPATCH=1
+xxhsum: xxhash.o $(XXHSUM_SPLIT_OBJS) xxh_aarch64dispatch.o
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
+
+xxhsum32: CFLAGS += -m32  ## generate CLI in 32-bits mode
+xxhsum32: xxhash.c $(XXHSUM_SPLIT_SRCS) ## do not generate object (avoid mixing different ABI)
+	$(CC) $(FLAGS) $^ $(LDFLAGS) -o $@$(EXT)
+
+xxh_aarch64dispatch.o: xxh_aarch64dispatch.S
+	$(CC) $(FLAGS) -o xxh_aarch64dispatch.o -c xxh_aarch64dispatch.S
+
+xxhash.o: xxhash.c xxhash.h
+xxhsum.o: $(XXHSUM_SRC_DIR)/xxhsum.c $(XXHSUM_HEADERS) \
+    xxhash.h
+else
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
@@ -114,6 +134,7 @@ xxhash.o: xxhash.c xxhash.h
 xxhsum.o: $(XXHSUM_SRC_DIR)/xxhsum.c $(XXHSUM_HEADERS) \
     xxhash.h xxh_x86dispatch.h
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
+endif
 
 .PHONY: xxhsum_and_links
 xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
@@ -121,9 +142,11 @@ xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
 xxh32sum xxh64sum xxh128sum: xxhsum
 	ln -sf $<$(EXT) $@$(EXT)
 
+ifneq ($(AARCH64_DISPATCH),1)
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
 xxhsum_inlinedXXH: $(XXHSUM_SPLIT_SRCS)
 	$(CC) $(FLAGS) $< -o $@$(EXT)
+endif
 
 
 # library

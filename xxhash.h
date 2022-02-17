@@ -2998,7 +2998,9 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#  if (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
+#  if defined(__ARM_FEATURE_SVE)
+#    include <arm_sve.h>
+#  elif (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
    && (defined(__aarch64__)  || defined(__arm__) || defined(_M_ARM) \
    || defined(_M_ARM64)     || defined(_M_ARM64EC))
 #    define inline __inline__  /* circumvent a clang bug */
@@ -3125,7 +3127,14 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
     XXH_AVX512 = 3,  /*!< AVX512 for Skylake and Icelake */
     XXH_NEON   = 4,  /*!< NEON for most ARMv7-A and all AArch64 */
     XXH_VSX    = 5,  /*!< VSX and ZVector for POWER8/z13 (64-bit) */
+    XXH_SVE    = 6,  /*!< SVE for ARMv8-A and ARMv9-A */
 };
+
+enum XXH_IMPL_TYPE {
+    XXH_IMPL_C        = 0,
+    XXH_IMPL_ASSEMBLY = 1,
+};
+
 /*!
  * @ingroup tuning
  * @brief Selects the minimum alignment for XXH3's accumulators.
@@ -3146,16 +3155,30 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  define XXH_AVX512 3
 #  define XXH_NEON   4
 #  define XXH_VSX    5
+#  define XXH_SVE    6
+
+#  define XXH_IMPL_C         0
+#  define XXH_IMPL_ASSEMBLY  1
+#endif
+
+#ifndef XXH_IMPL
+#    define XXH_IMPL  XXH_IMPL_C
 #endif
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
 #  if ( \
+        defined(__GNUC__) /* msvc support maybe later */ \
+     && defined(__ARM_FEATURE_SVE) \
+     && defined(__LITTLE_ENDIAN__) /* We only support little endian SVE */ \
+   ) || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#    define XXH_VECTOR XXH_SVE
+#  elif ( \
         defined(__ARM_NEON__) || defined(__ARM_NEON) /* gcc */ \
      || defined(_M_ARM) || defined(_M_ARM64) || defined(_M_ARM64EC) /* msvc */ \
    ) && ( \
         defined(_WIN32) || defined(__LITTLE_ENDIAN__) /* little endian only */ \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) \
-   )
+   ) && !defined(__ARM_FEATURE_SVE)
 #    define XXH_VECTOR XXH_NEON
 #  elif defined(__AVX512F__)
 #    define XXH_VECTOR XXH_AVX512
@@ -3191,6 +3214,8 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #     define XXH_ACC_ALIGN 16
 #  elif XXH_VECTOR == XXH_AVX512  /* avx512 */
 #     define XXH_ACC_ALIGN 64
+#  elif XXH_VECTOR == XXH_SVE   /* sve */
+#     define XXH_ACC_ALIGN 64
 #  endif
 #endif
 
@@ -3199,6 +3224,27 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
 #else
 #  define XXH_SEC_ALIGN 8
+#endif
+
+#if (XXH_IMPL == XXH_IMPL_ASSEMBLY)
+extern void XXH3_aarch64_sve128_internal_loop(xxh_u64* XXH_RESTRICT,
+			const xxh_u8* XXH_RESTRICT, size_t,
+			const xxh_u8* XXH_RESTRICT, size_t);
+extern void XXH3_aarch64_sve256_internal_loop(xxh_u64* XXH_RESTRICT,
+			const xxh_u8* XXH_RESTRICT, size_t,
+			const xxh_u8* XXH_RESTRICT, size_t);
+extern void XXH3_aarch64_sve512_internal_loop(xxh_u64* XXH_RESTRICT,
+			const xxh_u8* XXH_RESTRICT, size_t,
+			const xxh_u8* XXH_RESTRICT, size_t);
+extern void XXH3_aarch64_sve128_consume_stripes(xxh_u64*, size_t*, size_t,
+						const xxh_u8*, size_t,
+						const xxh_u8*, size_t);
+extern void XXH3_aarch64_sve256_consume_stripes(xxh_u64*, size_t*, size_t,
+						const xxh_u8*, size_t,
+						const xxh_u8*, size_t);
+extern void XXH3_aarch64_sve512_consume_stripes(xxh_u64*, size_t*, size_t,
+						const xxh_u8*, size_t,
+						const xxh_u8*, size_t);
 #endif
 
 /*
@@ -4845,6 +4891,32 @@ XXH3_accumulate(     xxh_u64* XXH_RESTRICT acc,
     }
 }
 
+#if (XXH_IMPL == XXH_IMPL_ASSEMBLY)
+/* not aligned on 8, last secret is different from acc & scrambler */
+#define XXH_SECRET_LASTACC_START	7
+
+XXH_FORCE_INLINE void
+XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
+                      const xxh_u8* XXH_RESTRICT input, size_t len,
+                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                            XXH3_f_accumulate_512 f_acc512,
+                            XXH3_f_scrambleAcc f_scramble)
+{
+	switch (svcntd()) {
+	case 2:
+		XXH3_aarch64_sve128_internal_loop(acc, input, len, secret, secretSize);
+		break;
+	case 4:
+		XXH3_aarch64_sve256_internal_loop(acc, input, len, secret, secretSize);
+		break;
+	default:
+		XXH3_aarch64_sve512_internal_loop(acc, input, len, secret, secretSize);
+		break;
+	}
+	(void)f_acc512;
+	(void)f_scramble;
+}
+#else
 XXH_FORCE_INLINE void
 XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
                       const xxh_u8* XXH_RESTRICT input, size_t len,
@@ -4877,6 +4949,7 @@ XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
             f_acc512(acc, p, secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START);
     }   }
 }
+#endif
 
 XXH_FORCE_INLINE xxh_u64
 XXH3_mix2Accs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret)
@@ -5226,6 +5299,40 @@ XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr, const void* secret, 
 /* Note : when XXH3_consumeStripes() is invoked,
  * there must be a guarantee that at least one more byte must be consumed from input
  * so that the function can blindly consume all stripes using the "normal" secret segment */
+#if (XXH_IMPL == XXH_IMPL_ASSEMBLY)
+XXH_FORCE_INLINE void
+XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
+                    size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
+                    const xxh_u8* XXH_RESTRICT input, size_t nbStripes,
+                    const xxh_u8* XXH_RESTRICT secret, size_t secretLimit,
+                    XXH3_f_accumulate_512 f_acc512,
+                    XXH3_f_scrambleAcc f_scramble)
+{
+	switch (svcntd()) {
+	case 2:
+		XXH3_aarch64_sve128_consume_stripes(acc, nbStripesSoFarPtr,
+						nbStripesPerBlock,
+						input, nbStripes,
+						secret, secretLimit);
+		break;
+	case 4:
+		XXH3_aarch64_sve256_consume_stripes(acc, nbStripesSoFarPtr,
+						nbStripesPerBlock,
+						input, nbStripes,
+						secret, secretLimit);
+		break;
+	default:
+		XXH3_aarch64_sve512_consume_stripes(acc, nbStripesSoFarPtr,
+						nbStripesPerBlock,
+						input, nbStripes,
+						secret, secretLimit);
+		break;
+	}
+	(void)f_acc512;
+	(void)f_scramble;
+}
+
+#else
 XXH_FORCE_INLINE void
 XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
@@ -5249,6 +5356,7 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
         *nbStripesSoFarPtr += nbStripes;
     }
 }
+#endif
 
 #ifndef XXH3_STREAM_USE_STACK
 # if XXH_SIZE_OPT <= 0 && !defined(__clang__) /* clang doesn't need additional stack space */

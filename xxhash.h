@@ -2998,9 +2998,9 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
-   || defined(__aarch64__)  || defined(_M_ARM) \
-   || defined(_M_ARM64)     || defined(_M_ARM64EC)
+#  if (defined(__ARM_NEON__) || defined(__ARM_NEON)) \
+   && (defined(__aarch64__)  || defined(_M_ARM) \
+   || defined(_M_ARM64)     || defined(_M_ARM64EC))
 #    define inline __inline__  /* circumvent a clang bug */
 #    include <arm_neon.h>
 #    undef inline

@@ -526,3 +526,24 @@ jobs:
           # Expected output is "./xxhsum.exe: PE32 executable (console) Intel 80386, for MS Windows"
           file ./xxhsum.exe | grep -q '80386' || $(exit 1)
           ./xxhsum.exe --version
+
+  tipi-build-linux:
+    name: Project build and dependency resolution using tipi.build
+    runs-on: ubuntu-latest
+    container: tipibuild/tipi-ubuntu
+        
+    env:
+      HOME: /root
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: mkdir -p ~/.tipi
+
+      # checking if the xxHash project builds and passes tests
+      - run: tipi . --dont-upgrade --verbose --test all -t linux-cxx17
+      - run: tipi . --dont-upgrade --verbose --test all -t linux-cxx20
+      - run: rm -r ./build
+      
+      # trying if pulling the dependency with tipi works properly
+      - run: tipi ./cli --dont-upgrade --verbose -t linux-cxx17
+      - run: ./cli/build/linux-cxx17/bin/xsum_os_specific

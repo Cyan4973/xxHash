@@ -528,10 +528,10 @@ jobs:
           ./xxhsum.exe --version
 
   tipi-build-linux:
-    name: Project build and dependency resolution using tipi.build
+    name: tipi.build project build and dependency resolution 
     runs-on: ubuntu-latest
     container: tipibuild/tipi-ubuntu
-        
+
     env:
       HOME: /root
 
@@ -540,10 +540,18 @@ jobs:
       - run: mkdir -p ~/.tipi
 
       # checking if the xxHash project builds and passes tests
-      - run: tipi . --dont-upgrade --verbose --test all -t linux-cxx17
-      - run: tipi . --dont-upgrade --verbose --test all -t linux-cxx20
-      - run: rm -r ./build
+      - name: Build as project target linux-cxx17 (run test multiInclude)
+        run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx17
+
+      - name: Build as project target linux-cxx20 (run test multiInclude)
+        run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx20
+      
+      - name: Cleanup project builds
+        run: rm -r ./build
       
       # trying if pulling the dependency with tipi works properly
-      - run: tipi ./cli --dont-upgrade --verbose -t linux-cxx17
-      - run: ./cli/build/linux-cxx17/bin/xsum_os_specific
+      - name: Build as dependency
+        run: |
+          cd ./cli
+          tipi . --dont-upgrade --verbose -t linux-cxx17
+          ./build/linux-cxx17/bin/xsum_os_specific

@@ -214,6 +214,7 @@ jobs:
 
     - name: apt-get install
       run: |
+        sudo apt-get update
         sudo apt-get install valgrind cppcheck
 
     - name: Environment info

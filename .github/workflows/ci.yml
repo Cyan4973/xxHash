@@ -214,6 +214,7 @@ jobs:
 
     - name: apt-get install
       run: |
+        sudo apt-get update
         sudo apt-get install valgrind cppcheck
 
     - name: Environment info
@@ -423,11 +424,6 @@ jobs:
   #
   # - "windows-2019" uses Visual Studio 2019.
   #   https://github.com/actions/virtual-environments/blob/main/images/win/Windows2019-Readme.md#visual-studio-enterprise-2019
-  #
-  # - "windows-2016" uses Visual Studio 2017.
-  #   https://github.com/actions/virtual-environments/blob/main/images/win/Windows2016-Readme.md#visual-studio-enterprise-2017
-  #   "windows-2016" will be removed on March 15, 2022.
-  #   https://github.com/actions/virtual-environments/issues/4312
 
   windows-visualc-general:
     name: ${{ matrix.system.vc }}, ${{ matrix.arch }}
@@ -438,7 +434,6 @@ jobs:
         system: [
           { os: windows-2022, vc: "VC++ 2022", clangcl: 'false', }, # CMake failed to configure clang-cl with VC++2022.
           { os: windows-2019, vc: "VC++ 2019", clangcl: 'true',  },
-          { os: windows-2016, vc: "VC++ 2017", clangcl: 'false', }, # windows-2016 will be removed on March 15, 2022.
         ]
         arch: [ x64, Win32, ARM, ARM64 ]
     steps:

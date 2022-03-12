@@ -459,7 +459,7 @@ XXHL64_default_##suffix(const void* XXH_RESTRICT input, size_t len)           \
 {                                                                             \
     return XXH3_hashLong_64b_internal(                                        \
                input, len, XXH3_kSecret, sizeof(XXH3_kSecret),                \
-               XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix        \
+               XXH3_accumulate_##suffix, XXH3_scrambleAcc_##suffix            \
     );                                                                        \
 }                                                                             \
                                                                               \
@@ -470,7 +470,7 @@ XXHL64_seed_##suffix(const void* XXH_RESTRICT input, size_t len,              \
                      XXH64_hash_t seed)                                       \
 {                                                                             \
     return XXH3_hashLong_64b_withSeed_internal(                               \
-                    input, len, seed, XXH3_accumulate_512_##suffix,           \
+                    input, len, seed, XXH3_accumulate_##suffix,               \
                     XXH3_scrambleAcc_##suffix, XXH3_initCustomSecret_##suffix \
     );                                                                        \
 }                                                                             \
@@ -483,7 +483,7 @@ XXHL64_secret_##suffix(const void* XXH_RESTRICT input, size_t len,            \
 {                                                                             \
     return XXH3_hashLong_64b_internal(                                        \
                     input, len, secret, secretLen,                            \
-                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix   \
+                    XXH3_accumulate_##suffix, XXH3_scrambleAcc_##suffix       \
     );                                                                        \
 }                                                                             \
                                                                               \
@@ -493,7 +493,7 @@ XXH_NO_INLINE target XXH_errorcode                                            \
 XXH3_update_##suffix(XXH3_state_t* state, const void* input, size_t len)      \
 {                                                                             \
     return XXH3_update(state, (const xxh_u8*)input, len,                      \
-                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
+                    XXH3_accumulate_##suffix, XXH3_scrambleAcc_##suffix);     \
 }                                                                             \
                                                                               \
 /* ===   XXH128 default variants   === */                                     \
@@ -503,7 +503,7 @@ XXHL128_default_##suffix(const void* XXH_RESTRICT input, size_t len)          \
 {                                                                             \
     return XXH3_hashLong_128b_internal(                                       \
                     input, len, XXH3_kSecret, sizeof(XXH3_kSecret),           \
-                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix   \
+                    XXH3_accumulate_##suffix, XXH3_scrambleAcc_##suffix       \
     );                                                                        \
 }                                                                             \
                                                                               \
@@ -515,7 +515,7 @@ XXHL128_secret_##suffix(const void* XXH_RESTRICT input, size_t len,           \
 {                                                                             \
     return XXH3_hashLong_128b_internal(                                       \
                     input, len, (const xxh_u8*)secret, secretLen,             \
-                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix); \
+                    XXH3_accumulate_##suffix, XXH3_scrambleAcc_##suffix);     \
 }                                                                             \
                                                                               \
 /* ===   XXH128 Seeded variants   === */                                      \
@@ -525,7 +525,7 @@ XXHL128_seed_##suffix(const void* XXH_RESTRICT input, size_t len,             \
                       XXH64_hash_t seed)                                      \
 {                                                                             \
     return XXH3_hashLong_128b_withSeed_internal(input, len, seed,             \
-                    XXH3_accumulate_512_##suffix, XXH3_scrambleAcc_##suffix,  \
+                    XXH3_accumulate_##suffix, XXH3_scrambleAcc_##suffix,      \
                     XXH3_initCustomSecret_##suffix);                          \
 }
 

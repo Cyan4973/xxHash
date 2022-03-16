@@ -4060,6 +4060,7 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
 #  define ACC_NB XXH_ACC_NB
 #endif
 
+#define XXH_TARGET_DEFAULT /* nothing */
 /*
  * These macros are to generate an XXH3_accumulate() function.
  * The two arguments select the name suffix, target attribute, and prefetch distance,
@@ -4091,7 +4092,7 @@ XXH3_accumulate_##name(     xxh_u64* XXH_RESTRICT acc,      \
 XXH3_ACCUMULATE_TEMPLATE_3(name, target, XXH_PREFETCH_DIST)
 
 #define XXH3_ACCUMULATE_TEMPLATE(name)                      \
-XXH3_ACCUMULATE_TEMPLATE_3(name, /* empty */, XXH_PREFETCH_DIST)
+XXH3_ACCUMULATE_TEMPLATE_3(name, XXH_TARGET_DEFAULT, XXH_PREFETCH_DIST)
 
 
 XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
@@ -4142,7 +4143,7 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
 
 #ifndef XXH_TARGET_AVX512
-# define XXH_TARGET_AVX512  /* disable attribute target */
+# define XXH_TARGET_AVX512  XXH_TARGET_DEFAULT
 #endif
 
 XXH_FORCE_INLINE XXH_TARGET_AVX512 void
@@ -4252,7 +4253,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)
 
 #ifndef XXH_TARGET_AVX2
-# define XXH_TARGET_AVX2  /* disable attribute target */
+# define XXH_TARGET_AVX2  XXH_TARGET_DEFAULT
 #endif
 
 XXH_FORCE_INLINE XXH_TARGET_AVX2 void
@@ -4358,7 +4359,7 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
 #if (XXH_VECTOR == XXH_SSE2) || defined(XXH_X86DISPATCH)
 
 #ifndef XXH_TARGET_SSE2
-# define XXH_TARGET_SSE2  /* disable attribute target */
+# define XXH_TARGET_SSE2  XXH_TARGET_DEFAULT
 #endif
 
 XXH_FORCE_INLINE XXH_TARGET_SSE2 void
@@ -4823,36 +4824,40 @@ typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
 
 #if (XXH_VECTOR == XXH_AVX512)
 
+#define XXH3_accumulate_512 XXH3_accumulate_512_avx512
 #define XXH3_accumulate     XXH3_accumulate_avx512
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_avx512
 #define XXH3_initCustomSecret XXH3_initCustomSecret_avx512
 
 #elif (XXH_VECTOR == XXH_AVX2)
 
+#define XXH3_accumulate_512 XXH3_accumulate_512_avx2
 #define XXH3_accumulate     XXH3_accumulate_avx2
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_avx2
 #define XXH3_initCustomSecret XXH3_initCustomSecret_avx2
 
 #elif (XXH_VECTOR == XXH_SSE2)
 
+#define XXH3_accumulate_512 XXH3_accumulate_512_sse2
 #define XXH3_accumulate     XXH3_accumulate_sse2
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_sse2
 #define XXH3_initCustomSecret XXH3_initCustomSecret_sse2
 
 #elif (XXH_VECTOR == XXH_NEON)
 
+#define XXH3_accumulate_512 XXH3_accumulate_512_neon
 #define XXH3_accumulate     XXH3_accumulate_neon
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_neon
 #define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
 
 #elif (XXH_VECTOR == XXH_VSX)
-
+#define XXH3_accumulate_512 XXH3_accumulate_512_vsx
 #define XXH3_accumulate     XXH3_accumulate_vsx
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_vsx
 #define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
 
 #else /* scalar */
-
+#define XXH3_accumulate_512 XXH3_accumulate_512_scalar
 #define XXH3_accumulate     XXH3_accumulate_scalar
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_scalar
 #define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
@@ -4894,7 +4899,7 @@ XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
         /* last stripe */
         {   const xxh_u8* const p = input + len - XXH_STRIPE_LEN;
 #define XXH_SECRET_LASTACC_START 7  /* not aligned on 8, last secret is different from acc & scrambler */
-            f_acc(acc, p, secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START, 1);
+            XXH3_accumulate_512(acc, p, secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START);
     }   }
 }
 
@@ -5431,10 +5436,9 @@ XXH3_digest_long (XXH64_hash_t* acc,
         XXH_ASSERT(state->bufferedSize > 0);  /* there is always some input buffered */
         XXH_memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
         XXH_memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
-        XXH3_accumulate(acc,
-                        lastStripe,
-                        secret + state->secretLimit - XXH_SECRET_LASTACC_START,
-                        1);
+        XXH3_accumulate_512(acc,
+                            lastStripe,
+                            secret + state->secretLimit - XXH_SECRET_LASTACC_START);
     }
 }
 

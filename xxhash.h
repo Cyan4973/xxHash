@@ -4094,6 +4094,26 @@ XXH3_ACCUMULATE_TEMPLATE_3(name, target, XXH_PREFETCH_DIST)
 #define XXH3_ACCUMULATE_TEMPLATE(name)                      \
 XXH3_ACCUMULATE_TEMPLATE_3(name, XXH_TARGET_DEFAULT, XXH_PREFETCH_DIST)
 
+#define XXH3_ACCUMULATE_DEF_TEMPLATE_2(name, dist)          \
+XXH_FORCE_INLINE XXH_TARGET_DEFAULT void                    \
+XXH3_accumulate_##name(     xxh_u64* XXH_RESTRICT acc,      \
+                       const xxh_u8* XXH_RESTRICT input,    \
+                       const xxh_u8* XXH_RESTRICT secret,   \
+                      size_t nbStripes)                     \
+{                                                           \
+    size_t n;                                               \
+    for (n = 0; n < nbStripes; n++ ) {                      \
+        const xxh_u8* const in = input + n*XXH_STRIPE_LEN;  \
+        XXH_PREFETCH(in + dist);                            \
+        XXH3_accumulate_512_##name(                         \
+                 acc,                                       \
+                 in,                                        \
+                 secret + n*XXH_SECRET_CONSUME_RATE);       \
+    }                                                       \
+}
+
+#define XXH3_ACCUMULATE_DEF_TEMPLATE(name)                  \
+XXH3_ACCUMULATE_DEF_TEMPLATE_2(name, XXH_PREFETCH_DIST)
 
 XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 {
@@ -4142,11 +4162,12 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
 
-#ifndef XXH_TARGET_AVX512
-# define XXH_TARGET_AVX512  XXH_TARGET_DEFAULT
-#endif
-
-XXH_FORCE_INLINE XXH_TARGET_AVX512 void
+#  ifndef XXH_TARGET_AVX512
+XXH_FORCE_INLINE XXH_TARGET_DEFAULT
+#  else
+XXH_FORCE_INLINE XXH_TARGET_AVX512
+#  endif
+void
 XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
                      const void* XXH_RESTRICT input,
                      const void* XXH_RESTRICT secret)
@@ -4173,7 +4194,12 @@ XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
         *xacc = _mm512_add_epi64(product, sum);
     }
 }
+#  ifdef XXH_TARGET_AVX512
 XXH3_ACCUMULATE_TEMPLATE_3(avx512, XXH_TARGET_AVX512, 512)
+#  else
+XXH3_ACCUMULATE_DEF_TEMPLATE_2(avx512, 512)
+#    define XXH_TARGET_AVX512 XXH_TARGET_DEFAULT
+#  endif
 
 /*
  * XXH3_scrambleAcc: Scrambles the accumulators to improve mixing.
@@ -4252,11 +4278,12 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 #if (XXH_VECTOR == XXH_AVX2) \
     || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)
 
-#ifndef XXH_TARGET_AVX2
-# define XXH_TARGET_AVX2  XXH_TARGET_DEFAULT
-#endif
-
-XXH_FORCE_INLINE XXH_TARGET_AVX2 void
+#  ifndef XXH_TARGET_AVX2
+XXH_FORCE_INLINE XXH_TARGET_DEFAULT
+#  else
+XXH_FORCE_INLINE XXH_TARGET_AVX2
+#  endif
+void
 XXH3_accumulate_512_avx2( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
                     const void* XXH_RESTRICT secret)
@@ -4289,7 +4316,12 @@ XXH3_accumulate_512_avx2( void* XXH_RESTRICT acc,
             xacc[i] = _mm256_add_epi64(product, sum);
     }   }
 }
+#  ifdef XXH_TARGET_AVX2
 XXH3_ACCUMULATE_TEMPLATE_2(avx2, XXH_TARGET_AVX2)
+#  else
+XXH3_ACCUMULATE_DEF_TEMPLATE(avx2)
+#    define XXH_TARGET_AVX2 XXH_TARGET_DEFAULT
+#  endif
 
 XXH_FORCE_INLINE XXH_TARGET_AVX2 void
 XXH3_scrambleAcc_avx2(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
@@ -4358,11 +4390,12 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
 /* x86dispatch always generates SSE2 */
 #if (XXH_VECTOR == XXH_SSE2) || defined(XXH_X86DISPATCH)
 
-#ifndef XXH_TARGET_SSE2
-# define XXH_TARGET_SSE2  XXH_TARGET_DEFAULT
-#endif
-
-XXH_FORCE_INLINE XXH_TARGET_SSE2 void
+#  ifndef XXH_TARGET_SSE2
+XXH_FORCE_INLINE XXH_TARGET_DEFAULT
+#  else
+XXH_FORCE_INLINE XXH_TARGET_SSE2
+#  endif
+void
 XXH3_accumulate_512_sse2( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
                     const void* XXH_RESTRICT secret)
@@ -4396,7 +4429,12 @@ XXH3_accumulate_512_sse2( void* XXH_RESTRICT acc,
             xacc[i] = _mm_add_epi64(product, sum);
     }   }
 }
+#  ifdef XXH_TARGET_SSE2
 XXH3_ACCUMULATE_TEMPLATE_2(sse2, XXH_TARGET_SSE2)
+#  else
+XXH3_ACCUMULATE_DEF_TEMPLATE(sse2)
+#    define XXH_TARGET_SSE2 XXH_TARGET_DEFAULT
+#  endif
 
 XXH_FORCE_INLINE XXH_TARGET_SSE2 void
 XXH3_scrambleAcc_sse2(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
@@ -4526,7 +4564,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
 
     }
 }
-XXH3_ACCUMULATE_TEMPLATE(neon)
+XXH3_ACCUMULATE_DEF_TEMPLATE(neon)
 
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
@@ -4625,7 +4663,7 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
         vec_xst((xxh_u32x4)acc_vec, 0, xacc + 4 * i);
     }
 }
-XXH3_ACCUMULATE_TEMPLATE(vsx)
+XXH3_ACCUMULATE_DEF_TEMPLATE(vsx)
 
 XXH_FORCE_INLINE void
 XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
@@ -4708,7 +4746,7 @@ XXH3_accumulate_512_scalar(void* XXH_RESTRICT acc,
         XXH3_scalarRound(acc, input, secret, i);
     }
 }
-XXH3_ACCUMULATE_TEMPLATE(scalar)
+XXH3_ACCUMULATE_DEF_TEMPLATE(scalar)
 
 /*!
  * @internal
@@ -5426,10 +5464,9 @@ XXH3_digest_long (XXH64_hash_t* acc,
                             secret, state->secretLimit,
                             XXH3_accumulate, XXH3_scrambleAcc);
         /* last stripe */
-        XXH3_accumulate(acc,
-                        state->buffer + state->bufferedSize - XXH_STRIPE_LEN,
-                        secret + state->secretLimit - XXH_SECRET_LASTACC_START,
-                        1);
+        XXH3_accumulate_512(acc,
+                            state->buffer + state->bufferedSize - XXH_STRIPE_LEN,
+                            secret + state->secretLimit - XXH_SECRET_LASTACC_START);
     } else {  /* bufferedSize < XXH_STRIPE_LEN */
         xxh_u8 lastStripe[XXH_STRIPE_LEN];
         size_t const catchupSize = XXH_STRIPE_LEN - state->bufferedSize;

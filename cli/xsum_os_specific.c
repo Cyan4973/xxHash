@@ -42,7 +42,8 @@
 #if (defined(__linux__) && (XSUM_PLATFORM_POSIX_VERSION >= 1)) \
  || (XSUM_PLATFORM_POSIX_VERSION >= 200112L) \
  || defined(__DJGPP__) \
- || defined(__MSYS__)
+ || defined(__MSYS__) \
+ || defined(__HAIKU__)
 #  include <unistd.h>   /* isatty */
 #  define XSUM_IS_CONSOLE(stdStream) isatty(fileno(stdStream))
 #elif defined(MSDOS) || defined(OS2)

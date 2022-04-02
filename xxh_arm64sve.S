@@ -63,6 +63,7 @@
 	ld1d	{z1.d}, p7/z, [x1, \memoffs]
 	// load secret
 	ld1d	{z2.d}, p7/z, [x2, \memoffs]
+	prfd	pldl1strm, p7, [x1, #31, MUL VL]
 	// mixed = secret EOR input
 	eor	z2.d, p7/m, z2.d, z1.d
 	// swapped = SWAP(input)

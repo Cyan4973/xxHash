@@ -100,6 +100,10 @@ test_unicode: $(XXHSUM) generate_unicode_test.c
 	$(SHELL) ./unicode_test.sh
 endif
 
+.PHONY: test_filename_escape
+test_filename_escape: $(XXHSUM)
+	./filename-escape.sh
+
 xxhash.o: ../xxhash.c ../xxhash.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -c -o $@ $<
 

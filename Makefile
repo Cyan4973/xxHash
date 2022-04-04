@@ -302,6 +302,10 @@ test-xxhsum-c: xxhsum
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	@$(RM) .test.*
 
+.PHONY: test-filename-escape
+test-filename-escape:
+	$(MAKE) -C tests test_filename_escape
+
 .PHONY: armtest
 armtest: clean
 	@echo ---- test ARM compilation ----

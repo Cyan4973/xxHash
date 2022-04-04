@@ -91,6 +91,101 @@ static size_t XSUM_DEFAULT_SAMPLE_SIZE = 100 KB;
 
 
 /* ********************************************************
+*  Filename (un)escaping
+**********************************************************/
+static int XSUM_filenameNeedsEscape(const char* filename) {
+    return strchr(filename, '\\')
+        || strchr(filename, '\n')
+        || strchr(filename, '\r');
+}
+
+static int XSUM_lineNeedsUnescape(const char* line) {
+    /* Skip white-space characters */
+    while (*line == ' ' || *line == '\t') {
+        ++line;
+    }
+    /* Returns true if first non-white-space character is '\\' (0x5c) */
+    return *line == '\\';
+}
+
+static void XSUM_printFilename(const char* filename, int needsEscape) {
+    if (!needsEscape) {
+        XSUM_output("%s", filename);
+    } else {
+        const char* p;
+        for (p = filename; *p != '\0'; ++p) {
+            switch (*p)
+            {
+            case '\n':
+                XSUM_output("\\n");
+                break;
+            case '\r':
+                XSUM_output("\\r");
+                break;
+            case '\\':
+                XSUM_output("\\\\");
+                break;
+            default:
+                XSUM_output("%c", *p);
+                break;
+            }
+        }
+    }
+}
+
+/* Unescape filename in place.
+
+   - Replace '\\', 'n'  (0x5c, 0x6e) with '\n' (0x0a).
+   - Replace '\\', 'r'  (0x5c, 0x72) with '\r' (0x0d).
+   - Replace '\\', '\\' (0x5c, 0x5c) with '\\' (0x5c).
+   - filename may not contain other backslash sequences.
+   - filename may not ends with backslash.
+   - filename may not contain NUL (0x00).
+
+   Return filename if everything is okay.
+   Return NULL if something wrong.
+*/
+static char* XSUM_filenameUnescape(char* filename, size_t filenameLen) {
+    char *p = filename;
+    size_t i;
+    for (i = 0; i < filenameLen; ++i) {
+        switch (filename[i])
+        {
+        case '\\':
+            ++i;
+            if (i == filenameLen) {
+                return NULL; /* Don't accept '\\', <EOL> */
+            }
+            switch (filename[i])
+            {
+            case 'n':
+                *p++ = '\n';
+                break;
+            case 'r':
+                *p++ = '\r';
+                break;
+            case '\\':
+                *p++ = '\\';
+                break;
+            default:
+                return NULL; /* Don't accept any other backslash sequence */
+            }
+            break;
+        case '\0':
+            return NULL; /* Don't accept NUL (0x00) */
+        default:
+            *p++ = filename[i];
+            break;
+        }
+    }
+    if (p < filename + filenameLen) {
+        *p = '\0';
+    }
+    return filename;
+}
+
+
+/* ********************************************************
 *  File Hashing
 **********************************************************/
 
@@ -204,7 +299,13 @@ static void XSUM_printLine_BSD_internal(const char* filename,
     assert(0 <= hashType && (size_t)hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
     {   const char* const typeString = algoString[hashType];
         const size_t hashLength = XSUM_algoLength[hashType];
-        XSUM_output("%s (%s) = ", typeString, filename);
+        const int needsEscape = XSUM_filenameNeedsEscape(filename);
+        if (needsEscape) {
+            XSUM_output("%c", '\\');
+        }
+        XSUM_output("%s (", typeString);
+        XSUM_printFilename(filename, needsEscape);
+        XSUM_output(") = ");
         f_displayHash(canonicalHash, hashLength);
         XSUM_output("\n");
 }   }
@@ -225,8 +326,14 @@ static void XSUM_printLine_GNU_internal(const char* filename,
 {
     assert(0 <= hashType && (size_t)hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
     {   const size_t hashLength = XSUM_algoLength[hashType];
+        const int needsEscape = XSUM_filenameNeedsEscape(filename);
+        if (needsEscape) {
+            XSUM_output("%c", '\\');
+        }
         f_displayHash(canonicalHash, hashLength);
-        XSUM_output("  %s\n", filename);
+        XSUM_output("  ");
+        XSUM_printFilename(filename, needsEscape);
+        XSUM_output("\n");
 }   }
 
 static void XSUM_printLine_GNU(const char* filename,
@@ -533,7 +640,7 @@ static CanonicalFromStringResult XSUM_canonicalFromString(unsigned char* dst,
  *
  *      <algorithm> <' ('> <filename> <') = '> <hexstring> <'\0'>
  */
-static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int rev)
+static ParseLineResult XSUM_parseLine1(ParsedLine* parsedLine, char* line, int rev, int needsUnescape)
 {
     char* const firstSpace = strchr(line, ' ');
     const char* hash_ptr;
@@ -603,9 +710,28 @@ static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int re
 
     /* note : skipping second separation character, which can be anything,
      * allowing insertion of custom markers such as '*' */
-    parsedLine->filename = firstSpace + 2;
+    {
+        char* const filename = firstSpace + 2;
+        const size_t filenameLen = strlen(filename);
+        if (needsUnescape) {
+            char* const result = XSUM_filenameUnescape(filename, filenameLen);
+            if (result == NULL) {
+                return ParseLine_invalidFormat;
+            }
+        }
+        parsedLine->filename = filename;
+    }
     return ParseLine_ok;
 }
+
+static ParseLineResult XSUM_parseLine(ParsedLine* parsedLine, char* line, int rev) {
+    const int needsUnescape = XSUM_lineNeedsUnescape(line);
+    if (needsUnescape) {
+        ++line;
+    }
+    return XSUM_parseLine1(parsedLine, line, rev, needsUnescape);
+}
+
 
 
 /*!
@@ -740,8 +866,12 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
                 }
 
                 if (b && !XSUM_parseFileArg->statusOnly) {
-                    XSUM_output("%s: %s\n", parsedLine.filename
-                        , lineStatus == LineStatus_hashOk ? "OK" : "FAILED");
+                    const int needsEscape = XSUM_filenameNeedsEscape(parsedLine.filename);
+                    if (needsEscape) {
+                        XSUM_output("%c", '\\');
+                    }
+                    XSUM_printFilename(parsedLine.filename, needsEscape);
+                    XSUM_output(": %s\n", lineStatus == LineStatus_hashOk ? "OK" : "FAILED");
             }   }
             break;
         }

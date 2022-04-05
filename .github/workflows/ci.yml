@@ -244,6 +244,11 @@ jobs:
       run: |
         make lint-unicode
 
+    - name: test-filename-escape
+      # See also issue #695 - https://github.com/Cyan4973/xxHash/issues/695
+      run: |
+        make test-filename-escape
+
 
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test

@@ -9,7 +9,7 @@ SYNOPSIS
 
 `xxh32sum` is equivalent to `xxhsum -H0`,
 `xxh64sum` is equivalent to `xxhsum -H1`,
-`xxh128sum` is equivalent to `xxhsum -H2`
+`xxh128sum` is equivalent to `xxhsum -H2`.
 
 
 DESCRIPTION
@@ -41,7 +41,7 @@ OPTIONS
   Note that `-H3` triggers `--tag`, which can't be skipped
   (this is to reduce risks of confusion with `-H2` (`XXH64`)).
   Alternatively, <HASHTYPE> `32`=XXH32, `64`=XXH64, `128`=XXH128.
-  Default value is `1` (64bits)
+  Default value is `1` (XXH64)
 
 * `--tag`:
   Output in the BSD style.

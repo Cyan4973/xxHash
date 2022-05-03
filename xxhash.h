@@ -338,6 +338,22 @@ extern "C" {
 #  undef XXHASH_H_STATIC_13879238742
 #endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
 
+/*
+ * Allow users to provide a namespace in case xxhash is included in C++ code.
+ * To avoid including headers inside of the namespace if provided, we need
+ * to open and close the namespace multiple times. Here we prepare the macros
+ * to do so.
+ */
+#if defined (__cplusplus) && defined (XXH_CPP_NAMESPACE)
+#  define XXH_OPEN_CPP_NAMESPACE namespace XXH_CPP_NAMESPACE {
+#  define XXH_CLOSE_CPP_NAMESPACE }
+#else
+#  define XXH_OPEN_CPP_NAMESPACE
+#  define XXH_CLOSE_CPP_NAMESPACE
+#endif
+
+XXH_OPEN_CPP_NAMESPACE
+
 /* ****************************************************************
  *  Stable API
  *****************************************************************/
@@ -466,7 +482,9 @@ XXH_PUBLIC_API XXH_CONSTF unsigned XXH_versionNumber (void);
 /* ****************************
 *  Common basic types
 ******************************/
+XXH_CLOSE_CPP_NAMESPACE
 #include <stddef.h>   /* size_t */
+XXH_OPEN_CPP_NAMESPACE
 /*!
  * @brief Exit code for the streaming API.
  */
@@ -490,11 +508,15 @@ typedef uint32_t XXH32_hash_t;
 #elif !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+    XXH_CLOSE_CPP_NAMESPACE
 #   include <stdint.h>
+    XXH_OPEN_CPP_NAMESPACE
     typedef uint32_t XXH32_hash_t;
 
 #else
+    XXH_CLOSE_CPP_NAMESPACE
 #   include <limits.h>
+    XXH_OPEN_CPP_NAMESPACE
 #   if UINT_MAX == 0xFFFFFFFFUL
       typedef unsigned int XXH32_hash_t;
 #   elif ULONG_MAX == 0xFFFFFFFFUL
@@ -763,10 +785,14 @@ typedef uint64_t XXH64_hash_t;
 #elif !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+   XXH_CLOSE_CPP_NAMESPACE
 #  include <stdint.h>
+   XXH_OPEN_CPP_NAMESPACE
    typedef uint64_t XXH64_hash_t;
 #else
+   XXH_CLOSE_CPP_NAMESPACE
 #  include <limits.h>
+   XXH_OPEN_CPP_NAMESPACE
 #  if defined(__LP64__) && ULONG_MAX == 0xFFFFFFFFFFFFFFFFULL
      /* LP64 ABI says uint64_t is unsigned long */
      typedef unsigned long XXH64_hash_t;
@@ -1718,7 +1744,9 @@ static void XXH_free(void* p) { (void)p; }
  * Modify the local functions below should you wish to use
  * different memory routines for malloc() and free()
  */
+XXH_CLOSE_CPP_NAMESPACE
 #include <stdlib.h>
+XXH_OPEN_CPP_NAMESPACE
 
 /*!
  * @internal
@@ -1734,7 +1762,9 @@ static void XXH_free(void* p) { free(p); }
 
 #endif  /* XXH_NO_STDLIB */
 
+XXH_CLOSE_CPP_NAMESPACE
 #include <string.h>
+XXH_OPEN_CPP_NAMESPACE
 
 /*!
  * @internal
@@ -1745,7 +1775,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
     return memcpy(dest,src,size);
 }
 
+XXH_CLOSE_CPP_NAMESPACE
 #include <limits.h>   /* ULLONG_MAX */
+XXH_OPEN_CPP_NAMESPACE
 
 
 /* *************************************
@@ -1800,7 +1832,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #endif
 
 #if (XXH_DEBUGLEVEL>=1)
+   XXH_CLOSE_CPP_NAMESPACE
 #  include <assert.h>   /* note: can still be disabled with NDEBUG */
+   XXH_OPEN_CPP_NAMESPACE
 #  define XXH_ASSERT(c)   assert(c)
 #else
 #  define XXH_ASSERT(c)   ((void)0)
@@ -1846,7 +1880,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #if !defined (__VMS) \
  && (defined (__cplusplus) \
  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+  XXH_CLOSE_CPP_NAMESPACE
 # include <stdint.h>
+  XXH_OPEN_CPP_NAMESPACE
   typedef uint8_t xxh_u8;
 #else
   typedef unsigned char xxh_u8;
@@ -2997,6 +3033,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #    define XXH_unlikely(x) (x)
 #endif
 
+XXH_CLOSE_CPP_NAMESPACE
+
 #if defined(__GNUC__) || defined(__clang__)
 #  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
    || defined(__aarch64__)  || defined(_M_ARM) \
@@ -3014,6 +3052,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 #if defined(_MSC_VER)
 #  include <intrin.h>
 #endif
+
+XXH_OPEN_CPP_NAMESPACE
 
 /*
  * One goal of XXH3 is to make it fast on both 32-bit and 64-bit, while
@@ -3427,11 +3467,13 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
 #  undef vector
 #  undef pixel
 
+XXH_CLOSE_CPP_NAMESPACE
 #  if defined(__s390x__)
 #    include <s390intrin.h>
 #  else
 #    include <altivec.h>
 #  endif
+XXH_OPEN_CPP_NAMESPACE
 
 /* Restore the original macro values, if applicable. */
 #  pragma pop_macro("pixel")
@@ -3524,7 +3566,9 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
 #  if XXH_SIZE_OPT >= 1
 #    define XXH_PREFETCH(ptr) (void)(ptr)
 #  elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))  /* _mm_prefetch() not defined outside of x86/x64 */
+     XXH_CLOSE_CPP_NAMESPACE
 #    include <mmintrin.h>   /* https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx */
+     XXH_OPEN_CPP_NAMESPACE
 #    define XXH_PREFETCH(ptr)  _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
 #  elif defined(__GNUC__) && ( (__GNUC__ >= 4) || ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 1) ) )
 #    define XXH_PREFETCH(ptr)  __builtin_prefetch((ptr), 0 /* rw==read */, 3 /* locality */)
@@ -5931,7 +5975,9 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
 #endif /* !XXH_NO_STREAM */
 /* 128-bit utility functions */
 
+XXH_CLOSE_CPP_NAMESPACE
 #include <string.h>   /* memcmp, memcpy */
+XXH_OPEN_CPP_NAMESPACE
 
 /* return : 1 is equal, 0 if different */
 /*! @ingroup XXH3_family */
@@ -6068,6 +6114,7 @@ XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed)
  */
 #endif  /* XXH_IMPLEMENTATION */
 
+XXH_CLOSE_CPP_NAMESPACE
 
 #if defined (__cplusplus)
 }

@@ -51,7 +51,7 @@ default: all
 all: test
 
 .PHONY: test
-test: test_multiInclude test_unicode
+test: test_multiInclude test_unicode test_cpp_namespace
 
 .PHONY: test_multiInclude
 test_multiInclude:
@@ -100,6 +100,12 @@ test_unicode: $(XXHSUM) generate_unicode_test.c
 	$(SHELL) ./unicode_test.sh
 endif
 
+.PHONY: test_cpp_namespace
+test_cpp_namespace: test_cpp_namespace.cc
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) test_cpp_namespace.cc -o test_cpp_namespace$(EXT)
+	./test_cpp_namespace$(EXT)
+	$(MAKE) clean
+
 .PHONY: test_filename_escape
 test_filename_escape: $(XXHSUM)
 	./filename-escape.sh
@@ -112,5 +118,5 @@ multiInclude_withxxhash: multiInclude.o xxhash.o
 
 clean:
 	@$(RM) *.o
-	@$(RM) multiInclude multiInclude_withxxhash
+	@$(RM) multiInclude multiInclude_withxxhash test_cpp_namespace
 	@$(RM) *.unicode generate_unicode_test$(EXT) unicode_test.* xxhsum*

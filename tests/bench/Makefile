@@ -34,9 +34,24 @@ CFLAGS   += -Wall -Wextra -Wstrict-aliasing=1 \
 CFLAGS   += $(MOREFLAGS)   # custom way to add flags
 CXXFLAGS ?= -O3
 LDFLAGS  += $(MOREFLAGS)
+UNAME    ?= $(shell uname)
+ARCH     ?= $(shell uname -p)
 
 
 OBJ_LIST  = main.o bhDisplay.o benchHash.o benchfn.o timefn.o
+ifeq ($(DISPATCH),1)
+  ifeq ($(UNAME), Darwin)
+    ifeq ($(ARCH), arm)
+      OBJ_LIST += xxh_arm64dispatch.o xxh_arm64sve.o
+      CFLAGS   += -DARM64_DISPATCH=1
+    endif
+  else
+    ifeq ($(ARCH), aarch64)
+      OBJ_LIST += xxh_arm64dispatch.o xxh_arm64sve.o
+      CFLAGS   += -DARM64_DISPATCH=1
+    endif
+  endif
+endif
 
 
 default: benchHash
@@ -62,6 +77,24 @@ main.o: bhDisplay.h hashes.h
 bhDisplay.o: bhDisplay.h benchHash.h
 
 benchHash.o: benchHash.h
+
+ifeq ($(DISPATCH),1)
+  ifeq ($(UNAME), Darwin)
+    ifeq ($(ARCH), arm)
+      xxh_arm64dispatch.o: ../../xxh_arm64dispatch.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64dispatch.o -c ../../xxh_arm64dispatch.c
+      xxh_arm64sve.o: ../../xxh_arm64sve.S
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64sve.o -c ../../xxh_arm64sve.S
+    endif
+  else
+    ifeq ($(ARCH), aarch64)
+      xxh_arm64dispatch.o: ../../xxh_arm64dispatch.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64dispatch.o -c ../../xxh_arm64dispatch.c
+      xxh_arm64sve.o: ../../xxh_arm64sve.S
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64sve.o -c ../../xxh_arm64sve.S
+    endif
+  endif
+endif
 
 
 clean:

@@ -244,6 +244,10 @@ jobs:
       run: |
         make lint-unicode
 
+    - name: test-filename-escape
+      # See also issue #695 - https://github.com/Cyan4973/xxHash/issues/695
+      run: |
+        make clean test-filename-escape
 
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test
@@ -523,7 +527,7 @@ jobs:
           ./xxhsum.exe --version
 
   tipi-build-linux:
-    name: tipi.build project build and dependency resolution 
+    name: tipi.build project build and dependency resolution
     runs-on: ubuntu-latest
     container: tipibuild/tipi-ubuntu
 
@@ -540,10 +544,10 @@ jobs:
 
       - name: Build as project target linux-cxx20 (run test multiInclude)
         run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx20
-      
+
       - name: Cleanup project builds
         run: rm -r ./build
-      
+
       # trying if pulling the dependency with tipi works properly
       - name: Build as dependency
         run: |

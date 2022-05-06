@@ -42,9 +42,14 @@ endif()
 if(NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "xxHash build type: ${CMAKE_BUILD_TYPE}")
 endif()
+
 # Enable assert() statements in debug builds
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  add_compile_definitions(XXH_DEBUGLEVEL=1)
+    if("${CMAKE_VERSION}" VERSION_LESS "3.12")
+        # add_compile_definitions is not available for older cmake => do nothing
+    else()
+        add_compile_definitions(XXH_DEBUGLEVEL=1)
+    endif()
 endif()
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)

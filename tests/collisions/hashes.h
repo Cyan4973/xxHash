@@ -29,8 +29,13 @@
 
 #include <stddef.h>      /* size_t */
 #include <stdint.h>      /* uint64_t */
-#define XXH_INLINE_ALL   /* XXH128_hash_t */
-#include "xxhash.h"
+#if defined(ARM64_DISPATCH) && defined(__ARM_FEATURE_SVE)
+#  define XXH_INLINE_ALL /* XXH128_hash_t */
+#  include "../../xxh_arm64dispatch.h"
+#else
+#  define XXH_INLINE_ALL /* XXH128_hash_t */
+#  include "xxhash.h"
+#endif
 
 
 /* return type */

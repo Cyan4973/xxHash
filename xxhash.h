@@ -170,7 +170,25 @@
  */
 
 #if defined (__cplusplus)
-extern "C" {
+/*
+ * Allow users to provide a namespace in case xxhash is included in C++ code.
+ * To avoid including headers inside of the namespace if provided, we need
+ * to open and close the namespace multiple times. Here we prepare the macros
+ * to do so.
+ * If a namespace is not defined, we declare C linkage for all symbols. In this
+ * case the implementation can be in a C file
+ */
+#  if defined (XXH_CPP_NAMESPACE)
+#    define XXH_OPEN_CPP_NAMESPACE namespace XXH_CPP_NAMESPACE {
+#    define XXH_CLOSE_CPP_NAMESPACE }
+#  else
+#    define XXH_OPEN_CPP_NAMESPACE
+#    define XXH_CLOSE_CPP_NAMESPACE
+     extern "C" {
+#  endif
+#else
+#  define XXH_OPEN_CPP_NAMESPACE
+#  define XXH_CLOSE_CPP_NAMESPACE
 #endif
 
 /* ****************************
@@ -337,20 +355,6 @@ extern "C" {
 #  undef XXHASH_H_5627135585666179
 #  undef XXHASH_H_STATIC_13879238742
 #endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
-
-/*
- * Allow users to provide a namespace in case xxhash is included in C++ code.
- * To avoid including headers inside of the namespace if provided, we need
- * to open and close the namespace multiple times. Here we prepare the macros
- * to do so.
- */
-#if defined (__cplusplus) && defined (XXH_CPP_NAMESPACE)
-#  define XXH_OPEN_CPP_NAMESPACE namespace XXH_CPP_NAMESPACE {
-#  define XXH_CLOSE_CPP_NAMESPACE }
-#else
-#  define XXH_OPEN_CPP_NAMESPACE
-#  define XXH_CLOSE_CPP_NAMESPACE
-#endif
 
 XXH_OPEN_CPP_NAMESPACE
 
@@ -6114,8 +6118,10 @@ XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed)
  */
 #endif  /* XXH_IMPLEMENTATION */
 
-XXH_CLOSE_CPP_NAMESPACE
-
 #if defined (__cplusplus)
+/*
+ * This is a multi-puropse closing brace. It either closes extern "C" or
+ * the last instance of XXH_OPEN_CPP_NAMESPACE if defined
+ */
 }
 #endif

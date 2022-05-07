@@ -113,11 +113,9 @@ all: lib xxhsum xxhsum_inlinedXXH
 ## xxhsum is the command line interface (CLI)
 ifeq ($(DISPATCH),1)
 ifeq ($(ARCH), x86_64)
-DISPATCH_HEADERS = xxh_x86dispatch.h
 DISPATCH_OBJS = xxh_x86dispatch.o
 endif	# ARCH
 ifeq ($(ARCH), aarch64)
-DISPATCH_HEADERS = xxh_arm64dispatch.h
 DISPATCH_OBJS = xxh_arm64dispatch.o xxh_arm64sve.o
 endif	# ARCH
 xxhsum: CPPFLAGS += -DXXHSUM_DISPATCH=1
@@ -139,9 +137,9 @@ endif
 
 xxhash.o: xxhash.c xxhash.h
 xxhsum.o: $(XXHSUM_SRC_DIR)/xxhsum.c $(XXHSUM_HEADERS) \
-    xxhash.h $(DISPATCH_HEADERS)
-xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
-xxh_arm64dispatch.o: xxh_arm64dispatch.c xxh_arm64dispatch.h xxhash.h
+    xxhash.h xxh_dispatch.h
+xxh_x86dispatch.o: xxh_x86dispatch.c xxh_dispatch.h xxhash.h
+xxh_arm64dispatch.o: xxh_arm64dispatch.c xxh_dispatch.h xxhash.h
 xxh_arm64sve.o: xxh_arm64sve.S
 	$(CC) $(FLAGS) -o xxh_arm64sve.o -c xxh_arm64sve.S
 
@@ -564,7 +562,7 @@ install_libxxhash: libxxhash
 	$(Q)$(INSTALL_DATA) xxhash.h $(DESTDIR)$(INCLUDEDIR)
 	$(Q)$(INSTALL_DATA) xxh3.h $(DESTDIR)$(INCLUDEDIR) # for compatibility, will be removed in v0.9.0
 ifeq ($(DISPATCH),1)
-	$(Q)$(INSTALL_DATA) $(DISPATCH_HEADERS) $(DESTDIR)$(INCLUDEDIR)
+	$(Q)$(INSTALL_DATA) xxh_dispatch.h $(DESTDIR)$(INCLUDEDIR)
 endif	# DISPATCH
 
 install_libxxhash.pc: libxxhash.pc
@@ -600,7 +598,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	$(Q)$(RM) $(DESTDIR)$(LIBDIR)/$(LIBXXH)
 	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/xxhash.h
 	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh3.h
-	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/$(DISPATCH_HEADERS)
+	$(Q)$(RM) $(DESTDIR)$(INCLUDEDIR)/xxh_dispatch.h
 	$(Q)$(RM) $(DESTDIR)$(PKGCONFIGDIR)/libxxhash.pc
 	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh64sum

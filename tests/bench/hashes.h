@@ -65,7 +65,7 @@
  /* ===  xxHash  === */
 #if defined(ARM64_DISPATCH) && defined(__ARM_FEATURE_SVE)
 #  define XXH_INLINE_ALL
-#  include "../../xxh_arm64dispatch.h"
+#  include "../../xxh_dispatch.h"
 #else
 #  define XXH_INLINE_ALL
 #  include "xxhash.h"

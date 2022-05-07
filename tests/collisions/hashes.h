@@ -31,7 +31,7 @@
 #include <stdint.h>      /* uint64_t */
 #if defined(ARM64_DISPATCH) && defined(__ARM_FEATURE_SVE)
 #  define XXH_INLINE_ALL /* XXH128_hash_t */
-#  include "../../xxh_arm64dispatch.h"
+#  include "../../xxh_dispatch.h"
 #else
 #  define XXH_INLINE_ALL /* XXH128_hash_t */
 #  include "xxhash.h"

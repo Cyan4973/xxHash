@@ -32,11 +32,7 @@
 #endif
 #include "../xxhash.h"
 #ifdef XXHSUM_DISPATCH
-#  ifdef  XXHSUM_ARCH_X86
-#    include "../xxh_x86dispatch.h"  /* activate _dispatch() redirectors */
-#  elif defined(XXHSUM_ARCH_ARM64)
-#    include "../xxh_arm64dispatch.h"
-#  endif
+#  include "../xxh_dispatch.h"  /* activate _dispatch() redirectors */
 #endif
 
 #include <stdlib.h>  /* malloc, free */

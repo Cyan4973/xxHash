@@ -272,6 +272,20 @@ jobs:
         mkdir test_install_dir
         DESTDIR=test_install_dir cmake --install .
 
+    - name: cmake minimum version v2.8.12 test
+      run: |
+        mkdir -p cmake_bins
+        cd cmake_bins
+        wget https://cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.tar.gz
+        tar xzf cmake-2.8.12.2-Linux-i386.tar.gz
+        cd ../cmake_unofficial
+        mkdir -p build
+        cd build
+        ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake ..
+        rm -rf *
+        ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake -DCMAKE_BUILD_TYPE=Debug ..
+
+
 
   # Linux, { ARM, ARM64, PPC64LE, PPC64, S390X }
   # All tests are using QEMU and gcc cross compiler.

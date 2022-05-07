@@ -489,3 +489,11 @@ ENTRY (XXH3_sve512_internal_loop)
 	ldp	x29, x30, [sp], #48
 	ret
 END (XXH3_sve512_internal_loop)
+
+/*
+ * Stack marking
+ * ref: https://wiki.gentoo.org/wiki/Hardened/GNU_stack_quickstart
+ */
+#if defined(__GNUC__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif

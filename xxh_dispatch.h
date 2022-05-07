@@ -1,5 +1,5 @@
 /*
- * xxHash - XXH3 Dispatcher for x86-based targets
+ * xxHash - XXH3 Dispatcher for x86-based & aarch64-based targets
  * Copyright (C) 2020-2021 Yann Collet
  *
  * BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
@@ -32,8 +32,8 @@
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
-#ifndef XXH_X86DISPATCH_H_13563687684
-#define XXH_X86DISPATCH_H_13563687684
+#ifndef XXH_DISPATCH_H_13563687684
+#define XXH_DISPATCH_H_13563687684
 
 #include "xxhash.h"  /* XXH64_hash_t, XXH3_state_t */
 
@@ -82,4 +82,4 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH3_state_t* state, c
 
 #endif /* XXH_DISPATCH_DISABLE_REPLACE */
 
-#endif /* XXH_X86DISPATCH_H_13563687684 */
+#endif /* XXH_DISPATCH_H_13563687684 */

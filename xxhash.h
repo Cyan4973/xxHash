@@ -3489,7 +3489,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr)
  * These intrinsics weren't added until GCC 8, despite existing for a while,
  * and they are endian dependent. Also, their meaning swap depending on version.
  * */
-# if defined(__s390x__) 
+# if defined(__s390x__)
  /* s390x is always big endian, no issue on this platform */
 #  define XXH_vec_mulo vec_mulo
 #  define XXH_vec_mule vec_mule
@@ -4997,8 +4997,8 @@ XXH3_hashLong_64b_withSeed_internal(const void* input, size_t len,
  * It's important for performance that XXH3_hashLong is not inlined.
  */
 XXH_NO_INLINE XXH64_hash_t
-XXH3_hashLong_64b_withSeed(const void* input, size_t len,
-                           XXH64_hash_t seed, const xxh_u8* secret, size_t secretLen)
+XXH3_hashLong_64b_withSeed(const void* XXH_RESTRICT input, size_t len,
+                           XXH64_hash_t seed, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
     return XXH3_hashLong_64b_withSeed_internal(input, len, seed,

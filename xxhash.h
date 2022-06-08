@@ -1764,7 +1764,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  define XXH_NO_INLINE static
 /* enable inlining hints */
 #elif defined(__GNUC__) || defined(__clang__)
-#  define XXH_FORCE_INLINE static __inline__ __attribute__((always_inline, unused))
+#  define XXH_FORCE_INLINE static
 #  define XXH_NO_INLINE static __attribute__((noinline))
 #elif defined(_MSC_VER)  /* Visual Studio */
 #  define XXH_FORCE_INLINE static __forceinline

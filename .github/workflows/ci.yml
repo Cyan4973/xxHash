@@ -281,9 +281,14 @@ jobs:
         cd ../cmake_unofficial
         mkdir -p build
         cd build
+        ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake --version
         ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake ..
+        ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake --build .
+        mkdir -p test_install_dir
+        DESTDIR=test_install_dir ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake --install .
         rm -rf *
         ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake -DCMAKE_BUILD_TYPE=Debug ..
+        ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake --build .
 
 
 

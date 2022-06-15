@@ -165,10 +165,11 @@ if(NOT XXHASH_BUNDLED_MODE)
     NAMESPACE ${PROJECT_NAME}::)
 
   # configure and install pkg-config
+  include(JoinPaths.cmake)
   set(PREFIX ${CMAKE_INSTALL_PREFIX})
   set(EXECPREFIX "\${prefix}")
-  set(INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
-  set(LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+  join_paths(INCLUDEDIR "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+  join_paths(LIBDIR "\${prefix}" "${CMAKE_INSTALL_LIBDIR}")
   set(VERSION "${XXHASH_VERSION_STRING}")
   configure_file(${XXHASH_DIR}/libxxhash.pc.in ${CMAKE_BINARY_DIR}/libxxhash.pc @ONLY)
 

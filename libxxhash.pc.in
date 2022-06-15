@@ -4,8 +4,8 @@
 
 prefix=@PREFIX@
 exec_prefix=@EXECPREFIX@
-includedir=${prefix}/@INCLUDEDIR@
-libdir=${exec_prefix}/@LIBDIR@
+includedir=@INCLUDEDIR@
+libdir=@LIBDIR@
 
 Name: xxhash
 Description: extremely fast hash algorithm

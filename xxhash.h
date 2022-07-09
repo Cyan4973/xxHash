@@ -4179,7 +4179,8 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     XXH_ASSERT(((size_t)customSecret & 63) == 0);
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
-        __m512i const seed = _mm512_mask_set1_epi64(_mm512_set1_epi64((xxh_i64)seed64), 0xAA, (xxh_i64)(0U - seed64));
+        __m512i const seed_pos = _mm512_set1_epi64(seed64);
+        __m512i const seed     = _mm512_mask_sub_epi64(seed_pos, 0xAA, _mm512_set1_epi8(0), seed_pos);
 
         const __m512i* const src  = (const __m512i*) ((const void*) XXH3_kSecret);
               __m512i* const dest = (      __m512i*) customSecret;
@@ -4187,14 +4188,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
         XXH_ASSERT(((size_t)src & 63) == 0); /* control alignment */
         XXH_ASSERT(((size_t)dest & 63) == 0);
         for (i=0; i < nbRounds; ++i) {
-            /* GCC has a bug, _mm512_stream_load_si512 accepts 'void*', not 'void const*',
-             * this will warn "discards 'const' qualifier". */
-            union {
-                const __m512i* cp;
-                void* p;
-            } remote_const_void;
-            remote_const_void.cp = src + i;
-            dest[i] = _mm512_add_epi64(_mm512_stream_load_si512(remote_const_void.p), seed);
+            dest[i] = _mm512_add_epi64(_mm512_load_si512(src + i), seed);
     }   }
 }
 
@@ -4294,12 +4288,12 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
         XXH_ASSERT(((size_t)dest & 31) == 0);
 
         /* GCC -O2 need unroll loop manually */
-        dest[0] = _mm256_add_epi64(_mm256_stream_load_si256(src+0), seed);
-        dest[1] = _mm256_add_epi64(_mm256_stream_load_si256(src+1), seed);
-        dest[2] = _mm256_add_epi64(_mm256_stream_load_si256(src+2), seed);
-        dest[3] = _mm256_add_epi64(_mm256_stream_load_si256(src+3), seed);
-        dest[4] = _mm256_add_epi64(_mm256_stream_load_si256(src+4), seed);
-        dest[5] = _mm256_add_epi64(_mm256_stream_load_si256(src+5), seed);
+        dest[0] = _mm256_add_epi64(_mm256_load_si256(src+0), seed);
+        dest[1] = _mm256_add_epi64(_mm256_load_si256(src+1), seed);
+        dest[2] = _mm256_add_epi64(_mm256_load_si256(src+2), seed);
+        dest[3] = _mm256_add_epi64(_mm256_load_si256(src+3), seed);
+        dest[4] = _mm256_add_epi64(_mm256_load_si256(src+4), seed);
+        dest[5] = _mm256_add_epi64(_mm256_load_si256(src+5), seed);
     }
 }
 

@@ -4123,7 +4123,7 @@ XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
         /* data_key    = data_vec ^ key_vec; */
         __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
         /* data_key_lo = data_key >> 32; */
-        __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, (_MM_PERM_ENUM)_MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const data_key_lo = _mm512_srli_epi64 (data_key, 32);
         /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
         __m512i const product     = _mm512_mul_epu32     (data_key, data_key_lo);
         /* xacc[0] += swap(data_vec); */
@@ -4172,7 +4172,7 @@ XXH3_scrambleAcc_avx512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
 
         /* xacc[0] *= XXH_PRIME32_1; */
-        __m512i const data_key_hi = _mm512_shuffle_epi32 (data_key, (_MM_PERM_ENUM)_MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const data_key_hi = _mm512_srli_epi64 (data_key, 32);
         __m512i const prod_lo     = _mm512_mul_epu32     (data_key, prime32);
         __m512i const prod_hi     = _mm512_mul_epu32     (data_key_hi, prime32);
         *xacc = _mm512_add_epi64(prod_lo, _mm512_slli_epi64(prod_hi, 32));
@@ -4232,7 +4232,7 @@ XXH3_accumulate_512_avx2( void* XXH_RESTRICT acc,
             /* data_key    = data_vec ^ key_vec; */
             __m256i const data_key    = _mm256_xor_si256     (data_vec, key_vec);
             /* data_key_lo = data_key >> 32; */
-            __m256i const data_key_lo = _mm256_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+            __m256i const data_key_lo = _mm256_srli_epi64 (data_key, 32);
             /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
             __m256i const product     = _mm256_mul_epu32     (data_key, data_key_lo);
             /* xacc[i] += swap(data_vec); */
@@ -4264,7 +4264,7 @@ XXH3_scrambleAcc_avx2(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             __m256i const data_key    = _mm256_xor_si256     (data_vec, key_vec);
 
             /* xacc[i] *= XXH_PRIME32_1; */
-            __m256i const data_key_hi = _mm256_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+            __m256i const data_key_hi = _mm256_srli_epi64 (data_key, 32);
             __m256i const prod_lo     = _mm256_mul_epu32     (data_key, prime32);
             __m256i const prod_hi     = _mm256_mul_epu32     (data_key_hi, prime32);
             xacc[i] = _mm256_add_epi64(prod_lo, _mm256_slli_epi64(prod_hi, 32));

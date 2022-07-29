@@ -420,12 +420,39 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 test-unicode clangtest cxxtest usan test-inline listL120 trailingWhitespace
+test-all: test test32 test-unicode clangtest cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
 
 .PHONY: test-tools
 test-tools:
 	CFLAGS=-Werror $(MAKE) -C tests/bench
 	CFLAGS=-Werror $(MAKE) -C tests/collisions
+
+.PHONY: test-xxh-nnn-sums
+test-xxh-nnn-sums: xxhsum_and_links
+	./xxhsum    README.md > tmp.xxhsum.out    # xxhsum outputs xxh64
+	./xxh32sum  README.md > tmp.xxh32sum.out
+	./xxh64sum  README.md > tmp.xxh64sum.out
+	./xxh128sum README.md > tmp.xxh128sum.out
+	cat tmp.xxhsum.out
+	cat tmp.xxh32sum.out
+	cat tmp.xxh64sum.out
+	cat tmp.xxh128sum.out
+	./xxhsum -c tmp.xxhsum.out
+	./xxhsum -c tmp.xxh32sum.out
+	./xxhsum -c tmp.xxh64sum.out
+	./xxhsum -c tmp.xxh128sum.out
+	./xxh32sum -c tmp.xxhsum.out            ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh32sum -c tmp.xxh32sum.out
+	./xxh32sum -c tmp.xxh64sum.out          ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh32sum -c tmp.xxh128sum.out         ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh64sum -c tmp.xxhsum.out
+	./xxh64sum -c tmp.xxh32sum.out          ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh64sum -c tmp.xxh64sum.out
+	./xxh64sum -c tmp.xxh128sum.out         ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh128sum -c tmp.xxhsum.out           ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh128sum -c tmp.xxh32sum.out         ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh128sum -c tmp.xxh64sum.out         ; test $$? -eq 1  # expects "no properly formatted"
+	./xxh128sum -c tmp.xxh128sum.out
 
 .PHONY: listL120
 listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (note: $$, for Makefile compatibility)

@@ -3963,7 +3963,7 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     {   xxh_u64 acc = len * XXH_PRIME64_1;
 #if XXH_SIZE_OPT >= 1
         /* Smaller and cleaner, but slightly slower. */
-        size_t i = (len - 1) / 32;
+        unsigned int i = (unsigned int)(len - 1) / 32;
         do {
             acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
             acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
@@ -4002,8 +4002,8 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     #define XXH3_MIDSIZE_LASTOFFSET  17
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
-        int const nbRounds = (int)len / 16;
-        int i;
+        unsigned int const nbRounds = (unsigned int)len / 16;
+        unsigned int i;
         for (i=0; i<8; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
         }
@@ -5676,7 +5676,7 @@ XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
 #if XXH_SIZE_OPT >= 1
         {
             /* Smaller, but slightly slower. */
-            size_t i = (len - 1) / 32;
+            unsigned int i = (unsigned int)(len - 1) / 32;
             do {
                 acc = XXH128_mix32B(acc, input+16*i, input+len-16*(i+1), secret+32*i, seed);
             } while (i-- != 0);
@@ -5714,8 +5714,8 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     {   XXH128_hash_t acc;
-        int const nbRounds = (int)len / 32;
-        int i;
+        unsigned int const nbRounds = (unsigned int)len / 32;
+        unsigned int i;
         acc.low64 = len * XXH_PRIME64_1;
         acc.high64 = 0;
         for (i=0; i<4; i++) {

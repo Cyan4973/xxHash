@@ -1840,6 +1840,12 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define XXH_COMPILER_GUARD_W(var) __asm__ __volatile__("" : "+w" (var))
+#else
+#  define XXH_COMPILER_GUARD_W(var) ((void)0)
+#endif
+
 /* *************************************
 *  Basic Types
 ***************************************/
@@ -3360,7 +3366,8 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  * @brief Controls the NEON to scalar ratio for XXH3
  *
  * On AArch64 when not optimizing for size, XXH3 will run 6 lanes using NEON and
- * 2 lanes on scalar by default.
+ * 2 lanes on scalar by default (except on Apple platforms, as Apple CPUs benefit
+ * from only using NEON).
  *
  * This can be set to 2, 4, 6, or 8. ARMv7 will default to all 8 NEON lanes, as the
  * emulated 64-bit arithmetic is too slow.
@@ -3380,13 +3387,14 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  * counters and pointers.
  *
  * This change benefits CPUs with large micro-op buffers without negatively affecting
- * other CPUs:
+ * most other CPUs:
  *
  *  | Chipset               | Dispatch type       | NEON only | 6:2 hybrid | Diff. |
  *  |:----------------------|:--------------------|----------:|-----------:|------:|
  *  | Snapdragon 730 (A76)  | 2 NEON/8 micro-ops  |  8.8 GB/s |  10.1 GB/s |  ~16% |
  *  | Snapdragon 835 (A73)  | 2 NEON/3 micro-ops  |  5.1 GB/s |   5.3 GB/s |   ~5% |
  *  | Marvell PXA1928 (A53) | In-order dual-issue |  1.9 GB/s |   1.9 GB/s |    0% |
+ *  | Apple M1              | 4 NEON/8 micro-ops  | 37.3 GB/s |  36.1 GB/s |  ~-3% |
  *
  * It also seems to fix some bad codegen on GCC, making it almost as fast as clang.
  *
@@ -3394,7 +3402,7 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  */
 # ifndef XXH3_NEON_LANES
 #  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
-   && XXH_SIZE_OPT <= 0
+   && !defined(__APPLE__) && XXH_SIZE_OPT <= 0
 #   define XXH3_NEON_LANES 6
 #  else
 #   define XXH3_NEON_LANES XXH_ACC_NB
@@ -4444,7 +4452,49 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarRound(acc, input, secret, i);
         }
-        for (i=0; i < XXH3_NEON_LANES / 2; i++) {
+        i = 0;
+        for (; i+1 < XXH3_NEON_LANES / 2; i+=2) {
+            uint64x2_t acc_vec1 = xacc[i];
+            /* data_vec = xinput[i]; */
+            uint64x2_t data_vec1 = XXH_vld1q_u64(xinput  + (i * 16));
+            /* key_vec  = xsecret[i];  */
+            uint64x2_t key_vec1  = XXH_vld1q_u64(xsecret + (i * 16));
+            /* acc_vec_2 = swap(data_vec) */
+            uint64x2_t acc_vec_21 = vextq_u64(data_vec1, data_vec1, 1);
+            /* data_key = data_vec ^ key_vec; */
+            uint64x2_t data_key1 = veorq_u64(data_vec1, key_vec1);
+
+            uint64x2_t acc_vec2 = xacc[i+1];
+            /* data_vec = xinput[i]; */
+            uint64x2_t data_vec2 = XXH_vld1q_u64(xinput  + ((i+1) * 16));
+            /* key_vec  = xsecret[i];  */
+            uint64x2_t key_vec2  = XXH_vld1q_u64(xsecret + ((i+1) * 16));
+            /* acc_vec_2 = swap(data_vec) */
+            uint64x2_t acc_vec_22 = vextq_u64(data_vec2, data_vec2, 1);
+            /* data_key = data_vec ^ key_vec; */
+            uint64x2_t data_key2 = veorq_u64(data_vec2, key_vec2);
+
+            /* data_key_lo = {(data_key1 & 0xFFFFFFFF), (data_key2 & 0xFFFFFFFF)};
+             * data_key_hi = {(data_key1 >> 32), (data_key2 >> 32)};
+             */
+            uint32x4x2_t zipped = vuzpq_u32(vreinterpretq_u32_u64(data_key1), vreinterpretq_u32_u64(data_key2));
+            uint32x4_t data_key_lo = zipped.val[0];
+            uint32x4_t data_key_hi = zipped.val[1];
+
+            /* acc_vec_2 += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
+            acc_vec_21 = vmlal_u32 (acc_vec_21, vget_low_u32(data_key_lo), vget_low_u32(data_key_hi));
+            XXH_COMPILER_GUARD_W(acc_vec_21);
+            /* xacc[i] += acc_vec_2; */
+            acc_vec1 = vaddq_u64 (acc_vec1, acc_vec_21);
+            xacc[i] = acc_vec1;
+            /* acc_vec_2 += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
+            acc_vec_22 = vmlal_u32 (acc_vec_22, vget_high_u32(data_key_lo), vget_high_u32(data_key_hi));
+            XXH_COMPILER_GUARD_W(acc_vec_22);
+            /* xacc[i] += acc_vec_2; */
+            acc_vec2 = vaddq_u64 (acc_vec2, acc_vec_22);
+            xacc[i+1] = acc_vec2;
+        }
+        for (; i < XXH3_NEON_LANES / 2; i++) {
             uint64x2_t acc_vec = xacc[i];
             /* data_vec = xinput[i]; */
             uint64x2_t data_vec = XXH_vld1q_u64(xinput  + (i * 16));
@@ -4462,6 +4512,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             XXH_SPLIT_IN_PLACE(data_key, data_key_lo, data_key_hi);
             /* acc_vec_2 += (uint64x2_t) data_key_lo * (uint64x2_t) data_key_hi; */
             acc_vec_2 = vmlal_u32 (acc_vec_2, data_key_lo, data_key_hi);
+            XXH_COMPILER_GUARD_W(acc_vec_2);
             /* xacc[i] += acc_vec_2; */
             acc_vec = vaddq_u64 (acc_vec, acc_vec_2);
             xacc[i] = acc_vec;

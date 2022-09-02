@@ -2,10 +2,17 @@
 xxHash - Extremely fast hash algorithm
 ======================================
 
-xxHash is an Extremely fast Hash algorithm, running at RAM speed limits.
-It successfully completes the [SMHasher](https://code.google.com/p/smhasher/wiki/SMHasher) test suite
-which evaluates collision, dispersion and randomness qualities of hash functions.
-Code is highly portable, and hashes are identical across all platforms (little / big endian).
+xxHash is an Extremely fast Hash algorithm, processing at RAM speed limits.
+Code is highly portable, and produces hashes identical across all platforms (little / big endian).
+The library includes the following algorithms :
+- XXH32 : generates 32-bit hashes, using 32-bit arithmetic
+- XXH64 : generates 64-bit hashes, using 64-bit arithmetic
+- XXH3 (since `v0.8.0`): generates 64 or 128-bit hashes, using vectorized arithmetic.
+  The 128-bit variant is called XXH128.
+
+All variants successfully complete the [SMHasher](https://code.google.com/p/smhasher/wiki/SMHasher) test suite
+which evaluates the quality of hash functions (collision, dispersion and randomness).
+Additional tests, which evaluate more thoroughly speed and collision properties of 64-bit hashes, [are also provided](https://github.com/Cyan4973/xxHash/tree/dev/tests).
 
 |Branch      |Status   |
 |------------|---------|
@@ -16,7 +23,7 @@ Code is highly portable, and hashes are identical across all platforms (little /
 Benchmarks
 -------------------------
 
-The reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
+The benchmarked reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
 The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` flag.
 
 | Hash Name     | Width | Bandwidth (GB/s) | Small Data Velocity | Quality | Comment |
@@ -44,7 +51,7 @@ The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` f
 
 note 1: Small data velocity is a _rough_ evaluation of algorithm's efficiency on small data. For more detailed analysis, please refer to next paragraph.
 
-note 2: some algorithms feature _faster than RAM_ speed. In which case, they can only reach their full speed when input data is already in CPU cache (L3 or better). Otherwise, they max out on RAM speed limit.
+note 2: some algorithms feature _faster than RAM_ speed. In which case, they can only reach their full speed potential when input is already in CPU cache (L3 or better). Otherwise, they max out on RAM speed limit.
 
 ### Small data
 
@@ -60,7 +67,7 @@ which can be observed in the following graph:
 
 ![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
 
-For a more detailed analysis, visit the wiki :
+For a more detailed analysis, please visit the wiki :
 https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-
 
 Quality
@@ -94,23 +101,23 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                     with performance improvements observed in the +200% range .
                     See [this article](https://fastcompression.blogspot.com/2018/03/xxhash-for-small-keys-impressive-power.html) for details.
 - `XXH_PRIVATE_API`: same outcome as `XXH_INLINE_ALL`. Still available for legacy support.
-                     The name underlines that `XXH_*` symbols will not be exported.
+                     The name underlines that `XXH_*` symbol names will not be exported.
 - `XXH_NAMESPACE`: Prefixes all symbols with the value of `XXH_NAMESPACE`.
                    This macro can only use compilable character set.
                    Useful to evade symbol naming collisions,
                    in case of multiple inclusions of xxHash's source code.
                    Client applications still use the regular function names,
                    as symbols are automatically translated through `xxhash.h`.
-- `XXH_FORCE_MEMORY_ACCESS`: The default method `0` uses a portable `memcpy()` notation.
-                             Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
-                             Method `2` forces unaligned reads, which is not standards compliant, but might sometimes be the only way to extract better read performance.
-                             Method `3` uses a byteshift operation, which is best for old compilers which don't inline `memcpy()` or big-endian systems without a byteswap instruction
 - `XXH_FORCE_ALIGN_CHECK`: Use a faster direct read path when input is aligned.
                            This option can result in dramatic performance improvement when input to hash is aligned on 32 or 64-bit boundaries,
                            when running on architectures unable to load memory from unaligned addresses, or suffering a performance penalty from it.
                            It is (slightly) detrimental on platform with good unaligned memory access performance (same instruction for both aligned and unaligned accesses).
                            This option is automatically disabled on `x86`, `x64` and `aarch64`, and enabled on all other platforms.
-- `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). Available instruction sets are `XXH_SCALAR`, `XXH_SSE2`, `XXH_AVX2`, `XXH_AVX512`, `XXH_NEON` and `XXH_VSX`. Compiler may require additional flags to ensure proper support (for example, `gcc` on linux will require `-mavx2` for AVX2, and `-mavx512f` for AVX512).
+- `XXH_FORCE_MEMORY_ACCESS`: The default method `0` uses a portable `memcpy()` notation.
+                             Method `1` uses a gcc-specific `packed` attribute, which can provide better performance for some targets.
+                             Method `2` forces unaligned reads, which is not standard compliant, but might sometimes be the only way to extract better read performance.
+                             Method `3` uses a byteshift operation, which is best for old compilers which don't inline `memcpy()` or big-endian systems without a byteswap instruction.
+- `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). Available instruction sets are `XXH_SCALAR`, `XXH_SSE2`, `XXH_AVX2`, `XXH_AVX512`, `XXH_NEON` and `XXH_VSX`. Compiler may require additional flags to ensure proper support (for example, `gcc` on linux will require `-mavx2` for `AVX2`, and `-mavx512f` for `AVX512`).
 - `XXH_NO_PREFETCH` : disable prefetching. Some platforms or situations may perform better without prefetching. XXH3 only.
 - `XXH_PREFETCH_DIST` : select prefetching distance. For close-to-metal adaptation to specific hardware platforms. XXH3 only.
 - `XXH_NO_STREAM`: Disables the streaming API, limiting it to single shot variants only.
@@ -133,8 +140,8 @@ The following macros can be set at compilation time to modify libxxhash's behavi
 - `XXH_STATIC_LINKING_ONLY`: gives access to internal state declaration, required for static allocation.
                              Incompatible with dynamic linking, due to risks of ABI changes.
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.
-                  Useful to reduce binary size, notably for applications which do not use `XXH3`.
-- `XXH_NO_LONG_LONG`: removes compilation of algorithms relying on 64-bit types (XXH3 and XXH64). Only XXH32 will be compiled.
+                  Useful to reduce binary size, notably for applications which do not employ `XXH3`.
+- `XXH_NO_LONG_LONG`: removes compilation of algorithms relying on 64-bit types (`XXH3` and `XXH64`). Only `XXH32` will be compiled.
                       Useful for targets (architectures and compilers) without 64-bit support.
 - `XXH_IMPORT`: MSVC specific: should only be defined for dynamic linking, as it prevents linkage errors.
 - `XXH_CPU_LITTLE_ENDIAN`: By default, endianness is determined by a runtime test resolved at compile time.
@@ -144,7 +151,7 @@ The following macros can be set at compilation time to modify libxxhash's behavi
 - `XXH_DEBUGLEVEL` : When set to any value >= 1, enables `assert()` statements.
                      This (slightly) slows down execution, but may help finding bugs during debugging sessions.
 
-When compiling the Command Line Interface `xxhsum` with `make`, the following environment variables can also be set :
+When compiling the Command Line Interface `xxhsum` with `using`, the following environment variables can also be set :
 - `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
 
 ### Building xxHash - Using vcpkg

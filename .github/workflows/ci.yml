@@ -407,7 +407,7 @@ jobs:
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
 
-  # macOS, { 10.15, 11 }
+  # macOS, { 11 }
 
   macos-general:
     name: ${{ matrix.system.os }}
@@ -417,7 +417,6 @@ jobs:
       matrix:
         system: [
           { os: macos-11    },
-          { os: macos-10.15 },
         ]
     steps:
     - uses: actions/checkout@v2

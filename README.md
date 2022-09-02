@@ -151,7 +151,7 @@ The following macros can be set at compilation time to modify libxxhash's behavi
 - `XXH_DEBUGLEVEL` : When set to any value >= 1, enables `assert()` statements.
                      This (slightly) slows down execution, but may help finding bugs during debugging sessions.
 
-When compiling the Command Line Interface `xxhsum` with `using`, the following environment variables can also be set :
+When compiling the Command Line Interface `xxhsum` using `make`, the following environment variables can also be set :
 - `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
 
 ### Building xxHash - Using vcpkg

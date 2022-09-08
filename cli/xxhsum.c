@@ -699,7 +699,7 @@ static ParseLineResult XSUM_parseLine1(ParsedLine* parsedLine, char* line, int r
         if (hash_len==32) parsedLine->algo = algo_xxh128;
     }
 
-    /* Check current CLI accpets the algorithm or not */
+    /* Check current CLI accepts the algorithm or not */
     if(! XSUM_algoBitmask_Accepts(algoBitmask, parsedLine->algo)) {
         return ParseLine_invalidFormat;
     }

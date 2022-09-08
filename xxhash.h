@@ -3136,7 +3136,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
  * @ingroup tuning
  * @brief Selects the minimum alignment for XXH3's accumulators.
  *
- * When using SIMD, this should match the alignment reqired for said vector
+ * When using SIMD, this should match the alignment required for said vector
  * type, so, for example, 32 for AVX2.
  *
  * Default: Auto detected.
@@ -3378,7 +3378,7 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  * have more than 2 NEON (F0/F1) micro-ops. If you are only using NEON instructions,
  * you are only using 2/3 of the CPU bandwidth.
  *
- * This is even more noticable on the more advanced cores like the A76 which
+ * This is even more noticeable on the more advanced cores like the A76 which
  * can dispatch 8 micro-ops per cycle, but still only 2 NEON micro-ops at once.
  *
  * Therefore, @ref XXH3_NEON_LANES lanes will be processed using NEON, and the

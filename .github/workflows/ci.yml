@@ -30,7 +30,7 @@
 #   | Item                      | Section in the right pane             |
 #   | ------------------------- | ------------------------------------- |
 #   | OS, VM                    | Set up job                            |
-#   | git repo, commit hash     | Run actions/checkout@v2               |
+#   | git repo, commit hash     | Run actions/checkout@v3               |
 #   | gcc, tools                | Environment info                      |
 #
 # - To fail earlier, order of tests in the same job are roughly sorted by
@@ -102,7 +102,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-    - uses: actions/checkout@v2 # https://github.com/actions/checkout
+    - uses: actions/checkout@v3 # https://github.com/actions/checkout
 
     - name: apt-get install
       run: |
@@ -171,7 +171,7 @@ jobs:
     name: Linux x64 check results consistency
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2 # https://github.com/actions/checkout
+    - uses: actions/checkout@v3 # https://github.com/actions/checkout
 
     - name: Environment info
       run: |
@@ -210,7 +210,7 @@ jobs:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2 # https://github.com/actions/checkout
+    - uses: actions/checkout@v3 # https://github.com/actions/checkout
 
     - name: apt-get install
       run: |
@@ -253,7 +253,7 @@ jobs:
     name: Linux x64 cmake unofficial build test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2 # https://github.com/actions/checkout
+    - uses: actions/checkout@v3 # https://github.com/actions/checkout
 
     - name: Environment info
       run: |
@@ -350,7 +350,7 @@ jobs:
       XCC: ${{ matrix.xcc }}
       XEMU: ${{ matrix.xemu }}
     steps:
-    - uses: actions/checkout@v2 # https://github.com/actions/checkout
+    - uses: actions/checkout@v3 # https://github.com/actions/checkout
     - name: apt update & install (1)
       run: |
         sudo apt-get update
@@ -419,7 +419,7 @@ jobs:
           { os: macos-11    },
         ]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Environment info
       run: |
@@ -459,7 +459,7 @@ jobs:
         ]
         arch: [ x64, Win32, ARM, ARM64 ]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Build ${{ matrix.system.os }}, ${{ matrix.arch }}
       run: |
@@ -512,7 +512,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v2  # https://github.com/actions/checkout
+      - uses: actions/checkout@v3  # https://github.com/actions/checkout
       - uses: msys2/setup-msys2@v2 # https://github.com/msys2/setup-msys2
         with:
           msystem: MSYS
@@ -553,7 +553,7 @@ jobs:
       HOME: /root
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         # FIX: we currently need a full clone
         with:
           fetch-depth: '0'

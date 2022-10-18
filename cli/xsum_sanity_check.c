@@ -568,7 +568,7 @@ static void XSUM_testXXH128_withSecret(const void* data, const void* secret, siz
     XXH128_hash_t Nresult = testData->Nresult;
     if (len == 0) {
         data = NULL;
-    } else if (len>0) {
+    } else {
         assert(data != NULL);
     }
     {   XXH128_hash_t const Dresult = XXH3_128bits_withSecret(data, len, secret, secretSize);

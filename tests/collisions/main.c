@@ -206,7 +206,7 @@ static double Cnm(int n, int m)
 {
     assert(n > 0);
     assert(m > 0);
-    assert(m <= m);
+    assert(m <= n);
     double acc = 1;
     for (int i=0; i<m; i++) {
         acc *= n - i;

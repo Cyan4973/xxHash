@@ -554,7 +554,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - run: mkdir -p ~/.tipi
+        # FIX: we currently need a full clone
+        with:
+          fetch-depth: '0'
+      - run: |
+        mkdir -p /usr/local/share/.tipi
+        # FIX: Hack for github action
+        git config --global --add safe.directory /usr/local/share/.tipi
+        git config --global --add safe.directory /__w/xxHash/xxHash/
 
       # checking if the xxHash project builds and passes tests
       - name: Build as project target linux-cxx17 (run test multiInclude)

@@ -50,6 +50,7 @@ All operations are performed modulo {32,64} bits. Arithmetic overflows are expec
 `XXH32` uses 32-bit modular operations. `XXH64` and `XXH3` uses 64-bit modular operations.
 
 - `+`: denotes modular addition
+- `-`: denotes modular subtraction
 - `*`: denotes modular multiplication
     - **Exception:** In `XXH3`, if it is in the form `(u128)x * (u128)y`, it denotes 64-bit by 64-bit normal multiplication into a full 128-bit result.
 - `X <<< s`: denotes the value obtained by circularly shifting (rotating) `X` left by `s` bit positions.
@@ -410,7 +411,7 @@ avalanche(u64 x):
 XXH3 Algorithm Description (for small inputs)
 -------------------------------------
 
-The algorithm for small inputs is further divided into 4 cases: empty, 1-3 bytes, 4-8 bytes, and 9-16 bytes of input.
+The algorithm for small inputs (0-16 bytes of input) is further divided into 4 cases: empty, 1-3 bytes, 4-8 bytes, and 9-16 bytes of input.
 
 The algorithm uses byte-swap operations. The byte-swap operation reverses the byte order in a 32-bit or 64-bit value. It is denoted `bswap32` and `bswap64` for its 32-bit and 64-bit versions, respectively.
 
@@ -517,7 +518,7 @@ XXH3_64_9to16():
   u128 mulResult = (u128)low * (u128)high;
   u64 value = len + bswap64(low) + high + (u64)(lowerHalf(mulResult) xor higherHalf(mulResult));
   return avalanche(value);
-  
+
 XXH3_128_9to16():
   u64 secretWords[4] = secret[32:64];
   u64 val1 = ((secretWords[0] xor secretWords[1]) - seed) xor inputFirst xor inputLast;
@@ -539,15 +540,123 @@ XXH3_128_9to16():
 XXH3 Algorithm Description (for medium inputs)
 -------------------------------------
 
-*TODO*
+This algorithm is used for medium inputs (17-240 bytes of input). Its internal hash state is stored inside 1 (XXH3-64) or 2 (XXH3-128) "accumulators", each storing an unsigned 64-bit value.
 
+### Step 1. Initialize internal accumulators
+
+The accumulator(s) are initialized based on the input length.
+
+```c
+// For XXH3-64
+u64 acc = inputLength * PRIME64_1;
+
+// For XXH3-128
+u64 acc[2] = {inputLength * PRIME64_1, 0};
+```
+
+### Step 2. Process the input
+
+This step is further divided into two cases: one for 17-128 bytes of input, and one for 129-240 bytes of input.
+
+#### Mixing operation
+
+This step uses a mixing operation that mixes a 16-byte segment of data, a 16-byte segment of secret and the seed into a 64-bit value as a building block. This operation treat the segment of data and secret as little-endian 64-bit values.
+
+```c
+mixStep(u8 data[16], size secretOffset, u64 seed):
+  u64 dataWords[2] = data[0:16];
+  u64 secretWords[2] = secret[secretOffset:secretOffset+16];
+  u128 mulResult = (u128)(dataWords[0] xor (secretWords[0] + seed)) *
+                   (u128)(dataWords[1] xor (secretWords[1] - seed));
+  return lowerHalf(mulResult) xor higherHalf(mulResult);
+```
+
+The mixing operation in XXH3-128 is always invoke in groups of two, where two 16-byte segments of data are mixed with a 32-byte segment of secret, and the accumulators are updated accordingly.
+
+```c
+mixTwoChunks(u8 data1[16], u8 data2[16], size secretOffset, u64 seed):
+  u64 dataWords1[2] = data1[0:16]; // again, little-endian conversion
+  u64 dataWords2[2] = data2[0:16];
+  acc[0] = acc[0] + mixStep(data1, secretOffset, seed);
+  acc[1] = acc[1] + mixStep(data2, secretOffset, seed);
+  acc[0] = acc[0] xor (dataWords2[0] + dataWords2[1]);
+  acc[1] = acc[1] xor (dataWords1[0] + dataWords1[1]);
+```
+
+The input is split into several 16-byte chunks and mixed, and the result is added to the accumulator(s).
+
+#### 17-128 bytes of input
+
+The input is read as *N* 16-byte chunks starting from the beginning and *N* chunks starting from the end, where *N* is the smallest number that these 2*N* chunks cover the whole input. These chunks are paired up and mixed, and the results are accumulated to the accumulator(s).
+
+```c
+processInput_XXH3_64_17to128(u8 data[]):
+  u64 numRounds = (inputLength - 1) >> 5;
+  for (i = 0; i < numRounds; i++) {
+    size offsetStart = i*16;
+    size offsetEnd = inputLength - i*16 - 16;
+    acc += mixStep(data[offsetStart:offsetStart+16], i*32, seed);
+    acc += mixStep(data[offsetEnd:offsetEnd+16], i*32+16, seed);
+  }
+
+processInput_XXH3_128_17to128(u8 data[]):
+  u64 numRounds = (inputLength - 1) >> 5;
+  for (i = 0; i < numRounds; i++) {
+    size offsetStart = i*16;
+    size offsetEnd = inputLength - i*16 - 16;
+    mixTwoChunks(data[offsetStart:offsetStart+16], data[offsetEnd:offsetEnd+16], i*32, seed);
+  }
+```
+
+#### 129-240 bytes of input
+
+The input is split into 16-byte (XXH3-64) or 32-byte (XXH3-128) chunks. The first 128 bytes are first mixed chunk by chunk, followed by an intermediate avalanche operation. Then the remaining full chunks are processed, and finally the last 16/32 bytes are treated as a chunk to process.
+
+```c
+processInput_XXH3_64_129to240(u8 data[]):
+  u64 numChunks = inputLength >> 4;
+  for (i = 0; i < 8; i++) {
+    acc += mixStep(data[i*16:i*16+16], i*16, seed);
+  }
+  acc = avalanche(acc);
+  for (i = 8; i < numChunks; i++) {
+    acc += mixStep(data[i*16:i*16+16], (i-8)*16 + 3, seed);
+  }
+  acc += mixStep(data[inputLength-16:inputLength], 119, seed);
+
+processInput_XXH3_128_129to240(u8 data[]):
+  u64 numChunks = inputLength >> 5;
+  for (i = 0; i < 4; i++) {
+    mixTwoChunks(data[i*32:i*32+16], data[i*32+16:i*32+32], i*32, seed);
+  }
+  acc[0] = avalanche(acc[0]);
+  acc[1] = avalanche(acc[1]);
+  for (i = 8; i < numChunks; i++) {
+    mixTwoChunks(data[i*32:i*32+16], data[i*32+16:i*32+32], (i-4)*32 + 3, seed);
+  }
+  // note that the half-chunk order is different here
+  mixTwoChunks(data[inputLength-16:inputLength], data[inputLength-32:inputLength-16], 103, seed);
+```
+
+### Step 3. Finalization
+
+The final result is extracted from the accumulator(s).
+
+```c
+XXH3_64_17to240():
+  return avalanche(acc);
+
+XXH3_128_17to240():
+  u64 low = acc[0] + acc[1];
+  u64 high = (acc[0] * PRIME64_1) + (acc[1] * PRIME64_4) + (((u64)inputLength - seed) * PRIME64_2);
+  return {avalanche(low), // lower half
+          (u64)0 - avalanche(high)}; // higher half
+```
 
 XXH3 Algorithm Description (for large inputs)
 -------------------------------------
 
-For inputs larger than 240 bytes, XXH3-64 and XXH3-128 use the same algorithm except for the finalizing step.
-
-The internal hash state is stored inside 8 "accumulators", each one storing an unsigned 64-bit value.
+This algorithm is used for inputs larger than 240 bytes. The internal hash state is stored inside 8 "accumulators", each one storing an unsigned 64-bit value.
 
 ### Step 1. Initialize internal accumulators
 

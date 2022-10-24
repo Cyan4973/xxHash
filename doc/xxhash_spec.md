@@ -631,7 +631,7 @@ processInput_XXH3_128_129to240(u8 data[]):
   }
   acc[0] = avalanche(acc[0]);
   acc[1] = avalanche(acc[1]);
-  for (i = 8; i < numChunks; i++) {
+  for (i = 4; i < numChunks; i++) {
     mixTwoChunks(data[i*32:i*32+16], data[i*32+16:i*32+32], (i-4)*32 + 3, seed);
   }
   // note that the half-chunk order is different here

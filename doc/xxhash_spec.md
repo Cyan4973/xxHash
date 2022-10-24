@@ -336,7 +336,7 @@ For systems which require to store and/or display the result in binary or hexade
 XXH3 Algorithm Overview
 -------------------------------------
 
-XXH3 comes in two different versions: XXH3-64 and XXH3-128 (or XXH128), producing 64 and 128 bytes of output, respectively.
+XXH3 comes in two different versions: XXH3-64 and XXH3-128 (or XXH128), producing 64 and 128 bits of output, respectively.
 
 XXH3 uses different algorithms for small (0-16 bytes), medium (17-240 bytes), and large (241+ bytes) inputs. The algorithms for small and medium inputs are optimized for performance. The three algorithms are described in the following sections.
 
@@ -351,7 +351,8 @@ Many operations require some 64-bit prime number constants, which are mostly the
   static const u64 PRIME64_3 = 0x165667B19E3779F9ULL;  // 0b0001011001010110011001111011000110011110001101110111100111111001
   static const u64 PRIME64_4 = 0x85EBCA77C2B2AE63ULL;  // 0b1000010111101011110010100111011111000010101100101010111001100011
   static const u64 PRIME64_5 = 0x27D4EB2F165667C5ULL;  // 0b0010011111010100111010110010111100010110010101100110011111000101
-  static const u64 PRIME_MIX = 0x9FB21C651E98DF25ULL;  // 0b1001111110110010000111000110010100011110100110001101111100100101
+  static const u64 PRIME_MX1 = 0x165667919E3779F9ULL;  // 0b0001011001010110011001111001000110011110001101110111100111111001
+  static const u64 PRIME_MX2 = 0x9FB21C651E98DF25ULL;  // 0b1001111110110010000111000110010100011110100110001101111100100101
 ```
 
 The `XXH3_64bits()` function produces an unsigned 64-bit value.  
@@ -398,11 +399,19 @@ The derivation treats the secrets as 24 64-bit values. In XXH3 algorithms, the s
 
 ### Final Mixing Step (avalanche)
 
-To make sure that all input bits have a chance to impact any bit in the output digest (avalanche effect), the final step of the XXH3 algorithm is usually an fixed operation that mixes the bits in a 64-bit value. This operation is denoted `avalanche()` in the following XXH3 description.
+To make sure that all input bits have a chance to impact any bit in the output digest (avalanche effect), the final step of the XXH3 algorithm is usually one of the two fixed operations that mix the bits in a 64-bit value. These operation are denoted `avalanche()` and `avalanche_XXH64()` in the following XXH3 description.
 
 ```c
 avalanche(u64 x):
   x = x xor (x >> 37);
+  x = x * PRIME_MX1;
+  x = x xor (x >> 32);
+  return x;
+
+avalanche_XXH64(u64 x):
+  x = x xor (x >> 33);
+  x = x * PRIME64_2;
+  x = x xor (x >> 29);
   x = x * PRIME64_3;
   x = x xor (x >> 32);
   return x;
@@ -420,14 +429,14 @@ The algorithm uses byte-swap operations. The byte-swap operation reverses the by
 The hash of empty input is calculated from the seed and a segment of the secret:
 
 ```c
-XXH3_128_empty():
-  u64 secretWords[4] = secret[64:96];
-  return {avalanche(seed xor secretWords[0] xor secretWords[1]), // lower half
-          avalanche(seed xor secretWords[2] xor secretWords[3])}; // higher half
-
 XXH3_64_empty():
   u64 secretWords[2] = secret[56:72];
-  return avalanche(seed xor secretWords[0] xor secretWords[1]);
+  return avalanche_XXH64(seed xor secretWords[0] xor secretWords[1]);
+
+XXH3_128_empty():
+  u64 secretWords[4] = secret[64:96];
+  return {avalanche_XXH64(seed xor secretWords[0] xor secretWords[1]), // lower half
+          avalanche_XXH64(seed xor secretWords[2] xor secretWords[3])}; // higher half
 ```
 
 ### 1-3 bytes of input
@@ -446,15 +455,16 @@ Then the final output is calculated from the value and the first 8 bytes (XXH3-6
 ```c
 XXH3_64_1to3():
   u32 secretWords[2] = secret[0:8];
-  u32 value = ((secretWords[0] xor secretWords[1]) + seed) xor combined;
-  return avalanche(value);
+  u64 value = ((u64)(secretWords[0] xor secretWords[1]) + seed) xor (u64)combined;
+  return avalanche_XXH64(value);
 
 XXH3_128_1to3():
   u32 secretWords[4] = secret[0:16];
-  u32 low = ((secretWords[0] xor secretWords[1]) + seed) xor combined;
-  u32 high = ((secretWords[2] xor secretWords[3]) - seed) xor (bswap32(combined) <<< 13);
-  return {avalanche(low), // lower half
-          avalanche(high)}; // higher half
+  u64 low = ((u64)(secretWords[0] xor secretWords[1]) + seed) xor (u64)combined;
+  u64 high = ((u64)(secretWords[2] xor secretWords[3]) - seed) xor (u64)(bswap32(combined) <<< 13);
+  // note that the bswap32(combined) <<< 13 above is 32-bit rotate
+  return {avalanche_XXH64(low), // lower half
+          avalanche_XXH64(high)}; // higher half
 ```
 
 Note that the XXH3-64 result is the lower half of XXH3-128 result.
@@ -475,11 +485,11 @@ Again, these values are combined with a segment of the secret to produce the fin
 XXH3_64_4to8():
   u64 secretWords[2] = secret[8:24];
   u64 combined = (u64)inputLast | ((u64)inputFirst << 32);
-  u64 value = ((secretWords[0] xor secretWords[1]) + modifiedSeed) xor combined;
+  u64 value = ((secretWords[0] xor secretWords[1]) - modifiedSeed) xor combined;
   value = value xor (value <<< 49) xor (value <<< 24);
-  value = value * PRIME_MIX;
+  value = value * PRIME_MX2;
   value = value xor ((value >> 35) + inputLength);
-  value = value * PRIME_MIX;
+  value = value * PRIME_MX2;
   value = value xor (value >> 28);
   return value;
 
@@ -493,7 +503,7 @@ XXH3_128_4to8():
   high = high + (low << 1);
   low = low xor (high >> 3);
   low = low xor (low >> 35);
-  low = low * PRIME_MIX;
+  low = low * PRIME_MX2;
   low = low xor (low >> 28);
   high = avalanche(high);
   return {low, high};
@@ -516,7 +526,7 @@ XXH3_64_9to16():
   u64 low = ((secretWords[0] xor secretWords[1]) + seed) xor inputFirst;
   u64 high = ((secretWords[2] xor secretWords[3]) - seed) xor inputLast;
   u128 mulResult = (u128)low * (u128)high;
-  u64 value = len + bswap64(low) + high + (u64)(lowerHalf(mulResult) xor higherHalf(mulResult));
+  u64 value = inputLength + bswap64(low) + high + (u64)(lowerHalf(mulResult) xor higherHalf(mulResult));
   return avalanche(value);
 
 XXH3_128_9to16():
@@ -525,13 +535,13 @@ XXH3_128_9to16():
   u64 val2 = ((secretWords[2] xor secretWords[3]) + seed) xor inputLast;
   u128 mulResult = (u128)val1 * (u128)PRIME64_1;
   u64 low = lowerHalf(mulResult) + ((u64)(inputLength - 1) << 54);
-  u64 high = higherHalf(mulResult) + ((u64)higherHalf(inputLast) << 32) + (u64)lowerHalf(inputLast) * PRIME32_2;
-  // the above line can also be simplified to higherHalf(mulResult) + inputLast + (u64)lowerHalf(inputLast) * (PRIME32_2 - 1);
+  u64 high = higherHalf(mulResult) + ((u64)higherHalf(val2) << 32) + (u64)lowerHalf(val2) * PRIME32_2;
+  // the above line can also be simplified to higherHalf(mulResult) + val2 + (u64)lowerHalf(val2) * (PRIME32_2 - 1);
   low = low xor bswap64(high);
   // the following three lines are in fact a 128x64 -> 128 multiplication ({low,high} = (u128){low,high} * PRIME64_2)
   u128 mulResult2 = (u128)low * (u128)PRIME64_2;
   low = lowerHalf(mulResult2);
-  high = higherHalf(mulResult2) + high * PRIME64_2;  
+  high = higherHalf(mulResult2) + high * PRIME64_2;
   return {avalanche(low), // lower half
           avalanche(high)}; // higher half
 ```
@@ -571,14 +581,14 @@ mixStep(u8 data[16], size secretOffset, u64 seed):
   return lowerHalf(mulResult) xor higherHalf(mulResult);
 ```
 
-The mixing operation in XXH3-128 is always invoke in groups of two, where two 16-byte segments of data are mixed with a 32-byte segment of secret, and the accumulators are updated accordingly.
+The mixing operation is always invoked in groups of two in XXH3-128, where two 16-byte segments of data are mixed with a 32-byte segment of secret, and the accumulators are updated accordingly.
 
 ```c
 mixTwoChunks(u8 data1[16], u8 data2[16], size secretOffset, u64 seed):
   u64 dataWords1[2] = data1[0:16]; // again, little-endian conversion
   u64 dataWords2[2] = data2[0:16];
   acc[0] = acc[0] + mixStep(data1, secretOffset, seed);
-  acc[1] = acc[1] + mixStep(data2, secretOffset, seed);
+  acc[1] = acc[1] + mixStep(data2, secretOffset + 16, seed);
   acc[0] = acc[0] xor (dataWords2[0] + dataWords2[1]);
   acc[1] = acc[1] xor (dataWords1[0] + dataWords1[1]);
 ```
@@ -590,21 +600,22 @@ The input is split into several 16-byte chunks and mixed, and the result is adde
 The input is read as *N* 16-byte chunks starting from the beginning and *N* chunks starting from the end, where *N* is the smallest number that these 2*N* chunks cover the whole input. These chunks are paired up and mixed, and the results are accumulated to the accumulator(s).
 
 ```c
-processInput_XXH3_64_17to128(u8 data[]):
-  u64 numRounds = (inputLength - 1) >> 5;
-  for (i = 0; i < numRounds; i++) {
+// the loop variable `i` should be signed to avoid underflow in implementation
+processInput_XXH3_64_17to128():
+  u64 numRounds = ((inputLength - 1) >> 5) + 1;
+  for (i = numRounds - 1; i >= 0; i--) {
     size offsetStart = i*16;
     size offsetEnd = inputLength - i*16 - 16;
-    acc += mixStep(data[offsetStart:offsetStart+16], i*32, seed);
-    acc += mixStep(data[offsetEnd:offsetEnd+16], i*32+16, seed);
+    acc += mixStep(input[offsetStart:offsetStart+16], i*32, seed);
+    acc += mixStep(input[offsetEnd:offsetEnd+16], i*32+16, seed);
   }
 
-processInput_XXH3_128_17to128(u8 data[]):
-  u64 numRounds = (inputLength - 1) >> 5;
-  for (i = 0; i < numRounds; i++) {
+processInput_XXH3_128_17to128():
+  u64 numRounds = ((inputLength - 1) >> 5) + 1;
+  for (i = numRounds - 1; i >= 0; i--) {
     size offsetStart = i*16;
     size offsetEnd = inputLength - i*16 - 16;
-    mixTwoChunks(data[offsetStart:offsetStart+16], data[offsetEnd:offsetEnd+16], i*32, seed);
+    mixTwoChunks(input[offsetStart:offsetStart+16], input[offsetEnd:offsetEnd+16], i*32, seed);
   }
 ```
 
@@ -613,29 +624,29 @@ processInput_XXH3_128_17to128(u8 data[]):
 The input is split into 16-byte (XXH3-64) or 32-byte (XXH3-128) chunks. The first 128 bytes are first mixed chunk by chunk, followed by an intermediate avalanche operation. Then the remaining full chunks are processed, and finally the last 16/32 bytes are treated as a chunk to process.
 
 ```c
-processInput_XXH3_64_129to240(u8 data[]):
+processInput_XXH3_64_129to240():
   u64 numChunks = inputLength >> 4;
   for (i = 0; i < 8; i++) {
-    acc += mixStep(data[i*16:i*16+16], i*16, seed);
+    acc += mixStep(input[i*16:i*16+16], i*16, seed);
   }
   acc = avalanche(acc);
   for (i = 8; i < numChunks; i++) {
-    acc += mixStep(data[i*16:i*16+16], (i-8)*16 + 3, seed);
+    acc += mixStep(input[i*16:i*16+16], (i-8)*16 + 3, seed);
   }
-  acc += mixStep(data[inputLength-16:inputLength], 119, seed);
+  acc += mixStep(input[inputLength-16:inputLength], 119, seed);
 
-processInput_XXH3_128_129to240(u8 data[]):
+processInput_XXH3_128_129to240():
   u64 numChunks = inputLength >> 5;
   for (i = 0; i < 4; i++) {
-    mixTwoChunks(data[i*32:i*32+16], data[i*32+16:i*32+32], i*32, seed);
+    mixTwoChunks(input[i*32:i*32+16], input[i*32+16:i*32+32], i*32, seed);
   }
   acc[0] = avalanche(acc[0]);
   acc[1] = avalanche(acc[1]);
   for (i = 4; i < numChunks; i++) {
-    mixTwoChunks(data[i*32:i*32+16], data[i*32+16:i*32+32], (i-4)*32 + 3, seed);
+    mixTwoChunks(input[i*32:i*32+16], input[i*32+16:i*32+32], (i-4)*32 + 3, seed);
   }
-  // note that the half-chunk order is different here
-  mixTwoChunks(data[inputLength-16:inputLength], data[inputLength-32:inputLength-16], 103, seed);
+  // note that the half-chunk order and the seed is different here
+  mixTwoChunks(input[inputLength-16:inputLength], input[inputLength-32:inputLength-16], 103, (u64)0 - seed);
 ```
 
 ### Step 3. Finalization
@@ -670,12 +681,12 @@ u64 acc[8] = {
 
 ### Step 2. Process blocks
 
-The input is consumed and processed one full block at a time. The size of the block depends on the length of the secret. Specifically, a block consists of several 64-byte stripes. The number of stripes per block is `floor((secretLen-64)/8)` . For the default 192-byte secret, there are 16 stripes in a block, and thus the block size is 1024 bytes.
+The input is consumed and processed one full block at a time. The size of the block depends on the length of the secret. Specifically, a block consists of several 64-byte stripes. The number of stripes per block is `floor((secretLength-64)/8)` . For the default 192-byte secret, there are 16 stripes in a block, and thus the block size is 1024 bytes.
 
 ```c
-secretLen = lengthInBytes(secret);    // default 192; at least 136
-stripesPerBlock = (secretLen-64) / 8; // default 16; at least 9
-blockSize = 64 * stripesPerBlock;     // default 1024; at least 576
+secretLength = lengthInBytes(secret);    // default 192; at least 136
+stripesPerBlock = (secretLength-64) / 8; // default 16; at least 9
+blockSize = 64 * stripesPerBlock;        // default 1024; at least 576
 ```
 
 The process of processing a full block is called a *round*. It consists of the following two sub-steps:
@@ -713,7 +724,7 @@ After the accumulation steps are finished for all stripes in the block, the accu
 
 ```c
 round_scramble():
-  u64 secretWords[8] = secret[secretSize-64:secretSize];
+  u64 secretWords[8] = secret[secretLength-64:secretLength];
   for (i = 0; i < 8; i++) {
     acc[i] = acc[i] xor (acc[i] >> 47);
     acc[i] = acc[i] xor secretWords[i];
@@ -743,7 +754,7 @@ lastRound(u8 block[], size len, u64 lastStripe[8]):
     u64 stripe[8] = block[n*64:n*64+64];
     accumulate(stripe, n * 8);
   }
-  accumulate(lastStripe, secretSize - 71);
+  accumulate(lastStripe, secretLength - 71);
 ```
 
 ### Step 4. Finalization
@@ -768,12 +779,12 @@ XXH3-128 runs the merging procedure twice for the two halves of the result, usin
 The XXH3-64 result is just the lower half of the XXH3-128 result.
 
 ```c
-XXH3_128_large():
-  return {finalMerge((u64)inputLength * PRIME64_1, 11), // lower half
-          finalMerge(~((u64)inputLength * PRIME64_2), secretSize - 75)}; // higher half
-
 XXH3_64_large():
   return finalMerge((u64)inputLength * PRIME64_1, 11);
+
+XXH3_128_large():
+  return {finalMerge((u64)inputLength * PRIME64_1, 11), // lower half
+          finalMerge(~((u64)inputLength * PRIME64_2), secretLength - 75)}; // higher half
 ```
 
 

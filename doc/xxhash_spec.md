@@ -47,13 +47,17 @@ However, a given variant shall produce exactly the same output, irrespective of 
 ### Operation notations
 
 All operations are performed modulo {32,64} bits. Arithmetic overflows are expected.
-`XXH32` uses 32-bit modular operations. `XXH64` uses 64-bit modular operations.
+`XXH32` uses 32-bit modular operations. `XXH64` and `XXH3` uses 64-bit modular operations.
 
 - `+`: denotes modular addition
 - `*`: denotes modular multiplication
+    - **Exception:** In `XXH3`, if it is in the form `(u128)x * (u128)y`, it denotes 64-bit by 64-bit normal multiplication into a full 128-bit result.
 - `X <<< s`: denotes the value obtained by circularly shifting (rotating) `X` left by `s` bit positions.
 - `X >> s`: denotes the value obtained by shifting `X` right by s bit positions. Upper `s` bits become `0`.
+- `X << s`: denotes the value obtained by shifting `X` left by s bit positions. Lower `s` bits become `0`.
 - `X xor Y`: denotes the bit-wise XOR of `X` and `Y` (same width).
+- `X | Y`: denotes the bit-wise OR of `X` and `Y` (same width).
+- `~X`: denotes the bit-wise negation of `X`.
 
 
 XXH32 Algorithm Description
@@ -335,7 +339,7 @@ XXH3 comes in two different versions: XXH3-64 and XXH3-128 (or XXH128), producin
 
 XXH3 uses different algorithms for small (0-16 bytes), medium (17-240 bytes), and large (241+ bytes) inputs. The algorithms for small and medium inputs are optimized for performance. The three algorithms are described in the following sections.
 
-Many operations require some 64-bit prime number constants, which are the same constants used in XXH32 and XXH64, all defined below:
+Many operations require some 64-bit prime number constants, which are mostly the same constants used in XXH32 and XXH64, all defined below:
 
 ```c
   static const u64 PRIME32_1 = 0x9E3779B1U;  // 0b10011110001101110111100110110001
@@ -346,6 +350,7 @@ Many operations require some 64-bit prime number constants, which are the same c
   static const u64 PRIME64_3 = 0x165667B19E3779F9ULL;  // 0b0001011001010110011001111011000110011110001101110111100111111001
   static const u64 PRIME64_4 = 0x85EBCA77C2B2AE63ULL;  // 0b1000010111101011110010100111011111000010101100101010111001100011
   static const u64 PRIME64_5 = 0x27D4EB2F165667C5ULL;  // 0b0010011111010100111010110010111100010110010101100110011111000101
+  static const u64 PRIME_MIX = 0x9FB21C651E98DF25ULL;  // 0b1001111110110010000111000110010100011110100110001101111100100101
 ```
 
 The `XXH3_64bits()` function produces an unsigned 64-bit value.  
@@ -355,7 +360,7 @@ For systems requiring storing and/or displaying the result in binary or hexadeci
 
 ### Seed and Secret
 
-XXH3 provides seeded hashing by introducing two configurable constants used in the hashing process: the seed and the secret. The seed is an unsigned 64-bit value, and the secret is an array of bytes that is at least 136 bytes in size. The default seed is 0, and the default secret is the following value:
+XXH3 provides seeded hashing by introducing two configurable constants used in the hashing process: the seed and the secret. The seed is an unsigned 64-bit value, and the secret is an array of bytes that is at least 136 bytes in size. The default seed is 0, and the default secret is the following 192-byte value:
 
 ```c
 static const u8 defaultSecret[192] = {
@@ -388,13 +393,147 @@ deriveSecret(u64 seed):
   return derivedSecret; // convert to u8[192] (little-endian)
 ```
 
-The derivation treats the secrets as 24 64-bit values. In XXH3 algorithms, the secret is always read similarly by treating a contiguous segment of the array (whose size is a multiple of 8 bytes) as one or more 64-bit values. **The secret values are always read using little-endian convention**.
+The derivation treats the secrets as 24 64-bit values. In XXH3 algorithms, the secret is always read similarly by treating a contiguous segment of the array as one or more 32-bit or 64-bit values. **The secret values are always read using little-endian convention**.
 
+### Final Mixing Step (avalanche)
+
+To make sure that all input bits have a chance to impact any bit in the output digest (avalanche effect), the final step of the XXH3 algorithm is usually an fixed operation that mixes the bits in a 64-bit value. This operation is denoted `avalanche()` in the following XXH3 description.
+
+```c
+avalanche(u64 x):
+  x = x xor (x >> 37);
+  x = x * PRIME64_3;
+  x = x xor (x >> 32);
+  return x;
+```
 
 XXH3 Algorithm Description (for small inputs)
 -------------------------------------
 
-*TODO*
+The algorithm for small inputs is further divided into 4 cases: empty, 1-3 bytes, 4-8 bytes, and 9-16 bytes of input.
+
+The algorithm uses byte-swap operations. The byte-swap operation reverses the byte order in a 32-bit or 64-bit value. It is denoted `bswap32` and `bswap64` for its 32-bit and 64-bit versions, respectively.
+
+### Empty input
+
+The hash of empty input is calculated from the seed and a segment of the secret:
+
+```c
+XXH3_128_empty():
+  u64 secretWords[4] = secret[64:96];
+  return {avalanche(seed xor secretWords[0] xor secretWords[1]), // lower half
+          avalanche(seed xor secretWords[2] xor secretWords[3])}; // higher half
+
+XXH3_64_empty():
+  u64 secretWords[2] = secret[56:72];
+  return avalanche(seed xor secretWords[0] xor secretWords[1]);
+```
+
+### 1-3 bytes of input
+
+The algorithm starts from a single 32-bit value combining the input bytes and its length:
+
+```c
+u32 combined = (u32)input[inputLength-1] | ((u32)inputLength << 8) |
+               ((u32)input[0] << 16) | ((u32)input[inputLength>>1] << 24);
+// LSB          8       16           24                    MSB
+//  | last byte | length | first byte | middle-or-last byte |
+```
+
+Then the final output is calculated from the value and the first 8 bytes (XXH3-64) or 16 bytes (XXH3-128) of the secret to produce the final result. The secret here is read as 32-bit values instead of the usual 64-bit values.
+
+```c
+XXH3_64_1to3():
+  u32 secretWords[2] = secret[0:8];
+  u32 value = ((secretWords[0] xor secretWords[1]) + seed) xor combined;
+  return avalanche(value);
+
+XXH3_128_1to3():
+  u32 secretWords[4] = secret[0:16];
+  u32 low = ((secretWords[0] xor secretWords[1]) + seed) xor combined;
+  u32 high = ((secretWords[2] xor secretWords[3]) - seed) xor (bswap32(combined) <<< 13);
+  return {avalanche(low), // lower half
+          avalanche(high)}; // higher half
+```
+
+Note that the XXH3-64 result is the lower half of XXH3-128 result.
+
+### 4-8 bytes of input
+
+The algorithm starts from reading the first and last 4 bytes of the input as little-endian 32-bit values, and a modified seed:
+
+```c
+u32 inputFirst = input[0:4];
+u32 inputLast = input[inputLength-4:inputLength];
+u64 modifiedSeed = seed xor ((u64)bswap32((u32)lowerHalf(seed)) << 32);
+```
+
+Again, these values are combined with a segment of the secret to produce the final value.
+
+```c
+XXH3_64_4to8():
+  u64 secretWords[2] = secret[8:24];
+  u64 combined = (u64)inputLast | ((u64)inputFirst << 32);
+  u64 value = ((secretWords[0] xor secretWords[1]) + modifiedSeed) xor combined;
+  value = value xor (value <<< 49) xor (value <<< 24);
+  value = value * PRIME_MIX;
+  value = value xor ((value >> 35) + inputLength);
+  value = value * PRIME_MIX;
+  value = value xor (value >> 28);
+  return value;
+
+XXH3_128_4to8():
+  u64 secretWords[2] = secret[16:32];
+  u64 combined = (u64)inputFirst | ((u64)inputLast << 32);
+  u64 value = ((secretWords[0] xor secretWords[1]) + modifiedSeed) xor combined;
+  u128 mulResult = (u128)value * (u128)(PRIME64_1 + (inputLength << 2));
+  u64 high = higherHalf(mulResult); // mulResult >> 64
+  u64 low = lowerHalf(mulResult); // mulResult & 0xFFFFFFFFFFFFFFFF
+  high = high + (low << 1);
+  low = low xor (high >> 3);
+  low = low xor (low >> 35);
+  low = low * PRIME_MIX;
+  low = low xor (low >> 28);
+  high = avalanche(high);
+  return {low, high};
+```
+
+### 9-16 bytes of input
+
+The algorithm starts from reading the first and last 8 bytes of the input as little-endian 64-bit values:
+
+```c
+u64 inputFirst = input[0:8];
+u64 inputLast = input[inputLength-8:inputLength];
+```
+
+Once again, these values are combined with a segment of the secret to produce the final value.
+
+```c
+XXH3_64_9to16():
+  u64 secretWords[4] = secret[24:56];
+  u64 low = ((secretWords[0] xor secretWords[1]) + seed) xor inputFirst;
+  u64 high = ((secretWords[2] xor secretWords[3]) - seed) xor inputLast;
+  u128 mulResult = (u128)low * (u128)high;
+  u64 value = len + bswap64(low) + high + (u64)(lowerHalf(mulResult) xor higherHalf(mulResult));
+  return avalanche(value);
+  
+XXH3_128_9to16():
+  u64 secretWords[4] = secret[32:64];
+  u64 val1 = ((secretWords[0] xor secretWords[1]) - seed) xor inputFirst xor inputLast;
+  u64 val2 = ((secretWords[2] xor secretWords[3]) + seed) xor inputLast;
+  u128 mulResult = (u128)val1 * (u128)PRIME64_1;
+  u64 low = lowerHalf(mulResult) + ((u64)(inputLength - 1) << 54);
+  u64 high = higherHalf(mulResult) + ((u64)higherHalf(inputLast) << 32) + (u64)lowerHalf(inputLast) * PRIME32_2;
+  // the above line can also be simplified to higherHalf(mulResult) + inputLast + (u64)lowerHalf(inputLast) * (PRIME32_2 - 1);
+  low = low xor bswap64(high);
+  // the following three lines are in fact a 128x64 -> 128 multiplication ({low,high} = (u128){low,high} * PRIME64_2)
+  u128 mulResult2 = (u128)low * (u128)PRIME64_2;
+  low = lowerHalf(mulResult2);
+  high = higherHalf(mulResult2) + high * PRIME64_2;  
+  return {avalanche(low), // lower half
+          avalanche(high)}; // higher half
+```
 
 
 XXH3 Algorithm Description (for medium inputs)
@@ -442,10 +581,10 @@ The accumulation step applies the following procedure:
 accumulate(u64 stripe[8], size secretOffset):
   u64 secretWords[8] = secret[secretOffset:secretOffset+64];
   for (i = 0; i < 8; i++) {
-    u64 dataKey = stripe[i] xor secretWords[i];
-    acc[i xor 1] += stripe[i];
-    acc[i] += (u64)lowerHalf(dataKey) * (u64)higherHalf(dataKey);
-              // (data_key and 0xFFFFFFFF) * (data_key >> 32)
+    u64 value = stripe[i] xor secretWords[i];
+    acc[i xor 1] = acc[i xor 1] + stripe[i];
+    acc[i] = acc[i] + (u64)lowerHalf(value) * (u64)higherHalf(value);
+                      // (value and 0xFFFFFFFF) * (value >> 32)
   }
 ```
 
@@ -467,9 +606,9 @@ After the accumulation steps are finished for all stripes in the block, the accu
 round_scramble():
   u64 secretWords[8] = secret[secretSize-64:secretSize];
   for (i = 0; i < 8; i++) {
-    acc[i] ^= acc[i] >> 47;
-    acc[i] ^= secretWords[i];
-    acc[i] *= PRIME32_1;
+    acc[i] = acc[i] xor (acc[i] >> 47);
+    acc[i] = acc[i] xor secretWords[i];
+    acc[i] = acc[i] * PRIME32_1;
   }
 ```
 
@@ -510,32 +649,21 @@ finalMerge(u64 initValue, size secretOffset):
     // 64-bit by 64-bit multiplication to 128-bit full result
     u128 mulResult = (u128)(acc[i*2] xor secretWords[i*2]) *
                      (u128)(acc[i*2+1] xor secretWords[i*2+1]);
-    result += lowerHalf(mulResult) xor higherHalf(mulResult);
-              // (mulResult and 0xFFFFFFFFFFFFFFFF) xor (mulResult >> 64)
+    result = result + (lowerHalf(mulResult) xor higherHalf(mulResult));
+                      // (mulResult and 0xFFFFFFFFFFFFFFFF) xor (mulResult >> 64)
   }
-  // final mix (avalanche)
-  result ^= result >> 37;
-  result *= PRIME64_3;
-  result ^= result >> 32;
-  return result;
+  return avalanche(result);
 ```
 
-#### XXH3-128
-
-XXH3-128 runs the merging procedure twice for the two halves of the result, using different secret segments and different initial values derived from the total input length:
+XXH3-128 runs the merging procedure twice for the two halves of the result, using different secret segments and different initial values derived from the total input length.  
+The XXH3-64 result is just the lower half of the XXH3-128 result.
 
 ```c
-finalize128():
+XXH3_128_large():
   return {finalMerge((u64)inputLength * PRIME64_1, 11), // lower half
           finalMerge(~((u64)inputLength * PRIME64_2), secretSize - 75)}; // higher half
-```
 
-#### XXH3-64
-
-The XXH3-64 result is just the lower half of the XXH3-128 result:
-
-```c
-finalize64():
+XXH3_64_large():
   return finalMerge((u64)inputLength * PRIME64_1, 11);
 ```
 

@@ -4166,10 +4166,9 @@ XXH3_scrambleAcc_avx512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         /* xacc[0] ^= (xacc[0] >> 47) */
         __m512i const acc_vec     = *xacc;
         __m512i const shifted     = _mm512_srli_epi64    (acc_vec, 47);
-        __m512i const data_vec    = _mm512_xor_si512     (acc_vec, shifted);
         /* xacc[0] ^= secret; */
         __m512i const key_vec     = _mm512_loadu_si512   (secret);
-        __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
+        __m512i const data_key    = _mm512_ternarylogic_epi32(key_vec, acc_vec, shifted, 0x96 /* key_vec ^ acc_vec ^ shifted */);
 
         /* xacc[0] *= XXH_PRIME32_1; */
         __m512i const data_key_hi = _mm512_srli_epi64 (data_key, 32);

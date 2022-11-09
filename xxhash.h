@@ -3960,7 +3960,7 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
     XXH_ASSERT(16 < len && len <= 128);
 
-    {   xxh_u64 acc = len * XXH_PRIME64_1;
+    {   xxh_u64 acc = len * XXH_PRIME64_1, acc_end;
 #if XXH_SIZE_OPT >= 1
         /* Smaller and cleaner, but slightly slower. */
         unsigned int i = (unsigned int)(len - 1) / 32;
@@ -3968,23 +3968,25 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
             acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
             acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
         } while (i-- != 0);
+        acc_end = 0;
 #else
+        acc += XXH3_mix16B(input+0, secret+0, seed);
+        acc_end = XXH3_mix16B(input+len-16, secret+16, seed);
         if (len > 32) {
+            acc += XXH3_mix16B(input+16, secret+32, seed);
+            acc_end += XXH3_mix16B(input+len-32, secret+48, seed);
             if (len > 64) {
+                acc += XXH3_mix16B(input+32, secret+64, seed);
+                acc_end += XXH3_mix16B(input+len-48, secret+80, seed);
+
                 if (len > 96) {
                     acc += XXH3_mix16B(input+48, secret+96, seed);
-                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
+                    acc_end += XXH3_mix16B(input+len-64, secret+112, seed);
                 }
-                acc += XXH3_mix16B(input+32, secret+64, seed);
-                acc += XXH3_mix16B(input+len-48, secret+80, seed);
             }
-            acc += XXH3_mix16B(input+16, secret+32, seed);
-            acc += XXH3_mix16B(input+len-32, secret+48, seed);
         }
-        acc += XXH3_mix16B(input+0, secret+0, seed);
-        acc += XXH3_mix16B(input+len-16, secret+16, seed);
 #endif
-        return XXH3_avalanche(acc);
+        return XXH3_avalanche(acc + acc_end);
     }
 }
 

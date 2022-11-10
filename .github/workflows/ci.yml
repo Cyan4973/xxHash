@@ -579,8 +579,21 @@ jobs:
         run: rm -r ./build
 
       # trying if pulling the dependency with tipi works properly
+      #
+      # note: the xxhashsum sources include xxhash using a #include "../xxhash.h" 
+      # this defeats the purpose of this test AND becase a bug post tipi v0.0.35 
+      # because of source mirroring (not) supporting relative include to locations
+      # outside of the project tree. 
+      #
+      # because of this we create a copy of the ./cli and apply some sed magic 
+      # to make the includes proper 'library' includes to simulate what someone
+      # consuming xxHash would do
+      #
+      # e.g. turning #include "../xxhash.h" => #include <xxhash.h>
       - name: Build as dependency
         run: |
-          cd ./cli
+          cp -a ./cli ./cli-tipi
+          cd ./cli-tipi
+          find ./ -type f -iname "*.c" | xargs sed -i 's;"../xxhash.h";<xxhash.h>;g'
           tipi . --dont-upgrade --verbose -t linux-cxx17
           ./build/linux-cxx17/bin/xsum_os_specific

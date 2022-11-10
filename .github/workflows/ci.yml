@@ -549,38 +549,38 @@ jobs:
           file ./xxhsum.exe | grep -q '80386' || $(exit 1)
           ./xxhsum.exe --version
 
-  tipi-build-linux:
-    name: tipi.build project build and dependency resolution
-    runs-on: ubuntu-latest
-    container: tipibuild/tipi-ubuntu
-
-    env:
-      HOME: /root
-
-    steps:
-      - uses: actions/checkout@v3
-        # FIX: we currently need a full clone
-        with:
-          fetch-depth: '0'
-      - run: |
-          mkdir -p /usr/local/share/.tipi
-          # FIX: Hack for github action
-          git config --global --add safe.directory /usr/local/share/.tipi
-          git config --global --add safe.directory /__w/xxHash/xxHash/
-
-      # checking if the xxHash project builds and passes tests
-      - name: Build as project target linux-cxx17 (run test multiInclude)
-        run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx17
-
-      - name: Build as project target linux-cxx20 (run test multiInclude)
-        run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx20
-
-      - name: Cleanup project builds
-        run: rm -r ./build
-
-      # trying if pulling the dependency with tipi works properly
-      - name: Build as dependency
-        run: |
-          cd ./cli
-          tipi . --dont-upgrade --verbose -t linux-cxx17
-          ./build/linux-cxx17/bin/xsum_os_specific
+#  tipi-build-linux:
+#    name: tipi.build project build and dependency resolution
+#    runs-on: ubuntu-latest
+#    container: tipibuild/tipi-ubuntu
+# 
+#    env:
+#      HOME: /root
+# 
+#    steps:
+#      - uses: actions/checkout@v3
+#        # FIX: we currently need a full clone
+#        with:
+#          fetch-depth: '0'
+#      - run: |
+#          mkdir -p /usr/local/share/.tipi
+#          # FIX: Hack for github action
+#          git config --global --add safe.directory /usr/local/share/.tipi
+#          git config --global --add safe.directory /__w/xxHash/xxHash/
+# 
+#      # checking if the xxHash project builds and passes tests
+#      - name: Build as project target linux-cxx17 (run test multiInclude)
+#        run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx17
+# 
+#      - name: Build as project target linux-cxx20 (run test multiInclude)
+#        run: tipi . --dont-upgrade --verbose --test multiInclude -t linux-cxx20
+# 
+#      - name: Cleanup project builds
+#        run: rm -r ./build
+# 
+#      # trying if pulling the dependency with tipi works properly
+#      - name: Build as dependency
+#        run: |
+#          cd ./cli
+#          tipi . --dont-upgrade --verbose -t linux-cxx17
+#          ./build/linux-cxx17/bin/xsum_os_specific

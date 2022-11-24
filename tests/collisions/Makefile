@@ -32,9 +32,24 @@ CXXFLAGS += -Wall -Wextra -Wconversion \
             -std=c++11
 LDFLAGS  += -pthread
 TESTHASHES = 110000000
+UNAME    ?= $(shell uname)
+ARCH     ?= $(shell uname -p)
 
 HASH_SRC := $(sort $(wildcard allcodecs/*.c allcodecs/*.cc))
 HASH_OBJ := $(patsubst %.c,%.o,$(HASH_SRC))
+ifeq ($(DISPATCH),1)
+  ifeq ($(UNAME), Darwin)
+    ifeq ($(ARCH), arm)
+      HASH_OBJ += xxh_arm64dispatch.o xxh_arm64sve.o
+      CFLAGS   += -DARM64_DISPATCH=1
+    endif
+  else
+    ifeq ($(ARCH), aarch64)
+      HASH_OBJ += xxh_arm64dispatch.o xxh_arm64sve.o
+      CFLAGS   += -DARM64_DISPATCH=1
+    endif
+  endif
+endif
 
 
 .PHONY: default
@@ -47,6 +62,24 @@ collisionsTest: main.o pool.o threading.o sort.o $(HASH_OBJ)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
 
 main.o: hashes.h xxhash.h
+
+ifeq ($(DISPATCH),1)
+  ifeq ($(UNAME), Darwin)
+    ifeq ($(ARCH), arm)
+      xxh_arm64dispatch.o: ../../xxh_arm64dispatch.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64dispatch.o -c ../../xxh_arm64dispatch.c
+      xxh_arm64sve.o: ../../xxh_arm64sve.S
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64sve.o -c ../../xxh_arm64sve.S
+     endif
+  else
+    ifeq ($(ARCH), aarch64)
+      xxh_arm64dispatch.o: ../../xxh_arm64dispatch.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64dispatch.o -c ../../xxh_arm64dispatch.c
+      xxh_arm64sve.o: ../../xxh_arm64sve.S
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xxh_arm64sve.o -c ../../xxh_arm64sve.S
+    endif
+  endif
+endif
 
 release: CXXFLAGS += -O3
 release: CFLAGS += -O3

@@ -54,7 +54,7 @@
 #include "../xxhash.h"
 
 #ifdef XXHSUM_DISPATCH
-#  include "../xxh_x86dispatch.h"
+#  include "../xxh_dispatch.h"
 #endif
 
 static unsigned XSUM_isLittleEndian(void)

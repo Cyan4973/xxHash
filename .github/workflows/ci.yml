@@ -422,6 +422,7 @@ jobs:
       matrix:
         system: [
           { os: macos-11    },
+          { os: macos-12    },
         ]
     steps:
     - uses: actions/checkout@v3
@@ -580,12 +581,12 @@ jobs:
 
       # trying if pulling the dependency with tipi works properly
       #
-      # note: the xxhashsum sources include xxhash using a #include "../xxhash.h" 
-      # this defeats the purpose of this test AND becase a bug post tipi v0.0.35 
+      # note: the xxhashsum sources include xxhash using a #include "../xxhash.h"
+      # this defeats the purpose of this test AND becase a bug post tipi v0.0.35
       # because of source mirroring (not) supporting relative include to locations
-      # outside of the project tree. 
+      # outside of the project tree.
       #
-      # because of this we create a copy of the ./cli and apply some sed magic 
+      # because of this we create a copy of the ./cli and apply some sed magic
       # to make the includes proper 'library' includes to simulate what someone
       # consuming xxHash would do
       #

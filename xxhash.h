@@ -3995,31 +3995,33 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
     XXH_ASSERT(16 < len && len <= 128);
 
-    {   xxh_u64 acc = len * XXH_PRIME64_1;
+    {   xxh_u64 acc = len * XXH_PRIME64_1, acc_end;
 #if XXH_SIZE_OPT >= 1
         /* Smaller and cleaner, but slightly slower. */
-        size_t i = (len - 1) / 32;
+        unsigned int i = (unsigned int)(len - 1) / 32;
         do {
             acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
             acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
         } while (i-- != 0);
+        acc_end = 0;
 #else
+        acc += XXH3_mix16B(input+0, secret+0, seed);
+        acc_end = XXH3_mix16B(input+len-16, secret+16, seed);
         if (len > 32) {
+            acc += XXH3_mix16B(input+16, secret+32, seed);
+            acc_end += XXH3_mix16B(input+len-32, secret+48, seed);
             if (len > 64) {
+                acc += XXH3_mix16B(input+32, secret+64, seed);
+                acc_end += XXH3_mix16B(input+len-48, secret+80, seed);
+
                 if (len > 96) {
                     acc += XXH3_mix16B(input+48, secret+96, seed);
-                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
+                    acc_end += XXH3_mix16B(input+len-64, secret+112, seed);
                 }
-                acc += XXH3_mix16B(input+32, secret+64, seed);
-                acc += XXH3_mix16B(input+len-48, secret+80, seed);
             }
-            acc += XXH3_mix16B(input+16, secret+32, seed);
-            acc += XXH3_mix16B(input+len-32, secret+48, seed);
         }
-        acc += XXH3_mix16B(input+0, secret+0, seed);
-        acc += XXH3_mix16B(input+len-16, secret+16, seed);
 #endif
-        return XXH3_avalanche(acc);
+        return XXH3_avalanche(acc + acc_end);
     }
 }
 
@@ -4037,8 +4039,8 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     #define XXH3_MIDSIZE_LASTOFFSET  17
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
-        int const nbRounds = (int)len / 16;
-        int i;
+        unsigned int const nbRounds = (unsigned int)len / 16;
+        unsigned int i;
         for (i=0; i<8; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
         }
@@ -4199,7 +4201,7 @@ XXH3_accumulate_512_avx512(void* XXH_RESTRICT acc,
         /* data_key    = data_vec ^ key_vec; */
         __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
         /* data_key_lo = data_key >> 32; */
-        __m512i const data_key_lo = _mm512_shuffle_epi32 (data_key, (_MM_PERM_ENUM)_MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const data_key_lo = _mm512_srli_epi64 (data_key, 32);
         /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
         __m512i const product     = _mm512_mul_epu32     (data_key, data_key_lo);
         /* xacc[0] += swap(data_vec); */
@@ -4243,13 +4245,12 @@ XXH3_scrambleAcc_avx512(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         /* xacc[0] ^= (xacc[0] >> 47) */
         __m512i const acc_vec     = *xacc;
         __m512i const shifted     = _mm512_srli_epi64    (acc_vec, 47);
-        __m512i const data_vec    = _mm512_xor_si512     (acc_vec, shifted);
         /* xacc[0] ^= secret; */
         __m512i const key_vec     = _mm512_loadu_si512   (secret);
-        __m512i const data_key    = _mm512_xor_si512     (data_vec, key_vec);
+        __m512i const data_key    = _mm512_ternarylogic_epi32(key_vec, acc_vec, shifted, 0x96 /* key_vec ^ acc_vec ^ shifted */);
 
         /* xacc[0] *= XXH_PRIME32_1; */
-        __m512i const data_key_hi = _mm512_shuffle_epi32 (data_key, (_MM_PERM_ENUM)_MM_SHUFFLE(0, 3, 0, 1));
+        __m512i const data_key_hi = _mm512_srli_epi64 (data_key, 32);
         __m512i const prod_lo     = _mm512_mul_epu32     (data_key, prime32);
         __m512i const prod_hi     = _mm512_mul_epu32     (data_key_hi, prime32);
         *xacc = _mm512_add_epi64(prod_lo, _mm512_slli_epi64(prod_hi, 32));
@@ -4264,7 +4265,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     XXH_ASSERT(((size_t)customSecret & 63) == 0);
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
-        __m512i const seed_pos = _mm512_set1_epi64(seed64);
+        __m512i const seed_pos = _mm512_set1_epi64((xxh_i64)seed64);
         __m512i const seed     = _mm512_mask_sub_epi64(seed_pos, 0xAA, _mm512_set1_epi8(0), seed_pos);
 
         const __m512i* const src  = (const __m512i*) ((const void*) XXH3_kSecret);
@@ -4309,7 +4310,7 @@ XXH3_accumulate_512_avx2( void* XXH_RESTRICT acc,
             /* data_key    = data_vec ^ key_vec; */
             __m256i const data_key    = _mm256_xor_si256     (data_vec, key_vec);
             /* data_key_lo = data_key >> 32; */
-            __m256i const data_key_lo = _mm256_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+            __m256i const data_key_lo = _mm256_srli_epi64 (data_key, 32);
             /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
             __m256i const product     = _mm256_mul_epu32     (data_key, data_key_lo);
             /* xacc[i] += swap(data_vec); */
@@ -4342,7 +4343,7 @@ XXH3_scrambleAcc_avx2(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             __m256i const data_key    = _mm256_xor_si256     (data_vec, key_vec);
 
             /* xacc[i] *= XXH_PRIME32_1; */
-            __m256i const data_key_hi = _mm256_shuffle_epi32 (data_key, _MM_SHUFFLE(0, 3, 0, 1));
+            __m256i const data_key_hi = _mm256_srli_epi64 (data_key, 32);
             __m256i const prod_lo     = _mm256_mul_epu32     (data_key, prime32);
             __m256i const prod_hi     = _mm256_mul_epu32     (data_key_hi, prime32);
             xacc[i] = _mm256_add_epi64(prod_lo, _mm256_slli_epi64(prod_hi, 32));
@@ -5845,7 +5846,7 @@ XXH3_len_17to128_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
 #if XXH_SIZE_OPT >= 1
         {
             /* Smaller, but slightly slower. */
-            size_t i = (len - 1) / 32;
+            unsigned int i = (unsigned int)(len - 1) / 32;
             do {
                 acc = XXH128_mix32B(acc, input+16*i, input+len-16*(i+1), secret+32*i, seed);
             } while (i-- != 0);
@@ -5883,8 +5884,8 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     {   XXH128_hash_t acc;
-        int const nbRounds = (int)len / 32;
-        int i;
+        unsigned int const nbRounds = (unsigned int)len / 32;
+        unsigned int i;
         acc.low64 = len * XXH_PRIME64_1;
         acc.high64 = 0;
         for (i=0; i<4; i++) {

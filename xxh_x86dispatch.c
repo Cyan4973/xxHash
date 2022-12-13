@@ -207,6 +207,23 @@ extern "C" {
 #define XXH_X86DISPATCH
 #include "xxhash.h"
 
+#ifndef XXH_HAS_ATTRIBUTE
+#  ifdef __has_attribute
+#    define XXH_HAS_ATTRIBUTE(...) __has_attribute(__VA_ARGS__)
+#  else
+#    define XXH_HAS_ATTRIBUTE(...) 0
+#  endif
+#endif
+
+#if XXH_HAS_ATTRIBUTE(constructor)
+#  define XXH_CONSTRUCTOR __attribute__((constructor))
+#  define XXH_DISPATCH_MAYBE_NULL 0
+#else
+#  define XXH_CONSTRUCTOR
+#  define XXH_DISPATCH_MAYBE_NULL 1
+#endif
+
+
 /*
  * Support both AT&T and Intel dialects
  *
@@ -642,7 +659,7 @@ static XXH_dispatch128Functions_s XXH_g_dispatch128 = { NULL, NULL, NULL, NULL }
  * @internal
  * @brief Runs a CPUID check and sets the correct dispatch tables.
  */
-static void XXH_setDispatch(void)
+static XXH_CONSTRUCTOR void XXH_setDispatch(void)
 {
     int vecID = XXH_featureTest();
     XXH_STATIC_ASSERT(XXH_AVX512 == XXH_NB_DISPATCHES-1);
@@ -668,7 +685,8 @@ XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len,
                                           XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
-    if (XXH_g_dispatch.hashLong64_default == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch.hashLong64_default == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch.hashLong64_default(input, len);
 }
 
@@ -682,7 +700,8 @@ XXH3_hashLong_64b_withSeed_selection(const void* input, size_t len,
                                      XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
-    if (XXH_g_dispatch.hashLong64_seed == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch.hashLong64_seed == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch.hashLong64_seed(input, len, seed64);
 }
 
@@ -696,7 +715,8 @@ XXH3_hashLong_64b_withSecret_selection(const void* input, size_t len,
                                        XXH64_hash_t seed64, const xxh_u8* secret, size_t secretLen)
 {
     (void)seed64;
-    if (XXH_g_dispatch.hashLong64_secret == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch.hashLong64_secret == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch.hashLong64_secret(input, len, secret, secretLen);
 }
 
@@ -708,7 +728,9 @@ XXH64_hash_t XXH3_64bits_withSecret_dispatch(const void* input, size_t len, cons
 XXH_errorcode
 XXH3_64bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 {
-    if (XXH_g_dispatch.update == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch.update == NULL)
+        XXH_setDispatch();
+
     return XXH_g_dispatch.update(state, (const xxh_u8*)input, len);
 }
 
@@ -720,7 +742,8 @@ XXH3_hashLong_128b_defaultSecret_selection(const void* input, size_t len,
                                            XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)seed64; (void)secret; (void)secretLen;
-    if (XXH_g_dispatch128.hashLong128_default == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch128.hashLong128_default == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch128.hashLong128_default(input, len);
 }
 
@@ -734,7 +757,8 @@ XXH3_hashLong_128b_withSeed_selection(const void* input, size_t len,
                                      XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)secret; (void)secretLen;
-    if (XXH_g_dispatch128.hashLong128_seed == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch128.hashLong128_seed == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch128.hashLong128_seed(input, len, seed64);
 }
 
@@ -748,7 +772,8 @@ XXH3_hashLong_128b_withSecret_selection(const void* input, size_t len,
                                         XXH64_hash_t seed64, const void* secret, size_t secretLen)
 {
     (void)seed64;
-    if (XXH_g_dispatch128.hashLong128_secret == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch128.hashLong128_secret == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch128.hashLong128_secret(input, len, secret, secretLen);
 }
 
@@ -760,7 +785,8 @@ XXH128_hash_t XXH3_128bits_withSecret_dispatch(const void* input, size_t len, co
 XXH_errorcode
 XXH3_128bits_update_dispatch(XXH3_state_t* state, const void* input, size_t len)
 {
-    if (XXH_g_dispatch128.update == NULL) XXH_setDispatch();
+    if (XXH_DISPATCH_MAYBE_NULL && XXH_g_dispatch128.update == NULL)
+        XXH_setDispatch();
     return XXH_g_dispatch128.update(state, (const xxh_u8*)input, len);
 }
 

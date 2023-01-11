@@ -1815,7 +1815,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  include <assert.h>   /* note: can still be disabled with NDEBUG */
 #  define XXH_ASSERT(c)   assert(c)
 #else
-#  define XXH_ASSERT(c)   ((void)0)
+#  define XXH_ASSERT(c)   XXH_ASSUME(c)
 #endif
 
 /* note: use after variable declarations */
@@ -2039,6 +2039,29 @@ static int XXH_isLittleEndian(void)
 #else
 #  define XXH_HAS_BUILTIN(x) 0
 #endif
+
+
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ > 201710L)
+/* C23 and future versions have standard "unreachable()" */
+#  include <stddef.h>
+#  define XXH_UNREACHABLE() unreachable()
+
+#elif defined(__cplusplus) && (__cplusplus > 202002L)
+/* C++23 and future versions have std::unreachable() */
+#  include <utility> /* std::unreachable() */
+#  define XXH_UNREACHABLE() std::unreachable()
+
+#elif XXH_HAS_BUILTIN(__builtin_unreachable)
+#  define XXH_UNREACHABLE() __builtin_unreachable()
+
+#elif defined(_MSC_VER)
+#  define XXH_UNREACHABLE() __assume(0)
+
+#else
+#  define XXH_UNREACHABLE()
+#endif
+
+#define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
 
 /*!
  * @internal
@@ -4051,13 +4074,17 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     #define XXH3_MIDSIZE_LASTOFFSET  17
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
+        xxh_u64 acc_end;
         unsigned int const nbRounds = (unsigned int)len / 16;
         unsigned int i;
+        XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
         for (i=0; i<8; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
         }
-        acc = XXH3_avalanche(acc);
+        /* last bytes */
+        acc_end = XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
         XXH_ASSERT(nbRounds >= 8);
+        acc = XXH3_avalanche(acc);
 #if defined(__clang__)                                /* Clang */ \
     && (defined(__ARM_NEON) || defined(__ARM_NEON__)) /* NEON */ \
     && !defined(XXH_ENABLE_AUTOVECTORIZE)             /* Define to disable */
@@ -4084,11 +4111,13 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         #pragma clang loop vectorize(disable)
 #endif
         for (i=8 ; i < nbRounds; i++) {
-            acc += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
+            /*
+             * Prevents clang for unrolling the acc loop and interleaving with this one.
+             */
+            XXH_COMPILER_GUARD(acc);
+            acc_end += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
         }
-        /* last bytes */
-        acc += XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
-        return XXH3_avalanche(acc);
+        return XXH3_avalanche(acc + acc_end);
     }
 }
 
@@ -5896,25 +5925,34 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     {   XXH128_hash_t acc;
-        unsigned int const nbRounds = (unsigned int)len / 32;
-        unsigned int i;
+        unsigned i;
         acc.low64 = len * XXH_PRIME64_1;
         acc.high64 = 0;
-        for (i=0; i<4; i++) {
+        /*
+         *  We set as `i` as offset + 32. We do this so that unchanged
+         * `len` can be used as upper bound. This reaches a sweet spot
+         * where both x86 and aarch64 get simple agen and good codegen
+         * for the loop.
+         */
+        for (i = 32; i < 160; i += 32) {
             acc = XXH128_mix32B(acc,
-                                input  + (32 * i),
-                                input  + (32 * i) + 16,
-                                secret + (32 * i),
+                                input  + i - 32,
+                                input  + i - 16,
+                                secret + i - 32,
                                 seed);
         }
         acc.low64 = XXH3_avalanche(acc.low64);
         acc.high64 = XXH3_avalanche(acc.high64);
-        XXH_ASSERT(nbRounds >= 4);
-        for (i=4 ; i < nbRounds; i++) {
+        /*
+         * NB: `i <= len` will duplicate the last 32-bytes if
+         * len % 32 was zero. This is an unfortunate necessity to keep
+         * the hash result stable.
+         */
+        for (i=160; i <= len; i += 32) {
             acc = XXH128_mix32B(acc,
-                                input + (32 * i),
-                                input + (32 * i) + 16,
-                                secret + XXH3_MIDSIZE_STARTOFFSET + (32 * (i - 4)),
+                                input + i - 32,
+                                input + i - 16,
+                                secret + XXH3_MIDSIZE_STARTOFFSET + i - 160,
                                 seed);
         }
         /* last bytes */
@@ -5922,7 +5960,7 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
                             input + len - 16,
                             input + len - 32,
                             secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16,
-                            0ULL - seed);
+                            (XXH64_hash_t)0 - seed);
 
         {   XXH128_hash_t h128;
             h128.low64  = acc.low64 + acc.high64;

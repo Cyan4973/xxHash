@@ -743,6 +743,18 @@ XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canoni
 # define XXH_FALLTHROUGH /* fallthrough */
 #endif
 
+/*
+ * Define XXH_NOESCAPE for annotated pointers in public API.
+ * https://clang.llvm.org/docs/AttributeReference.html#noescape
+ * As of writing this, only supported by clang.
+ */
+#if XXH_HAS_ATTRIBUTE(noescape)
+# define XXH_NOESCAPE __attribute__((noescape))
+#else
+# define XXH_NOESCAPE
+#endif
+
+
 /*!
  * @}
  * @ingroup public
@@ -813,7 +825,7 @@ typedef uint64_t XXH64_hash_t;
  * @see
  *    XXH64_createState(), XXH64_update(), XXH64_digest(): Streaming version.
  */
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64(const void* input, size_t length, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64(XXH_NOESCAPE const void* input, size_t length, XXH64_hash_t seed);
 
 /*******   Streaming   *******/
 #ifndef XXH_NO_STREAM
@@ -825,16 +837,16 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64(const void* input, size_t length, XX
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
 XXH_PUBLIC_API XXH_MALLOCF XXH64_state_t* XXH64_createState(void);
 XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
-XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state, const XXH64_state_t* src_state);
+XXH_PUBLIC_API void XXH64_copyState(XXH_NOESCAPE XXH64_state_t* dst_state, const XXH64_state_t* src_state);
 
-XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_digest (const XXH64_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH_NOESCAPE XXH64_state_t* statePtr, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH_NOESCAPE XXH64_state_t* statePtr, XXH_NOESCAPE const void* input, size_t length);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_digest (XXH_NOESCAPE const XXH64_state_t* statePtr);
 #endif /* !XXH_NO_STREAM */
 /*******   Canonical representation   *******/
 typedef struct { unsigned char digest[sizeof(XXH64_hash_t)]; } XXH64_canonical_t;
-XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst, XXH64_hash_t hash);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_canonical_t* src);
 
 #ifndef XXH_NO_XXH3
 
@@ -902,7 +914,7 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canoni
  * @see
  *    XXH3_64bits_reset(), XXH3_64bits_update(), XXH3_64bits_digest(): Streaming version.
  */
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits(const void* input, size_t length);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits(XXH_NOESCAPE const void* input, size_t length);
 
 /*!
  * @brief 64-bit seeded variant of XXH3
@@ -919,7 +931,7 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits(const void* input, size_t leng
  * @param length The length
  * @param seed The 64-bit seed to alter the state.
  */
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSeed(const void* input, size_t length, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSeed(XXH_NOESCAPE const void* input, size_t length, XXH64_hash_t seed);
 
 /*!
  * The bare minimum size for a custom secret.
@@ -948,7 +960,7 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSeed(const void* input, si
  * This is not necessarily the case when using the blob of bytes directly
  * because, when hashing _small_ inputs, only a portion of the secret is employed.
  */
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSecret(XXH_NOESCAPE const void* data, size_t len, XXH_NOESCAPE const void* secret, size_t secretSize);
 
 
 /*******   Streaming   *******/
@@ -968,20 +980,20 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH3_64bits_withSecret(const void* data, s
 typedef struct XXH3_state_s XXH3_state_t;
 XXH_PUBLIC_API XXH_MALLOCF XXH3_state_t* XXH3_createState(void);
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr);
-XXH_PUBLIC_API void XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state);
+XXH_PUBLIC_API void XXH3_copyState(XXH_NOESCAPE XXH3_state_t* dst_state, XXH_NOESCAPE const XXH3_state_t* src_state);
 
 /*
  * XXH3_64bits_reset():
  * Initialize with default parameters.
  * digest will be equivalent to `XXH3_64bits()`.
  */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset(XXH_NOESCAPE XXH3_state_t* statePtr);
 /*
  * XXH3_64bits_reset_withSeed():
  * Generate a custom secret from `seed`, and store it into `statePtr`.
  * digest will be equivalent to `XXH3_64bits_withSeed()`.
  */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH64_hash_t seed);
 /*!
  * XXH3_64bits_reset_withSecret():
  * `secret` is referenced, it _must outlive_ the hash streaming session.
@@ -991,10 +1003,10 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, 
  * When in doubt about the randomness of a candidate `secret`,
  * consider employing `XXH3_generateSecret()` instead (see below).
  */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize);
 
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API XXH_PUREF XXH64_hash_t  XXH3_64bits_digest (const XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update (XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* input, size_t length);
+XXH_PUBLIC_API XXH_PUREF XXH64_hash_t  XXH3_64bits_digest (XXH_NOESCAPE const XXH3_state_t* statePtr);
 #endif /* !XXH_NO_STREAM */
 
 /* note : canonical representation of XXH3 is the same as XXH64
@@ -1033,11 +1045,11 @@ typedef struct {
  * @see
  *    XXH3_128bits_reset(), XXH3_128bits_update(), XXH3_128bits_digest(): Streaming version.
  */
-XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits(const void* data, size_t len);
+XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits(XXH_NOESCAPE const void* data, size_t len);
 /*! @brief Seeded 128-bit variant of XXH3. @see XXH3_64bits_withSeed(). */
-XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSeed(XXH_NOESCAPE const void* data, size_t len, XXH64_hash_t seed);
 /*! @brief Custom secret 128-bit variant of XXH3. @see XXH3_64bits_withSecret(). */
-XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSecret(const void* data, size_t len, const void* secret, size_t secretSize);
+XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSecret(XXH_NOESCAPE const void* data, size_t len, XXH_NOESCAPE const void* secret, size_t secretSize);
 
 /*******   Streaming   *******/
 #ifndef XXH_NO_STREAM
@@ -1053,12 +1065,12 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_withSecret(const void* data,
  * All reset and streaming functions have same meaning as their 64-bit counterpart.
  */
 
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH3_state_t* statePtr);
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH_NOESCAPE XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize);
 
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH3_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update (XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* input, size_t length);
+XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_digest (XXH_NOESCAPE const XXH3_state_t* statePtr);
 #endif /* !XXH_NO_STREAM */
 
 /* Following helper functions make it possible to compare XXH128_hast_t values.
@@ -1079,13 +1091,13 @@ XXH_PUBLIC_API XXH_PUREF int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2);
  *          =0 if *h128_1 == *h128_2
  *          <0 if *h128_1  < *h128_2
  */
-XXH_PUBLIC_API XXH_PUREF int XXH128_cmp(const void* h128_1, const void* h128_2);
+XXH_PUBLIC_API XXH_PUREF int XXH128_cmp(XXH_NOESCAPE const void* h128_1, XXH_NOESCAPE const void* h128_2);
 
 
 /*******   Canonical representation   *******/
 typedef struct { unsigned char digest[sizeof(XXH128_hash_t)]; } XXH128_canonical_t;
-XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
-XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
+XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH_NOESCAPE XXH128_canonical_t* dst, XXH128_hash_t hash);
+XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128_hashFromCanonical(XXH_NOESCAPE const XXH128_canonical_t* src);
 
 
 #endif  /* !XXH_NO_XXH3 */
@@ -1272,7 +1284,7 @@ struct XXH3_state_s {
 /*!
  * simple alias to pre-selected XXH3_128bits variant
  */
-XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
+XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, size_t len, XXH64_hash_t seed);
 
 
 /* ===   Experimental API   === */
@@ -1329,7 +1341,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(const void* data, size_t len, XXH6
  *    }
  * @endcode
  */
-XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(void* secretBuffer, size_t secretSize, const void* customSeed, size_t customSeedSize);
+XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer, size_t secretSize, XXH_NOESCAPE const void* customSeed, size_t customSeedSize);
 
 /*!
  * @brief Generate the same secret as the _withSeed() variants.
@@ -1368,7 +1380,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(void* secretBuffer, size_t secr
  * @param secretBuffer A writable buffer of @ref XXH3_SECRET_SIZE_MIN bytes
  * @param seed The seed to seed the state.
  */
-XXH_PUBLIC_API void XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed);
+XXH_PUBLIC_API void XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed);
 
 /*!
  * These variants generate hash values using either
@@ -1397,24 +1409,24 @@ XXH_PUBLIC_API void XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_
  * because only portions of the secret are employed for small data.
  */
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t
-XXH3_64bits_withSecretandSeed(const void* data, size_t len,
-                              const void* secret, size_t secretSize,
+XXH3_64bits_withSecretandSeed(XXH_NOESCAPE const void* data, size_t len,
+                              XXH_NOESCAPE const void* secret, size_t secretSize,
                               XXH64_hash_t seed);
 /*! @copydoc XXH3_64bits_withSecretandSeed() */
 XXH_PUBLIC_API XXH_PUREF XXH128_hash_t
-XXH3_128bits_withSecretandSeed(const void* input, size_t length,
-                               const void* secret, size_t secretSize,
+XXH3_128bits_withSecretandSeed(XXH_NOESCAPE const void* input, size_t length,
+                               XXH_NOESCAPE const void* secret, size_t secretSize,
                                XXH64_hash_t seed64);
 #ifndef XXH_NO_STREAM
 /*! @copydoc XXH3_64bits_withSecretandSeed() */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
-                                    const void* secret, size_t secretSize,
+XXH3_64bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
+                                    XXH_NOESCAPE const void* secret, size_t secretSize,
                                     XXH64_hash_t seed64);
 /*! @copydoc XXH3_64bits_withSecretandSeed() */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr,
-                                     const void* secret, size_t secretSize,
+XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
+                                     XXH_NOESCAPE const void* secret, size_t secretSize,
                                      XXH64_hash_t seed64);
 #endif /* !XXH_NO_STREAM */
 
@@ -1803,7 +1815,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  include <assert.h>   /* note: can still be disabled with NDEBUG */
 #  define XXH_ASSERT(c)   assert(c)
 #else
-#  define XXH_ASSERT(c)   ((void)0)
+#  define XXH_ASSERT(c)   XXH_ASSUME(c)
 #endif
 
 /* note: use after variable declarations */
@@ -2027,6 +2039,29 @@ static int XXH_isLittleEndian(void)
 #else
 #  define XXH_HAS_BUILTIN(x) 0
 #endif
+
+
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ > 201710L)
+/* C23 and future versions have standard "unreachable()" */
+#  include <stddef.h>
+#  define XXH_UNREACHABLE() unreachable()
+
+#elif defined(__cplusplus) && (__cplusplus > 202002L)
+/* C++23 and future versions have std::unreachable() */
+#  include <utility> /* std::unreachable() */
+#  define XXH_UNREACHABLE() std::unreachable()
+
+#elif XXH_HAS_BUILTIN(__builtin_unreachable)
+#  define XXH_UNREACHABLE() __builtin_unreachable()
+
+#elif defined(_MSC_VER)
+#  define XXH_UNREACHABLE() __assume(0)
+
+#else
+#  define XXH_UNREACHABLE()
+#endif
+
+#define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
 
 /*!
  * @internal
@@ -2829,7 +2864,7 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
 
 
 /*! @ingroup XXH64_family */
-XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t len, XXH64_hash_t seed)
+XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
 {
 #if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
@@ -2863,13 +2898,13 @@ XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 }
 
 /*! @ingroup XXH64_family */
-XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dstState, const XXH64_state_t* srcState)
+XXH_PUBLIC_API void XXH64_copyState(XXH_NOESCAPE XXH64_state_t* dstState, const XXH64_state_t* srcState)
 {
     XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
 /*! @ingroup XXH64_family */
-XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t seed)
+XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH_NOESCAPE XXH64_state_t* statePtr, XXH64_hash_t seed)
 {
     XXH_ASSERT(statePtr != NULL);
     memset(statePtr, 0, sizeof(*statePtr));
@@ -2882,7 +2917,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr, XXH64_hash_t s
 
 /*! @ingroup XXH64_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH64_update (XXH64_state_t* state, const void* input, size_t len)
+XXH64_update (XXH_NOESCAPE XXH64_state_t* state, XXH_NOESCAPE const void* input, size_t len)
 {
     if (input==NULL) {
         XXH_ASSERT(len == 0);
@@ -2933,7 +2968,7 @@ XXH64_update (XXH64_state_t* state, const void* input, size_t len)
 
 
 /*! @ingroup XXH64_family */
-XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* state)
+XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state)
 {
     xxh_u64 h64;
 
@@ -2956,7 +2991,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* state)
 /******* Canonical representation   *******/
 
 /*! @ingroup XXH64_family */
-XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash)
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst, XXH64_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_canonical_t) == sizeof(XXH64_hash_t));
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
@@ -2964,7 +2999,7 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t
 }
 
 /*! @ingroup XXH64_family */
-XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src)
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_canonical_t* src)
 {
     return XXH_readBE64(src);
 }
@@ -4039,13 +4074,17 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
     #define XXH3_MIDSIZE_LASTOFFSET  17
 
     {   xxh_u64 acc = len * XXH_PRIME64_1;
+        xxh_u64 acc_end;
         unsigned int const nbRounds = (unsigned int)len / 16;
         unsigned int i;
+        XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
         for (i=0; i<8; i++) {
             acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
         }
-        acc = XXH3_avalanche(acc);
+        /* last bytes */
+        acc_end = XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
         XXH_ASSERT(nbRounds >= 8);
+        acc = XXH3_avalanche(acc);
 #if defined(__clang__)                                /* Clang */ \
     && (defined(__ARM_NEON) || defined(__ARM_NEON__)) /* NEON */ \
     && !defined(XXH_ENABLE_AUTOVECTORIZE)             /* Define to disable */
@@ -4072,11 +4111,13 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         #pragma clang loop vectorize(disable)
 #endif
         for (i=8 ; i < nbRounds; i++) {
-            acc += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
+            /*
+             * Prevents clang for unrolling the acc loop and interleaving with this one.
+             */
+            XXH_COMPILER_GUARD(acc);
+            acc_end += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
         }
-        /* last bytes */
-        acc += XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
-        return XXH3_avalanche(acc);
+        return XXH3_avalanche(acc + acc_end);
     }
 }
 
@@ -5250,27 +5291,27 @@ XXH3_64bits_internal(const void* XXH_RESTRICT input, size_t len,
 /* ===   Public entry point   === */
 
 /*! @ingroup XXH3_family */
-XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* input, size_t length)
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(XXH_NOESCAPE const void* input, size_t length)
 {
     return XXH3_64bits_internal(input, length, 0, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_default);
 }
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH64_hash_t
-XXH3_64bits_withSecret(const void* input, size_t length, const void* secret, size_t secretSize)
+XXH3_64bits_withSecret(XXH_NOESCAPE const void* input, size_t length, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     return XXH3_64bits_internal(input, length, 0, secret, secretSize, XXH3_hashLong_64b_withSecret);
 }
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH64_hash_t
-XXH3_64bits_withSeed(const void* input, size_t length, XXH64_hash_t seed)
+XXH3_64bits_withSeed(XXH_NOESCAPE const void* input, size_t length, XXH64_hash_t seed)
 {
     return XXH3_64bits_internal(input, length, seed, XXH3_kSecret, sizeof(XXH3_kSecret), XXH3_hashLong_64b_withSeed);
 }
 
 XXH_PUBLIC_API XXH64_hash_t
-XXH3_64bits_withSecretandSeed(const void* input, size_t length, const void* secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_64bits_withSecretandSeed(XXH_NOESCAPE const void* input, size_t length, XXH_NOESCAPE const void* secret, size_t secretSize, XXH64_hash_t seed)
 {
     if (length <= XXH3_MIDSIZE_MAX)
         return XXH3_64bits_internal(input, length, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
@@ -5363,7 +5404,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API void
-XXH3_copyState(XXH3_state_t* dst_state, const XXH3_state_t* src_state)
+XXH3_copyState(XXH_NOESCAPE XXH3_state_t* dst_state, XXH_NOESCAPE const XXH3_state_t* src_state)
 {
     XXH_memcpy(dst_state, src_state, sizeof(*dst_state));
 }
@@ -5397,7 +5438,7 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_reset(XXH3_state_t* statePtr)
+XXH3_64bits_reset(XXH_NOESCAPE XXH3_state_t* statePtr)
 {
     if (statePtr == NULL) return XXH_ERROR;
     XXH3_reset_internal(statePtr, 0, XXH3_kSecret, XXH_SECRET_DEFAULT_SIZE);
@@ -5406,7 +5447,7 @@ XXH3_64bits_reset(XXH3_state_t* statePtr)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
+XXH3_64bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     if (statePtr == NULL) return XXH_ERROR;
     XXH3_reset_internal(statePtr, 0, secret, secretSize);
@@ -5417,7 +5458,7 @@ XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t 
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
+XXH3_64bits_reset_withSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
     if (statePtr == NULL) return XXH_ERROR;
     if (seed==0) return XXH3_64bits_reset(statePtr);
@@ -5429,7 +5470,7 @@ XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_reset_withSecretandSeed(XXH3_state_t* statePtr, const void* secret, size_t secretSize, XXH64_hash_t seed64)
+XXH3_64bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize, XXH64_hash_t seed64)
 {
     if (statePtr == NULL) return XXH_ERROR;
     if (secret == NULL) return XXH_ERROR;
@@ -5591,7 +5632,7 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_64bits_update(XXH3_state_t* state, const void* input, size_t len)
+XXH3_64bits_update(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
                        XXH3_accumulate, XXH3_scrambleAcc);
@@ -5633,7 +5674,7 @@ XXH3_digest_long (XXH64_hash_t* acc,
 }
 
 /*! @ingroup XXH3_family */
-XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (const XXH3_state_t* state)
+XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (XXH_NOESCAPE const XXH3_state_t* state)
 {
     const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
     if (state->totalLen > XXH3_MIDSIZE_MAX) {
@@ -5884,25 +5925,34 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
 
     {   XXH128_hash_t acc;
-        unsigned int const nbRounds = (unsigned int)len / 32;
-        unsigned int i;
+        unsigned i;
         acc.low64 = len * XXH_PRIME64_1;
         acc.high64 = 0;
-        for (i=0; i<4; i++) {
+        /*
+         *  We set as `i` as offset + 32. We do this so that unchanged
+         * `len` can be used as upper bound. This reaches a sweet spot
+         * where both x86 and aarch64 get simple agen and good codegen
+         * for the loop.
+         */
+        for (i = 32; i < 160; i += 32) {
             acc = XXH128_mix32B(acc,
-                                input  + (32 * i),
-                                input  + (32 * i) + 16,
-                                secret + (32 * i),
+                                input  + i - 32,
+                                input  + i - 16,
+                                secret + i - 32,
                                 seed);
         }
         acc.low64 = XXH3_avalanche(acc.low64);
         acc.high64 = XXH3_avalanche(acc.high64);
-        XXH_ASSERT(nbRounds >= 4);
-        for (i=4 ; i < nbRounds; i++) {
+        /*
+         * NB: `i <= len` will duplicate the last 32-bytes if
+         * len % 32 was zero. This is an unfortunate necessity to keep
+         * the hash result stable.
+         */
+        for (i=160; i <= len; i += 32) {
             acc = XXH128_mix32B(acc,
-                                input + (32 * i),
-                                input + (32 * i) + 16,
-                                secret + XXH3_MIDSIZE_STARTOFFSET + (32 * (i - 4)),
+                                input + i - 32,
+                                input + i - 16,
+                                secret + XXH3_MIDSIZE_STARTOFFSET + i - 160,
                                 seed);
         }
         /* last bytes */
@@ -5910,7 +5960,7 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
                             input + len - 16,
                             input + len - 32,
                             secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET - 16,
-                            0ULL - seed);
+                            (XXH64_hash_t)0 - seed);
 
         {   XXH128_hash_t h128;
             h128.low64  = acc.low64 + acc.high64;
@@ -6034,7 +6084,7 @@ XXH3_128bits_internal(const void* input, size_t len,
 /* ===   Public XXH128 API   === */
 
 /*! @ingroup XXH3_family */
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(XXH_NOESCAPE const void* input, size_t len)
 {
     return XXH3_128bits_internal(input, len, 0,
                                  XXH3_kSecret, sizeof(XXH3_kSecret),
@@ -6043,7 +6093,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* input, size_t len)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH128_hash_t
-XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_t secretSize)
+XXH3_128bits_withSecret(XXH_NOESCAPE const void* input, size_t len, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     return XXH3_128bits_internal(input, len, 0,
                                  (const xxh_u8*)secret, secretSize,
@@ -6052,7 +6102,7 @@ XXH3_128bits_withSecret(const void* input, size_t len, const void* secret, size_
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH128_hash_t
-XXH3_128bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
+XXH3_128bits_withSeed(XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_128bits_internal(input, len, seed,
                                  XXH3_kSecret, sizeof(XXH3_kSecret),
@@ -6061,7 +6111,7 @@ XXH3_128bits_withSeed(const void* input, size_t len, XXH64_hash_t seed)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH128_hash_t
-XXH3_128bits_withSecretandSeed(const void* input, size_t len, const void* secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_128bits_withSecretandSeed(XXH_NOESCAPE const void* input, size_t len, XXH_NOESCAPE const void* secret, size_t secretSize, XXH64_hash_t seed)
 {
     if (len <= XXH3_MIDSIZE_MAX)
         return XXH3_128bits_internal(input, len, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
@@ -6070,7 +6120,7 @@ XXH3_128bits_withSecretandSeed(const void* input, size_t len, const void* secret
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH128_hash_t
-XXH128(const void* input, size_t len, XXH64_hash_t seed)
+XXH128(XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
 {
     return XXH3_128bits_withSeed(input, len, seed);
 }
@@ -6085,42 +6135,42 @@ XXH128(const void* input, size_t len, XXH64_hash_t seed)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_128bits_reset(XXH3_state_t* statePtr)
+XXH3_128bits_reset(XXH_NOESCAPE XXH3_state_t* statePtr)
 {
     return XXH3_64bits_reset(statePtr);
 }
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr, const void* secret, size_t secretSize)
+XXH3_128bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     return XXH3_64bits_reset_withSecret(statePtr, secret, secretSize);
 }
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr, XXH64_hash_t seed)
+XXH3_128bits_reset_withSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH64_hash_t seed)
 {
     return XXH3_64bits_reset_withSeed(statePtr, seed);
 }
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_128bits_reset_withSecretandSeed(XXH3_state_t* statePtr, const void* secret, size_t secretSize, XXH64_hash_t seed)
+XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize, XXH64_hash_t seed)
 {
     return XXH3_64bits_reset_withSecretandSeed(statePtr, secret, secretSize, seed);
 }
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_128bits_update(XXH3_state_t* state, const void* input, size_t len)
+XXH3_128bits_update(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t len)
 {
     return XXH3_update(state, (const xxh_u8*)input, len,
                        XXH3_accumulate, XXH3_scrambleAcc);
 }
 
 /*! @ingroup XXH3_family */
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (const XXH3_state_t* state)
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (XXH_NOESCAPE const XXH3_state_t* state)
 {
     const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
     if (state->totalLen > XXH3_MIDSIZE_MAX) {
@@ -6162,7 +6212,7 @@ XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2)
  *           <0 if *h128_1  < *h128_2
  *           =0 if *h128_1 == *h128_2  */
 /*! @ingroup XXH3_family */
-XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2)
+XXH_PUBLIC_API int XXH128_cmp(XXH_NOESCAPE const void* h128_1, XXH_NOESCAPE const void* h128_2)
 {
     XXH128_hash_t const h1 = *(const XXH128_hash_t*)h128_1;
     XXH128_hash_t const h2 = *(const XXH128_hash_t*)h128_2;
@@ -6176,7 +6226,7 @@ XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2)
 /*======   Canonical representation   ======*/
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API void
-XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash)
+XXH128_canonicalFromHash(XXH_NOESCAPE XXH128_canonical_t* dst, XXH128_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH128_canonical_t) == sizeof(XXH128_hash_t));
     if (XXH_CPU_LITTLE_ENDIAN) {
@@ -6189,7 +6239,7 @@ XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH128_hash_t
-XXH128_hashFromCanonical(const XXH128_canonical_t* src)
+XXH128_hashFromCanonical(XXH_NOESCAPE const XXH128_canonical_t* src)
 {
     XXH128_hash_t h;
     h.high64 = XXH_readBE64(src);
@@ -6213,7 +6263,7 @@ XXH_FORCE_INLINE void XXH3_combine16(void* dst, XXH128_hash_t h128)
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH_errorcode
-XXH3_generateSecret(void* secretBuffer, size_t secretSize, const void* customSeed, size_t customSeedSize)
+XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer, size_t secretSize, XXH_NOESCAPE const void* customSeed, size_t customSeedSize)
 {
 #if (XXH_DEBUGLEVEL >= 1)
     XXH_ASSERT(secretBuffer != NULL);
@@ -6258,7 +6308,7 @@ XXH3_generateSecret(void* secretBuffer, size_t secretSize, const void* customSee
 
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API void
-XXH3_generateSecret_fromSeed(void* secretBuffer, XXH64_hash_t seed)
+XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
 {
     XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
     XXH3_initCustomSecret(secret, seed);

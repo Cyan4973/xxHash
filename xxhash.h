@@ -3285,26 +3285,22 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  * @ingroup tuning
  * @brief Controls the NEON to scalar ratio for XXH3
  *
- * On AArch64 when not optimizing for size, XXH3 will run 6 lanes using NEON and
- * 2 lanes on scalar by default (except on Apple platforms, as Apple CPUs benefit
- * from only using NEON).
+ * This can be set to 2, 4, 6, or 8.
  *
- * This can be set to 2, 4, 6, or 8. ARMv7 will default to all 8 NEON lanes, as the
- * emulated 64-bit arithmetic is too slow.
+ * ARM Cortex CPUs are _very_ sensitive to how their pipelines are used.
  *
- * Modern ARM CPUs are _very_ sensitive to how their pipelines are used.
+ * For example, the Cortex-A73 can dispatch 3 micro-ops per cycle, but only 2 of those
+ * can be NEON. If you are only using NEON instructions, you are only using 2/3 of the CPU
+ * bandwidth.
  *
- * For example, the Cortex-A73 can dispatch 3 micro-ops per cycle, but it can't
- * have more than 2 NEON (F0/F1) micro-ops. If you are only using NEON instructions,
- * you are only using 2/3 of the CPU bandwidth.
- *
- * This is even more noticeable on the more advanced cores like the A76 which
+ * This is even more noticeable on the more advanced cores like the Cortex-A76 which
  * can dispatch 8 micro-ops per cycle, but still only 2 NEON micro-ops at once.
  *
- * Therefore, @ref XXH3_NEON_LANES lanes will be processed using NEON, and the
- * remaining lanes will use scalar instructions. This improves the bandwidth
- * and also gives the integer pipelines something to do besides twiddling loop
- * counters and pointers.
+ * Therefore, to make the most out of the pipeline, it is beneficial to run 6 NEON lanes
+ * and 2 scalar lanes, which is chosen by default.
+ *
+ * This does not apply to Apple processors or 32-bit processors, which run better with
+ * full NEON. These will default to 8. Additionally, size-optimized builds run 8 lanes.
  *
  * This change benefits CPUs with large micro-op buffers without negatively affecting
  * most other CPUs:

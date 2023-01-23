@@ -1840,7 +1840,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__clang__)
 #  define XXH_COMPILER_GUARD_W(var) __asm__ __volatile__("" : "+w" (var))
 #else
 #  define XXH_COMPILER_GUARD_W(var) ((void)0)
@@ -4433,16 +4433,13 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
         uint8_t const* const xsecret  = (const uint8_t *) secret;
 
         size_t i;
-
         /* Scalar lanes use the normal scalarRound routine */
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarRound(acc, input, secret, i);
         }
+        i = 0;
         /* 4 NEON lanes at a time. */
-        for (i=0; i+1 < XXH3_NEON_LANES / 2; i+=2) {
-            /* acc_vec = xacc[i] */
-            uint64x2_t acc_vec_1 = xacc[i];
-            uint64x2_t acc_vec_2 = xacc[i+1];
+        for (; i+1 < XXH3_NEON_LANES / 2; i+=2) {
             /* data_vec = xinput[i]; */
             uint64x2_t data_vec_1 = XXH_vld1q_u64(xinput  + (i * 16));
             uint64x2_t data_vec_2 = XXH_vld1q_u64(xinput  + ((i+1) * 16));
@@ -4497,12 +4494,11 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             XXH_COMPILER_GUARD_W(sum_1);
             XXH_COMPILER_GUARD_W(sum_2);
             /* xacc[i] = acc_vec + sum; */
-            xacc[i]   = vaddq_u64(acc_vec_1, sum_1);
-            xacc[i+1] = vaddq_u64(acc_vec_2, sum_2);
+            xacc[i]   = vaddq_u64(xacc[i], sum_1);
+            xacc[i+1] = vaddq_u64(xacc[i+1], sum_2);
         }
         /* Operate on the remaining NEON lanes 2 at a time. */
         for (; i < XXH3_NEON_LANES / 2; i++) {
-            uint64x2_t acc_vec = xacc[i];
             /* data_vec = xinput[i]; */
             uint64x2_t data_vec = XXH_vld1q_u64(xinput  + (i * 16));
             /* key_vec  = xsecret[i];  */
@@ -4521,7 +4517,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             /* Prevent Clang from reordering the vaddq before the vmlal */
             XXH_COMPILER_GUARD_W(sum);
             /* xacc[i] = acc_vec + sum; */
-            xacc[i] = vaddq_u64 (acc_vec, sum);
+            xacc[i] = vaddq_u64 (xacc[i], sum);
         }
     }
 }

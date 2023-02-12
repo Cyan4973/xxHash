@@ -884,7 +884,7 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const
  *
  * XXH3 implementation is portable:
  * it has a generic C90 formulation that can be compiled on any platform,
- * all implementations generage exactly the same hash value on all platforms.
+ * all implementations generate exactly the same hash value on all platforms.
  * Starting from v0.8.0, it's also labelled "stable", meaning that
  * any future version will also generate the same hash value.
  *

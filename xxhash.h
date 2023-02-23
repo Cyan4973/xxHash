@@ -1633,16 +1633,6 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #  define XXH32_ENDJMP 0
 
 /*!
- * @internal
- * @brief Redefines old internal names.
- *
- * For compatibility with code that uses xxHash's internals before the names
- * were changed to improve namespacing. There is no other reason to use this.
- */
-#  define XXH_OLD_NAMES
-#  undef XXH_OLD_NAMES /* don't actually use, it is ugly. */
-
-/*!
  * @def XXH_NO_STREAM
  * @brief Disables the streaming API.
  *
@@ -1887,12 +1877,6 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #endif
 typedef XXH32_hash_t xxh_u32;
 
-#ifdef XXH_OLD_NAMES
-#  define BYTE xxh_u8
-#  define U8   xxh_u8
-#  define U32  xxh_u32
-#endif
-
 /* ***   Memory access   *** */
 
 /*!
@@ -1967,9 +1951,6 @@ static xxh_u32 XXH_read32(const void* memPtr) { return *(const xxh_u32*) memPtr;
  * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69502,
  * https://gcc.godbolt.org/z/xYez1j67Y.
  */
-#ifdef XXH_OLD_NAMES
-typedef union { xxh_u32 u32; } __attribute__((packed)) unalign;
-#endif
 static xxh_u32 XXH_read32(const void* ptr)
 {
     typedef __attribute__((aligned(1))) xxh_u32 xxh_unalign32;
@@ -2214,14 +2195,6 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 #define XXH_PRIME32_4  0x27D4EB2FU  /*!< 0b00100111110101001110101100101111 */
 #define XXH_PRIME32_5  0x165667B1U  /*!< 0b00010110010101100110011110110001 */
 
-#ifdef XXH_OLD_NAMES
-#  define PRIME32_1 XXH_PRIME32_1
-#  define PRIME32_2 XXH_PRIME32_2
-#  define PRIME32_3 XXH_PRIME32_3
-#  define PRIME32_4 XXH_PRIME32_4
-#  define PRIME32_5 XXH_PRIME32_5
-#endif
-
 /*!
  * @internal
  * @brief Normal stripe processing routine.
@@ -2442,13 +2415,8 @@ XXH32_finalize(xxh_u32 hash, const xxh_u8* ptr, size_t len, XXH_alignment align)
     }
 }
 
-#ifdef XXH_OLD_NAMES
-#  define PROCESS1 XXH_PROCESS1
-#  define PROCESS4 XXH_PROCESS4
-#else
-#  undef XXH_PROCESS1
-#  undef XXH_PROCESS4
-#endif
+#undef XXH_PROCESS1
+#undef XXH_PROCESS4
 
 /*!
  * @internal
@@ -2637,10 +2605,6 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 
 typedef XXH64_hash_t xxh_u64;
 
-#ifdef XXH_OLD_NAMES
-#  define U64 xxh_u64
-#endif
-
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
 /*
  * Manual byteshift. Best for old compilers which don't inline memcpy.
@@ -2663,9 +2627,6 @@ static xxh_u64 XXH_read64(const void* memPtr)
  * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69502,
  * https://gcc.godbolt.org/z/xYez1j67Y.
  */
-#ifdef XXH_OLD_NAMES
-typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((packed)) unalign64;
-#endif
 static xxh_u64 XXH_read64(const void* ptr)
 {
     typedef __attribute__((aligned(1))) xxh_u64 xxh_unalign64;
@@ -2772,14 +2733,6 @@ XXH_readLE64_align(const void* ptr, XXH_alignment align)
 #define XXH_PRIME64_3  0x165667B19E3779F9ULL  /*!< 0b0001011001010110011001111011000110011110001101110111100111111001 */
 #define XXH_PRIME64_4  0x85EBCA77C2B2AE63ULL  /*!< 0b1000010111101011110010100111011111000010101100101010111001100011 */
 #define XXH_PRIME64_5  0x27D4EB2F165667C5ULL  /*!< 0b0010011111010100111010110010111100010110010101100110011111000101 */
-
-#ifdef XXH_OLD_NAMES
-#  define PRIME64_1 XXH_PRIME64_1
-#  define PRIME64_2 XXH_PRIME64_2
-#  define PRIME64_3 XXH_PRIME64_3
-#  define PRIME64_4 XXH_PRIME64_4
-#  define PRIME64_5 XXH_PRIME64_5
-#endif
 
 /*! @copydoc XXH32_round */
 static xxh_u64 XXH64_round(xxh_u64 acc, xxh_u64 input)
@@ -2932,15 +2885,9 @@ XXH64_finalize(xxh_u64 hash, const xxh_u8* ptr, size_t len, XXH_alignment align)
     return  XXH64_avalanche(hash);
 }
 
-#ifdef XXH_OLD_NAMES
-#  define PROCESS1_64 XXH_PROCESS1_64
-#  define PROCESS4_64 XXH_PROCESS4_64
-#  define PROCESS8_64 XXH_PROCESS8_64
-#else
-#  undef XXH_PROCESS1_64
-#  undef XXH_PROCESS4_64
-#  undef XXH_PROCESS8_64
-#endif
+#undef XXH_PROCESS1_64
+#undef XXH_PROCESS4_64
+#undef XXH_PROCESS8_64
 
 /*!
  * @internal
@@ -3621,11 +3568,6 @@ XXH_ALIGN(64) static const xxh_u8 XXH3_kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
 
-
-#ifdef XXH_OLD_NAMES
-#  define kSecret XXH3_kSecret
-#endif
-
 #ifdef XXH_DOXYGEN
 /*!
  * @brief Calculates a 32-bit to 64-bit long multiply.
@@ -4109,11 +4051,6 @@ XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
 #define XXH_STRIPE_LEN 64
 #define XXH_SECRET_CONSUME_RATE 8   /* nb of secret bytes consumed at each accumulation */
 #define XXH_ACC_NB (XXH_STRIPE_LEN / sizeof(xxh_u64))
-
-#ifdef XXH_OLD_NAMES
-#  define STRIPE_LEN XXH_STRIPE_LEN
-#  define ACC_NB XXH_ACC_NB
-#endif
 
 #ifndef XXH_PREFETCH_DIST
 #  ifdef __clang__

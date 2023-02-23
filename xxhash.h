@@ -1660,11 +1660,13 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 
 #ifndef XXH_32BIT_OPT
    /* detect x32 and arm64_32 */
-#  if defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__)
+#  if defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) || defined(__mips64__) \
+    || defined(__LP64__) || defined(__LLP64__) || defined(_WIN64) \
+    || defined(_M_X64) || defined(_M_ARM64) \
+    || (defined(SIZE_MAX) && (SIZE_MAX >> 1) > 0x80000000UL) /* Avoid comparison warnings */
 #     define XXH_32BIT_OPT 0
 #  else
-      /* avoid potential comparison warnings */
-#     define XXH_32BIT_OPT ((SIZE_MAX >> 1) < (0x80000000UL))
+#     define XXH_32BIT_OPT 1
 #  endif
 #endif
 

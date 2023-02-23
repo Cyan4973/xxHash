@@ -1141,9 +1141,9 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128_hashFromCanonical(XXH_NOESCAPE con
 struct XXH32_state_s {
    XXH32_hash_t total_len_32; /*!< Total length hashed, modulo 2^32 */
    XXH32_hash_t large_len;    /*!< Whether the hash is >= 16 (handles @ref total_len_32 overflow) */
-   XXH32_hash_t v[4];         /*!< Accumulator lanes */
-   XXH32_hash_t mem32[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[16]. */
-   XXH32_hash_t memsize;      /*!< Amount of data in @ref mem32 */
+   XXH32_hash_t acc[4];       /*!< Accumulator lanes */
+   unsigned char buffer[16];  /*!< Internal buffer for partial reads. */
+   XXH32_hash_t bufferedSize; /*!< Amount of data in @ref buffer */
    XXH32_hash_t reserved;     /*!< Reserved field. Do not read nor write to it. */
 };   /* typedef'd to XXH32_state_t */
 
@@ -1164,9 +1164,9 @@ struct XXH32_state_s {
  */
 struct XXH64_state_s {
    XXH64_hash_t total_len;    /*!< Total length hashed. This is always 64-bit. */
-   XXH64_hash_t v[4];         /*!< Accumulator lanes */
-   XXH64_hash_t mem64[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[32]. */
-   XXH32_hash_t memsize;      /*!< Amount of data in @ref mem64 */
+   XXH64_hash_t acc[4];       /*!< Accumulator lanes */
+   unsigned char buffer[32];  /*!< Internal buffer for partial reads.. */
+   XXH32_hash_t bufferedSize; /*!< Amount of data in @ref buffer */
    XXH32_hash_t reserved32;   /*!< Reserved field, needed for padding anyways*/
    XXH64_hash_t reserved64;   /*!< Reserved field. Do not read or write to it. */
 };   /* typedef'd to XXH64_state_t */
@@ -1791,6 +1791,22 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #endif
 
 
+#if ((defined(sun) || defined(__sun)) && __cplusplus) /* Solaris includes __STDC_VERSION__ with C++. Tested with GCC 5.5 */
+#  define XXH_RESTRICT   /* disable */
+#elif defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* >= C99 */
+#  define XXH_RESTRICT   restrict
+#elif (defined (__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))) \
+   || (defined (__clang__)) \
+   || (defined (_MSC_VER) && (_MSC_VER >= 1400)) \
+   || (defined (__INTEL_COMPILER) && (__INTEL_COMPILER >= 1300))
+/*
+ * There are a LOT more compilers that recognize __restrict but this
+ * covers the major ones.
+ */
+#  define XXH_RESTRICT   __restrict
+#else
+#  define XXH_RESTRICT   /* disable */
+#endif
 
 /* *************************************
 *  Debug
@@ -2285,6 +2301,61 @@ static xxh_u32 XXH32_avalanche(xxh_u32 hash)
 
 /*!
  * @internal
+ * @brief Sets up the initial accumulator state for XXH32().
+ */
+XXH_FORCE_INLINE void
+XXH32_initAccs(xxh_u32 *acc, xxh_u32 seed)
+{
+    XXH_ASSERT(acc != NULL);
+    acc[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+    acc[1] = seed + XXH_PRIME32_2;
+    acc[2] = seed + 0;
+    acc[3] = seed - XXH_PRIME32_1;
+}
+
+/*!
+ * @internal
+ * @brief Consumes a block of data for XXH32().
+ *
+ * @return the end input pointer.
+ */
+XXH_FORCE_INLINE const xxh_u8 *
+XXH32_consumeLong(
+    xxh_u32 *XXH_RESTRICT acc,
+    xxh_u8 const *XXH_RESTRICT input,
+    size_t len,
+    XXH_alignment align
+)
+{
+    const xxh_u8* const bEnd = input + len;
+    const xxh_u8* const limit = bEnd - 15;
+    XXH_ASSERT(acc != NULL);
+    XXH_ASSERT(input != NULL);
+    XXH_ASSERT(len >= 16);
+    do {
+        acc[0] = XXH32_round(acc[0], XXH_get32bits(input)); input += 4;
+        acc[1] = XXH32_round(acc[1], XXH_get32bits(input)); input += 4;
+        acc[2] = XXH32_round(acc[2], XXH_get32bits(input)); input += 4;
+        acc[3] = XXH32_round(acc[3], XXH_get32bits(input)); input += 4;
+    } while (input < limit);
+
+    return input;
+}
+
+/*!
+ * @internal
+ * @brief Merges the accumulator lanes together for XXH32()
+ */
+XXH_FORCE_INLINE XXH_PUREF xxh_u32
+XXH32_mergeAccs(const xxh_u32 *acc)
+{
+    XXH_ASSERT(acc != NULL);
+    return XXH_rotl32(acc[0], 1)  + XXH_rotl32(acc[1], 7)
+         + XXH_rotl32(acc[2], 12) + XXH_rotl32(acc[3], 18);
+}
+
+/*!
+ * @internal
  * @brief Processes the last 0-15 bytes of @p ptr.
  *
  * There may be up to 15 bytes remaining to consume from the input.
@@ -2395,22 +2466,12 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
     if (input==NULL) XXH_ASSERT(len == 0);
 
     if (len>=16) {
-        const xxh_u8* const bEnd = input + len;
-        const xxh_u8* const limit = bEnd - 15;
-        xxh_u32 v1 = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
-        xxh_u32 v2 = seed + XXH_PRIME32_2;
-        xxh_u32 v3 = seed + 0;
-        xxh_u32 v4 = seed - XXH_PRIME32_1;
+        xxh_u32 acc[4];
+        XXH32_initAccs(acc, seed);
 
-        do {
-            v1 = XXH32_round(v1, XXH_get32bits(input)); input += 4;
-            v2 = XXH32_round(v2, XXH_get32bits(input)); input += 4;
-            v3 = XXH32_round(v3, XXH_get32bits(input)); input += 4;
-            v4 = XXH32_round(v4, XXH_get32bits(input)); input += 4;
-        } while (input < limit);
+        input = XXH32_consumeLong(acc, input, len, align);
 
-        h32 = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
-            + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+        h32 = XXH32_mergeAccs(acc);
     } else {
         h32  = seed + XXH_PRIME32_5;
     }
@@ -2466,10 +2527,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t s
 {
     XXH_ASSERT(statePtr != NULL);
     memset(statePtr, 0, sizeof(*statePtr));
-    statePtr->v[0] = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
-    statePtr->v[1] = seed + XXH_PRIME32_2;
-    statePtr->v[2] = seed + 0;
-    statePtr->v[3] = seed - XXH_PRIME32_1;
+    XXH32_initAccs(statePtr->acc, seed);
     return XXH_OK;
 }
 
@@ -2483,45 +2541,35 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
         return XXH_OK;
     }
 
-    {   const xxh_u8* p = (const xxh_u8*)input;
-        const xxh_u8* const bEnd = p + len;
+    {   const xxh_u8* xinput = (const xxh_u8*)input;
+        const xxh_u8* const bEnd = xinput + len;
 
         state->total_len_32 += (XXH32_hash_t)len;
         state->large_len |= (XXH32_hash_t)((len>=16) | (state->total_len_32>=16));
 
-        if (state->memsize + len < 16)  {   /* fill in tmp buffer */
-            XXH_memcpy((xxh_u8*)(state->mem32) + state->memsize, input, len);
-            state->memsize += (XXH32_hash_t)len;
+        if (len < sizeof(state->buffer) - state->bufferedSize)  {   /* fill in tmp buffer */
+            XXH_memcpy(state->buffer + state->bufferedSize, xinput, len);
+            state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
         }
 
-        if (state->memsize) {   /* some data left from previous update */
-            XXH_memcpy((xxh_u8*)(state->mem32) + state->memsize, input, 16-state->memsize);
-            {   const xxh_u32* p32 = state->mem32;
-                state->v[0] = XXH32_round(state->v[0], XXH_readLE32(p32)); p32++;
-                state->v[1] = XXH32_round(state->v[1], XXH_readLE32(p32)); p32++;
-                state->v[2] = XXH32_round(state->v[2], XXH_readLE32(p32)); p32++;
-                state->v[3] = XXH32_round(state->v[3], XXH_readLE32(p32));
-            }
-            p += 16-state->memsize;
-            state->memsize = 0;
+        if (state->bufferedSize) {   /* tmp buffer is full */
+            XXH_memcpy(state->buffer + state->bufferedSize, xinput, sizeof(state->buffer) - state->bufferedSize);
+            /* Process the tmp buffer */
+            (void)XXH32_consumeLong(state->acc, state->buffer, sizeof(state->buffer), XXH_aligned);
+            xinput += sizeof(state->buffer) - state->bufferedSize;
+            state->bufferedSize = 0;
         }
 
-        if (p <= bEnd-16) {
-            const xxh_u8* const limit = bEnd - 16;
-
-            do {
-                state->v[0] = XXH32_round(state->v[0], XXH_readLE32(p)); p+=4;
-                state->v[1] = XXH32_round(state->v[1], XXH_readLE32(p)); p+=4;
-                state->v[2] = XXH32_round(state->v[2], XXH_readLE32(p)); p+=4;
-                state->v[3] = XXH32_round(state->v[3], XXH_readLE32(p)); p+=4;
-            } while (p<=limit);
-
+        if (xinput + sizeof(state->buffer) <= bEnd) {
+            /* Process the remaining data */
+            xinput = XXH32_consumeLong(state->acc, xinput, (size_t)(bEnd - xinput), XXH_unaligned);
         }
 
-        if (p < bEnd) {
-            XXH_memcpy(state->mem32, p, (size_t)(bEnd-p));
-            state->memsize = (unsigned)(bEnd-p);
+        if (xinput < bEnd) {
+            /* Copy the leftover to the tmp buffer */
+            XXH_memcpy(state->buffer, xinput, (size_t)(bEnd-xinput));
+            state->bufferedSize = (unsigned)(bEnd-xinput);
         }
     }
 
@@ -2535,17 +2583,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
     xxh_u32 h32;
 
     if (state->large_len) {
-        h32 = XXH_rotl32(state->v[0], 1)
-            + XXH_rotl32(state->v[1], 7)
-            + XXH_rotl32(state->v[2], 12)
-            + XXH_rotl32(state->v[3], 18);
+        h32 = XXH32_mergeAccs(state->acc);
     } else {
-        h32 = state->v[2] /* == seed */ + XXH_PRIME32_5;
+        h32 = state->acc[2] /* == seed */ + XXH_PRIME32_5;
     }
 
     h32 += state->total_len_32;
 
-    return XXH32_finalize(h32, (const xxh_u8*)state->mem32, state->memsize, XXH_aligned);
+    return XXH32_finalize(h32, state->buffer, state->bufferedSize, XXH_aligned);
 }
 #endif /* !XXH_NO_STREAM */
 
@@ -2769,6 +2814,85 @@ static xxh_u64 XXH64_avalanche(xxh_u64 hash)
 
 /*!
  * @internal
+ * @brief Sets up the initial accumulator state for XXH64().
+ */
+XXH_FORCE_INLINE void
+XXH64_initAccs(xxh_u64 *acc, xxh_u64 seed)
+{
+    XXH_ASSERT(acc != NULL);
+    acc[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
+    acc[1] = seed + XXH_PRIME64_2;
+    acc[2] = seed + 0;
+    acc[3] = seed - XXH_PRIME64_1;
+}
+
+/*!
+ * @internal
+ * @brief Consumes a block of data for XXH64().
+ *
+ * @return the end input pointer.
+ */
+XXH_FORCE_INLINE const xxh_u8 *
+XXH64_consumeLong(
+    xxh_u64 *XXH_RESTRICT acc,
+    xxh_u8 const *XXH_RESTRICT input,
+    size_t len,
+    XXH_alignment align
+)
+{
+    const xxh_u8* const bEnd = input + len;
+    const xxh_u8* const limit = bEnd - 31;
+    XXH_ASSERT(acc != NULL);
+    XXH_ASSERT(input != NULL);
+    XXH_ASSERT(len >= 32);
+    do {
+        /* reroll on 32-bit */
+        if (sizeof(void *) < sizeof(xxh_u64)) {
+            size_t i;
+            for (i = 0; i < 4; i++) {
+                acc[i] = XXH64_round(acc[i], XXH_get64bits(input));
+                input += 8;
+            }
+        } else {
+            acc[0] = XXH64_round(acc[0], XXH_get64bits(input)); input += 8;
+            acc[1] = XXH64_round(acc[1], XXH_get64bits(input)); input += 8;
+            acc[2] = XXH64_round(acc[2], XXH_get64bits(input)); input += 8;
+            acc[3] = XXH64_round(acc[3], XXH_get64bits(input)); input += 8;
+        }
+    } while (input < limit);
+
+    return input;
+}
+
+/*!
+ * @internal
+ * @brief Merges the accumulator lanes together for XXH64()
+ */
+XXH_FORCE_INLINE XXH_PUREF xxh_u64
+XXH64_mergeAccs(const xxh_u64 *acc)
+{
+    XXH_ASSERT(acc != NULL);
+    {
+        xxh_u64 h64 = XXH_rotl64(acc[0], 1) + XXH_rotl64(acc[1], 7)
+                    + XXH_rotl64(acc[2], 12) + XXH_rotl64(acc[3], 18);
+        /* reroll on 32-bit */
+        if (sizeof(void *) < sizeof(xxh_u64)) {
+            size_t i;
+            for (i = 0; i < 4; i++) {
+                h64 = XXH64_mergeRound(h64, acc[i]);
+            }
+        } else {
+            h64 = XXH64_mergeRound(h64, acc[0]);
+            h64 = XXH64_mergeRound(h64, acc[1]);
+            h64 = XXH64_mergeRound(h64, acc[2]);
+            h64 = XXH64_mergeRound(h64, acc[3]);
+        }
+        return h64;
+    }
+}
+
+/*!
+ * @internal
  * @brief Processes the last 0-31 bytes of @p ptr.
  *
  * There may be up to 31 bytes remaining to consume from the input.
@@ -2832,27 +2956,13 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
     xxh_u64 h64;
     if (input==NULL) XXH_ASSERT(len == 0);
 
-    if (len>=32) {
-        const xxh_u8* const bEnd = input + len;
-        const xxh_u8* const limit = bEnd - 31;
-        xxh_u64 v1 = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
-        xxh_u64 v2 = seed + XXH_PRIME64_2;
-        xxh_u64 v3 = seed + 0;
-        xxh_u64 v4 = seed - XXH_PRIME64_1;
+    if (len>=32) {  /* Process a large block of data */
+        xxh_u64 acc[4];
+        XXH64_initAccs(acc, seed);
 
-        do {
-            v1 = XXH64_round(v1, XXH_get64bits(input)); input+=8;
-            v2 = XXH64_round(v2, XXH_get64bits(input)); input+=8;
-            v3 = XXH64_round(v3, XXH_get64bits(input)); input+=8;
-            v4 = XXH64_round(v4, XXH_get64bits(input)); input+=8;
-        } while (input<limit);
+        input = XXH64_consumeLong(acc, input, len, align);
 
-        h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
-        h64 = XXH64_mergeRound(h64, v1);
-        h64 = XXH64_mergeRound(h64, v2);
-        h64 = XXH64_mergeRound(h64, v3);
-        h64 = XXH64_mergeRound(h64, v4);
-
+        h64 = XXH64_mergeAccs(acc);
     } else {
         h64  = seed + XXH_PRIME64_5;
     }
@@ -2908,10 +3018,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH_NOESCAPE XXH64_state_t* statePtr, X
 {
     XXH_ASSERT(statePtr != NULL);
     memset(statePtr, 0, sizeof(*statePtr));
-    statePtr->v[0] = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
-    statePtr->v[1] = seed + XXH_PRIME64_2;
-    statePtr->v[2] = seed + 0;
-    statePtr->v[3] = seed - XXH_PRIME64_1;
+    XXH64_initAccs(statePtr->acc, seed);
     return XXH_OK;
 }
 
@@ -2924,42 +3031,34 @@ XXH64_update (XXH_NOESCAPE XXH64_state_t* state, XXH_NOESCAPE const void* input,
         return XXH_OK;
     }
 
-    {   const xxh_u8* p = (const xxh_u8*)input;
-        const xxh_u8* const bEnd = p + len;
+    {   const xxh_u8* xinput = (const xxh_u8*)input;
+        const xxh_u8* const bEnd = xinput + len;
 
-        state->total_len += len;
+        state->total_len += (XXH32_hash_t)len;
 
-        if (state->memsize + len < 32) {  /* fill in tmp buffer */
-            XXH_memcpy(((xxh_u8*)state->mem64) + state->memsize, input, len);
-            state->memsize += (xxh_u32)len;
+        if (len < sizeof(state->buffer) - state->bufferedSize)  {   /* fill in tmp buffer */
+            XXH_memcpy(state->buffer + state->bufferedSize, xinput, len);
+            state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
         }
 
-        if (state->memsize) {   /* tmp buffer is full */
-            XXH_memcpy(((xxh_u8*)state->mem64) + state->memsize, input, 32-state->memsize);
-            state->v[0] = XXH64_round(state->v[0], XXH_readLE64(state->mem64+0));
-            state->v[1] = XXH64_round(state->v[1], XXH_readLE64(state->mem64+1));
-            state->v[2] = XXH64_round(state->v[2], XXH_readLE64(state->mem64+2));
-            state->v[3] = XXH64_round(state->v[3], XXH_readLE64(state->mem64+3));
-            p += 32 - state->memsize;
-            state->memsize = 0;
+        if (state->bufferedSize) {   /* tmp buffer is full */
+            XXH_memcpy(state->buffer + state->bufferedSize, xinput, sizeof(state->buffer) - state->bufferedSize);
+            /* Process the tmp buffer */
+            (void)XXH64_consumeLong(state->acc, state->buffer, sizeof(state->buffer), XXH_aligned);
+            xinput += sizeof(state->buffer) - state->bufferedSize;
+            state->bufferedSize = 0;
         }
 
-        if (p+32 <= bEnd) {
-            const xxh_u8* const limit = bEnd - 32;
-
-            do {
-                state->v[0] = XXH64_round(state->v[0], XXH_readLE64(p)); p+=8;
-                state->v[1] = XXH64_round(state->v[1], XXH_readLE64(p)); p+=8;
-                state->v[2] = XXH64_round(state->v[2], XXH_readLE64(p)); p+=8;
-                state->v[3] = XXH64_round(state->v[3], XXH_readLE64(p)); p+=8;
-            } while (p<=limit);
-
+        if (xinput + sizeof(state->buffer) <= bEnd) {
+            /* Process the remaining data */
+            xinput = XXH64_consumeLong(state->acc, xinput, (size_t)(bEnd - xinput), XXH_unaligned);
         }
 
-        if (p < bEnd) {
-            XXH_memcpy(state->mem64, p, (size_t)(bEnd-p));
-            state->memsize = (unsigned)(bEnd-p);
+        if (xinput < bEnd) {
+            /* Copy the leftover to the tmp buffer */
+            XXH_memcpy(state->buffer, xinput, (size_t)(bEnd-xinput));
+            state->bufferedSize = (unsigned)(bEnd-xinput);
         }
     }
 
@@ -2973,18 +3072,14 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state
     xxh_u64 h64;
 
     if (state->total_len >= 32) {
-        h64 = XXH_rotl64(state->v[0], 1) + XXH_rotl64(state->v[1], 7) + XXH_rotl64(state->v[2], 12) + XXH_rotl64(state->v[3], 18);
-        h64 = XXH64_mergeRound(h64, state->v[0]);
-        h64 = XXH64_mergeRound(h64, state->v[1]);
-        h64 = XXH64_mergeRound(h64, state->v[2]);
-        h64 = XXH64_mergeRound(h64, state->v[3]);
+        h64 = XXH64_mergeAccs(state->acc);
     } else {
-        h64  = state->v[2] /*seed*/ + XXH_PRIME64_5;
+        h64  = state->acc[2] /*seed*/ + XXH_PRIME64_5;
     }
 
     h64 += (xxh_u64) state->total_len;
 
-    return XXH64_finalize(h64, (const xxh_u8*)state->mem64, (size_t)state->total_len, XXH_aligned);
+    return XXH64_finalize(h64, state->buffer, (size_t)state->total_len, XXH_aligned);
 }
 #endif /* !XXH_NO_STREAM */
 
@@ -3019,22 +3114,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 
 /* ===   Compiler specifics   === */
 
-#if ((defined(sun) || defined(__sun)) && __cplusplus) /* Solaris includes __STDC_VERSION__ with C++. Tested with GCC 5.5 */
-#  define XXH_RESTRICT   /* disable */
-#elif defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L   /* >= C99 */
-#  define XXH_RESTRICT   restrict
-#elif (defined (__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))) \
-   || (defined (__clang__)) \
-   || (defined (_MSC_VER) && (_MSC_VER >= 1400)) \
-   || (defined (__INTEL_COMPILER) && (__INTEL_COMPILER >= 1300))
-/*
- * There are a LOT more compilers that recognize __restrict but this
- * covers the major ones.
- */
-#  define XXH_RESTRICT   __restrict
-#else
-#  define XXH_RESTRICT   /* disable */
-#endif
 
 #if (defined(__GNUC__) && (__GNUC__ >= 3))  \
   || (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 800)) \

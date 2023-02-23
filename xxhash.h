@@ -5105,7 +5105,7 @@ XXH3_mix2Accs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret
                acc[1] ^ XXH_readLE64(secret+8) );
 }
 
-static XXH64_hash_t
+static XXH_PUREF XXH64_hash_t
 XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, xxh_u64 start)
 {
     xxh_u64 result64 = start;
@@ -5132,6 +5132,15 @@ XXH3_mergeAccs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secre
     return XXH3_avalanche(result64);
 }
 
+/* do not align on 8, so that the secret is different from the accumulator */
+#define XXH_SECRET_MERGEACCS_START 11
+
+static XXH_PUREF XXH64_hash_t
+XXH3_finalizeLong_64b(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, xxh_u64 len)
+{
+    return XXH3_mergeAccs(acc, secret + XXH_SECRET_MERGEACCS_START, len * XXH_PRIME64_1);
+}
+
 #define XXH3_INIT_ACC { XXH_PRIME32_3, XXH_PRIME64_1, XXH_PRIME64_2, XXH_PRIME64_3, \
                         XXH_PRIME64_4, XXH_PRIME32_2, XXH_PRIME64_5, XXH_PRIME32_1 }
 
@@ -5147,10 +5156,8 @@ XXH3_hashLong_64b_internal(const void* XXH_RESTRICT input, size_t len,
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
-    /* do not align on 8, so that the secret is different from the accumulator */
-#define XXH_SECRET_MERGEACCS_START 11
     XXH_ASSERT(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
-    return XXH3_mergeAccs(acc, (const xxh_u8*)secret + XXH_SECRET_MERGEACCS_START, (xxh_u64)len * XXH_PRIME64_1);
+    return XXH3_finalizeLong_64b(acc, (const xxh_u8*)secret, (xxh_u64)len);
 }
 
 /*
@@ -5642,9 +5649,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (XXH_NOESCAPE const XXH3_state_t*
     if (state->totalLen > XXH3_MIDSIZE_MAX) {
         XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[XXH_ACC_NB];
         XXH3_digest_long(acc, state, secret);
-        return XXH3_mergeAccs(acc,
-                              secret + XXH_SECRET_MERGEACCS_START,
-                              (xxh_u64)state->totalLen * XXH_PRIME64_1);
+        return XXH3_finalizeLong_64b(acc, secret, (xxh_u64)state->totalLen);
     }
     /* totalLen <= XXH3_MIDSIZE_MAX: digesting a short input */
     if (state->useSeed)
@@ -5931,6 +5936,17 @@ XXH3_len_129to240_128b(const xxh_u8* XXH_RESTRICT input, size_t len,
     }
 }
 
+static XXH_PUREF XXH128_hash_t
+XXH3_finalizeLong_128b(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret, size_t secretSize, xxh_u64 len)
+{
+    XXH128_hash_t h128;
+    h128.low64 = XXH3_finalizeLong_64b(acc, secret, len);
+    h128.high64 = XXH3_mergeAccs(acc, secret + secretSize
+                                             - XXH_STRIPE_LEN - XXH_SECRET_MERGEACCS_START,
+                                             ~(len * XXH_PRIME64_2));
+    return h128;
+}
+
 XXH_FORCE_INLINE XXH128_hash_t
 XXH3_hashLong_128b_internal(const void* XXH_RESTRICT input, size_t len,
                             const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
@@ -5944,16 +5960,7 @@ XXH3_hashLong_128b_internal(const void* XXH_RESTRICT input, size_t len,
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
     XXH_ASSERT(secretSize >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
-    {   XXH128_hash_t h128;
-        h128.low64  = XXH3_mergeAccs(acc,
-                                     secret + XXH_SECRET_MERGEACCS_START,
-                                     (xxh_u64)len * XXH_PRIME64_1);
-        h128.high64 = XXH3_mergeAccs(acc,
-                                     secret + secretSize
-                                            - sizeof(acc) - XXH_SECRET_MERGEACCS_START,
-                                     ~((xxh_u64)len * XXH_PRIME64_2));
-        return h128;
-    }
+    return XXH3_finalizeLong_128b(acc, secret, secretSize, (xxh_u64)len);
 }
 
 /*
@@ -6133,16 +6140,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (XXH_NOESCAPE const XXH3_state_
         XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[XXH_ACC_NB];
         XXH3_digest_long(acc, state, secret);
         XXH_ASSERT(state->secretLimit + XXH_STRIPE_LEN >= sizeof(acc) + XXH_SECRET_MERGEACCS_START);
-        {   XXH128_hash_t h128;
-            h128.low64  = XXH3_mergeAccs(acc,
-                                         secret + XXH_SECRET_MERGEACCS_START,
-                                         (xxh_u64)state->totalLen * XXH_PRIME64_1);
-            h128.high64 = XXH3_mergeAccs(acc,
-                                         secret + state->secretLimit + XXH_STRIPE_LEN
-                                                - sizeof(acc) - XXH_SECRET_MERGEACCS_START,
-                                         ~((xxh_u64)state->totalLen * XXH_PRIME64_2));
-            return h128;
-        }
+        return XXH3_finalizeLong_128b(acc, secret, state->secretLimit + XXH_STRIPE_LEN,  (xxh_u64)state->totalLen);
     }
     /* len <= XXH3_MIDSIZE_MAX : short code */
     if (state->seed)

@@ -1724,12 +1724,14 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #  pragma warning(disable : 4127) /* disable: C4127: conditional expression is constant */
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define XXH_UNUSED __attribute__((unused))
+#else
+#  define XXH_UNUSED /* nothing */
+#endif
+
 #if XXH_NO_INLINE_HINTS  /* disable inlining hints */
-#  if defined(__GNUC__) || defined(__clang__)
-#    define XXH_FORCE_INLINE static __attribute__((unused))
-#  else
-#    define XXH_FORCE_INLINE static
-#  endif
+#  define XXH_FORCE_INLINE static XXH_UNUSED
 #  define XXH_NO_INLINE static
 /* enable inlining hints */
 #elif defined(__GNUC__) || defined(__clang__)
@@ -1751,11 +1753,11 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #if XXH_SIZE_OPT <= 0
 #  define XXH_INLINE XXH_FORCE_INLINE
 #else
-#  define XXH_INLINE static
+#  define XXH_INLINE static XXH_UNUSED
 #endif
 
 #if XXH_32BIT_OPT
-#  define XXH_INLINE_64BIT static
+#  define XXH_INLINE_64BIT static XXH_UNUSED
 #else
 #  define XXH_INLINE_64BIT XXH_INLINE
 #endif

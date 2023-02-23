@@ -2564,7 +2564,7 @@ XXH32_update(XXH32_state_t* state, const void* input, size_t len)
             state->bufferedSize = 0;
         }
 
-        if (xinput + sizeof(state->buffer) <= bEnd) {
+        if ((size_t)(bEnd - xinput) >= sizeof(state->buffer)) {
             /* Process the remaining data */
             xinput = XXH32_consumeLong(state->acc, xinput, (size_t)(bEnd - xinput), XXH_unaligned);
         }
@@ -3028,7 +3028,7 @@ XXH64_update (XXH_NOESCAPE XXH64_state_t* state, XXH_NOESCAPE const void* input,
             state->bufferedSize = 0;
         }
 
-        if (xinput + sizeof(state->buffer) <= bEnd) {
+        if ((size_t)(bEnd - xinput) >= sizeof(state->buffer)) {
             /* Process the remaining data */
             xinput = XXH64_consumeLong(state->acc, xinput, (size_t)(bEnd - xinput), XXH_unaligned);
         }

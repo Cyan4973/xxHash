@@ -75,8 +75,28 @@ mark_as_advanced(XXHASH_BUNDLED_MODE)
 include(CMakeDependentOption)
 CMAKE_DEPENDENT_OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON "NOT XXHASH_BUNDLED_MODE" OFF)
 
+if("${CMAKE_VERSION}" VERSION_LESS "3.10")
+  # Can not enable DISPATCH mode since it fails to recognize architecture.
+else()
+  CMAKE_HOST_SYSTEM_INFORMATION(RESULT PLATFORM QUERY OS_PLATFORM)
+  message(STATUS "Architecture: ${PLATFORM}")
+endif()
+
 # libxxhash
-add_library(xxhash "${XXHASH_DIR}/xxhash.c")
+if((DEFINED DISPATCH) AND (DEFINED PLATFORM))
+  # Only support DISPATCH option on x86_64.
+  if("${PLATFORM}" STREQUAL "x86_64")
+    message(STATUS "Enable xxHash dispatch mode")
+    add_library(xxhash "${XXHASH_DIR}/xxh_x86dispatch.c"
+                       "${XXHASH_DIR}/xxhash.c"
+               )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DXXHSUM_DISPATCH=1")
+  else()
+    add_library(xxhash "${XXHASH_DIR}/xxhash.c")
+  endif()
+else()
+  add_library(xxhash "${XXHASH_DIR}/xxhash.c")
+endif()
 add_library(${PROJECT_NAME}::xxhash ALIAS xxhash)
 
 target_include_directories(xxhash
@@ -123,6 +143,10 @@ if(NOT XXHASH_BUNDLED_MODE)
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
   install(FILES "${XXHASH_DIR}/xxh3.h"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  if(DISPATCH)
+    install(FILES "${XXHASH_DIR}/xxh_x86dispatch.h"
+      DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  endif()
   if(XXHASH_BUILD_XXHSUM)
     install(TARGETS xxhsum
       EXPORT xxHashTargets

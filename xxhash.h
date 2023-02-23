@@ -3344,12 +3344,21 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
  * Fortunately, we can control the first one with a pragma that forces GCC into
  * -O2, but the other one we can't control without "failed to inline always
  * inline function due to target mismatch" warnings.
+ *
+ * This is fixed in GCC 11.
  */
 #if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
-  && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
+  && defined(__GNUC__) && !defined(__clang__) && XXH_GCC_VERSION < 1100 /* GCC, not Clang */ \
   && defined(__OPTIMIZE__) && XXH_SIZE_OPT <= 0 /* respect -O0 and -Os */
 #  pragma GCC push_options
 #  pragma GCC optimize("-O2")
+#  define XXH_NEED_GCC_POP_OPTIONS
+/* FIXME: Workaround for GCC 12 -Og "failed to inline always inline function" */
+#elif XXH_GCC_VERSION >= 1200 \
+   && defined(__OPTIMIZE__) && XXH_SIZE_OPT <= 0 && !defined(__NO_INLINE__)
+#  pragma GCC push_options
+#  pragma GCC optimize("-O3")
+#  define XXH_NEED_GCC_POP_OPTIONS
 #endif
 
 #if XXH_VECTOR == XXH_NEON
@@ -6253,9 +6262,8 @@ XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
 
 
 /* Pop our optimization override from above */
-#if XXH_VECTOR == XXH_AVX2 /* AVX2 */ \
-  && defined(__GNUC__) && !defined(__clang__) /* GCC, not Clang */ \
-  && defined(__OPTIMIZE__) && XXH_SIZE_OPT <= 0 /* respect -O0 and -Os */
+#ifdef XXH_NEED_GCC_POP_OPTIONS
+#  undef XXH_NEED_GCC_POP_OPTIONS
 #  pragma GCC pop_options
 #endif
 

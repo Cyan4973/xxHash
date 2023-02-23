@@ -5606,6 +5606,8 @@ XXH3_digest_long (XXH64_hash_t* acc,
                   const XXH3_state_t* state,
                   const unsigned char* secret)
 {
+    xxh_u8 lastStripeBuf[XXH_STRIPE_LEN];
+    const xxh_u8* lastStripe;
     /*
      * Digest on a local copy. This way, the state remains unaltered, and it can
      * continue ingesting more input afterwards.
@@ -5619,20 +5621,18 @@ XXH3_digest_long (XXH64_hash_t* acc,
                             state->buffer, nbStripes,
                             secret, state->secretLimit,
                             XXH3_accumulate, XXH3_scrambleAcc);
-        /* last stripe */
-        XXH3_accumulate_512(acc,
-                            state->buffer + state->bufferedSize - XXH_STRIPE_LEN,
-                            secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+        lastStripe = state->buffer + state->bufferedSize - XXH_STRIPE_LEN;
     } else {  /* bufferedSize < XXH_STRIPE_LEN */
-        xxh_u8 lastStripe[XXH_STRIPE_LEN];
         size_t const catchupSize = XXH_STRIPE_LEN - state->bufferedSize;
         XXH_ASSERT(state->bufferedSize > 0);  /* there is always some input buffered */
-        XXH_memcpy(lastStripe, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
-        XXH_memcpy(lastStripe + catchupSize, state->buffer, state->bufferedSize);
-        XXH3_accumulate_512(acc,
-                            lastStripe,
-                            secret + state->secretLimit - XXH_SECRET_LASTACC_START);
+        XXH_memcpy(lastStripeBuf, state->buffer + sizeof(state->buffer) - catchupSize, catchupSize);
+        XXH_memcpy(lastStripeBuf + catchupSize, state->buffer, state->bufferedSize);
+        lastStripe = lastStripeBuf;
     }
+    /* process last stripe */
+    XXH3_accumulate_512(acc,
+                        lastStripe,
+                        secret + state->secretLimit - XXH_SECRET_LASTACC_START);
 }
 
 /*! @ingroup XXH3_family */

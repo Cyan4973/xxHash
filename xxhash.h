@@ -5452,7 +5452,7 @@ XXH3_64bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOE
 /* Note : when XXH3_consumeStripes() is invoked,
  * there must be a guarantee that at least one more byte must be consumed from input
  * so that the function can blindly consume all stripes using the "normal" secret segment */
-XXH_INLINE_64BIT void
+XXH_INLINE_64BIT const xxh_u8 *
 XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
                     const xxh_u8* XXH_RESTRICT input, size_t nbStripes,
@@ -5460,20 +5460,30 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     XXH3_f_accumulate f_acc,
                     XXH3_f_scrambleAcc f_scramble)
 {
-    XXH_ASSERT(nbStripes <= nbStripesPerBlock);  /* can handle max 1 scramble per invocation */
-    XXH_ASSERT(*nbStripesSoFarPtr < nbStripesPerBlock);
-    if (nbStripesPerBlock - *nbStripesSoFarPtr <= nbStripes) {
-        /* need a scrambling operation */
-        size_t const nbStripesToEndofBlock = nbStripesPerBlock - *nbStripesSoFarPtr;
-        size_t const nbStripesAfterBlock = nbStripes - nbStripesToEndofBlock;
-        f_acc(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripesToEndofBlock);
-        f_scramble(acc, secret + secretLimit);
-        f_acc(acc, input + nbStripesToEndofBlock * XXH_STRIPE_LEN, secret, nbStripesAfterBlock);
-        *nbStripesSoFarPtr = nbStripesAfterBlock;
-    } else {
-        f_acc(acc, input, secret + nbStripesSoFarPtr[0] * XXH_SECRET_CONSUME_RATE, nbStripes);
+    const xxh_u8* initialSecret = secret + *nbStripesSoFarPtr * XXH_SECRET_CONSUME_RATE;
+
+    if (nbStripes >= (nbStripesPerBlock - *nbStripesSoFarPtr)) {
+        /* Process the initial partial block... */
+        size_t nbStripesThisIter = nbStripesPerBlock - *nbStripesSoFarPtr;
+
+        do {
+            f_acc(acc, input, initialSecret, nbStripesThisIter);
+            f_scramble(acc, secret + secretLimit);
+            input += nbStripesThisIter * XXH_STRIPE_LEN;
+            nbStripes -= nbStripesThisIter;
+            /* Then continue the loop with the full block size */
+            nbStripesThisIter = nbStripesPerBlock;
+            initialSecret = secret;
+        } while (nbStripes > nbStripesPerBlock);
+        *nbStripesSoFarPtr = 0;
+    }
+    /* Process a partial block */
+    if (nbStripes > 0) {
+        f_acc(acc, input, initialSecret, nbStripes);
+        input += nbStripes * XXH_STRIPE_LEN;
         *nbStripesSoFarPtr += nbStripes;
     }
+    return input;
 }
 
 #ifndef XXH3_STREAM_USE_STACK
@@ -5511,7 +5521,7 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
         XXH_ASSERT(state->bufferedSize <= XXH3_INTERNALBUFFER_SIZE);
 
         /* small input : just fill in tmp buffer */
-        if (state->bufferedSize + len <= XXH3_INTERNALBUFFER_SIZE) {
+        if (len <= XXH3_INTERNALBUFFER_SIZE - state->bufferedSize) {
             XXH_memcpy(state->buffer + state->bufferedSize, input, len);
             state->bufferedSize += (XXH32_hash_t)len;
             return XXH_OK;
@@ -5537,53 +5547,16 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
             state->bufferedSize = 0;
         }
         XXH_ASSERT(input < bEnd);
-
-        /* large input to consume : ingest per full block */
-        if ((size_t)(bEnd - input) > state->nbStripesPerBlock * XXH_STRIPE_LEN) {
+        if (bEnd - input > XXH3_INTERNALBUFFER_SIZE) {
             size_t nbStripes = (size_t)(bEnd - 1 - input) / XXH_STRIPE_LEN;
-            XXH_ASSERT(state->nbStripesPerBlock >= state->nbStripesSoFar);
-            /* join to current block's end */
-            {   size_t const nbStripesToEnd = state->nbStripesPerBlock - state->nbStripesSoFar;
-                XXH_ASSERT(nbStripesToEnd <= nbStripes);
-                f_acc(acc, input, secret + state->nbStripesSoFar * XXH_SECRET_CONSUME_RATE, nbStripesToEnd);
-                f_scramble(acc, secret + state->secretLimit);
-                state->nbStripesSoFar = 0;
-                input += nbStripesToEnd * XXH_STRIPE_LEN;
-                nbStripes -= nbStripesToEnd;
-            }
-            /* consume per entire blocks */
-            while(nbStripes >= state->nbStripesPerBlock) {
-                f_acc(acc, input, secret, state->nbStripesPerBlock);
-                f_scramble(acc, secret + state->secretLimit);
-                input += state->nbStripesPerBlock * XXH_STRIPE_LEN;
-                nbStripes -= state->nbStripesPerBlock;
-            }
-            /* consume last partial block */
-            f_acc(acc, input, secret, nbStripes);
-            input += nbStripes * XXH_STRIPE_LEN;
-            XXH_ASSERT(input < bEnd);  /* at least some bytes left */
-            state->nbStripesSoFar = nbStripes;
-            /* buffer predecessor of last partial stripe */
-            XXH_memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
-            XXH_ASSERT(bEnd - input <= XXH_STRIPE_LEN);
-        } else {
-            /* content to consume <= block size */
-            /* Consume input by a multiple of internal buffer size */
-            if (bEnd - input > XXH3_INTERNALBUFFER_SIZE) {
-                const xxh_u8* const limit = bEnd - XXH3_INTERNALBUFFER_SIZE;
-                do {
-                    XXH3_consumeStripes(acc,
+            input = XXH3_consumeStripes(acc,
                                        &state->nbStripesSoFar, state->nbStripesPerBlock,
-                                        input, XXH3_INTERNALBUFFER_STRIPES,
-                                        secret, state->secretLimit,
-                                        f_acc, f_scramble);
-                    input += XXH3_INTERNALBUFFER_SIZE;
-                } while (input<limit);
-                /* buffer predecessor of last partial stripe */
-                XXH_memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
-            }
-        }
+                                       input, nbStripes,
+                                       secret, state->secretLimit,
+                                       f_acc, f_scramble);
+            XXH_memcpy(state->buffer + sizeof(state->buffer) - XXH_STRIPE_LEN, input - XXH_STRIPE_LEN, XXH_STRIPE_LEN);
 
+        }
         /* Some remaining input (always) : buffer it */
         XXH_ASSERT(input < bEnd);
         XXH_ASSERT(bEnd - input <= XXH3_INTERNALBUFFER_SIZE);

@@ -2086,7 +2086,11 @@ static int XXH_isLittleEndian(void)
 #  define XXH_UNREACHABLE()
 #endif
 
-#define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
+#if XXH_HAS_BUILTIN(__builtin_assume)
+#  define XXH_ASSUME(c) __builtin_assume(c)
+#else
+#  define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
+#endif
 
 /*!
  * @internal

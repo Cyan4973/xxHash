@@ -5146,8 +5146,15 @@ XXH3_hashLong_64b_internal(const void* XXH_RESTRICT input, size_t len,
  * It's important for performance to transmit secret's size (when it's static)
  * so that the compiler can properly optimize the vectorized loop.
  * This makes a big performance difference for "medium" keys (<1 KB) when using AVX instruction set.
+ * When the secret size is unknown, or on GCC 12 where the mix of NO_INLINE and FORCE_INLINE
+ * breaks -Og, this is XXH_NO_INLINE.
  */
-XXH_NO_INLINE XXH64_hash_t
+#if (defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12) || !defined(XXH_INLINE_ALL)
+XXH_NO_INLINE
+#else
+XXH_FORCE_INLINE
+#endif
+XXH64_hash_t
 XXH3_hashLong_64b_withSecret(const void* XXH_RESTRICT input, size_t len,
                              XXH64_hash_t seed64, const xxh_u8* XXH_RESTRICT secret, size_t secretLen)
 {
@@ -5966,8 +5973,16 @@ XXH3_hashLong_128b_default(const void* XXH_RESTRICT input, size_t len,
 /*
  * It's important for performance to pass @p secretLen (when it's static)
  * to the compiler, so that it can properly optimize the vectorized loop.
+ *
+ * When the secret size is unknown, or on GCC 12 where the mix of NO_INLINE and FORCE_INLINE
+ * breaks -Og, this is XXH_NO_INLINE.
  */
-XXH_NO_INLINE XXH128_hash_t
+#if (defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12) || !defined(XXH_INLINE_ALL)
+XXH_NO_INLINE
+#else
+XXH_FORCE_INLINE
+#endif
+XXH128_hash_t
 XXH3_hashLong_128b_withSecret(const void* XXH_RESTRICT input, size_t len,
                               XXH64_hash_t seed64,
                               const void* XXH_RESTRICT secret, size_t secretLen)

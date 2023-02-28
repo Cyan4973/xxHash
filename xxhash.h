@@ -5431,9 +5431,23 @@ XXH3_64bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOE
     return XXH_OK;
 }
 
-/* Note : when XXH3_consumeStripes() is invoked,
- * there must be a guarantee that at least one more byte must be consumed from input
- * so that the function can blindly consume all stripes using the "normal" secret segment */
+/*!
+ * @internal
+ * @brief Processes a large input for XXH3_update() and XXH3_digest_long().
+ *
+ * Unlike XXH3_hashLong_internal_loop(), this can process data that overlaps a block.
+ *
+ * @param acc                Pointer to the 8 accumulator lanes
+ * @param nbStripesSoFarPtr  In/out pointer to the number of leftover stripes in the block*
+ * @param nbStripesPerBlock  Number of stripes in a block
+ * @param input              Input pointer
+ * @param nbStripes          Number of stripes to process
+ * @param secret             Secret pointer
+ * @param secretLimit        Offset of the last block in @p secret
+ * @param f_acc              Pointer to an XXH3_accumulate implementation
+ * @param f_scramble         Pointer to an XXH3_scrambleAcc implementation
+ * @return                   Pointer past the end of @p input after processing
+ */
 XXH_FORCE_INLINE const xxh_u8 *
 XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     size_t* XXH_RESTRICT nbStripesSoFarPtr, size_t nbStripesPerBlock,
@@ -5443,12 +5457,13 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
                     XXH3_f_scrambleAcc f_scramble)
 {
     const xxh_u8* initialSecret = secret + *nbStripesSoFarPtr * XXH_SECRET_CONSUME_RATE;
-
+    /* Process full blocks */
     if (nbStripes >= (nbStripesPerBlock - *nbStripesSoFarPtr)) {
         /* Process the initial partial block... */
         size_t nbStripesThisIter = nbStripesPerBlock - *nbStripesSoFarPtr;
 
         do {
+            /* Accumulate and scramble */
             f_acc(acc, input, initialSecret, nbStripesThisIter);
             f_scramble(acc, secret + secretLimit);
             input += nbStripesThisIter * XXH_STRIPE_LEN;
@@ -5465,6 +5480,7 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
         input += nbStripes * XXH_STRIPE_LEN;
         *nbStripesSoFarPtr += nbStripes;
     }
+    /* Return end pointer */
     return input;
 }
 

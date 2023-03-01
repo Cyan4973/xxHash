@@ -53,6 +53,12 @@ name: xxHash CI tests
 
 on: [push, pull_request]
 
+concurrency:
+  group: fast-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
 jobs:
   xxhash-c-compilers:
     name: CC=${{ matrix.cc }}, ${{ matrix.os }}

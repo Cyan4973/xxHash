@@ -3074,9 +3074,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #if defined(__GNUC__) || defined(__clang__)
 #  if defined(__ARM_FEATURE_SVE)
 #    include <arm_sve.h>
-#  elif defined(__ARM_NEON__) || defined(__ARM_NEON) \
-   || defined(__aarch64__)  || defined(_M_ARM) \
-   || defined(_M_ARM64)     || defined(_M_ARM64EC)
+#  endif
+#  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
+   || (defined(_M_ARM) && _M_ARM >= 7) \
+   || defined(_M_ARM64) || defined(_M_ARM64EC)
 #    define inline __inline__  /* circumvent a clang bug */
 #    include <arm_neon.h>
 #    undef inline
@@ -3349,6 +3350,59 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
     return vreinterpretq_u64_u8(vld1q_u8((uint8_t const*)ptr));
 }
 #endif
+
+/*!
+ * @internal
+ * @brief `vmlal_u32` on low and high halves of a vector.
+ *
+ * These functions work around 2 bugs.
+ *
+ * 1. GCC <= 10 uses inline assembly for vmlal_u32 in arm_neon.h. Due to the
+ *    limitations of that, GCC cannot constant fold the vget_{low,high}_u32
+ *    and emits multiple DUP instructions.
+ *
+ * 2. Clang recognizes that vmlal+vadd is commutative, and converts this
+ *        swap += dkl * dkh;  // umlal  swap.2d, dkl.2s, dkh.2s
+ *        acc   = acc + swap; // add    acc.2d, acc.2d, swap.2d
+ *    into this
+ *        acc  = acc + swap;  // add    acc.2d, acc.2d, swap.2d
+ *        acc += dkl * dkh;   // umlal  acc.2d, dkl.2s, dkh.2s
+ *    which, while it would usually make sense to put the 2 cycle instruction
+ *    before the 5/6 cycle instruction, it actually isn't beneficial, presumably
+ *    because the UMLAL is limited on which pipelines it can wait for writeback.
+ *
+ *    A small compiler guard is also at the end of the single width code,
+ *    which also works around this issue.
+ */
+#if defined(__aarch64__) && (defined(__clang__) || (defined(__GNUC__) && __GNUC__ < 11))
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    __asm__("umlal   %0.2d, %1.2s, %2.2s" : "+w" (acc) : "w" (lhs), "w" (rhs));
+    return acc;
+}
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    __asm__("umlal2  %0.2d, %1.4s, %2.4s" : "+w" (acc) : "w" (lhs), "w" (rhs));
+    return acc;
+}
+#else
+/* Portable intrinsic versions */
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_u32(acc, vget_low_u32(lhs), vget_low_u32(rhs));
+}
+/*! @copydoc XXH_vmlal_low_u32
+ * Assume the compiler converts this to vmlal_high_u32 on aarch64 */
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_u32(acc, vget_high_u32(lhs), vget_high_u32(rhs));
+}
+#endif
+
 /*!
  * @ingroup tuning
  * @brief Controls the NEON to scalar ratio for XXH3
@@ -3599,7 +3653,7 @@ XXH_mult32to64(xxh_u64 x, xxh_u64 y)
 #else
 /*
  * Downcast + upcast is usually better than masking on older compilers like
- * GCC 4.2 (especially 32-bit ones), all without affecting newer compilers.
+ * GCC q 4.2 (especially 32-bit ones), all without affecting newer compilers.
  *
  * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both operands
  * and perform a full 64x64 multiply -- entirely redundant on 32-bit.
@@ -4555,18 +4609,8 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
              *
              * sum = data_swap + (u64x2) data_key_lo * (u64x2) data_key_hi
              */
-            uint32x2_t data_key_lo_1 = vget_low_u32(data_key_lo);
-            uint32x2_t data_key_hi_1 = vget_low_u32(data_key_hi);
-
-            uint64x2_t sum_1 = vmlal_u32(data_swap_1, data_key_lo_1, data_key_hi_1);
-            /* Assume that the compiler is smart enough to convert this to UMLAL2 */
-            uint32x2_t data_key_lo_2 = vget_high_u32(data_key_lo);
-            uint32x2_t data_key_hi_2 = vget_high_u32(data_key_hi);
-
-            uint64x2_t sum_2 = vmlal_u32(data_swap_2, data_key_lo_2, data_key_hi_2);
-            /* Prevent Clang from reordering the vaddq before the vmlal. */
-            XXH_COMPILER_GUARD_W(sum_1);
-            XXH_COMPILER_GUARD_W(sum_2);
+            uint64x2_t sum_1 = XXH_vmlal_low_u32(data_swap_1, data_key_lo, data_key_hi);
+            uint64x2_t sum_2 = XXH_vmlal_high_u32(data_swap_2, data_key_lo, data_key_hi);
             /* xacc[i] = acc_vec + sum; */
             xacc[i]   = vaddq_u64(xacc[i], sum_1);
             xacc[i+1] = vaddq_u64(xacc[i+1], sum_2);
@@ -4650,7 +4694,6 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         }
     }
 }
-
 #endif
 
 #if (XXH_VECTOR == XXH_VSX)
@@ -4836,6 +4879,37 @@ XXH3_accumulate_sve(xxh_u64* XXH_RESTRICT acc,
 
 /* scalar variants - universal */
 
+#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+/*
+ * In XXH3_scalarRound(), GCC and Clang have a similar codegen issue, where they
+ * emit an excess mask and a full 64-bit multiply-add (MADD X-form).
+ *
+ * While this might not seem like much, as AArch64 is a 64-bit architecture, only
+ * big Cortex designs have a full 64-bit multiplier.
+ *
+ * On the little cores, the smaller 32-bit multiplier is used, and full 64-bit
+ * multiplies expand to 2-3 multiplies in microcode. This has a major penalty
+ * of up to 4 latency cycles and 2 stall cycles in the multiply pipeline.
+ *
+ * Thankfully, AArch64 still provides the 32-bit long multiply-add (UMADDL) which does
+ * not have this penalty and does the mask automatically.
+ */
+XXH_FORCE_INLINE xxh_u64
+XXH_mult32to64_add64(xxh_u64 lhs, xxh_u64 rhs, xxh_u64 acc)
+{
+    xxh_u64 ret;
+    /* note: %x = 64-bit register, %w = 32-bit register */
+    __asm__("umaddl %x0, %w1, %w2, %x3" : "=r" (ret) : "r" (lhs), "r" (rhs), "r" (acc));
+    return ret;
+}
+#else
+XXH_FORCE_INLINE xxh_u64
+XXH_mult32to64_add64(xxh_u64 lhs, xxh_u64 rhs, xxh_u64 acc)
+{
+    return XXH_mult32to64((xxh_u32)lhs, (xxh_u32)rhs) + acc;
+}
+#endif
+
 /*!
  * @internal
  * @brief Scalar round for @ref XXH3_accumulate_512_scalar().
@@ -4858,7 +4932,7 @@ XXH3_scalarRound(void* XXH_RESTRICT acc,
         xxh_u64 const data_val = XXH_readLE64(xinput + lane * 8);
         xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + lane * 8);
         xacc[lane ^ 1] += data_val; /* swap adjacent lanes */
-        xacc[lane] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+        xacc[lane] = XXH_mult32to64_add64(data_key /* & 0xFFFFFFFF */, data_key >> 32, xacc[lane]);
     }
 }
 
@@ -4935,10 +5009,10 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     const xxh_u8* kSecretPtr = XXH3_kSecret;
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
 
-#if defined(__clang__) && defined(__aarch64__)
+#if defined(__GNUC__) && defined(__aarch64__)
     /*
      * UGLY HACK:
-     * Clang generates a bunch of MOV/MOVK pairs for aarch64, and they are
+     * GCC and Clang generate a bunch of MOV/MOVK pairs for aarch64, and they are
      * placed sequentially, in order, at the top of the unrolled loop.
      *
      * While MOVK is great for generating constants (2 cycles for a 64-bit
@@ -4953,7 +5027,7 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      * ADD
      * SUB      STR
      *          STR
-     * By forcing loads from memory (as the asm line causes Clang to assume
+     * By forcing loads from memory (as the asm line causes the compiler to assume
      * that XXH3_kSecretPtr has been changed), the pipelines are used more
      * efficiently:
      *   I   L   S
@@ -4970,17 +5044,11 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      */
     XXH_COMPILER_GUARD(kSecretPtr);
 #endif
-    /*
-     * Note: in debug mode, this overrides the asm optimization
-     * and Clang will emit MOVK chains again.
-     */
-    XXH_ASSERT(kSecretPtr == XXH3_kSecret);
-
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
         int i;
         for (i=0; i < nbRounds; i++) {
             /*
-             * The asm hack causes Clang to assume that kSecretPtr aliases with
+             * The asm hack causes the compiler to assume that kSecretPtr aliases with
              * customSecret, and on aarch64, this prevented LDP from merging two
              * loads together for free. Putting the loads together before the stores
              * properly generates LDP.

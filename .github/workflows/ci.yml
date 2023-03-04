@@ -57,7 +57,8 @@ concurrency:
   group: fast-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   xxhash-c-compilers:

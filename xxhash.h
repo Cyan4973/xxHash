@@ -3297,6 +3297,12 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  define XXH_SEC_ALIGN 8
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define XXH_ALIASING __attribute__((may_alias))
+#else
+#  define XXH_ALIASING /* nothing */
+#endif
+
 /*
  * UGLY HACK:
  * GCC usually generates the best code with -O3 for xxHash.
@@ -3326,6 +3332,16 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #endif
 
 #if XXH_VECTOR == XXH_NEON
+
+/*
+ * UGLY HACK: While AArch64 GCC on Linux does not seem to care, on macOS, GCC -O3
+ * optimizes out the entire hashLong loop because of the aliasing violation.
+ *
+ * However, GCC is also inefficient at load-store optimization with vld1q/vst1q,
+ * so the only option is to mark it as aliasing.
+ */
+typedef uint64x2_t xxh_aliasing_uint64x2_t XXH_ALIASING;
+
 /*!
  * @internal
  * @brief `vld1q_u64` but faster and alignment-safe.
@@ -3342,7 +3358,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__)
 XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr) /* silence -Wcast-align */
 {
-    return *(uint64x2_t const*)ptr;
+    return *(xxh_aliasing_uint64x2_t const *)ptr;
 }
 #else
 XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
@@ -3473,6 +3489,11 @@ XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
 typedef __vector unsigned long long xxh_u64x2;
 typedef __vector unsigned char xxh_u8x16;
 typedef __vector unsigned xxh_u32x4;
+
+/*
+ * UGLY HACK: Similar to aarch64 macOS GCC, s390x GCC has the same aliasing issue.
+ */
+typedef xxh_u64x2 xxh_aliasing_u64x2 XXH_ALIASING;
 
 # ifndef XXH_VSX_BE
 #  if defined(__BIG_ENDIAN__) \
@@ -4540,8 +4561,8 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
     XXH_STATIC_ASSERT(XXH3_NEON_LANES > 0 && XXH3_NEON_LANES <= XXH_ACC_NB && XXH3_NEON_LANES % 2 == 0);
-    {
-        uint64x2_t* const xacc = (uint64x2_t *) acc;
+    {   /* GCC for darwin arm64 does not like aliasing here */
+        xxh_aliasing_uint64x2_t* const xacc = (xxh_aliasing_uint64x2_t*) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
         uint8_t const* const xinput = (const uint8_t *) input;
         uint8_t const* const xsecret  = (const uint8_t *) secret;
@@ -4646,7 +4667,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
 
-    {   uint64x2_t* xacc       = (uint64x2_t*) acc;
+    {   xxh_aliasing_uint64x2_t* xacc       = (xxh_aliasing_uint64x2_t*) acc;
         uint8_t const* xsecret = (uint8_t const*) secret;
         uint32x2_t prime       = vdup_n_u32 (XXH_PRIME32_1);
 
@@ -4704,23 +4725,23 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT secret)
 {
     /* presumed aligned */
-    unsigned int* const xacc = (unsigned int*) acc;
-    xxh_u64x2 const* const xinput   = (xxh_u64x2 const*) input;   /* no alignment restriction */
-    xxh_u64x2 const* const xsecret  = (xxh_u64x2 const*) secret;    /* no alignment restriction */
+    xxh_aliasing_u64x2* const xacc = (xxh_aliasing_u64x2*) acc;
+    xxh_u8 const* const xinput   = (xxh_u8 const*) input;   /* no alignment restriction */
+    xxh_u8 const* const xsecret  = (xxh_u8 const*) secret;    /* no alignment restriction */
     xxh_u64x2 const v32 = { 32, 32 };
     size_t i;
     for (i = 0; i < XXH_STRIPE_LEN / sizeof(xxh_u64x2); i++) {
         /* data_vec = xinput[i]; */
-        xxh_u64x2 const data_vec = XXH_vec_loadu(xinput + i);
+        xxh_u64x2 const data_vec = XXH_vec_loadu(xinput + 16*i);
         /* key_vec = xsecret[i]; */
-        xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + i);
+        xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + 16*i);
         xxh_u64x2 const data_key = data_vec ^ key_vec;
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         xxh_u32x4 const shuffled = (xxh_u32x4)vec_rl(data_key, v32);
         /* product = ((xxh_u64x2)data_key & 0xFFFFFFFF) * ((xxh_u64x2)shuffled & 0xFFFFFFFF); */
         xxh_u64x2 const product  = XXH_vec_mulo((xxh_u32x4)data_key, shuffled);
         /* acc_vec = xacc[i]; */
-        xxh_u64x2 acc_vec        = (xxh_u64x2)vec_xl(0, xacc + 4 * i);
+        xxh_u64x2 acc_vec        = xacc[i];
         acc_vec += product;
 
         /* swap high and low halves */
@@ -4729,10 +4750,8 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
 #else
         acc_vec += vec_xxpermdi(data_vec, data_vec, 2);
 #endif
-        /* xacc[i] = acc_vec; */
-        vec_xst((xxh_u32x4)acc_vec, 0, xacc + 4 * i);
+        xacc[i] = acc_vec;
     }
-    __sync_synchronize();
 }
 XXH_FORCE_INLINE XXH3_ACCUMULATE_TEMPLATE(vsx)
 
@@ -4741,8 +4760,8 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
 
-    {         xxh_u64x2* const xacc    =       (xxh_u64x2*) acc;
-        const xxh_u64x2* const xsecret = (const xxh_u64x2*) secret;
+    {   xxh_aliasing_u64x2* const xacc = (xxh_aliasing_u64x2*) acc;
+        const xxh_u8* const xsecret = (const xxh_u8*) secret;
         /* constants */
         xxh_u64x2 const v32  = { 32, 32 };
         xxh_u64x2 const v47 = { 47, 47 };
@@ -4754,7 +4773,7 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             xxh_u64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
 
             /* xacc[i] ^= xsecret[i]; */
-            xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + i);
+            xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + 16*i);
             xxh_u64x2 const data_key = data_vec ^ key_vec;
 
             /* xacc[i] *= XXH_PRIME32_1 */

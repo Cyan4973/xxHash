@@ -1854,13 +1854,13 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
  * XXH3_initCustomSecret_scalar().
  */
 #if defined(__GNUC__) || defined(__clang__)
-#  define XXH_COMPILER_GUARD(var) __asm__ __volatile__("" : "+r" (var))
+#  define XXH_COMPILER_GUARD(var) __asm__("" : "+r" (var))
 #else
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
 
 #if defined(__clang__)
-#  define XXH_COMPILER_GUARD_W(var) __asm__ __volatile__("" : "+w" (var))
+#  define XXH_COMPILER_GUARD_W(var) __asm__("" : "+w" (var))
 #else
 #  define XXH_COMPILER_GUARD_W(var) ((void)0)
 #endif
@@ -2277,9 +2277,9 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
      *   can load data, while v3 can multiply. SSE forces them to operate
      *   together.
      *
-     * This is also enabled on AArch64, as Clang autovectorizes it incorrectly
-     * and it is pointless writing a NEON implementation that is basically the
-     * same speed as scalar for XXH32.
+     * This is also enabled on AArch64, as Clang is *very aggressive* in vectorizing
+     * the loop. NEON is only faster on the A53, and with the newer cores, it is less
+     * than half the speed.
      */
     XXH_COMPILER_GUARD(acc);
 #endif
@@ -3355,37 +3355,23 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
  * @internal
  * @brief `vmlal_u32` on low and high halves of a vector.
  *
- * These functions work around 2 bugs.
- *
- * 1. GCC <= 10 uses inline assembly for vmlal_u32 in arm_neon.h. Due to the
- *    limitations of that, GCC cannot constant fold the vget_{low,high}_u32
- *    and emits multiple DUP instructions.
- *
- * 2. Clang recognizes that vmlal+vadd is commutative, and converts this
- *        swap += dkl * dkh;  // umlal  swap.2d, dkl.2s, dkh.2s
- *        acc   = acc + swap; // add    acc.2d, acc.2d, swap.2d
- *    into this
- *        acc  = acc + swap;  // add    acc.2d, acc.2d, swap.2d
- *        acc += dkl * dkh;   // umlal  acc.2d, dkl.2s, dkh.2s
- *    which, while it would usually make sense to put the 2 cycle instruction
- *    before the 5/6 cycle instruction, it actually isn't beneficial, presumably
- *    because the UMLAL is limited on which pipelines it can wait for writeback.
- *
- *    A small compiler guard is also at the end of the single width code,
- *    which also works around this issue.
+ * This is a workaround for AArch64 GCC < 11 which implemented arm_neon.h with
+ * inline assembly and were therefore incapable of merging the `vget_{low, high}_u32`
+ * with `vmlal_u32`.
  */
-#if defined(__aarch64__) && (defined(__clang__) || (defined(__GNUC__) && __GNUC__ < 11))
+#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 11
 XXH_FORCE_INLINE uint64x2_t
 XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
 {
+    /* Inline assembly is the only way */
     __asm__("umlal   %0.2d, %1.2s, %2.2s" : "+w" (acc) : "w" (lhs), "w" (rhs));
     return acc;
 }
 XXH_FORCE_INLINE uint64x2_t
 XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
 {
-    __asm__("umlal2  %0.2d, %1.4s, %2.4s" : "+w" (acc) : "w" (lhs), "w" (rhs));
-    return acc;
+    /* This intrinsic works as expected */
+    return vmlal_high_u32(acc, lhs, rhs);
 }
 #else
 /* Portable intrinsic versions */
@@ -4611,6 +4597,20 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
              */
             uint64x2_t sum_1 = XXH_vmlal_low_u32(data_swap_1, data_key_lo, data_key_hi);
             uint64x2_t sum_2 = XXH_vmlal_high_u32(data_swap_2, data_key_lo, data_key_hi);
+            /*
+             * Clang reorders
+             *    a += b * c;     // umlal   swap.2d, dkl.2s, dkh.2s
+             *    c += a;         // add     acc.2d, acc.2d, swap.2d
+             * to
+             *    c += a;         // add     acc.2d, acc.2d, swap.2d
+             *    c += b * c;     // umlal   acc.2d, dkl.2s, dkh.2s
+             *
+             * While it would make sense in theory since the addition is faster,
+             * for reasons likely related to umlal being limited to certain NEON
+             * pipelines, this is worse. A compiler guard fixes this.
+             */
+            XXH_COMPILER_GUARD_W(sum_1);
+            XXH_COMPILER_GUARD_W(sum_2);
             /* xacc[i] = acc_vec + sum; */
             xacc[i]   = vaddq_u64(xacc[i], sum_1);
             xacc[i+1] = vaddq_u64(xacc[i+1], sum_2);
@@ -4632,7 +4632,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             uint32x2_t data_key_hi = vshrn_n_u64(data_key, 32);
             /* sum = data_swap + (u64x2) data_key_lo * (u64x2) data_key_hi; */
             uint64x2_t sum = vmlal_u32(data_swap, data_key_lo, data_key_hi);
-            /* Prevent Clang from reordering the vaddq before the vmlal */
+            /* Same Clang workaround as before */
             XXH_COMPILER_GUARD_W(sum);
             /* xacc[i] = acc_vec + sum; */
             xacc[i] = vaddq_u64 (xacc[i], sum);

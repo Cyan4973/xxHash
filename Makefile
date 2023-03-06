@@ -316,6 +316,11 @@ clangtest: clean
 	@echo ---- test clang compilation ----
 	CC=clang MOREFLAGS="-Werror -Wconversion -Wno-sign-conversion" $(MAKE) all
 
+.PHONY: gcc-og-test
+gcc-og-test: clean
+	@echo ---- test gcc -Og compilation ----
+	CFLAGS="-Og -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC" MOREFLAGS="-Werror" $(MAKE) all
+
 .PHONY: cxxtest
 cxxtest: clean
 	@echo ---- test C++ compilation ----
@@ -420,7 +425,7 @@ test-inline:
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
-test-all: test test32 test-unicode clangtest cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
+test-all: test test32 test-unicode clangtest gcc-og-test cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
 
 .PHONY: test-tools
 test-tools:

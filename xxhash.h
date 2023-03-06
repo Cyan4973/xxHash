@@ -1285,7 +1285,12 @@ struct XXH3_state_s {
  * Note that this doesn't prepare the state for a streaming operation,
  * it's still necessary to use XXH3_NNbits_reset*() afterwards.
  */
-#define XXH3_INITSTATE(XXH3_state_ptr)   { (XXH3_state_ptr)->seed = 0; }
+#define XXH3_INITSTATE(XXH3_state_ptr)                       \
+    do {                                                     \
+        XXH3_state_t* tmp_xxh3_state_ptr = (XXH3_state_ptr); \
+        tmp_xxh3_state_ptr->seed = 0;                        \
+        tmp_xxh3_state_ptr->extSecret = NULL;                \
+    } while(0)
 
 
 /*!

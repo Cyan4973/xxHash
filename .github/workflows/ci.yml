@@ -73,27 +73,21 @@ jobs:
 
           # gcc
           { pkgs: '',                                  cc: gcc,       cxx: g++,         avx512: 'true',  os: ubuntu-latest, },
-          { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      avx512: 'true',  os: ubuntu-22.04,  },
+          { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      avx512: 'true',  os: ubuntu-22.04,  },
+          { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       avx512: 'true',  os: ubuntu-22.04,  },
           { pkgs: 'gcc-8   g++-8   lib32gcc-8-dev',    cc: gcc-8,     cxx: g++-8,       avx512: 'true',  os: ubuntu-20.04,  },
           { pkgs: 'gcc-7   g++-7   lib32gcc-7-dev',    cc: gcc-7,     cxx: g++-7,       avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'gcc-6   g++-6   lib32gcc-6-dev',    cc: gcc-6,     cxx: g++-6,       avx512: 'true',  os: ubuntu-18.04,  },
-          { pkgs: 'gcc-5   g++-5   lib32gcc-5-dev',    cc: gcc-5,     cxx: g++-5,       avx512: 'true',  os: ubuntu-18.04,  },
-          { pkgs: 'gcc-4.8 g++-4.8 lib32gcc-4.8-dev ', cc: gcc-4.8,   cxx: g++-4.8,     avx512: 'false', os: ubuntu-18.04,  },
 
           # clang
           { pkgs: '',                                  cc: clang,     cxx: clang++,     avx512: 'true',  os: ubuntu-latest, },
-          { pkgs: 'clang-12',                          cc: clang-12,  cxx: clang++-12,  avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'clang-11',                          cc: clang-11,  cxx: clang++-11,  avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: 'clang-12',                          cc: clang-12,  cxx: clang++-12,  avx512: 'true',  os: ubuntu-22.04,  },
+          { pkgs: 'clang-11',                          cc: clang-11,  cxx: clang++-11,  avx512: 'true',  os: ubuntu-22.04,  },
           { pkgs: 'clang-10',                          cc: clang-10,  cxx: clang++-10,  avx512: 'true',  os: ubuntu-20.04,  },
           { pkgs: 'clang-9',                           cc: clang-9,   cxx: clang++-9,   avx512: 'true',  os: ubuntu-20.04,  },
           { pkgs: 'clang-8',                           cc: clang-8,   cxx: clang++-8,   avx512: 'true',  os: ubuntu-20.04,  },
           { pkgs: 'clang-7',                           cc: clang-7,   cxx: clang++-7,   avx512: 'true',  os: ubuntu-20.04,  },
           { pkgs: 'clang-6.0',                         cc: clang-6.0, cxx: clang++-6.0, avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'clang-5.0',                         cc: clang-5.0, cxx: clang++-5.0, avx512: 'true',  os: ubuntu-18.04,  },
-          { pkgs: 'clang-4.0',                         cc: clang-4.0, cxx: clang++-4.0, avx512: 'true',  os: ubuntu-18.04,  },
-          { pkgs: 'clang-3.9',                         cc: clang-3.9, cxx: clang++-3.9, avx512: 'true',  os: ubuntu-18.04,  },
         ]
 
     runs-on: ${{ matrix.os }}
@@ -330,21 +324,7 @@ jobs:
           { name: 'PPC64, gcc-8',    xcc_pkg: gcc-8-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-8,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
           { name: 'S390X, gcc-8',    xcc_pkg: gcc-8-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-8,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
           # ubuntu-20.04 fails to retrieve gcc-8-mips-linux-gnu for some reason.
-          { name: 'MIPS, gcc-8',     xcc_pkg: gcc-8-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-8,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-18.04, },
-
-          { name: 'ARM, gcc-7',      xcc_pkg: gcc-7-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-7,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-18.04, },
-          { name: 'ARM64, gcc-7',    xcc_pkg: gcc-7-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-7,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-18.04, },
-          { name: 'PPC64LE, gcc-7',  xcc_pkg: gcc-7-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-7,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-18.04, },
-          { name: 'PPC64, gcc-7',    xcc_pkg: gcc-7-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-7,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-18.04, },
-          { name: 'S390X, gcc-7',    xcc_pkg: gcc-7-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-7,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-18.04, },
-          { name: 'MIPS, gcc-7',     xcc_pkg: gcc-7-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-7,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-18.04, },
-
-          { name: 'ARM, gcc-6',      xcc_pkg: gcc-6-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-6,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-18.04, },
-          { name: 'ARM64, gcc-6',    xcc_pkg: gcc-6-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-6,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-18.04, },
-          { name: 'PPC64LE, gcc-6',  xcc_pkg: gcc-6-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-6,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-18.04, },
-          { name: 'PPC64, gcc-6',    xcc_pkg: gcc-6-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-6,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-18.04, },
-          { name: 'S390X, gcc-6',    xcc_pkg: gcc-6-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-6,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-18.04, },
-          { name: 'MIPS, gcc-6',     xcc_pkg: gcc-6-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-6,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-18.04, },
+          # { name: 'MIPS, gcc-8',   xcc_pkg: gcc-8-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-8,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
         ]
     env:                        # Set environment variables
       XCC: ${{ matrix.xcc }}

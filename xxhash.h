@@ -5476,7 +5476,7 @@ XXH3_consumeStripes(xxh_u64* XXH_RESTRICT acc,
             /* Then continue the loop with the full block size */
             nbStripesThisIter = nbStripesPerBlock;
             initialSecret = secret;
-        } while (nbStripes > nbStripesPerBlock);
+        } while (nbStripes >= nbStripesPerBlock);
         *nbStripesSoFarPtr = 0;
     }
     /* Process a partial block */

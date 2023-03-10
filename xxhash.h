@@ -3114,7 +3114,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #if defined(__GNUC__) || defined(__clang__)
 #  if defined(__ARM_FEATURE_SVE)
 #    include <arm_sve.h>
-#  elif defined(__ARM_NEON__) || defined(__ARM_NEON) \
+#  endif
+#  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
    || defined(__aarch64__)  || defined(_M_ARM) \
    || defined(_M_ARM64)     || defined(_M_ARM64EC)
 #    define inline __inline__  /* circumvent a clang bug */
@@ -3310,6 +3311,8 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #ifndef XXH_ACC_ALIGN
 #  if defined(XXH_X86DISPATCH)
 #     define XXH_ACC_ALIGN 64  /* for compatibility with avx512 */
+#  elif defined(XXH_ARM64DISPATCH)
+#     define XXH_ACC_ALIGN 64
 #  elif XXH_VECTOR == XXH_SCALAR  /* scalar */
 #     define XXH_ACC_ALIGN 8
 #  elif XXH_VECTOR == XXH_SSE2  /* sse2 */
@@ -3330,7 +3333,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #if defined(XXH_X86DISPATCH) || XXH_VECTOR == XXH_SSE2 \
     || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
-#elif XXH_VECTOR == XXH_SVE
+#elif XXH_VECTOR == XXH_SVE || defined(XXH_ARM64DISPATCH)
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
 #else
 #  define XXH_SEC_ALIGN 8
@@ -3364,7 +3367,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  pragma GCC optimize("-O2")
 #endif
 
-#if XXH_VECTOR == XXH_NEON
+#if (XXH_VECTOR == XXH_NEON) || defined(XXH_ARM64DISPATCH)
 /*!
  * @internal
  * @brief `vld1q_u64` but faster and alignment-safe.
@@ -4502,7 +4505,7 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 
 #endif
 
-#if (XXH_VECTOR == XXH_NEON)
+#if (XXH_VECTOR == XXH_NEON) || defined(XXH_ARM64DISPATCH)
 
 /* forward declarations for the scalar routines */
 XXH_FORCE_INLINE void
@@ -4765,7 +4768,8 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #endif
 
-#if (XXH_VECTOR == XXH_SVE)
+#if ((XXH_VECTOR == XXH_SVE) \
+    || (defined(XXH_ARM64DISPATCH) && defined(__ARM_FEATURE_SVE)))
 
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_sve( void* XXH_RESTRICT acc,
@@ -5079,7 +5083,7 @@ typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_scalar
 #define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
 
-#else /* scalar */
+#else /* scalar or XXH_ARM64DISPATCH */
 
 #define XXH3_accumulate_512 XXH3_accumulate_512_scalar
 #define XXH3_accumulate     XXH3_accumulate_scalar

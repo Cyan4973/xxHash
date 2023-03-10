@@ -63,8 +63,13 @@
  */
 
  /* ===  xxHash  === */
-#define XXH_INLINE_ALL
-#include "xxhash.h"
+#if defined(ARM64_DISPATCH) && defined(__ARM_FEATURE_SVE)
+#  define XXH_INLINE_ALL
+#  include "../../xxh_dispatch.h"
+#else
+#  define XXH_INLINE_ALL
+#  include "xxhash.h"
+#endif
 
 size_t XXH32_wrapper(const void* src, size_t srcSize, void* dst, size_t dstCapacity, void* customPayload)
 {

@@ -32,7 +32,7 @@
 #endif
 #include "../xxhash.h"
 #ifdef XXHSUM_DISPATCH
-#  include "../xxh_x86dispatch.h"  /* activate _dispatch() redirectors */
+#  include "../xxh_dispatch.h"  /* activate _dispatch() redirectors */
 #endif
 
 #include <stdlib.h>  /* malloc, free */

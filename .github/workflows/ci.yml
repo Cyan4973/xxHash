@@ -80,6 +80,7 @@ jobs:
 
           # gcc
           { pkgs: '',                                  cc: gcc,       cxx: g++,         avx512: 'true',  os: ubuntu-latest, },
+          { pkgs: 'gcc-12  g++-12  lib32gcc-12-dev',   cc: gcc-12,    cxx: g++-12,      avx512: 'true',  os: ubuntu-22.04,  },
           { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      avx512: 'true',  os: ubuntu-22.04,  },
           { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      avx512: 'true',  os: ubuntu-22.04,  },
           { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       avx512: 'true',  os: ubuntu-22.04,  },

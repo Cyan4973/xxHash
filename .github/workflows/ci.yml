@@ -360,14 +360,14 @@ jobs:
         echo && which $XEMU
         echo && $XEMU --version
 
-    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, NEON ])
+    - name: ARM (XXH_VECTOR=[ scalar, NEON ])
       if: ${{ startsWith(matrix.name, 'ARM') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" CFLAGS="-O3 -march=armv7-a -fPIC -mfloat-abi=softfp -mfpu=neon-vfpv4" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
     - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, NEON, SVE ])
-      if: ${{ startsWith(matrix.name, 'ARM64') }}
+      if: ${{ startsWith(matrix.name, 'AARCH64') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
@@ -383,18 +383,18 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_VSX" CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, VSX ])
+    - name: S390X (XXH_VECTOR=[ scalar, VSX ])
       if: ${{ startsWith(matrix.name, 'S390X') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -march=arch11 -mzvector" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar ])
+    - name: MIPS (XXH_VECTOR=[ scalar ])
       if: ${{ startsWith(matrix.name, 'MIPS') }}
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar ])
+    - name: M68K (XXH_VECTOR=[ scalar ])
       if: ${{ startsWith(matrix.name, 'M68K') }}
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check

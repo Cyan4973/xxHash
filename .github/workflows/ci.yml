@@ -305,7 +305,7 @@ jobs:
       matrix:
         include: [
           { name: 'ARM',             xcc_pkg: gcc-arm-linux-gnueabi,        xcc: arm-linux-gnueabi-gcc,        xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-latest, },
-          { name: 'ARM64',           xcc_pkg: gcc-aarch64-linux-gnu,        xcc: aarch64-linux-gnu-gcc,        xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-latest, },
+          { name: 'AARCH64',         xcc_pkg: gcc-aarch64-linux-gnu,        xcc: aarch64-linux-gnu-gcc,        xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-latest, },
           { name: 'PPC64LE',         xcc_pkg: gcc-powerpc64le-linux-gnu,    xcc: powerpc64le-linux-gnu-gcc,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-latest, },
           { name: 'PPC64',           xcc_pkg: gcc-powerpc64-linux-gnu,      xcc: powerpc64-linux-gnu-gcc,      xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-latest, },
           { name: 'S390X',           xcc_pkg: gcc-s390x-linux-gnu,          xcc: s390x-linux-gnu-gcc,          xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-latest, },
@@ -313,21 +313,21 @@ jobs:
           { name: 'M68K',            xcc_pkg: gcc-m68k-linux-gnu,           xcc: m68k-linux-gnu-gcc,           xemu_pkg: qemu-system-m68k,  xemu: qemu-m68k-static,    os: ubuntu-latest, },
 
           { name: 'ARM, gcc-10',     xcc_pkg: gcc-10-arm-linux-gnueabi,     xcc: arm-linux-gnueabi-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          { name: 'ARM64, gcc-10',   xcc_pkg: gcc-10-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          { name: 'AARCH64, gcc-10', xcc_pkg: gcc-10-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
           { name: 'PPC64LE, gcc-10', xcc_pkg: gcc-10-powerpc64le-linux-gnu, xcc: powerpc64le-linux-gnu-gcc-10, xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
           { name: 'PPC64, gcc-10',   xcc_pkg: gcc-10-powerpc64-linux-gnu,   xcc: powerpc64-linux-gnu-gcc-10,   xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
           { name: 'S390X, gcc-10',   xcc_pkg: gcc-10-s390x-linux-gnu,       xcc: s390x-linux-gnu-gcc-10,       xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
           { name: 'MIPS, gcc-10',    xcc_pkg: gcc-10-mips-linux-gnu,        xcc: mips-linux-gnu-gcc-10,        xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
 
           { name: 'ARM, gcc-9',      xcc_pkg: gcc-9-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          { name: 'ARM64, gcc-9',    xcc_pkg: gcc-9-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          { name: 'AARCH64, gcc-9',  xcc_pkg: gcc-9-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
           { name: 'PPC64LE, gcc-9',  xcc_pkg: gcc-9-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-9,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
           { name: 'PPC64, gcc-9',    xcc_pkg: gcc-9-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-9,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
           { name: 'S390X, gcc-9',    xcc_pkg: gcc-9-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-9,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
           { name: 'MIPS, gcc-9',     xcc_pkg: gcc-9-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-9,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
 
           { name: 'ARM, gcc-8',      xcc_pkg: gcc-8-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          { name: 'ARM64, gcc-8',    xcc_pkg: gcc-8-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          { name: 'AARCH64, gcc-8',  xcc_pkg: gcc-8-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
           { name: 'PPC64LE, gcc-8',  xcc_pkg: gcc-8-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-8,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
           { name: 'PPC64, gcc-8',    xcc_pkg: gcc-8-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-8,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
           { name: 'S390X, gcc-8',    xcc_pkg: gcc-8-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-8,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
@@ -360,14 +360,14 @@ jobs:
         echo && which $XEMU
         echo && $XEMU --version
 
-    - name: ARM (XXH_VECTOR=[ scalar, NEON ])
-      if: ${{ matrix.name == 'ARM' }}
+    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, NEON ])
+      if: ${{ startsWith(matrix.name, 'ARM') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" CFLAGS="-O3 -march=armv7-a -fPIC -mfloat-abi=softfp -mfpu=neon-vfpv4" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: ARM64 (XXH_VECTOR=[ scalar, NEON, SVE ])
-      if: ${{ matrix.name == 'ARM64' }}
+    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, NEON, SVE ])
+      if: ${{ startsWith(matrix.name, 'ARM64') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
@@ -383,19 +383,19 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_VSX" CFLAGS="-O3 -maltivec -mvsx -mpower8-vector -mcpu=power8" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: S390X (XXH_VECTOR=[ scalar, VSX ])
-      if: ${{ matrix.name == 'S390X' }}
+    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, VSX ])
+      if: ${{ startsWith(matrix.name, 'S390X') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -march=arch11 -mzvector" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: MIPS (XXH_VECTOR=[ scalar ])
-      if: ${{ matrix.name == 'MIPS' }}
+    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar ])
+      if: ${{ startsWith(matrix.name, 'MIPS') }}
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: M68K (XXH_VECTOR=[ scalar ])
-      if: ${{ matrix.name == 'M68K' }}
+    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar ])
+      if: ${{ startsWith(matrix.name, 'M68K') }}
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 

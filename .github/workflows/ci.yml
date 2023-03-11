@@ -367,7 +367,7 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" CFLAGS="-O3 -march=armv7-a -fPIC -mfloat-abi=softfp -mfpu=neon-vfpv4" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, NEON, SVE ])
+    - name: AARCH64 (XXH_VECTOR=[ scalar, NEON, SVE ])
       if: ${{ startsWith(matrix.name, 'AARCH64') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
@@ -378,7 +378,7 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=on,sve2048=off" make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=on,sve2048=on" make clean check
 
-    - name: ${{ matrix.name }} (XXH_VECTOR=[ scalar, VSX ])
+    - name: PPC64(LE) (XXH_VECTOR=[ scalar, VSX ])
       if: ${{ startsWith(matrix.name, 'PPC64') }}
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check

@@ -327,7 +327,8 @@ jobs:
           { name: 'MIPS, gcc-9',     xcc_pkg: gcc-9-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-9,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
 
           { name: 'ARM, gcc-8',      xcc_pkg: gcc-8-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          { name: 'AARCH64, gcc-8',  xcc_pkg: gcc-8-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          # aarch64-linux-gnu-gcc-8 linker has an issue for LDFLAGS="-static"
+          # { name: 'AARCH64, gcc-8',  xcc_pkg: gcc-8-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
           { name: 'PPC64LE, gcc-8',  xcc_pkg: gcc-8-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-8,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
           { name: 'PPC64, gcc-8',    xcc_pkg: gcc-8-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-8,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
           { name: 'S390X, gcc-8',    xcc_pkg: gcc-8-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-8,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },

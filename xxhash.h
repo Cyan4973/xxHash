@@ -1890,13 +1890,13 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
  * XXH3_initCustomSecret_scalar().
  */
 #if defined(__GNUC__) || defined(__clang__)
-#  define XXH_COMPILER_GUARD(var) __asm__ __volatile__("" : "+r" (var))
+#  define XXH_COMPILER_GUARD(var) __asm__("" : "+r" (var))
 #else
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
 
 #if defined(__clang__)
-#  define XXH_COMPILER_GUARD_W(var) __asm__ __volatile__("" : "+w" (var))
+#  define XXH_COMPILER_GUARD_W(var) __asm__("" : "+w" (var))
 #else
 #  define XXH_COMPILER_GUARD_W(var) ((void)0)
 #endif
@@ -2317,9 +2317,9 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
      *   can load data, while v3 can multiply. SSE forces them to operate
      *   together.
      *
-     * This is also enabled on AArch64, as Clang autovectorizes it incorrectly
-     * and it is pointless writing a NEON implementation that is basically the
-     * same speed as scalar for XXH32.
+     * This is also enabled on AArch64, as Clang is *very aggressive* in vectorizing
+     * the loop. NEON is only faster on the A53, and with the newer cores, it is less
+     * than half the speed.
      */
     XXH_COMPILER_GUARD(acc);
 #endif
@@ -3114,9 +3114,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #if defined(__GNUC__) || defined(__clang__)
 #  if defined(__ARM_FEATURE_SVE)
 #    include <arm_sve.h>
-#  elif defined(__ARM_NEON__) || defined(__ARM_NEON) \
-   || defined(__aarch64__)  || defined(_M_ARM) \
-   || defined(_M_ARM64)     || defined(_M_ARM64EC)
+#  endif
+#  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
+   || (defined(_M_ARM) && _M_ARM >= 7) \
+   || defined(_M_ARM64) || defined(_M_ARM64EC)
 #    define inline __inline__  /* circumvent a clang bug */
 #    include <arm_neon.h>
 #    undef inline
@@ -3336,6 +3337,12 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  define XXH_SEC_ALIGN 8
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define XXH_ALIASING __attribute__((may_alias))
+#else
+#  define XXH_ALIASING /* nothing */
+#endif
+
 /*
  * UGLY HACK:
  * GCC usually generates the best code with -O3 for xxHash.
@@ -3365,6 +3372,16 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #endif
 
 #if XXH_VECTOR == XXH_NEON
+
+/*
+ * UGLY HACK: While AArch64 GCC on Linux does not seem to care, on macOS, GCC -O3
+ * optimizes out the entire hashLong loop because of the aliasing violation.
+ *
+ * However, GCC is also inefficient at load-store optimization with vld1q/vst1q,
+ * so the only option is to mark it as aliasing.
+ */
+typedef uint64x2_t xxh_aliasing_uint64x2_t XXH_ALIASING;
+
 /*!
  * @internal
  * @brief `vld1q_u64` but faster and alignment-safe.
@@ -3381,7 +3398,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__)
 XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr) /* silence -Wcast-align */
 {
-    return *(uint64x2_t const*)ptr;
+    return *(xxh_aliasing_uint64x2_t const *)ptr;
 }
 #else
 XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
@@ -3389,6 +3406,45 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
     return vreinterpretq_u64_u8(vld1q_u8((uint8_t const*)ptr));
 }
 #endif
+
+/*!
+ * @internal
+ * @brief `vmlal_u32` on low and high halves of a vector.
+ *
+ * This is a workaround for AArch64 GCC < 11 which implemented arm_neon.h with
+ * inline assembly and were therefore incapable of merging the `vget_{low, high}_u32`
+ * with `vmlal_u32`.
+ */
+#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 11
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    /* Inline assembly is the only way */
+    __asm__("umlal   %0.2d, %1.2s, %2.2s" : "+w" (acc) : "w" (lhs), "w" (rhs));
+    return acc;
+}
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    /* This intrinsic works as expected */
+    return vmlal_high_u32(acc, lhs, rhs);
+}
+#else
+/* Portable intrinsic versions */
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_u32(acc, vget_low_u32(lhs), vget_low_u32(rhs));
+}
+/*! @copydoc XXH_vmlal_low_u32
+ * Assume the compiler converts this to vmlal_high_u32 on aarch64 */
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_u32(acc, vget_high_u32(lhs), vget_high_u32(rhs));
+}
+#endif
+
 /*!
  * @ingroup tuning
  * @brief Controls the NEON to scalar ratio for XXH3
@@ -3473,6 +3529,11 @@ XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
 typedef __vector unsigned long long xxh_u64x2;
 typedef __vector unsigned char xxh_u8x16;
 typedef __vector unsigned xxh_u32x4;
+
+/*
+ * UGLY HACK: Similar to aarch64 macOS GCC, s390x GCC has the same aliasing issue.
+ */
+typedef xxh_u64x2 xxh_aliasing_u64x2 XXH_ALIASING;
 
 # ifndef XXH_VSX_BE
 #  if defined(__BIG_ENDIAN__) \
@@ -3639,7 +3700,7 @@ XXH_mult32to64(xxh_u64 x, xxh_u64 y)
 #else
 /*
  * Downcast + upcast is usually better than masking on older compilers like
- * GCC 4.2 (especially 32-bit ones), all without affecting newer compilers.
+ * GCC q 4.2 (especially 32-bit ones), all without affecting newer compilers.
  *
  * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both operands
  * and perform a full 64x64 multiply -- entirely redundant on 32-bit.
@@ -4540,8 +4601,8 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
     XXH_STATIC_ASSERT(XXH3_NEON_LANES > 0 && XXH3_NEON_LANES <= XXH_ACC_NB && XXH3_NEON_LANES % 2 == 0);
-    {
-        uint64x2_t* const xacc = (uint64x2_t *) acc;
+    {   /* GCC for darwin arm64 does not like aliasing here */
+        xxh_aliasing_uint64x2_t* const xacc = (xxh_aliasing_uint64x2_t*) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
         uint8_t const* const xinput = (const uint8_t *) input;
         uint8_t const* const xsecret  = (const uint8_t *) secret;
@@ -4595,16 +4656,20 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
              *
              * sum = data_swap + (u64x2) data_key_lo * (u64x2) data_key_hi
              */
-            uint32x2_t data_key_lo_1 = vget_low_u32(data_key_lo);
-            uint32x2_t data_key_hi_1 = vget_low_u32(data_key_hi);
-
-            uint64x2_t sum_1 = vmlal_u32(data_swap_1, data_key_lo_1, data_key_hi_1);
-            /* Assume that the compiler is smart enough to convert this to UMLAL2 */
-            uint32x2_t data_key_lo_2 = vget_high_u32(data_key_lo);
-            uint32x2_t data_key_hi_2 = vget_high_u32(data_key_hi);
-
-            uint64x2_t sum_2 = vmlal_u32(data_swap_2, data_key_lo_2, data_key_hi_2);
-            /* Prevent Clang from reordering the vaddq before the vmlal. */
+            uint64x2_t sum_1 = XXH_vmlal_low_u32(data_swap_1, data_key_lo, data_key_hi);
+            uint64x2_t sum_2 = XXH_vmlal_high_u32(data_swap_2, data_key_lo, data_key_hi);
+            /*
+             * Clang reorders
+             *    a += b * c;     // umlal   swap.2d, dkl.2s, dkh.2s
+             *    c += a;         // add     acc.2d, acc.2d, swap.2d
+             * to
+             *    c += a;         // add     acc.2d, acc.2d, swap.2d
+             *    c += b * c;     // umlal   acc.2d, dkl.2s, dkh.2s
+             *
+             * While it would make sense in theory since the addition is faster,
+             * for reasons likely related to umlal being limited to certain NEON
+             * pipelines, this is worse. A compiler guard fixes this.
+             */
             XXH_COMPILER_GUARD_W(sum_1);
             XXH_COMPILER_GUARD_W(sum_2);
             /* xacc[i] = acc_vec + sum; */
@@ -4628,7 +4693,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             uint32x2_t data_key_hi = vshrn_n_u64(data_key, 32);
             /* sum = data_swap + (u64x2) data_key_lo * (u64x2) data_key_hi; */
             uint64x2_t sum = vmlal_u32(data_swap, data_key_lo, data_key_hi);
-            /* Prevent Clang from reordering the vaddq before the vmlal */
+            /* Same Clang workaround as before */
             XXH_COMPILER_GUARD_W(sum);
             /* xacc[i] = acc_vec + sum; */
             xacc[i] = vaddq_u64 (xacc[i], sum);
@@ -4642,7 +4707,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
 
-    {   uint64x2_t* xacc       = (uint64x2_t*) acc;
+    {   xxh_aliasing_uint64x2_t* xacc       = (xxh_aliasing_uint64x2_t*) acc;
         uint8_t const* xsecret = (uint8_t const*) secret;
         uint32x2_t prime       = vdup_n_u32 (XXH_PRIME32_1);
 
@@ -4690,7 +4755,6 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         }
     }
 }
-
 #endif
 
 #if (XXH_VECTOR == XXH_VSX)
@@ -4701,23 +4765,23 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT secret)
 {
     /* presumed aligned */
-    unsigned int* const xacc = (unsigned int*) acc;
-    xxh_u64x2 const* const xinput   = (xxh_u64x2 const*) input;   /* no alignment restriction */
-    xxh_u64x2 const* const xsecret  = (xxh_u64x2 const*) secret;    /* no alignment restriction */
+    xxh_aliasing_u64x2* const xacc = (xxh_aliasing_u64x2*) acc;
+    xxh_u8 const* const xinput   = (xxh_u8 const*) input;   /* no alignment restriction */
+    xxh_u8 const* const xsecret  = (xxh_u8 const*) secret;    /* no alignment restriction */
     xxh_u64x2 const v32 = { 32, 32 };
     size_t i;
     for (i = 0; i < XXH_STRIPE_LEN / sizeof(xxh_u64x2); i++) {
         /* data_vec = xinput[i]; */
-        xxh_u64x2 const data_vec = XXH_vec_loadu(xinput + i);
+        xxh_u64x2 const data_vec = XXH_vec_loadu(xinput + 16*i);
         /* key_vec = xsecret[i]; */
-        xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + i);
+        xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + 16*i);
         xxh_u64x2 const data_key = data_vec ^ key_vec;
         /* shuffled = (data_key << 32) | (data_key >> 32); */
         xxh_u32x4 const shuffled = (xxh_u32x4)vec_rl(data_key, v32);
         /* product = ((xxh_u64x2)data_key & 0xFFFFFFFF) * ((xxh_u64x2)shuffled & 0xFFFFFFFF); */
         xxh_u64x2 const product  = XXH_vec_mulo((xxh_u32x4)data_key, shuffled);
         /* acc_vec = xacc[i]; */
-        xxh_u64x2 acc_vec        = (xxh_u64x2)vec_xl(0, xacc + 4 * i);
+        xxh_u64x2 acc_vec        = xacc[i];
         acc_vec += product;
 
         /* swap high and low halves */
@@ -4726,10 +4790,8 @@ XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
 #else
         acc_vec += vec_xxpermdi(data_vec, data_vec, 2);
 #endif
-        /* xacc[i] = acc_vec; */
-        vec_xst((xxh_u32x4)acc_vec, 0, xacc + 4 * i);
+        xacc[i] = acc_vec;
     }
-    __sync_synchronize();
 }
 XXH_FORCE_INLINE XXH3_ACCUMULATE_TEMPLATE(vsx)
 
@@ -4738,8 +4800,8 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 {
     XXH_ASSERT((((size_t)acc) & 15) == 0);
 
-    {         xxh_u64x2* const xacc    =       (xxh_u64x2*) acc;
-        const xxh_u64x2* const xsecret = (const xxh_u64x2*) secret;
+    {   xxh_aliasing_u64x2* const xacc = (xxh_aliasing_u64x2*) acc;
+        const xxh_u8* const xsecret = (const xxh_u8*) secret;
         /* constants */
         xxh_u64x2 const v32  = { 32, 32 };
         xxh_u64x2 const v47 = { 47, 47 };
@@ -4751,7 +4813,7 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             xxh_u64x2 const data_vec = acc_vec ^ (acc_vec >> v47);
 
             /* xacc[i] ^= xsecret[i]; */
-            xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + i);
+            xxh_u64x2 const key_vec  = XXH_vec_loadu(xsecret + 16*i);
             xxh_u64x2 const data_key = data_vec ^ key_vec;
 
             /* xacc[i] *= XXH_PRIME32_1 */
@@ -4876,6 +4938,37 @@ XXH3_accumulate_sve(xxh_u64* XXH_RESTRICT acc,
 
 /* scalar variants - universal */
 
+#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+/*
+ * In XXH3_scalarRound(), GCC and Clang have a similar codegen issue, where they
+ * emit an excess mask and a full 64-bit multiply-add (MADD X-form).
+ *
+ * While this might not seem like much, as AArch64 is a 64-bit architecture, only
+ * big Cortex designs have a full 64-bit multiplier.
+ *
+ * On the little cores, the smaller 32-bit multiplier is used, and full 64-bit
+ * multiplies expand to 2-3 multiplies in microcode. This has a major penalty
+ * of up to 4 latency cycles and 2 stall cycles in the multiply pipeline.
+ *
+ * Thankfully, AArch64 still provides the 32-bit long multiply-add (UMADDL) which does
+ * not have this penalty and does the mask automatically.
+ */
+XXH_FORCE_INLINE xxh_u64
+XXH_mult32to64_add64(xxh_u64 lhs, xxh_u64 rhs, xxh_u64 acc)
+{
+    xxh_u64 ret;
+    /* note: %x = 64-bit register, %w = 32-bit register */
+    __asm__("umaddl %x0, %w1, %w2, %x3" : "=r" (ret) : "r" (lhs), "r" (rhs), "r" (acc));
+    return ret;
+}
+#else
+XXH_FORCE_INLINE xxh_u64
+XXH_mult32to64_add64(xxh_u64 lhs, xxh_u64 rhs, xxh_u64 acc)
+{
+    return XXH_mult32to64((xxh_u32)lhs, (xxh_u32)rhs) + acc;
+}
+#endif
+
 /*!
  * @internal
  * @brief Scalar round for @ref XXH3_accumulate_512_scalar().
@@ -4898,7 +4991,7 @@ XXH3_scalarRound(void* XXH_RESTRICT acc,
         xxh_u64 const data_val = XXH_readLE64(xinput + lane * 8);
         xxh_u64 const data_key = data_val ^ XXH_readLE64(xsecret + lane * 8);
         xacc[lane ^ 1] += data_val; /* swap adjacent lanes */
-        xacc[lane] += XXH_mult32to64(data_key & 0xFFFFFFFF, data_key >> 32);
+        xacc[lane] = XXH_mult32to64_add64(data_key /* & 0xFFFFFFFF */, data_key >> 32, xacc[lane]);
     }
 }
 
@@ -4975,10 +5068,10 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     const xxh_u8* kSecretPtr = XXH3_kSecret;
     XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 15) == 0);
 
-#if defined(__clang__) && defined(__aarch64__)
+#if defined(__GNUC__) && defined(__aarch64__)
     /*
      * UGLY HACK:
-     * Clang generates a bunch of MOV/MOVK pairs for aarch64, and they are
+     * GCC and Clang generate a bunch of MOV/MOVK pairs for aarch64, and they are
      * placed sequentially, in order, at the top of the unrolled loop.
      *
      * While MOVK is great for generating constants (2 cycles for a 64-bit
@@ -4993,7 +5086,7 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      * ADD
      * SUB      STR
      *          STR
-     * By forcing loads from memory (as the asm line causes Clang to assume
+     * By forcing loads from memory (as the asm line causes the compiler to assume
      * that XXH3_kSecretPtr has been changed), the pipelines are used more
      * efficiently:
      *   I   L   S
@@ -5010,17 +5103,11 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
      */
     XXH_COMPILER_GUARD(kSecretPtr);
 #endif
-    /*
-     * Note: in debug mode, this overrides the asm optimization
-     * and Clang will emit MOVK chains again.
-     */
-    XXH_ASSERT(kSecretPtr == XXH3_kSecret);
-
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / 16;
         int i;
         for (i=0; i < nbRounds; i++) {
             /*
-             * The asm hack causes Clang to assume that kSecretPtr aliases with
+             * The asm hack causes the compiler to assume that kSecretPtr aliases with
              * customSecret, and on aarch64, this prevented LDP from merging two
              * loads together for free. Putting the loads together before the stores
              * properly generates LDP.

@@ -189,7 +189,7 @@ clean:  ## remove all build artifacts
 # make check can be run with cross-compiled binaries on emulated environments (qemu user mode)
 # by setting $(RUN_ENV) to the target emulation environment
 .PHONY: check
-check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
+check: xxhsum test_sanity   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
 	# stdin
 	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
@@ -215,6 +215,10 @@ check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environm
 .PHONY: test-unicode
 test-unicode:
 	$(MAKE) -C tests test_unicode
+
+.PHONY: test_sanity
+test_sanity:
+	$(MAKE) -C tests test_sanity
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1

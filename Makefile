@@ -55,6 +55,12 @@ else
 EXT =
 endif
 
+ifeq ($(NODE_JS),1)
+    LDFLAGS += -lnodefs.js -lnoderawfs.js
+    CPPFLAGS += -DXSUM_NODE_JS=1
+    RUN_ENV ?= node
+endif
+
 # OS X linker doesn't support -soname, and use different extension
 # see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
 ifeq ($(UNAME), Darwin)
@@ -174,6 +180,7 @@ clean:  ## remove all build artifacts
 	$(Q)$(RM) -r *.dSYM   # Mac OS-X specific
 	$(Q)$(RM) core *.o *.obj *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
+	$(Q)$(RM) xxhsum.wasm xxhsum.js xxhsum.html
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	$(MAKE) -C tests clean

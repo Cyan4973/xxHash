@@ -2287,7 +2287,7 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
     acc += input * XXH_PRIME32_2;
     acc  = XXH_rotl32(acc, 13);
     acc *= XXH_PRIME32_1;
-#if (defined(__SSE4_1__) || defined(__aarch64__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+#if (defined(__SSE4_1__) || defined(__aarch64__) || defined(__wasm_simd128__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
     /*
      * UGLY HACK:
      * A compiler fence is the only thing that prevents GCC and Clang from
@@ -2320,6 +2320,9 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
      * This is also enabled on AArch64, as Clang is *very aggressive* in vectorizing
      * the loop. NEON is only faster on the A53, and with the newer cores, it is less
      * than half the speed.
+     *
+     * Additionally, this is used on WASM SIMD128 because it JITs to the same
+     * SIMD instructions and has the same issue.
      */
     XXH_COMPILER_GUARD(acc);
 #endif

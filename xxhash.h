@@ -4633,10 +4633,21 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
         size_t i;
 #ifdef __wasm_simd128__
         /*
-         * On WASM SIMD128, vector literals are a thing and Clang really wants to use them.
+         * On WASM SIMD128, Clang emits direct address loads when XXH3_kSecret
+         * is constant propagated, which results in it converting it to this
+         * inside the loop:
          *
-         * This is all great if SIMD128 was native, but it is JITted to a bunch of immediate
-         * loads which isn't faster and wastes code space.
+         *    a = v128.load(XXH3_kSecret +  0 + $secret_offset, offset = 0)
+         *    b = v128.load(XXH3_kSecret + 16 + $secret_offset, offset = 0)
+         *    ...
+         *
+         * This requires a full 32-bit address immediate (and therefore a 6 byte
+         * instruction) as well as an add for each offset.
+         *
+         * Putting an asm guard prevents it from folding (at the cost of losing
+         * the alignment hint), and uses the free offset in `v128.load` instead
+         * of adding secret_offset each time which overall reduces code size by
+         * about a kilobyte and improves performance.
          */
         XXH_COMPILER_GUARD(xsecret);
 #endif
@@ -4743,7 +4754,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         uint8_t const* xsecret = (uint8_t const*) secret;
 
         size_t i;
-        /* WASM uses operator overloads and  */
+        /* WASM uses operator overloads and doesn't need these. */
 #ifndef __wasm_simd128__
         /* { prime32_1, prime32_1 } */
         uint32x2_t const kPrimeLo = vdup_n_u32(XXH_PRIME32_1);

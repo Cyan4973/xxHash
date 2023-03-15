@@ -56,6 +56,14 @@ extern "C" {
 #  error "Dispatching is currently only supported on x86 and x86_64."
 #endif
 
+#ifndef XXH_HAS_INCLUDE
+#  ifdef __has_include
+#    define XXH_HAS_INCLUDE(x) __has_include(x)
+#  else
+#    define XXH_HAS_INCLUDE(x) 0
+#  endif
+#endif
+
 /*!
  * @def XXH_X86DISPATCH_ALLOW_AVX
  * @brief Disables the AVX sanity check.

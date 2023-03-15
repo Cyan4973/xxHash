@@ -1895,7 +1895,7 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
 
-#if defined(__clang__)
+#if defined(__clang__) && !defined(__wasm__)
 #  define XXH_COMPILER_GUARD_W(var) __asm__("" : "+w" (var))
 #else
 #  define XXH_COMPILER_GUARD_W(var) ((void)0)
@@ -3111,13 +3111,22 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #    define XXH_unlikely(x) (x)
 #endif
 
+#ifndef XXH_HAS_INCLUDE
+#  ifdef __has_include
+#    define XXH_HAS_INCLUDE(x) __has_include(x)
+#  else
+#    define XXH_HAS_INCLUDE(x) 0
+#  endif
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
 #  if defined(__ARM_FEATURE_SVE)
 #    include <arm_sve.h>
 #  endif
 #  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
    || (defined(_M_ARM) && _M_ARM >= 7) \
-   || defined(_M_ARM64) || defined(_M_ARM64EC)
+   || defined(_M_ARM64) || defined(_M_ARM64EC) \
+   || (defined(__wasm_simd128__) && XXH_HAS_INCLUDE(<arm_neon.h>)) /* WASM SIMD128 via SIMDe */
 #    define inline __inline__  /* circumvent a clang bug */
 #    include <arm_neon.h>
 #    undef inline
@@ -3240,7 +3249,11 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
                       */
     XXH_AVX2   = 2,  /*!< AVX2 for Haswell and Bulldozer */
     XXH_AVX512 = 3,  /*!< AVX512 for Skylake and Icelake */
-    XXH_NEON   = 4,  /*!< NEON for most ARMv7-A and all AArch64 */
+    XXH_NEON   = 4,  /*!<
+                       * NEON for most ARMv7-A, all AArch64, and WASM SIMD128
+                       * which uses SIMDeverywhere and happens to overlay with
+                       * native instructions almost perfectly.
+                       */
     XXH_VSX    = 5,  /*!< VSX and ZVector for POWER8/z13 (64-bit) */
     XXH_SVE    = 6,  /*!< SVE for some ARMv8-A and ARMv9-A */
 };
@@ -3273,6 +3286,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  elif ( \
         defined(__ARM_NEON__) || defined(__ARM_NEON) /* gcc */ \
      || defined(_M_ARM) || defined(_M_ARM64) || defined(_M_ARM64EC) /* msvc */ \
+     || (defined(__wasm_simd128__) && XXH_HAS_INCLUDE(<arm_neon.h>)) /* wasm simd128 via SIMDe */ \
    ) && ( \
         defined(_WIN32) || defined(__LITTLE_ENDIAN__) /* little endian only */ \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) \
@@ -3478,6 +3492,9 @@ XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
  *
  * It also seems to fix some bad codegen on GCC, making it almost as fast as clang.
  *
+ * When using WASM SIMD128, if this is 2 or 6, SIMDe will scalarize 2 of the lanes meaning
+ * it effectively becomes worse 4.
+ *
  * @see XXH3_accumulate_512_neon()
  */
 # ifndef XXH3_NEON_LANES
@@ -3622,7 +3639,6 @@ do { \
     acc = svadd_u64_x(mask, acc, mul);                               \
 } while (0)
 #endif /* XXH_VECTOR == XXH_SVE */
-
 
 /* prefetch
  * can be disabled, by declaring XXH_NO_PREFETCH build macro */
@@ -4593,7 +4609,11 @@ XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
  * Since, as stated, the most optimal amount of lanes for Cortexes is 6,
  * there needs to be *three* versions of the accumulate operation used
  * for the remaining 2 lanes.
+ *
+ * WASM's SIMD128 uses SIMDe's polyfill because the intrinsics overlap
+ * nearly perfectly.
  */
+
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
@@ -4604,10 +4624,19 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
     {   /* GCC for darwin arm64 does not like aliasing here */
         xxh_aliasing_uint64x2_t* const xacc = (xxh_aliasing_uint64x2_t*) acc;
         /* We don't use a uint32x4_t pointer because it causes bus errors on ARMv7. */
-        uint8_t const* const xinput = (const uint8_t *) input;
-        uint8_t const* const xsecret  = (const uint8_t *) secret;
+        uint8_t const* xinput = (const uint8_t *) input;
+        uint8_t const* xsecret  = (const uint8_t *) secret;
 
         size_t i;
+#ifdef __wasm_simd128__
+        /*
+         * On WASM SIMD128, vector literals are a thing and Clang really wants to use them.
+         *
+         * This is all great if SIMD128 was native, but it is JITted to a bunch of immediate
+         * loads which isn't faster and wastes code space.
+         */
+        XXH_COMPILER_GUARD(xsecret);
+#endif
         /* Scalar lanes use the normal scalarRound routine */
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarRound(acc, input, secret, i);
@@ -4709,9 +4738,16 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
     {   xxh_aliasing_uint64x2_t* xacc       = (xxh_aliasing_uint64x2_t*) acc;
         uint8_t const* xsecret = (uint8_t const*) secret;
-        uint32x2_t prime       = vdup_n_u32 (XXH_PRIME32_1);
 
         size_t i;
+        /* WASM uses operator overloads and  */
+#ifndef __wasm_simd128__
+        /* { prime32_1, prime32_1 } */
+        uint32x2_t const kPrimeLo = vdup_n_u32(XXH_PRIME32_1);
+        /* { 0, prime32_1, 0, prime32_1 } */
+        uint32x4_t const kPrimeHi = vreinterpretq_u32_u64(vdupq_n_u64((xxh_u64)XXH_PRIME32_1 << 32));
+#endif
+
         /* AArch64 uses both scalar and neon at the same time */
         for (i = XXH3_NEON_LANES; i < XXH_ACC_NB; i++) {
             XXH3_scalarScrambleRound(acc, secret, i);
@@ -4725,33 +4761,28 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
             /* xacc[i] ^= xsecret[i]; */
             uint64x2_t key_vec  = XXH_vld1q_u64(xsecret + (i * 16));
             uint64x2_t data_key = veorq_u64(data_vec, key_vec);
-
             /* xacc[i] *= XXH_PRIME32_1 */
-            uint32x2_t data_key_lo = vmovn_u64(data_key);
-            uint32x2_t data_key_hi = vshrn_n_u64(data_key, 32);
+#ifdef __wasm_simd128__
+            /* SIMD128 has multiply by u64x2, use it instead of expanding and scalarizing */
+            xacc[i] = data_key * XXH_PRIME32_1;
+#else
             /*
-             * prod_hi = (data_key >> 32) * XXH_PRIME32_1;
+             * Expanded version with portable NEON intrinsics
              *
-             * Avoid vmul_u32 + vshll_n_u32 since Clang 6 and 7 will
-             * incorrectly "optimize" this:
-             *   tmp     = vmul_u32(vmovn_u64(a), vmovn_u64(b));
-             *   shifted = vshll_n_u32(tmp, 32);
-             * to this:
-             *   tmp     = "vmulq_u64"(a, b); // no such thing!
-             *   shifted = vshlq_n_u64(tmp, 32);
+             *    lo(x) * lo(y) + (hi(x) * lo(y) << 32)
              *
-             * However, unlike SSE, Clang lacks a 64-bit multiply routine
-             * for NEON, and it scalarizes two 64-bit multiplies instead.
+             * prod_hi = hi(data_key) * lo(prime) << 32
              *
-             * vmull_u32 has the same timing as vmul_u32, and it avoids
-             * this bug completely.
-             * See https://bugs.llvm.org/show_bug.cgi?id=39967
+             * Since we only need 32 bits of this multiply a trick can be used, reinterpreting the vector
+             * as a uint32x4_t and multiplying by { 0, prime, 0, prime } to cancel out the unwanted bits
+             * and avoid the shift.
              */
-            uint64x2_t prod_hi = vmull_u32 (data_key_hi, prime);
-            /* xacc[i] = prod_hi << 32; */
-            prod_hi = vshlq_n_u64(prod_hi, 32);
-            /* xacc[i] += (prod_hi & 0xFFFFFFFF) * XXH_PRIME32_1; */
-            xacc[i] = vmlal_u32(prod_hi, data_key_lo, prime);
+            uint32x4_t prod_hi = vmulq_u32 (vreinterpretq_u32_u64(data_key), kPrimeHi);
+            /* Extract low bits for vmlal_u32  */
+            uint32x2_t data_key_lo = vmovn_u64(data_key);
+            /* xacc[i] = prod_hi + lo(data_key) * XXH_PRIME32_1; */
+            xacc[i] = vmlal_u32(vreinterpretq_u64_u32(prod_hi), data_key_lo, kPrimeLo);
+#endif
         }
     }
 }

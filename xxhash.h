@@ -884,10 +884,18 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const
  * at competitive speeds, even without vector support. Further details are
  * explained in the implementation.
  *
- * Optimized implementations are provided for AVX512, AVX2, SSE2, NEON, POWER8,
- * ZVector and scalar targets. This can be controlled via the @ref XXH_VECTOR
- * macro. For the x86 family, an automatic dispatcher is included separately
- * in @ref xxh_x86dispatch.c.
+ * XXH3 has a fast scalar implementation, but it also includes accelerated SIMD
+ * implementations for many common platforms:
+ *   - AVX512
+ *   - AVX2
+ *   - SSE2
+ *   - ARM NEON
+ *   - WebAssembly SIMD128
+ *   - POWER8 VSX
+ *   - s390x ZVector
+ * This can be controlled via the @ref XXH_VECTOR macro, but it automatically
+ * selects the best version according to predefined macros. For the x86 family, an
+ * automatic runtime dispatcher is included separately in @ref xxh_x86dispatch.c.
  *
  * XXH3 implementation is portable:
  * it has a generic C90 formulation that can be compiled on any platform,
@@ -1895,10 +1903,12 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
 
-#if defined(__clang__) && !defined(__wasm__)
-#  define XXH_COMPILER_GUARD_W(var) __asm__("" : "+w" (var))
+/* Specifically for NEON vectors which use the "w" constraint, on
+ * Clang. */
+#if defined(__clang__) && defined(__ARM_ARCH) && !defined(__wasm__)
+#  define XXH_COMPILER_GUARD_CLANG_NEON(var) __asm__("" : "+w" (var))
 #else
-#  define XXH_COMPILER_GUARD_W(var) ((void)0)
+#  define XXH_COMPILER_GUARD_CLANG_NEON(var) ((void)0)
 #endif
 
 /* *************************************
@@ -3254,8 +3264,8 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
     XXH_AVX512 = 3,  /*!< AVX512 for Skylake and Icelake */
     XXH_NEON   = 4,  /*!<
                        * NEON for most ARMv7-A, all AArch64, and WASM SIMD128
-                       * which uses SIMDeverywhere and happens to overlay with
-                       * native instructions almost perfectly.
+                       * via the SIMDeverywhere polyfill provided with the
+                       * Emscripten SDK.
                        */
     XXH_VSX    = 5,  /*!< VSX and ZVector for POWER8/z13 (64-bit) */
     XXH_SVE    = 6,  /*!< SVE for some ARMv8-A and ARMv9-A */
@@ -4597,7 +4607,7 @@ XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
 
 /*!
  * @internal
- * @brief The bulk processing loop for NEON.
+ * @brief The bulk processing loop for NEON and WASM SIMD128.
  *
  * The NEON code path is actually partially scalar when running on AArch64. This
  * is to optimize the pipelining and can have up to 15% speedup depending on the
@@ -4615,7 +4625,7 @@ XXH3_scalarScrambleRound(void* XXH_RESTRICT acc,
  * there needs to be *three* versions of the accumulate operation used
  * for the remaining 2 lanes.
  *
- * WASM's SIMD128 uses SIMDe's polyfill because the intrinsics overlap
+ * WASM's SIMD128 uses SIMDe's arm_neon.h polyfill because the intrinsics overlap
  * nearly perfectly.
  */
 
@@ -4679,9 +4689,9 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
              * get one vector with the low 32 bits of each lane, and one vector
              * with the high 32 bits of each lane.
              *
-             * This compiles to two instructions on AArch64 and has a paired vector
-             * result, which is an artifact from ARMv7a's version which modified both
-             * vectors in place.
+             * The intrinsic returns a double vector because the original ARMv7-a
+             * instruction modified both arguments in place. AArch64 and SIMD128 emit
+             * two instructions from this intrinsic.
              *
              *  [ dk11L | dk11H | dk12L | dk12H ] -> [ dk11L | dk12L | dk21L | dk22L ]
              *  [ dk21L | dk21H | dk22L | dk22H ] -> [ dk11H | dk12H | dk21H | dk22H ]
@@ -4697,7 +4707,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             /*
              * Then, we can split the vectors horizontally and multiply which, as for most
              * widening intrinsics, have a variant that works on both high half vectors
-             * for free on AArch64.
+             * for free on AArch64. A similar instruction is available on SIMD128.
              *
              * sum = data_swap + (u64x2) data_key_lo * (u64x2) data_key_hi
              */
@@ -4715,8 +4725,8 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
              * for reasons likely related to umlal being limited to certain NEON
              * pipelines, this is worse. A compiler guard fixes this.
              */
-            XXH_COMPILER_GUARD_W(sum_1);
-            XXH_COMPILER_GUARD_W(sum_2);
+            XXH_COMPILER_GUARD_CLANG_NEON(sum_1);
+            XXH_COMPILER_GUARD_CLANG_NEON(sum_2);
             /* xacc[i] = acc_vec + sum; */
             xacc[i]   = vaddq_u64(xacc[i], sum_1);
             xacc[i+1] = vaddq_u64(xacc[i+1], sum_2);
@@ -4739,7 +4749,7 @@ XXH3_accumulate_512_neon( void* XXH_RESTRICT acc,
             /* sum = data_swap + (u64x2) data_key_lo * (u64x2) data_key_hi; */
             uint64x2_t sum = vmlal_u32(data_swap, data_key_lo, data_key_hi);
             /* Same Clang workaround as before */
-            XXH_COMPILER_GUARD_W(sum);
+            XXH_COMPILER_GUARD_CLANG_NEON(sum);
             /* xacc[i] = acc_vec + sum; */
             xacc[i] = vaddq_u64 (xacc[i], sum);
         }

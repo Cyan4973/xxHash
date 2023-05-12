@@ -27,11 +27,11 @@
 # - You can investigate various information at the right pane of GitHub
 #   Actions report page.
 #
-#   | Item                      | Section in the right pane             |
-#   | ------------------------- | ------------------------------------- |
-#   | OS, VM                    | Set up job                            |
-#   | git repo, commit hash     | Run actions/checkout@v3               |
-#   | gcc, tools                | Environment info                      |
+#   | Item                      | Section in the right pane                                              |
+#   | ------------------------- | ---------------------------------------------------------------------- |
+#   | OS, VM                    | Set up job                                                             |
+#   | git repo, commit hash     | Run actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2 |
+#   | gcc, tools                | Environment info                                                       |
 #
 # - To fail earlier, order of tests in the same job are roughly sorted by
 #   elapsed time.
@@ -104,7 +104,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-    - uses: actions/checkout@v3 # https://github.com/actions/checkout
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
     - name: apt-get install
       run: |
@@ -173,7 +173,7 @@ jobs:
     name: Linux x64 check results consistency
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3 # https://github.com/actions/checkout
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
     - name: Environment info
       run: |
@@ -212,7 +212,7 @@ jobs:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3 # https://github.com/actions/checkout
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
     - name: apt-get install
       run: |
@@ -255,7 +255,7 @@ jobs:
     name: Linux x64 cmake unofficial build test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3 # https://github.com/actions/checkout
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
     - name: Environment info
       run: |
@@ -339,7 +339,7 @@ jobs:
       XCC: ${{ matrix.xcc }}
       XEMU: ${{ matrix.xemu }}
     steps:
-    - uses: actions/checkout@v3 # https://github.com/actions/checkout
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
     - name: apt update & install (1)
       run: |
         sudo apt-get update
@@ -414,7 +414,7 @@ jobs:
           { os: macos-12    },
         ]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
     - name: Environment info
       run: |
@@ -454,7 +454,7 @@ jobs:
         ]
         arch: [ x64, Win32, ARM, ARM64 ]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
     - name: Build ${{ matrix.system.os }}, ${{ matrix.arch }}
       run: |
@@ -507,8 +507,8 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v3  # https://github.com/actions/checkout
-      - uses: msys2/setup-msys2@v2 # https://github.com/msys2/setup-msys2
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - uses: msys2/setup-msys2@7efe20baefed56359985e327d329042cde2434ff # v2
         with:
           msystem: MSYS
           install: mingw-w64-i686-make ${{ matrix.toolchain }}
@@ -548,7 +548,7 @@ jobs:
       HOME: /root
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         # FIX: we currently need a full clone
         with:
           fetch-depth: '0'

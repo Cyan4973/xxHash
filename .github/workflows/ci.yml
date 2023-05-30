@@ -27,11 +27,11 @@
 # - You can investigate various information at the right pane of GitHub
 #   Actions report page.
 #
-#   | Item                      | Section in the right pane                                              |
-#   | ------------------------- | ---------------------------------------------------------------------- |
-#   | OS, VM                    | Set up job                                                             |
-#   | git repo, commit hash     | Run actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2 |
-#   | gcc, tools                | Environment info                                                       |
+#   | Item                      | Section in the right pane             |
+#   | ------------------------- | ------------------------------------- |
+#   | OS, VM                    | Set up job                            |
+#   | git repo, commit hash     | Run actions/checkout@v3               |
+#   | gcc, tools                | Environment info                      |
 #
 # - To fail earlier, order of tests in the same job are roughly sorted by
 #   elapsed time.

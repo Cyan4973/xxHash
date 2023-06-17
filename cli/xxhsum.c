@@ -814,6 +814,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
                 switch (XSUM_getLineResult)
                 {
                 case GetLine_ok:
+                case GetLine_comment:
                 case GetLine_eof:
                     /* These cases never happen.  See above XSUM_getLineResult related "if"s.
                        They exist just for make gcc's -Wswitch-enum happy. */

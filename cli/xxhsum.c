@@ -488,6 +488,7 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
 
 typedef enum {
     GetLine_ok,
+    GetLine_comment,
     GetLine_eof,
     GetLine_exceedMaxLineLength,
     GetLine_outOfMemory
@@ -549,6 +550,7 @@ typedef struct {
 /*
  * Reads a line from stream `inFile`.
  * Returns GetLine_ok, if it reads line successfully.
+ * Returns GetLine_comment, if the line is beginning with '#'.
  * Returns GetLine_eof, if stream reaches EOF.
  * Returns GetLine_exceedMaxLineLength, if line length is longer than MAX_LINE_LENGTH.
  * Returns GetLine_outOfMemory, if line buffer memory allocation failed.
@@ -598,6 +600,12 @@ static GetLineResult XSUM_getLine(char** lineBuf, int* lineMax, FILE* inFile)
     }
 
     (*lineBuf)[len] = '\0';
+
+    /* Ignore comment lines, which begin with a '#' character. */
+    if (result == GetLine_ok && len > 0 && ((*lineBuf)[0] == '#')) {
+        result = GetLine_comment;
+    }
+
     return result;
 }
 
@@ -794,6 +802,12 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
         {   GetLineResult const XSUM_getLineResult = XSUM_getLine(&XSUM_parseFileArg->lineBuf,
                                                         &XSUM_parseFileArg->lineMax,
                                                          XSUM_parseFileArg->inFile);
+
+            /* Ignore comment lines */
+            if (XSUM_getLineResult == GetLine_comment) {
+                continue;
+            }
+
             if (XSUM_getLineResult != GetLine_ok) {
                 if (XSUM_getLineResult == GetLine_eof) break;
 

@@ -310,6 +310,10 @@ test-xxhsum-c: xxhsum
 test-filename-escape:
 	$(MAKE) -C tests test_filename_escape
 
+.PHONY: test-cli-comment-line
+test-cli-comment-line:
+	$(MAKE) -C tests test_cli_comment_line
+
 .PHONY: armtest
 armtest: clean
 	@echo ---- test ARM compilation ----

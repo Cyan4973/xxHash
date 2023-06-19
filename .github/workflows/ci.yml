@@ -251,6 +251,10 @@ jobs:
       run: |
         make clean test-filename-escape
 
+    - name: test-cli-comment-line
+      run: |
+        make clean test-cli-comment-line
+
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test
     runs-on: ubuntu-latest

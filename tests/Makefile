@@ -104,6 +104,10 @@ endif
 test_filename_escape: $(XXHSUM)
 	./filename-escape.sh
 
+.PHONY: test_cli_comment_line
+test_cli_comment_line: $(XXHSUM)
+	$(SHELL) ./cli-comment-line.sh
+
 .PHONY: test_sanity
 test_sanity: sanity_test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) sanity_test.c -o sanity_test$(EXT)

@@ -60,29 +60,28 @@ extern "C" {
  * @def XXH_X86DISPATCH_ALLOW_AVX
  * @brief Disables the AVX sanity check.
  *
- * Don't compile xxh_x86dispatch.c with options like `-mavx*`, `-march=native`,
- * or `/arch:AVX*`. It is intended to be compiled for the minimum target, and
+ * xxh_x86dispatch.c is intended to be compiled for the minimum target, and
  * it selectively enables SSE2, AVX2, and AVX512 when it is needed.
  *
- * Using this option _globally_ allows this feature, and therefore makes it
+ * Compiling with options like `-mavx*`, `-march=native`, or `/arch:AVX*`
+ * _globally_ will always enable this feature, and therefore makes it
  * undefined behavior to execute on any CPU without said feature.
  *
  * Even if the source code isn't directly using AVX intrinsics in a function,
  * the compiler can still generate AVX code from autovectorization and by
  * "upgrading" SSE2 intrinsics to use the VEX prefixes (a.k.a. AVX128).
  *
- * Use the same flags that you use to compile the rest of the program; this
- * file will safely generate SSE2, AVX2, and AVX512 without these flags.
- *
- * Define XXH_X86DISPATCH_ALLOW_AVX to ignore this check, and feel free to open
- * an issue if there is a target in the future where AVX is a default feature.
+ * Define XXH_X86DISPATCH_ALLOW_AVX to ignore this check,
+ * thus accepting that the produced binary will not work correctly
+ * on any CPU with less features than the ones stated at compilation time.
  */
 #ifdef XXH_DOXYGEN
 #  define XXH_X86DISPATCH_ALLOW_AVX
 #endif
 
 #if defined(__AVX__) && !defined(XXH_X86DISPATCH_ALLOW_AVX)
-#  error "Do not compile xxh_x86dispatch.c with AVX enabled! See the comment above."
+#  error "Error: if xxh_x86dispatch.c is compiled with AVX enabled, the resulting binary will crash on sse2-only cpus !! " \
+         "If you nonetheless want to do that, please enable the XXH_X86DISPATCH_ALLOW_AVX build variable"
 #endif
 
 #ifdef __has_include

@@ -3700,7 +3700,7 @@ XXH_mult32to64(xxh_u64 x, xxh_u64 y)
 #else
 /*
  * Downcast + upcast is usually better than masking on older compilers like
- * GCC q 4.2 (especially 32-bit ones), all without affecting newer compilers.
+ * GCC 4.2 (especially 32-bit ones), all without affecting newer compilers.
  *
  * The other method, (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF), will AND both operands
  * and perform a full 64x64 multiply -- entirely redundant on 32-bit.

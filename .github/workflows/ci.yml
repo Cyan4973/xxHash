@@ -271,12 +271,22 @@ jobs:
     - name: cmake
       run: |
         cd cmake_unofficial
-        mkdir build
+        cmake -Bbuild
         cd build
-        cmake ..
         CFLAGS=-Werror make
-        mkdir test_install_dir
+        mkdir -p test_install_dir
         DESTDIR=test_install_dir cmake --install .
+
+    - name: cmake pkgconfig generation
+      run: |
+        cd cmake_unofficial
+        pwd
+        ls
+        rm -rf build
+        cmake -Bbuild -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_INCLUDEDIR=/usr/include -DCMAKE_INSTALL_LIBDIR=/usr/lib
+        echo "checking content of libxxhash.pc"
+        cat build/libxxhash.pc | grep "libdir=/usr/lib"
+        cat build/libxxhash.pc | grep "includedir=/usr/include"
 
     - name: cmake minimum version v2.8.12 test
       run: |
@@ -285,6 +295,9 @@ jobs:
         wget https://cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.tar.gz
         tar xzf cmake-2.8.12.2-Linux-i386.tar.gz
         cd ../cmake_unofficial
+        rm -rf build
+        pwd
+        ls
         mkdir -p build
         cd build
         ../../cmake_bins/cmake-2.8.12.2-Linux-i386/bin/cmake --version

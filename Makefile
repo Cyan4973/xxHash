@@ -553,8 +553,8 @@ libxxhash.pc: libxxhash.pc.in
 	@echo creating pkgconfig
 	$(Q)$(SED) $(SED_ERE_OPT) -e 's|@PREFIX@|$(PREFIX)|' \
           -e 's|@EXECPREFIX@|$(PCEXECDIR)|' \
-          -e 's|@LIBDIR@|$(PCLIBDIR)|' \
-          -e 's|@INCLUDEDIR@|$(PCINCDIR)|' \
+          -e 's|@LIBDIR@|$$\{exec_prefix\}/$(PCLIBDIR)|' \
+          -e 's|@INCLUDEDIR@|$$\{prefix\}/$(PCINCDIR)|' \
           -e 's|@VERSION@|$(LIBVER)|' \
           $< > $@
 

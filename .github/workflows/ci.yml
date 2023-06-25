@@ -395,18 +395,8 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -march=arch11 -mzvector" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: MIPS (XXH_VECTOR=[ scalar ])
-      if: ${{ startsWith(matrix.name, 'MIPS') }}
-      run: |
-        LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
-
-    - name: M68K (XXH_VECTOR=[ scalar ])
-      if: ${{ startsWith(matrix.name, 'M68K') }}
-      run: |
-        LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
-
-    - name: RISC-V (XXH_VECTOR=[ scalar ])
-      if: ${{ startsWith(matrix.name, 'RISC-V') }}
+    - name: MIPS-M68K-RISCV (XXH_VECTOR=[ scalar ])
+      if: ${{ startsWith(matrix.name, 'MIPS') || startsWith(matrix.name, 'M68K') || startsWith(matrix.name, 'RISC-V') }}
       run: |
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 

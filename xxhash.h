@@ -3668,6 +3668,8 @@ XXH_ALIGN(64) static const xxh_u8 XXH3_kSecret[XXH_SECRET_DEFAULT_SIZE] = {
     0x45, 0xcb, 0x3a, 0x8f, 0x95, 0x16, 0x04, 0x28, 0xaf, 0xd7, 0xfb, 0xca, 0xbb, 0x4b, 0x40, 0x7e,
 };
 
+static const xxh_u64 PRIME_MX1 = 0x165667919E3779F9ULL;  /*!< 0b0001011001010110011001111001000110011110001101110111100111111001 */
+static const xxh_u64 PRIME_MX2 = 0x9FB21C651E98DF25ULL;  /*!< 0b1001111110110010000111000110010100011110100110001101111100100101 */
 
 #ifdef XXH_OLD_NAMES
 #  define kSecret XXH3_kSecret
@@ -3872,7 +3874,7 @@ XXH_FORCE_INLINE XXH_CONSTF xxh_u64 XXH_xorshift64(xxh_u64 v64, int shift)
 static XXH64_hash_t XXH3_avalanche(xxh_u64 h64)
 {
     h64 = XXH_xorshift64(h64, 37);
-    h64 *= 0x165667919E3779F9ULL;
+    h64 *= PRIME_MX1;
     h64 = XXH_xorshift64(h64, 32);
     return h64;
 }
@@ -3886,9 +3888,9 @@ static XXH64_hash_t XXH3_rrmxmx(xxh_u64 h64, xxh_u64 len)
 {
     /* this mix is inspired by Pelle Evensen's rrmxmx */
     h64 ^= XXH_rotl64(h64, 49) ^ XXH_rotl64(h64, 24);
-    h64 *= 0x9FB21C651E98DF25ULL;
+    h64 *= PRIME_MX2;
     h64 ^= (h64 >> 35) + len ;
-    h64 *= 0x9FB21C651E98DF25ULL;
+    h64 *= PRIME_MX2;
     return XXH_xorshift64(h64, 28);
 }
 
@@ -5832,7 +5834,7 @@ XXH3_len_4to8_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
         m128.low64  ^= (m128.high64 >> 3);
 
         m128.low64   = XXH_xorshift64(m128.low64, 35);
-        m128.low64  *= 0x9FB21C651E98DF25ULL;
+        m128.low64  *= PRIME_MX2;
         m128.low64   = XXH_xorshift64(m128.low64, 28);
         m128.high64  = XXH3_avalanche(m128.high64);
         return m128;

@@ -16,7 +16,7 @@ Distribution of this document is unlimited.
 
 ### Version
 
-0.1.1 (10/10/18)
+0.2.0 (29/06/23)
 
 
 Table of Contents
@@ -47,7 +47,9 @@ However, a given variant shall produce exactly the same output, irrespective of 
 ### Operation notations
 
 All operations are performed modulo {32,64} bits. Arithmetic overflows are expected.
-`XXH32` uses 32-bit modular operations. `XXH64` and `XXH3` uses 64-bit modular operations.
+`XXH32` uses 32-bit modular operations.
+`XXH64` and `XXH3` use 64-bit modular operations.
+When an operation ingests input or secret as multi-bytes values, it reads it using little-endian convention.
 
 - `+`: denotes modular addition
 - `-`: denotes modular subtraction
@@ -355,7 +357,7 @@ Many operations require some 64-bit prime number constants, which are mostly the
   static const u64 PRIME_MX2 = 0x9FB21C651E98DF25ULL;  // 0b1001111110110010000111000110010100011110100110001101111100100101
 ```
 
-The `XXH3_64bits()` function produces an unsigned 64-bit value.  
+The `XXH3_64bits()` function produces an unsigned 64-bit value.
 The `XXH3_128bits()` function produces a `XXH128_hash_t` struct containing `low64` and `high64` - the lower and higher 64-bit half values of the result, respectively.
 
 For systems requiring storing and/or displaying the result in binary or hexadecimal format, the canonical format is defined to reproduce the same value as the natural decimal format, hence following **big-endian** convention (most significant byte first).
@@ -381,9 +383,10 @@ static const u8 defaultSecret[192] = {
 };
 ```
 
-The seed and the secret can be specified using the `*_withSecret` and `*_withSeed` versions of the hash function.
+The seed and the secret can be optionally specified using the `*_withSecret` and `*_withSeed` versions of the hash function.
 
-The seed and the secret cannot be specified simultaneously (`*_withSecretAndSeed` is just `*_withSeed` for inputs less than or equal to 240 bytes and `*_withSecret` otherwise). When one is specified, the other one uses the default value. There is one exception, though: if the input is larger than 240 bytes and the seed is given, the secret is derived from the seed value and the default secret using the following procedure:
+The seed and the secret cannot be specified simultaneously (`*_withSecretAndSeed` is actually `*_withSeed` for short and medium inputs <= 240 bytes, and `*_withSecret` for large inputs). When one is specified, the other one uses the default value.
+There is one exception though: when input is large (> 240 bytes) and a seed is given, a secret is derived from the seed value and the default secret using the following procedure:
 
 ```c
 deriveSecret(u64 seed):
@@ -399,7 +402,7 @@ The derivation treats the secrets as 24 64-bit values. In XXH3 algorithms, the s
 
 ### Final Mixing Step (avalanche)
 
-To make sure that all input bits have a chance to impact any bit in the output digest (avalanche effect), the final step of the XXH3 algorithm is usually one of the two fixed operations that mix the bits in a 64-bit value. These operation are denoted `avalanche()` and `avalanche_XXH64()` in the following XXH3 description.
+To make sure that all input bits have a chance to impact any bit in the output digest (avalanche effect), the final step of the XXH3 algorithm is usually one of the two fixed operations that mix the bits in a 64-bit value. These operations are denoted `avalanche()` and `avalanche_XXH64()` in the following XXH3 description.
 
 ```c
 avalanche(u64 x):
@@ -775,7 +778,7 @@ finalMerge(u64 initValue, size secretOffset):
   return avalanche(result);
 ```
 
-XXH3-128 runs the merging procedure twice for the two halves of the result, using different secret segments and different initial values derived from the total input length.  
+XXH3-128 runs the merging procedure twice for the two halves of the result, using different secret segments and different initial values derived from the total input length.
 The XXH3-64 result is just the lower half of the XXH3-128 result.
 
 ```c
@@ -799,6 +802,8 @@ On 64-bit systems, the 64-bit variant `XXH64` is generally faster to compute, so
 
 On 32-bit systems though, positions are reversed: `XXH64` performance is reduced, due to its usage of 64-bit arithmetic. `XXH32` becomes a faster variant.
 
+Finally, when vector operations are possible, `XXH3` is likely the faster variant.
+
 
 Reference Implementation
 ----------------------------------------
@@ -810,6 +815,6 @@ It links to the [github project page](https://github.com/Cyan4973/xxHash) where 
 
 Version changes
 --------------------
-v0.7.3: Minor fixes
+v0.2.0: added XXH3 specification, by Adrien Wu
 v0.1.1: added a note on rationale for selection of constants
 v0.1.0: initial release

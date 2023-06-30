@@ -167,25 +167,6 @@ You can download and install xxHash using the [vcpkg](https://github.com/Microso
 
 The xxHash port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
 
-### Building and Using xxHash - tipi.build
-
-You can work on xxHash and depend on it in your [tipi.build](https://tipi.build) projects by adding the following entry to your `.tipi/deps`:
-
-```json
-{
-    "Cyan4973/xxHash": { "@": "v0.8.1" }
-}
-```
-
-An example of such usage can be found in the `/cli` folder of this project which, if built as root project will depend on the release `v0.8.1` of xxHash
-
-
-To contribute to xxHash itself use tipi.build on this repository (change the target name appropriately to `linux` or `macos` or `windows`):
-
-```bash
-tipi . -t <target> --test all
-```
-
 ### Example
 
 The simplest example calls xxhash 64-bit variant as a one-shot function

@@ -2,7 +2,7 @@
 DOXYFILE_ENCODING      = UTF-8
 
 PROJECT_NAME           = "xxHash"
-PROJECT_NUMBER         = "0.8.1"
+PROJECT_NUMBER         = "0.8.2"
 PROJECT_BRIEF          = "Extremely fast non-cryptographic hash function"
 OUTPUT_DIRECTORY       = doxygen
 OUTPUT_LANGUAGE        = English

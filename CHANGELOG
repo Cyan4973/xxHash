@@ -1,3 +1,24 @@
+v0.8.2
+- fix  : XXH3 S390x vector implementation (@hzhuang1)
+- fix  : PowerPC vector compilation with IBM XL compiler (@MaxiBoether)
+- perf : improved speed (+15%) for XXH3 on ARM NEON (@easyaspi314)
+- perf : SVE vector implementation of XXH3 (@hzhuang1)
+- cli  : Fix filename contain /LF character (@t-mat)
+- cli  : Support # comment lines in --check files (@t-mat)
+- build: fix -Og compilation (@easyaspi314, @t-mat)
+- build: fix pkgconfig generation with cmake (@ilya-fedin)
+- build: fix icc compilation
+- build: fix cmake install directories
+- build: new build options XXH_NO_XXH3, XXH_SIZE_OPT and XXH_NO_STREAM to reduce binary size (@easyaspi314)
+- build: dedicated install targets (@ffontaine)
+- build: support DISPATCH mode in cmake (@hzhuang1)
+- portability: compatibility with freestanding environments, using XXH_NO_STDLIB
+- portability: can build on Haiku (@Begasus)
+- portability: validated on m68k and risc-v
+- doc  : XXH3 specification (@Adrien1018)
+- doc  : improved doxygen documentation (@easyaspi314)
+- misc : dedicated sanity test binary (@t-mat)
+
 v0.8.1
 - perf : much improved performance for XXH3 streaming variants, notably on gcc and msvc
 - perf : improved XXH64 speed and latency on small inputs

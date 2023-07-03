@@ -338,7 +338,8 @@ jobs:
           { name: 'MIPS, gcc-10',    xcc_pkg: gcc-10-mips-linux-gnu,        xcc: mips-linux-gnu-gcc-10,        xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
 
           { name: 'ARM, gcc-9',      xcc_pkg: gcc-9-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          { name: 'AARCH64, gcc-9',  xcc_pkg: gcc-9-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
+          # SVE tests require at least gcc-10.1
+          # { name: 'AARCH64, gcc-9',  xcc_pkg: gcc-9-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
           { name: 'PPC64LE, gcc-9',  xcc_pkg: gcc-9-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-9,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
           { name: 'PPC64, gcc-9',    xcc_pkg: gcc-9-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-9,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
           { name: 'S390X, gcc-9',    xcc_pkg: gcc-9-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-9,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
@@ -356,6 +357,7 @@ jobs:
     env:                        # Set environment variables
       XCC: ${{ matrix.xcc }}
       XEMU: ${{ matrix.xemu }}
+      MOREFLAGS: -Werror
     steps:
     - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
     - name: apt update & install (1)
@@ -390,11 +392,11 @@ jobs:
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
-        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=off,sve512=off,sve1024=off,sve2048=off" make clean check
-        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=off,sve1024=off,sve2048=off" make clean check
-        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=off,sve2048=off" make clean check
-        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=on,sve2048=off" make clean check
-        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=on,sve2048=on" make clean check
+        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC="$XCC -march=armv8.2-a+sve" RUN_ENV="$XEMU -cpu max,sve128=on,sve256=off,sve512=off,sve1024=off,sve2048=off" make clean check
+        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC="$XCC -march=armv8.2-a+sve" RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=off,sve1024=off,sve2048=off" make clean check
+        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC="$XCC -march=armv8.2-a+sve" RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=off,sve2048=off" make clean check
+        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC="$XCC -march=armv8.2-a+sve" RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=on,sve2048=off" make clean check
+        CPPFLAGS="-DXXH_VECTOR=XXH_SVE" LDFLAGS="-static" CC="$XCC -march=armv8.2-a+sve" RUN_ENV="$XEMU -cpu max,sve128=on,sve256=on,sve512=on,sve1024=on,sve2048=on" make clean check
 
     - name: PPC64(LE) (XXH_VECTOR=[ scalar, VSX ])
       if: ${{ startsWith(matrix.name, 'PPC64') }}

@@ -45,7 +45,7 @@ static int abortByError = 1;
 
 
 /**/
-static void abortSanityTest() {
+static void abortSanityTest(void) {
     /* ??? : Should we show this message? */
     XSUM_log("\rNote: If you modified the hash functions, make sure to either update tests/sanity_test_vectors.h with the following command\n"
              "\r  make -C tests sanity_test_vectors.h\n");
@@ -630,15 +630,14 @@ static void testSecretGenerator(
 /**/
 int main(int argc, const char* argv[])
 {
-    (void) argc;
-    (void) argv;
-
     size_t testCount = 0;
     size_t      const sanityBufferSizeInBytes = SANITY_BUFFER_SIZE;
     XSUM_U8*    const sanityBuffer            = createSanityBuffer(sanityBufferSizeInBytes);
     const void* const secret                  = sanityBuffer + 7;
     size_t      const secretSize              = XXH3_SECRET_SIZE_MIN + 11;
     assert(sanityBufferSizeInBytes >= 7 + secretSize);
+    (void) argc;
+    (void) argv;
 
     {
         /* XXH32 */

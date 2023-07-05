@@ -183,6 +183,20 @@ extern "C" {
  */
 #ifdef XXH_DOXYGEN
 /*!
+ * @brief Gives access to internal state declaration, required for static allocation.
+ *
+ * Incompatible with dynamic linking, due to risks of ABI changes.
+ *
+ * Usage:
+ * @code{.c}
+ *     #define XXH_STATIC_LINKING_ONLY
+ *     #include "xxhash.h"
+ * @endcode
+ */
+#  define XXH_STATIC_LINKING_ONLY
+/* Do not undef XXH_STATIC_LINKING_ONLY for Doxygen */
+
+/*!
  * @brief Exposes the implementation and marks all functions as `inline`.
  *
  * Use these build macros to inline xxhash into the target unit.

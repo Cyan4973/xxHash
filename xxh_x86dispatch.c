@@ -202,9 +202,11 @@ extern "C" {
 #endif
 #include <assert.h>
 
+#ifndef XXH_DOXYGEN
 #define XXH_INLINE_ALL
 #define XXH_X86DISPATCH
 #include "xxhash.h"
+#endif
 
 #ifndef XXH_HAS_ATTRIBUTE
 #  ifdef __has_attribute

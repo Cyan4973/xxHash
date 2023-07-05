@@ -197,6 +197,19 @@ extern "C" {
 /* Do not undef XXH_STATIC_LINKING_ONLY for Doxygen */
 
 /*!
+ * @brief Gives access to internal definitions.
+ *
+ * Usage:
+ * @code{.c}
+ *     #define XXH_STATIC_LINKING_ONLY
+ *     #define XXH_IMPLEMENTATION
+ *     #include "xxhash.h"
+ * @endcode
+ */
+#  define XXH_IMPLEMENTATION
+/* Do not undef XXH_IMPLEMENTATION for Doxygen */
+
+/*!
  * @brief Exposes the implementation and marks all functions as `inline`.
  *
  * Use these build macros to inline xxhash into the target unit.

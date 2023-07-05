@@ -5470,6 +5470,12 @@ static void XXH_alignedFree(void* p)
     }
 }
 /*! @ingroup XXH3_family */
+/*!
+ * @brief Allocate an @ref XXH3_state_t.
+ *
+ * Must be freed with XXH3_freeState().
+ * @return An allocated XXH3_state_t on success, `NULL` on failure.
+ */
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {
     XXH3_state_t* const state = (XXH3_state_t*)XXH_alignedMalloc(sizeof(XXH3_state_t), 64);
@@ -5479,6 +5485,13 @@ XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 }
 
 /*! @ingroup XXH3_family */
+/*!
+ * @brief Frees an @ref XXH3_state_t.
+ *
+ * Must be allocated with XXH3_createState().
+ * @param statePtr A pointer to an @ref XXH3_state_t allocated with @ref XXH3_createState().
+ * @return XXH_OK.
+ */
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 {
     XXH_alignedFree(statePtr);

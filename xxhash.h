@@ -3256,7 +3256,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
  * Note that these are actually implemented as macros.
  *
  * If this is not defined, it is detected automatically.
- * @ref XXH_X86DISPATCH overrides this.
+ * internal macro XXH_X86DISPATCH overrides this.
  */
 enum XXH_VECTOR_TYPE /* fake enum */ {
     XXH_SCALAR = 0,  /*!< Portable scalar version */

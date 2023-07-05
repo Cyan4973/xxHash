@@ -1540,7 +1540,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
  *     inline small `memcpy()` calls, and it might also be faster on big-endian
  *     systems which lack a native byteswap instruction. However, some compilers
  *     will emit literal byteshifts even if the target supports unaligned access.
- *  .
+ *
  *
  * @warning
  *   Methods 1 and 2 rely on implementation-defined behavior. Use these with

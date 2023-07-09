@@ -1196,6 +1196,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
+        if (!strcmp(argument, "--binary")) { continue; } /* Just ignore it. See https://github.com/Cyan4973/xxHash/issues/812 */
         if (!strcmp(argument, "--help")) { return XSUM_usage_advanced(exename); }
         if (!strcmp(argument, "--version")) { XSUM_log(FULL_WELCOME_MESSAGE(exename)); XSUM_sanityCheck(); return 0; }
         if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }

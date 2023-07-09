@@ -323,6 +323,10 @@ test-filename-escape:
 test-cli-comment-line:
 	$(MAKE) -C tests test_cli_comment_line
 
+.PHONY: test-cli-ignore-missing
+test-cli-ignore-missing:
+	$(MAKE) -C tests test_cli_ignore_missing
+
 .PHONY: armtest
 armtest: clean
 	@echo ---- test ARM compilation ----

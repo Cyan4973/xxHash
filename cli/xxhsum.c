@@ -526,8 +526,10 @@ typedef struct {
     unsigned long   nProperlyFormattedLines;
     unsigned long   nImproperlyFormattedLines;
     unsigned long   nMismatchedChecksums;
+    unsigned long   nMatchedChecksums;
     unsigned long   nOpenOrReadFailures;
     unsigned long   nMixedFormatLines;
+    unsigned long   nMissing;
     int             quit;
 } ParseFileReport;
 
@@ -540,6 +542,7 @@ typedef struct {
     char*           blockBuf;
     XSUM_U32        strictMode;
     XSUM_U32        statusOnly;
+    XSUM_U32        ignoreMissing;
     XSUM_U32        warn;
     XSUM_U32        quiet;
     XSUM_U32        algoBitmask;
@@ -896,10 +899,14 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
             break;
 
         case LineStatus_failedToOpen:
-            report->nOpenOrReadFailures++;
-            if (!XSUM_parseFileArg->statusOnly) {
-                XSUM_output("%s:%lu: Could not open or read '%s': %s.\n",
-                    inFileName, lineNumber, parsedLine.filename, strerror(errno));
+            if (XSUM_parseFileArg->ignoreMissing) {
+                report->nMissing++;
+            } else {
+                report->nOpenOrReadFailures++;
+                if (!XSUM_parseFileArg->statusOnly) {
+                    XSUM_output("%s:%lu: Could not open or read '%s': %s.\n",
+                        inFileName, lineNumber, parsedLine.filename, strerror(errno));
+                }
             }
             break;
 
@@ -907,6 +914,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
         case LineStatus_hashFailed:
             {   int b = 1;
                 if (lineStatus == LineStatus_hashOk) {
+                    report->nMatchedChecksums++;
                     /* If --quiet is specified, don't display "OK" */
                     if (XSUM_parseFileArg->quiet) b = 0;
                 } else {
@@ -933,6 +941,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
  *
  *  If strictMode != 0, return error code if any line is invalid.
  *  If statusOnly != 0, don't generate any output.
+ *  If ignoreMissing != 0, ignore missing file.  But if no file was verified, returns 0 (failed).
  *  If warn != 0, print a warning message to stderr.
  *  If quiet != 0, suppress "OK" line.
  *
@@ -946,6 +955,7 @@ static int XSUM_checkFile(const char* inFileName,
                           const Display_endianess displayEndianess,
                           XSUM_U32 strictMode,
                           XSUM_U32 statusOnly,
+                          XSUM_U32 ignoreMissing,
                           XSUM_U32 warn,
                           XSUM_U32 quiet,
                           XSUM_U32 algoBitmask)
@@ -981,6 +991,7 @@ static int XSUM_checkFile(const char* inFileName,
     XSUM_parseFileArg->blockBuf    = (char*) malloc(XSUM_parseFileArg->blockSize);
     XSUM_parseFileArg->strictMode  = strictMode;
     XSUM_parseFileArg->statusOnly  = statusOnly;
+    XSUM_parseFileArg->ignoreMissing = ignoreMissing;
     XSUM_parseFileArg->warn        = warn;
     XSUM_parseFileArg->quiet       = quiet;
     XSUM_parseFileArg->algoBitmask = algoBitmask;
@@ -1025,6 +1036,14 @@ static int XSUM_checkFile(const char* inFileName,
             && report->nOpenOrReadFailures == 0
             && (!strictMode || report->nImproperlyFormattedLines == 0)
             && report->quit == 0;
+
+    /* If "--ignore-missing" is enabled and there's no matched checksum, report it as error.
+     * See https://github.com/coreutils/coreutils/blob/2f1cffe07ab0f0b4135a52d95f1689d7fc7f26c9/src/digest.c#L1325-L1328 */
+    if (ignoreMissing && report->nMatchedChecksums == 0) {
+        XSUM_output("%s: no file was verified\n", inFileName);
+        result = 0;
+    }
+
     return result;
 }
 
@@ -1033,6 +1052,7 @@ static int XSUM_checkFiles(const char* fnList[], int fnTotal,
                            const Display_endianess displayEndianess,
                            XSUM_U32 strictMode,
                            XSUM_U32 statusOnly,
+                           XSUM_U32 ignoreMissing,
                            XSUM_U32 warn,
                            XSUM_U32 quiet,
                            XSUM_U32 algoBitmask)
@@ -1042,11 +1062,11 @@ static int XSUM_checkFiles(const char* fnList[], int fnTotal,
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal==0) {
-        ok &= XSUM_checkFile(stdinName, displayEndianess, strictMode, statusOnly, warn, quiet, algoBitmask);
+        ok &= XSUM_checkFile(stdinName, displayEndianess, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
     } else {
         int fnNb;
         for (fnNb=0; fnNb<fnTotal; fnNb++)
-            ok &= XSUM_checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, warn, quiet, algoBitmask);
+            ok &= XSUM_checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
     }
     return ok ? 0 : 1;
 }
@@ -1169,6 +1189,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     XSUM_U32 strictMode    = 0;
     XSUM_U32 statusOnly    = 0;
     XSUM_U32 warn          = 0;
+    XSUM_U32 ignoreMissing = 0;
     XSUM_U32 algoBitmask   = algo_bitmask_all;
     int explicitStdin = 0;
     XSUM_U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
@@ -1197,6 +1218,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
         if (!strcmp(argument, "--binary")) { continue; } /* Just ignore it. See https://github.com/Cyan4973/xxHash/issues/812 */
+        if (!strcmp(argument, "--ignore-missing")) { ignoreMissing = 1; continue; }
         if (!strcmp(argument, "--help")) { return XSUM_usage_advanced(exename); }
         if (!strcmp(argument, "--version")) { XSUM_log(FULL_WELCOME_MESSAGE(exename)); XSUM_sanityCheck(); return 0; }
         if (!strcmp(argument, "--tag")) { convention = display_bsd; continue; }
@@ -1314,7 +1336,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {
         return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
-                          displayEndianess, strictMode, statusOnly, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
+                          displayEndianess, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     } else {
         return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess, convention);
     }

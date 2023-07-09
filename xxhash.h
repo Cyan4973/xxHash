@@ -183,6 +183,33 @@ extern "C" {
  */
 #ifdef XXH_DOXYGEN
 /*!
+ * @brief Gives access to internal state declaration, required for static allocation.
+ *
+ * Incompatible with dynamic linking, due to risks of ABI changes.
+ *
+ * Usage:
+ * @code{.c}
+ *     #define XXH_STATIC_LINKING_ONLY
+ *     #include "xxhash.h"
+ * @endcode
+ */
+#  define XXH_STATIC_LINKING_ONLY
+/* Do not undef XXH_STATIC_LINKING_ONLY for Doxygen */
+
+/*!
+ * @brief Gives access to internal definitions.
+ *
+ * Usage:
+ * @code{.c}
+ *     #define XXH_STATIC_LINKING_ONLY
+ *     #define XXH_IMPLEMENTATION
+ *     #include "xxhash.h"
+ * @endcode
+ */
+#  define XXH_IMPLEMENTATION
+/* Do not undef XXH_IMPLEMENTATION for Doxygen */
+
+/*!
  * @brief Exposes the implementation and marks all functions as `inline`.
  *
  * Use these build macros to inline xxhash into the target unit.
@@ -3229,7 +3256,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
  * Note that these are actually implemented as macros.
  *
  * If this is not defined, it is detected automatically.
- * @ref XXH_X86DISPATCH overrides this.
+ * internal macro XXH_X86DISPATCH overrides this.
  */
 enum XXH_VECTOR_TYPE /* fake enum */ {
     XXH_SCALAR = 0,  /*!< Portable scalar version */
@@ -5470,6 +5497,12 @@ static void XXH_alignedFree(void* p)
     }
 }
 /*! @ingroup XXH3_family */
+/*!
+ * @brief Allocate an @ref XXH3_state_t.
+ *
+ * Must be freed with XXH3_freeState().
+ * @return An allocated XXH3_state_t on success, `NULL` on failure.
+ */
 XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 {
     XXH3_state_t* const state = (XXH3_state_t*)XXH_alignedMalloc(sizeof(XXH3_state_t), 64);
@@ -5479,6 +5512,13 @@ XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
 }
 
 /*! @ingroup XXH3_family */
+/*!
+ * @brief Frees an @ref XXH3_state_t.
+ *
+ * Must be allocated with XXH3_createState().
+ * @param statePtr A pointer to an @ref XXH3_state_t allocated with @ref XXH3_createState().
+ * @return XXH_OK.
+ */
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 {
     XXH_alignedFree(statePtr);

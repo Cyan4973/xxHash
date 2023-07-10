@@ -74,6 +74,9 @@ OPTIONS
 * `-w`, `--warn`:
   Emit a warning message about each improperly formatted checksum line.
 
+* `--ignore-missing`:
+  Don't fail or report status for missing files.
+
 **The following options are useful only benchmark purpose**
 
 * `-b`:

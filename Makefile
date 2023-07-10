@@ -56,9 +56,10 @@ EXT =
 endif
 
 ifeq ($(NODE_JS),1)
-    LDFLAGS += -lnodefs.js -lnoderawfs.js
+    # Link in unrestricted filesystem support
+    LDFLAGS += -sNODERAWFS
+    # Set flag to fix isatty() support
     CPPFLAGS += -DXSUM_NODE_JS=1
-    RUN_ENV ?= node
 endif
 
 # OS X linker doesn't support -soname, and use different extension
@@ -198,6 +199,7 @@ clean:  ## remove all build artifacts
 .PHONY: check
 check: xxhsum   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
 	# stdin
+	# If you get "Wrong parameters" on Emscripten+Node.js, recompile with `NODE_JS=1`
 	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
 	$(RUN_ENV) ./xxhsum$(EXT) xxhash.*

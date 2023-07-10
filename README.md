@@ -154,6 +154,7 @@ The following macros can be set at compilation time to modify libxxhash's behavi
 When compiling the Command Line Interface `xxhsum` using `make`, the following environment variables can also be set :
 - `DISPATCH=1` : use `xxh_x86dispatch.c`, to automatically select between `scalar`, `sse2`, `avx2` or `avx512` instruction set at runtime, depending on local host. This option is only valid for `x86`/`x64` systems.
 - `XXH_1ST_SPEED_TARGET` : select an initial speed target, expressed in MB/s, for the first speed test in benchmark mode. Benchmark will adjust the target at subsequent iterations, but the first test is made "blindly" by targeting this speed. Currently conservatively set to 10 MB/s, to support very slow (emulated) platforms.
+- `NODE_JS=1` : When compiling `xxhsum` for Node.js with Emscripten, this links the `NODERAWFS` library for unrestricted filesystem access and patches `isatty` to make the command line utility correctly detect the terminal. This does make the binary specific to Node.js.
 
 ### Building xxHash - Using vcpkg
 

@@ -155,6 +155,12 @@
 #  define XSUM_ARCH "s390x"
 #elif defined(__s390__)
 #  define XSUM_ARCH "s390"
+#elif defined(__wasm__) || defined(__asmjs__) || defined(__EMSCRIPTEN__)
+#  if defined(__wasm_simd128__)
+#    define XSUM_ARCH "wasm/asmjs + simd128"
+#  else
+#    define XSUM_ARCH "wasm/asmjs"
+#  endif
 #else
 #  define XSUM_ARCH "unknown"
 #endif

@@ -55,6 +55,13 @@ else
 EXT =
 endif
 
+ifeq ($(NODE_JS),1)
+    # Link in unrestricted filesystem support
+    LDFLAGS += -sNODERAWFS
+    # Set flag to fix isatty() support
+    CPPFLAGS += -DXSUM_NODE_JS=1
+endif
+
 # OS X linker doesn't support -soname, and use different extension
 # see: https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/DynamicLibraryDesignGuidelines.html
 ifeq ($(UNAME), Darwin)
@@ -174,6 +181,7 @@ clean:  ## remove all build artifacts
 	$(Q)$(RM) -r *.dSYM   # Mac OS-X specific
 	$(Q)$(RM) core *.o *.obj *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
+	$(Q)$(RM) xxhsum.wasm xxhsum.js xxhsum.html
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
 	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	$(MAKE) -C tests clean
@@ -191,6 +199,7 @@ clean:  ## remove all build artifacts
 .PHONY: check
 check: xxhsum test_sanity   ## basic tests for xxhsum CLI, set RUN_ENV for emulated environments
 	# stdin
+	# If you get "Wrong parameters" on Emscripten+Node.js, recompile with `NODE_JS=1`
 	$(RUN_ENV) ./xxhsum$(EXT) < xxhash.c
 	# multiple files
 	$(RUN_ENV) ./xxhsum$(EXT) xxhash.*

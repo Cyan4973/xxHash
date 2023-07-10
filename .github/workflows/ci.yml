@@ -208,6 +208,59 @@ jobs:
         make -C tests/bench
 
 
+  ubuntu-wasm:
+    name: Ubuntu Node ${{ matrix.node-version }} WebAssembly/asm.js tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16.x, 17.x, 18.x]
+
+    env:
+      EM_VERSION: 3.1.33 # TODO: more emsdk versions
+      EM_CACHE_FOLDER: emsdk-cache-${{ matrix.node-version }}
+      CC: emcc
+
+    steps:
+    - uses: actions/checkout@v3 # https://github.com/actions/checkout
+
+    - name: Setup cache
+      id: cache-system-libraries
+      uses: actions/cache@v3
+      with:
+        path: ${{env.EM_CACHE_FOLDER}}
+        key: em${{env.EM_VERSION}}-node${{ matrix.node-version }}-${{ runner.os }}
+
+    - name: Setup emsdk
+      uses: mymindstorm/setup-emsdk@v12
+      with:
+        version: ${{env.EM_VERSION}}
+        actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Environment info
+      run: |
+        echo && node -p '`node version: ${process.versions.node}, v8 version: ${process.versions.v8}`'
+        echo && emcc --version
+        echo && make -v
+        echo && cat /proc/cpuinfo || echo /proc/cpuinfo is not present
+
+    - name: Scalar code path
+      run: |
+        CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" RUN_ENV="node" NODE_JS=1 make clean check
+
+    - name: SIMD128 (via NEON SIMDe) code path (XXH_VECTOR=XXH_NEON)
+      run: |
+        CPPFLAGS="-DXXH_VECTOR=XXH_NEON -msimd128" RUN_ENV="node" NODE_JS=1 make clean check
+
+    - name: Scalar asm.js (-sWASM=0)
+      run: |
+        CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" RUN_ENV="node" NODE_JS=1 LDFLAGS="-sWASM=0" make clean check
+
+
   ubuntu-misc:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest

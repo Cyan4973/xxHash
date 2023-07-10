@@ -39,7 +39,32 @@
     typedef struct stat XSUM_stat_t;
 #endif
 
-#if (defined(__linux__) && (XSUM_PLATFORM_POSIX_VERSION >= 1)) \
+#if defined(__EMSCRIPTEN__) && defined(XSUM_NODE_JS)
+#  include <unistd.h>   /* isatty */
+#  include <emscripten.h> /* EM_ASM_INT */
+
+/* The Emscripten SDK does not properly detect when the standard streams
+ * are piped to node.js, and there does not seem to be any way to tell in
+ * plain C. To work around it, inline JavaScript is used to call Node's
+ * isatty() function. */
+static int XSUM_IS_CONSOLE(FILE* stdStream)
+{
+    /* https://github.com/iliakan/detect-node */
+    int is_node = EM_ASM_INT((
+        return (Object.prototype.toString.call(
+            typeof process !== 'undefined' ? process : 0
+        ) == '[object process]') | 0
+    ));
+    if (is_node) {
+        return EM_ASM_INT(
+            return require('node:tty').isatty($0),
+            fileno(stdStream)
+        );
+    } else {
+        return isatty(fileno(stdStream));
+    }
+}
+#elif defined(__EMSCRIPTEN__) || (defined(__linux__) && (XSUM_PLATFORM_POSIX_VERSION >= 1)) \
  || (XSUM_PLATFORM_POSIX_VERSION >= 200112L) \
  || defined(__DJGPP__) \
  || defined(__MSYS__) \

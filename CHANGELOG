@@ -18,7 +18,7 @@ v0.8.2
 - portability: can build on Haiku (@Begasus)
 - portability: validated on m68k and risc-v
 - doc  : XXH3 specification (@Adrien1018)
-- doc  : improved doxygen documentation (@easyaspi314)
+- doc  : improved doxygen documentation (@easyaspi314, @t-mat)
 - misc : dedicated sanity test binary (@t-mat)
 
 v0.8.1

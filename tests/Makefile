@@ -108,6 +108,10 @@ test_filename_escape: $(XXHSUM)
 test_cli_comment_line: $(XXHSUM)
 	$(SHELL) ./cli-comment-line.sh
 
+.PHONY: test_cli_ignore_missing
+test_cli_ignore_missing: $(XXHSUM)
+	$(SHELL) ./cli-ignore-missing.sh
+
 .PHONY: test_sanity
 test_sanity: sanity_test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) sanity_test.c -o sanity_test$(EXT)

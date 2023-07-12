@@ -869,17 +869,113 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64(XXH_NOESCAPE const void* input, size
  * @see XXH64_state_s for details.
  */
 typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
+
+/*!
+ * @brief Allocates an @ref XXH64_state_t.
+ *
+ * Must be freed with XXH64_freeState().
+ * @return An allocated XXH64_state_t on success, `NULL` on failure.
+ */
 XXH_PUBLIC_API XXH_MALLOCF XXH64_state_t* XXH64_createState(void);
+
+/*!
+ * @brief Frees an @ref XXH64_state_t.
+ *
+ * Must be allocated with XXH64_createState().
+ * @param statePtr A pointer to an @ref XXH64_state_t allocated with @ref XXH64_createState().
+ * @return XXH_OK.
+ */
 XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
+
+/*!
+ * @brief Copies one @ref XXH64_state_t to another.
+ *
+ * @param dst_state The state to copy to.
+ * @param src_state The state to copy from.
+ * @pre
+ *   @p dst_state and @p src_state must not be `NULL` and must not overlap.
+ */
 XXH_PUBLIC_API void XXH64_copyState(XXH_NOESCAPE XXH64_state_t* dst_state, const XXH64_state_t* src_state);
 
+/*!
+ * @brief Resets an @ref XXH64_state_t to begin a new hash.
+ *
+ * This function resets and seeds a state. Call it before @ref XXH64_update().
+ *
+ * @param statePtr The state struct to reset.
+ * @param seed The 64-bit seed to alter the hash result predictably.
+ *
+ * @pre
+ *   @p statePtr must not be `NULL`.
+ *
+ * @return @ref XXH_OK on success, @ref XXH_ERROR on failure.
+ */
 XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH_NOESCAPE XXH64_state_t* statePtr, XXH64_hash_t seed);
+
+/*!
+ * @brief Consumes a block of @p input to an @ref XXH64_state_t.
+ *
+ * Call this to incrementally consume blocks of data.
+ *
+ * @param statePtr The state struct to update.
+ * @param input The block of data to be hashed, at least @p length bytes in size.
+ * @param length The length of @p input, in bytes.
+ *
+ * @pre
+ *   @p statePtr must not be `NULL`.
+ * @pre
+ *   The memory between @p input and @p input + @p length must be valid,
+ *   readable, contiguous memory. However, if @p length is `0`, @p input may be
+ *   `NULL`. In C++, this also must be *TriviallyCopyable*.
+ *
+ * @return @ref XXH_OK on success, @ref XXH_ERROR on failure.
+ */
 XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH_NOESCAPE XXH64_state_t* statePtr, XXH_NOESCAPE const void* input, size_t length);
+
+/*!
+ * @brief Returns the calculated hash value from an @ref XXH64_state_t.
+ *
+ * @note
+ *   Calling XXH64_digest() will not affect @p statePtr, so you can update,
+ *   digest, and update again.
+ *
+ * @param statePtr The state struct to calculate the hash from.
+ *
+ * @pre
+ *  @p statePtr must not be `NULL`.
+ *
+ * @return The calculated xxHash64 value from that state.
+ */
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_digest (XXH_NOESCAPE const XXH64_state_t* statePtr);
 #endif /* !XXH_NO_STREAM */
 /*******   Canonical representation   *******/
+
+/*!
+ * @brief Canonical (big endian) representation of @ref XXH64_hash_t.
+ */
 typedef struct { unsigned char digest[sizeof(XXH64_hash_t)]; } XXH64_canonical_t;
+
+/*!
+ * @brief Converts an @ref XXH64_hash_t to a big endian @ref XXH64_canonical_t.
+ *
+ * @param dst The @ref XXH64_canonical_t pointer to be stored to.
+ * @param hash The @ref XXH64_hash_t to be converted.
+ *
+ * @pre
+ *   @p dst must not be `NULL`.
+ */
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst, XXH64_hash_t hash);
+
+/*!
+ * @brief Converts an @ref XXH64_canonical_t to a native @ref XXH64_hash_t.
+ *
+ * @param src The @ref XXH64_canonical_t to convert.
+ *
+ * @pre
+ *   @p src must not be `NULL`.
+ *
+ * @return The converted hash.
+ */
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_canonical_t* src);
 
 #ifndef XXH_NO_XXH3

@@ -1097,16 +1097,18 @@ static int XSUM_usage_advanced(const char* exename)
     XSUM_log( "  -V, --version        Display version information \n");
     XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
     XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
+    XSUM_log( "      --binary         Read in binary mode \n");
     XSUM_log( "  -b                   Run benchmark \n");
     XSUM_log( "  -b#                  Bench only algorithm variant # \n");
     XSUM_log( "  -i#                  Number of times to run the benchmark (default: %i) \n", NBLOOPS_DEFAULT);
     XSUM_log( "  -q, --quiet          Don't display version header in benchmark mode \n");
     XSUM_log( "\n");
-    XSUM_log( "The following four options are useful only when verifying checksums (-c): \n");
+    XSUM_log( "The following five options are useful only when verifying checksums (-c): \n");
     XSUM_log( "  -q, --quiet          Don't print OK for each successfully verified file \n");
     XSUM_log( "      --status         Don't output anything, status code shows success \n");
     XSUM_log( "      --strict         Exit non-zero for improperly formatted checksum lines \n");
     XSUM_log( "      --warn           Warn about improperly formatted checksum lines \n");
+    XSUM_log( "      --ignore-missing Don't fail or report status for missing files \n");
     return 0;
 }
 

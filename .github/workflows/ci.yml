@@ -517,8 +517,8 @@ jobs:
       fail-fast: false  # 'false' means: Don't stop matrix workflows even if some matrix failed.
       matrix:
         system: [
-          { os: windows-2022, vc: "VC++ 2022", clangcl: 'false', }, # CMake failed to configure clang-cl with VC++2022.
-          { os: windows-2019, vc: "VC++ 2019", clangcl: 'true',  },
+          { os: windows-2022, vc: "VC++ 2022", clangcl: 'true', },
+          { os: windows-2019, vc: "VC++ 2019", clangcl: 'true', },
         ]
         arch: [ x64, Win32, ARM, ARM64 ]
 

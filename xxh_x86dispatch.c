@@ -255,7 +255,7 @@ extern "C" {
 static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
 {
 #if defined(_MSC_VER)
-    __cpuidex(abcd, eax, ecx);
+    __cpuidex((int*)abcd, eax, ecx);
 #else
     xxh_u32 ebx, edx;
 # if defined(__i386__) && defined(__PIC__)

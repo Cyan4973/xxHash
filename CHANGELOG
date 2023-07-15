@@ -13,6 +13,7 @@ v0.8.2
 - build: new build options XXH_NO_XXH3, XXH_SIZE_OPT and XXH_NO_STREAM to reduce binary size (@easyaspi314)
 - build: dedicated install targets (@ffontaine)
 - build: support DISPATCH mode in cmake (@hzhuang1)
+- portability: fix x86dispatch when building with Visual + clang-cl (@t-mat)
 - portability: SVE vector implementation of XXH3 (@hzhuang1)
 - portability: compatibility with freestanding environments, using XXH_NO_STDLIB
 - portability: can build on Haiku (@Begasus)

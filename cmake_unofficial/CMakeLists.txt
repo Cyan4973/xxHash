@@ -85,7 +85,8 @@ endif()
 # libxxhash
 if((DEFINED DISPATCH) AND (DEFINED PLATFORM))
   # Only support DISPATCH option on x86_64.
-  if("${PLATFORM}" STREQUAL "x86_64")
+  if(("${PLATFORM}" STREQUAL "x86_64") OR ("${PLATFORM}" STREQUAL "AMD64"))
+    set(XXHSUM_DISPATCH ON)
     message(STATUS "Enable xxHash dispatch mode")
     add_library(xxhash "${XXHASH_DIR}/xxh_x86dispatch.c"
                        "${XXHASH_DIR}/xxhash.c"
@@ -113,12 +114,17 @@ set_target_properties(xxhash PROPERTIES
 if(XXHASH_BUILD_XXHSUM)
   set(XXHSUM_DIR "${XXHASH_DIR}/cli")
   # xxhsum
-  add_executable(xxhsum "${XXHSUM_DIR}/xxhsum.c"
-                        "${XXHSUM_DIR}/xsum_os_specific.c"
-                        "${XXHSUM_DIR}/xsum_output.c"
-                        "${XXHSUM_DIR}/xsum_sanity_check.c"
-                        "${XXHSUM_DIR}/xsum_bench.c"
-                )
+  set(XXHSUM_SOURCES)
+  if (XXHSUM_DISPATCH)
+    list(APPEND XXHSUM_SOURCES "${XXHASH_DIR}/xxh_x86dispatch.c")
+  endif()
+  list(APPEND XXHSUM_SOURCES "${XXHSUM_DIR}/xxhsum.c"
+                             "${XXHSUM_DIR}/xsum_os_specific.c"
+                             "${XXHSUM_DIR}/xsum_output.c"
+                             "${XXHSUM_DIR}/xsum_sanity_check.c"
+                             "${XXHSUM_DIR}/xsum_bench.c"
+      )
+  add_executable(xxhsum ${XXHSUM_SOURCES})
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 
   target_link_libraries(xxhsum PRIVATE xxhash)

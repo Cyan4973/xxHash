@@ -2138,7 +2138,11 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size)
 #  include <assert.h>   /* note: can still be disabled with NDEBUG */
 #  define XXH_ASSERT(c)   assert(c)
 #else
-#  define XXH_ASSERT(c)   XXH_ASSUME(c)
+#  if defined(__INTEL_COMPILER)
+#    define XXH_ASSERT(c)   XXH_ASSUME((unsigned char) (c))
+#  else
+#    define XXH_ASSERT(c)   XXH_ASSUME(c)
+#  endif
 #endif
 
 /* note: use after variable declarations */

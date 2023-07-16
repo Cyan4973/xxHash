@@ -8,7 +8,7 @@ OUTPUT_DIRECTORY       = doxygen
 OUTPUT_LANGUAGE        = English
 
 # We already separate the internal docs.
-INTERNAL_DOCS          = NO
+INTERNAL_DOCS          = YES
 # Consistency
 SORT_MEMBER_DOCS       = NO
 BRIEF_MEMBER_DESC      = YES
@@ -28,10 +28,10 @@ MARKDOWN_SUPPORT       = YES
 
 # xxHash is a C library
 OPTIMIZE_OUTPUT_FOR_C  = YES
-# We hide private part from public document
-EXTRACT_STATIC         = NO
-# We hide private part from public document
-EXTRACT_PRIVATE        = NO
+# So we can document the internals
+EXTRACT_STATIC         = YES
+# We show private part in the internal document
+EXTRACT_PRIVATE        = YES
 # Document the macros
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES

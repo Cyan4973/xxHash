@@ -1505,6 +1505,7 @@ struct XXH64_state_s {
 #define XXH3_INTERNALBUFFER_SIZE 256
 
 /*!
+ * @internal
  * @brief Default size of the secret buffer (and @ref XXH3_kSecret).
  *
  * This is the size used in @ref XXH3_kSecret and the seeded functions.

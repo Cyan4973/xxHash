@@ -56,6 +56,7 @@ extern "C" {
 #  error "Dispatching is currently only supported on x86 and x86_64."
 #endif
 
+/*! @cond Doxygen ignores this part */
 #ifndef XXH_HAS_INCLUDE
 #  ifdef __has_include
 #    define XXH_HAS_INCLUDE(x) __has_include(x)
@@ -63,6 +64,7 @@ extern "C" {
 #    define XXH_HAS_INCLUDE(x) 0
 #  endif
 #endif
+/*! @endcond */
 
 /*!
  * @def XXH_X86DISPATCH_ALLOW_AVX
@@ -175,6 +177,7 @@ extern "C" {
  *
  * @def XXH_TARGET_AVX512
  * @brief Like @ref XXH_TARGET_SSE2, but for AVX512.
+ *
  */
 #if defined(__GNUC__)
 #  include <emmintrin.h> /* SSE2 */
@@ -205,6 +208,7 @@ extern "C" {
 #  error "Dispatching is currently not supported for your compiler."
 #endif
 
+/*! @cond Doxygen ignores this part */
 #ifdef XXH_DISPATCH_DEBUG
 /* debug logging */
 #  include <stdio.h>
@@ -214,6 +218,7 @@ extern "C" {
 #  undef NDEBUG /* avoid redefinition */
 #  define NDEBUG
 #endif
+/*! @endcond */
 #include <assert.h>
 
 #ifndef XXH_DOXYGEN
@@ -222,6 +227,7 @@ extern "C" {
 #include "xxhash.h"
 #endif
 
+/*! @cond Doxygen ignores this part */
 #ifndef XXH_HAS_ATTRIBUTE
 #  ifdef __has_attribute
 #    define XXH_HAS_ATTRIBUTE(...) __has_attribute(__VA_ARGS__)
@@ -229,7 +235,9 @@ extern "C" {
 #    define XXH_HAS_ATTRIBUTE(...) 0
 #  endif
 #endif
+/*! @endcond */
 
+/*! @cond Doxygen ignores this part */
 #if XXH_HAS_ATTRIBUTE(constructor)
 #  define XXH_CONSTRUCTOR __attribute__((constructor))
 #  define XXH_DISPATCH_MAYBE_NULL 0
@@ -237,8 +245,10 @@ extern "C" {
 #  define XXH_CONSTRUCTOR
 #  define XXH_DISPATCH_MAYBE_NULL 1
 #endif
+/*! @endcond */
 
 
+/*! @cond Doxygen ignores this part */
 /*
  * Support both AT&T and Intel dialects
  *
@@ -256,9 +266,10 @@ extern "C" {
 #else
 #  define XXH_I_ATT(intel, att) "{" att "|" intel "}\n\t"
 #endif
+/*! @endcond */
 
 /*!
- * @internal
+ * @private
  * @brief Runs CPUID.
  *
  * @param eax , ecx The parameters to pass to CPUID, %eax and %ecx respectively.
@@ -301,7 +312,7 @@ static void XXH_cpuid(xxh_u32 eax, xxh_u32 ecx, xxh_u32* abcd)
 
 #if XXH_DISPATCH_AVX2 || XXH_DISPATCH_AVX512
 /*!
- * @internal
+ * @private
  * @brief Runs `XGETBV`.
  *
  * While the CPU may support AVX2, the operating system might not properly save
@@ -335,15 +346,17 @@ static xxh_u64 XXH_xgetbv(void)
 }
 #endif
 
+/*! @cond Doxygen ignores this part */
 #define XXH_SSE2_CPUID_MASK (1 << 26)
 #define XXH_OSXSAVE_CPUID_MASK ((1 << 26) | (1 << 27))
 #define XXH_AVX2_CPUID_MASK (1 << 5)
 #define XXH_AVX2_XGETBV_MASK ((1 << 2) | (1 << 1))
 #define XXH_AVX512F_CPUID_MASK (1 << 16)
 #define XXH_AVX512F_XGETBV_MASK ((7 << 5) | (1 << 2) | (1 << 1))
+/*! @endcond */
 
 /*!
- * @internal
+ * @private
  * @brief Returns the best XXH3 implementation.
  *
  * Runs various CPUID/XGETBV tests to try and determine the best implementation.
@@ -473,8 +486,9 @@ static int XXH_featureTest(void)
 
 /* ===   Vector implementations   === */
 
+/*! @cond PRIVATE */
 /*!
- * @internal
+ * @private
  * @brief Defines the various dispatch functions.
  *
  * TODO: Consolidate?
@@ -482,6 +496,7 @@ static int XXH_featureTest(void)
  * @param suffix The suffix for the functions, e.g. sse2 or scalar
  * @param target XXH_TARGET_* or empty.
  */
+
 #define XXH_DEFINE_DISPATCH_FUNCS(suffix, target)                             \
                                                                               \
 /* ===   XXH3, default variants   === */                                      \
@@ -567,8 +582,10 @@ XXHL128_seed_##suffix(XXH_NOESCAPE const void* XXH_RESTRICT input, size_t len,\
                     XXH3_initCustomSecret_##suffix);                          \
 }
 
+/*! @endcond */
 /* End XXH_DEFINE_DISPATCH_FUNCS */
 
+/*! @cond Doxygen ignores this part */
 #if XXH_DISPATCH_SCALAR
 XXH_DEFINE_DISPATCH_FUNCS(scalar, /* nothing */)
 #endif
@@ -580,9 +597,11 @@ XXH_DEFINE_DISPATCH_FUNCS(avx2, XXH_TARGET_AVX2)
 XXH_DEFINE_DISPATCH_FUNCS(avx512, XXH_TARGET_AVX512)
 #endif
 #undef XXH_DEFINE_DISPATCH_FUNCS
+/*! @endcond */
 
 /* ====    Dispatchers    ==== */
 
+/*! @cond Doxygen ignores this part */
 typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_default)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t);
 
 typedef XXH64_hash_t (*XXH3_dispatchx86_hashLong64_withSeed)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t, XXH64_hash_t);
@@ -599,9 +618,10 @@ typedef struct {
 } XXH_dispatchFunctions_s;
 
 #define XXH_NB_DISPATCHES 4
+/*! @endcond */
 
 /*!
- * @internal
+ * @private
  * @brief Table of dispatchers for @ref XXH3_64bits().
  *
  * @pre The indices must match @ref XXH_VECTOR_TYPE.
@@ -625,12 +645,13 @@ static const XXH_dispatchFunctions_s XXH_kDispatch[XXH_NB_DISPATCHES] = {
 #endif
 };
 /*!
- * @internal
+ * @private
  * @brief The selected dispatch table for @ref XXH3_64bits().
  */
 static XXH_dispatchFunctions_s XXH_g_dispatch = { NULL, NULL, NULL, NULL };
 
 
+/*! @cond Doxygen ignores this part */
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t);
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_withSeed)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t, XXH64_hash_t);
@@ -643,10 +664,11 @@ typedef struct {
     XXH3_dispatchx86_hashLong128_withSecret hashLong128_secret;
     XXH3_dispatchx86_update                 update;
 } XXH_dispatch128Functions_s;
+/*! @endcond */
 
 
 /*!
- * @internal
+ * @private
  * @brief Table of dispatchers for @ref XXH3_128bits().
  *
  * @pre The indices must match @ref XXH_VECTOR_TYPE.
@@ -671,13 +693,13 @@ static const XXH_dispatch128Functions_s XXH_kDispatch128[XXH_NB_DISPATCHES] = {
 };
 
 /*!
- * @internal
+ * @private
  * @brief The selected dispatch table for @ref XXH3_64bits().
  */
 static XXH_dispatch128Functions_s XXH_g_dispatch128 = { NULL, NULL, NULL, NULL };
 
 /*!
- * @internal
+ * @private
  * @brief Runs a CPUID check and sets the correct dispatch tables.
  */
 static XXH_CONSTRUCTOR void XXH_setDispatch(void)
@@ -700,6 +722,7 @@ static XXH_CONSTRUCTOR void XXH_setDispatch(void)
 
 
 /* ====    XXH3 public functions    ==== */
+/*! @cond Doxygen ignores this part */
 
 static XXH64_hash_t
 XXH3_hashLong_64b_defaultSecret_selection(const void* input, size_t len,
@@ -755,8 +778,11 @@ XXH3_64bits_update_dispatch(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const
     return XXH_g_dispatch.update(state, (const xxh_u8*)input, len);
 }
 
+/*! @endcond */
+
 
 /* ====    XXH128 public functions    ==== */
+/*! @cond Doxygen ignores this part */
 
 static XXH128_hash_t
 XXH3_hashLong_128b_defaultSecret_selection(const void* input, size_t len,
@@ -810,6 +836,8 @@ XXH3_128bits_update_dispatch(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE cons
         XXH_setDispatch();
     return XXH_g_dispatch128.update(state, (const xxh_u8*)input, len);
 }
+
+/*! @endcond */
 
 #if defined (__cplusplus)
 }

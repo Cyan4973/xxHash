@@ -737,32 +737,41 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 
+/* @cond Doxygen ignores this part */
 #ifdef __has_attribute
 # define XXH_HAS_ATTRIBUTE(x) __has_attribute(x)
 #else
 # define XXH_HAS_ATTRIBUTE(x) 0
 #endif
+/* @endcond */
 
+/* @cond Doxygen ignores this part */
 /*
  * C23 __STDC_VERSION__ number hasn't been specified yet. For now
  * leave as `201711L` (C17 + 1).
  * TODO: Update to correct value when its been specified.
  */
 #define XXH_C23_VN 201711L
+/* @endcond */
 
+/* @cond Doxygen ignores this part */
 /* C-language Attributes are added in C23. */
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= XXH_C23_VN) && defined(__has_c_attribute)
 # define XXH_HAS_C_ATTRIBUTE(x) __has_c_attribute(x)
 #else
 # define XXH_HAS_C_ATTRIBUTE(x) 0
 #endif
+/* @endcond */
 
+/* @cond Doxygen ignores this part */
 #if defined(__cplusplus) && defined(__has_cpp_attribute)
 # define XXH_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
 #else
 # define XXH_HAS_CPP_ATTRIBUTE(x) 0
 #endif
+/* @endcond */
 
+/* @cond Doxygen ignores this part */
 /*
  * Define XXH_FALLTHROUGH macro for annotating switch case with the 'fallthrough' attribute
  * introduced in CPP17 and C23.
@@ -776,7 +785,9 @@ XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canoni
 #else
 # define XXH_FALLTHROUGH /* fallthrough */
 #endif
+/* @endcond */
 
+/* @cond Doxygen ignores this part */
 /*
  * Define XXH_NOESCAPE for annotated pointers in public API.
  * https://clang.llvm.org/docs/AttributeReference.html#noescape
@@ -787,6 +798,7 @@ XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canoni
 #else
 # define XXH_NOESCAPE
 #endif
+/* @endcond */
 
 
 /*!

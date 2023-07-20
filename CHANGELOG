@@ -2,7 +2,7 @@ v0.8.2
 - fix  : XXH3 S390x vector implementation (@hzhuang1)
 - fix  : PowerPC vector compilation with IBM XL compiler (@MaxiBoether)
 - perf : improved WASM speed by x2/x3 using SIMD128 (@easyaspi314)
-- perf : improved speed (+15%) for XXH3 on ARM NEON (@easyaspi314)
+- perf : improved speed (+20%) for XXH3 on ARM NEON (@easyaspi314)
 - cli  : Fix filename contain /LF character (@t-mat)
 - cli  : Support # comment lines in --check files (@t-mat)
 - cli  : Support commands --binary and --ignore-missing (@t-mat)

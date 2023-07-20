@@ -74,8 +74,7 @@ $(function() {
 <a href="#groups">Modules</a> &#124;
 <a href="#define-members">Macros</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
-<a href="#enum-members">Enumerations</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#enum-members">Enumerations</a>  </div>
   <div class="headertitle"><div class="title">Implementation</div></div>
 </div><!--header-->
 <div class="contents">
@@ -109,8 +108,8 @@ Macros</h2></td></tr>
 <tr class="memitem:ga3bc33577f47cf99f8b35a52d87c642c4"><td class="memItemLeft" align="right" valign="top"><a id="ga3bc33577f47cf99f8b35a52d87c642c4" name="ga3bc33577f47cf99f8b35a52d87c642c4"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_STATIC_ASSERT</b>(c)&#160;&#160;&#160;XXH_STATIC_ASSERT_WITH_MESSAGE((c),#c)</td></tr>
 <tr class="separator:ga3bc33577f47cf99f8b35a52d87c642c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gae6925393fb5122b81f1be774e5925658"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#gae6925393fb5122b81f1be774e5925658">XXH_COMPILER_GUARD</a>(var)&#160;&#160;&#160;((void)0)</td></tr>
-<tr class="memdesc:gae6925393fb5122b81f1be774e5925658"><td class="mdescLeft">&#160;</td><td class="mdescRight">Used to prevent unwanted optimizations for <code>var</code>.  <br /></td></tr>
+<tr class="memitem:gae6925393fb5122b81f1be774e5925658"><td class="memItemLeft" align="right" valign="top"><a id="gae6925393fb5122b81f1be774e5925658" name="gae6925393fb5122b81f1be774e5925658"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_COMPILER_GUARD</b>(var)&#160;&#160;&#160;((void)0)</td></tr>
 <tr class="separator:gae6925393fb5122b81f1be774e5925658"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaf87e473cf48d93cec7aa88dff1651e15"><td class="memItemLeft" align="right" valign="top"><a id="gaf87e473cf48d93cec7aa88dff1651e15" name="gaf87e473cf48d93cec7aa88dff1651e15"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_COMPILER_GUARD_CLANG_NEON</b>(var)&#160;&#160;&#160;((void)0)</td></tr>
@@ -127,8 +126,8 @@ Macros</h2></td></tr>
 <tr class="memitem:ga19febf6e29ba22bbdb86f5fe7d84d450"><td class="memItemLeft" align="right" valign="top"><a id="ga19febf6e29ba22bbdb86f5fe7d84d450" name="ga19febf6e29ba22bbdb86f5fe7d84d450"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_ASSUME</b>(c)&#160;&#160;&#160;if (!(c)) { XXH_UNREACHABLE(); }</td></tr>
 <tr class="separator:ga19febf6e29ba22bbdb86f5fe7d84d450"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga70a4b202f9523a2a811da16cde3f52eb"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga70a4b202f9523a2a811da16cde3f52eb">XXH_rotl32</a>(x,  r)&#160;&#160;&#160;(((x) &lt;&lt; (r)) | ((x) &gt;&gt; (32 - (r))))</td></tr>
-<tr class="memdesc:ga70a4b202f9523a2a811da16cde3f52eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">32-bit rotate left.  <br /></td></tr>
+<tr class="memitem:ga70a4b202f9523a2a811da16cde3f52eb"><td class="memItemLeft" align="right" valign="top"><a id="ga70a4b202f9523a2a811da16cde3f52eb" name="ga70a4b202f9523a2a811da16cde3f52eb"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_rotl32</b>(x,  r)&#160;&#160;&#160;(((x) &lt;&lt; (r)) | ((x) &gt;&gt; (32 - (r))))</td></tr>
 <tr class="separator:ga70a4b202f9523a2a811da16cde3f52eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga056473e50ab5e7acb43d00ca3d41632e"><td class="memItemLeft" align="right" valign="top"><a id="ga056473e50ab5e7acb43d00ca3d41632e" name="ga056473e50ab5e7acb43d00ca3d41632e"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_rotl64</b>(x,  r)&#160;&#160;&#160;(((x) &lt;&lt; (r)) | ((x) &gt;&gt; (64 - (r))))</td></tr>
@@ -148,122 +147,12 @@ Enumerations</h2></td></tr>
 <tr class="memitem:gadec56fccd4f83e34902b6b09ecccfff5"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#gadec56fccd4f83e34902b6b09ecccfff5">XXH_alignment</a> { <a class="el" href="group__impl.html#ggadec56fccd4f83e34902b6b09ecccfff5a41340c9f33fe739cef7a1c56dc617194">XXH_aligned</a>
 , <a class="el" href="group__impl.html#ggadec56fccd4f83e34902b6b09ecccfff5ab082c14fd7eef12bcb1dfda2e813586f">XXH_unaligned</a>
  }</td></tr>
-<tr class="memdesc:gadec56fccd4f83e34902b6b09ecccfff5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enum to indicate whether a pointer is aligned.  <a href="group__impl.html#gadec56fccd4f83e34902b6b09ecccfff5">More...</a><br /></td></tr>
 <tr class="separator:gadec56fccd4f83e34902b6b09ecccfff5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:ga0bd0e6873ef7d3b3520f9af3c44c357a"><td class="memItemLeft" align="right" valign="top">static void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga0bd0e6873ef7d3b3520f9af3c44c357a">XXH_malloc</a> (size_t s)</td></tr>
-<tr class="memdesc:ga0bd0e6873ef7d3b3520f9af3c44c357a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Modify this function to use a different routine than malloc().  <br /></td></tr>
-<tr class="separator:ga0bd0e6873ef7d3b3520f9af3c44c357a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga72dbb2775c66d0f9bdbe1529104c38c5"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga72dbb2775c66d0f9bdbe1529104c38c5">XXH_free</a> (void *p)</td></tr>
-<tr class="memdesc:ga72dbb2775c66d0f9bdbe1529104c38c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Modify this function to use a different routine than free().  <br /></td></tr>
-<tr class="separator:ga72dbb2775c66d0f9bdbe1529104c38c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga8d592f4a788e3da08bad709247452018"><td class="memItemLeft" align="right" valign="top">static void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga8d592f4a788e3da08bad709247452018">XXH_memcpy</a> (void *dest, const void *src, size_t size)</td></tr>
-<tr class="memdesc:ga8d592f4a788e3da08bad709247452018"><td class="mdescLeft">&#160;</td><td class="mdescRight">Modify this function to use a different routine than memcpy().  <br /></td></tr>
-<tr class="separator:ga8d592f4a788e3da08bad709247452018"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gadc976fc2a17b7e4a5796dfe3f2ad3f42"><td class="memItemLeft" align="right" valign="top">static xxh_u32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#gadc976fc2a17b7e4a5796dfe3f2ad3f42">XXH_read32</a> (const void *memPtr)</td></tr>
-<tr class="memdesc:gadc976fc2a17b7e4a5796dfe3f2ad3f42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads an unaligned 32-bit integer from <code>ptr</code> in native endianness.  <br /></td></tr>
-<tr class="separator:gadc976fc2a17b7e4a5796dfe3f2ad3f42"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gac418a4dae6ba853573204da89bed3b58"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#gac418a4dae6ba853573204da89bed3b58">XXH_isLittleEndian</a> (void)</td></tr>
-<tr class="memdesc:gac418a4dae6ba853573204da89bed3b58"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runtime check for <a class="el" href="group__tuning.html#ga408fac02658eb4a81f7a1877f1ca3b3f">XXH_CPU_LITTLE_ENDIAN</a>.  <br /></td></tr>
-<tr class="separator:gac418a4dae6ba853573204da89bed3b58"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga5655c52219f5627d7c11d73e08ec7bd1"><td class="memItemLeft" align="right" valign="top">static xxh_u32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga5655c52219f5627d7c11d73e08ec7bd1">XXH_swap32</a> (xxh_u32 x)</td></tr>
-<tr class="memdesc:ga5655c52219f5627d7c11d73e08ec7bd1"><td class="mdescLeft">&#160;</td><td class="mdescRight">A 32-bit byteswap.  <br /></td></tr>
-<tr class="separator:ga5655c52219f5627d7c11d73e08ec7bd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga68d580b8ee14a00d0e8d7098792a98c4"><td class="memItemLeft" align="right" valign="top">static xxh_u32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga68d580b8ee14a00d0e8d7098792a98c4">XXH_readLE32</a> (const void *ptr)</td></tr>
-<tr class="memdesc:ga68d580b8ee14a00d0e8d7098792a98c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads an unaligned 32-bit little endian integer from <code>ptr</code>.  <br /></td></tr>
-<tr class="separator:ga68d580b8ee14a00d0e8d7098792a98c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga56524ba77763e135610c9ffbdc269ac4"><td class="memItemLeft" align="right" valign="top">static xxh_u32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#ga56524ba77763e135610c9ffbdc269ac4">XXH_readBE32</a> (const void *ptr)</td></tr>
-<tr class="memdesc:ga56524ba77763e135610c9ffbdc269ac4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads an unaligned 32-bit big endian integer from <code>ptr</code>.  <br /></td></tr>
-<tr class="separator:ga56524ba77763e135610c9ffbdc269ac4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gab1eb5818f8467ec65b040c5e1dc7df3f"><td class="memItemLeft" align="right" valign="top">static xxh_u32&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__impl.html#gab1eb5818f8467ec65b040c5e1dc7df3f">XXH_readLE32_align</a> (const void *ptr, <a class="el" href="group__impl.html#gadec56fccd4f83e34902b6b09ecccfff5">XXH_alignment</a> align)</td></tr>
-<tr class="memdesc:gab1eb5818f8467ec65b040c5e1dc7df3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Like <a class="el" href="group__impl.html#ga68d580b8ee14a00d0e8d7098792a98c4">XXH_readLE32()</a>, but has an option for aligned reads.  <br /></td></tr>
-<tr class="separator:gab1eb5818f8467ec65b040c5e1dc7df3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga7e6127b51e114eb1f745a89f2702a473"><td class="memItemLeft" align="right" valign="top"><a id="ga7e6127b51e114eb1f745a89f2702a473" name="ga7e6127b51e114eb1f745a89f2702a473"></a>
 typedef <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>xxh_u64</b></td></tr>
 <tr class="separator:ga7e6127b51e114eb1f745a89f2702a473"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga8bed5086fa0e51b57efe6062c758ef7a"><td class="memItemLeft" align="right" valign="top"><a id="ga8bed5086fa0e51b57efe6062c758ef7a" name="ga8bed5086fa0e51b57efe6062c758ef7a"></a>
-static xxh_u64&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_read64</b> (const void *memPtr)</td></tr>
-<tr class="separator:ga8bed5086fa0e51b57efe6062c758ef7a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga80f832059c56b50855eada0a9cc525e6"><td class="memItemLeft" align="right" valign="top"><a id="ga80f832059c56b50855eada0a9cc525e6" name="ga80f832059c56b50855eada0a9cc525e6"></a>
-static xxh_u64&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_swap64</b> (xxh_u64 x)</td></tr>
-<tr class="separator:ga80f832059c56b50855eada0a9cc525e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga3364d505ad21092710ae36b29492b5c0"><td class="memItemLeft" align="right" valign="top"><a id="ga3364d505ad21092710ae36b29492b5c0" name="ga3364d505ad21092710ae36b29492b5c0"></a>
-static xxh_u64&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_readLE64</b> (const void *ptr)</td></tr>
-<tr class="separator:ga3364d505ad21092710ae36b29492b5c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaba04fa2268d9b19f9f3b82922eecb3a0"><td class="memItemLeft" align="right" valign="top"><a id="gaba04fa2268d9b19f9f3b82922eecb3a0" name="gaba04fa2268d9b19f9f3b82922eecb3a0"></a>
-static xxh_u64&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_readBE64</b> (const void *ptr)</td></tr>
-<tr class="separator:gaba04fa2268d9b19f9f3b82922eecb3a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gadb8ea4821b5d15bcf1329530047afed3"><td class="memItemLeft" align="right" valign="top"><a id="gadb8ea4821b5d15bcf1329530047afed3" name="gadb8ea4821b5d15bcf1329530047afed3"></a>
-static xxh_u64&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_readLE64_align</b> (const void *ptr, <a class="el" href="group__impl.html#gadec56fccd4f83e34902b6b09ecccfff5">XXH_alignment</a> align)</td></tr>
-<tr class="separator:gadb8ea4821b5d15bcf1329530047afed3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="gae6925393fb5122b81f1be774e5925658" name="gae6925393fb5122b81f1be774e5925658"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gae6925393fb5122b81f1be774e5925658">&#9670;&#160;</a></span>XXH_COMPILER_GUARD</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define XXH_COMPILER_GUARD</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">var</td><td>)</td>
-          <td>&#160;&#160;&#160;((void)0)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Used to prevent unwanted optimizations for <code>var</code>. </p>
-<p>It uses an empty GCC inline assembly statement with a register constraint which forces <code>var</code> into a general purpose register (eg eax, ebx, ecx on x86) and marks it as modified.</p>
-<p>This is used in a few places to avoid unwanted autovectorization (e.g. <a class="el" href="group___x_x_h32__impl.html#gacada60d1c18a77374f1d8144d64790d1" title="Normal stripe processing routine.">XXH32_round()</a>). All vectorization we want is explicit via intrinsics, and <em>usually</em> isn't wanted elsewhere.</p>
-<p>We also use it to prevent unwanted constant folding for AArch64 in XXH3_initCustomSecret_scalar(). </p>
-
-</div>
-</div>
-<a id="ga70a4b202f9523a2a811da16cde3f52eb" name="ga70a4b202f9523a2a811da16cde3f52eb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga70a4b202f9523a2a811da16cde3f52eb">&#9670;&#160;</a></span>XXH_rotl32</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define XXH_rotl32</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">x, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">r&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td>&#160;&#160;&#160;(((x) &lt;&lt; (r)) | ((x) &gt;&gt; (32 - (r))))</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>32-bit rotate left. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">x</td><td>The 32-bit integer to be rotated. </td></tr>
-    <tr><td class="paramname">r</td><td>The number of bits to rotate. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section pre"><dt>Precondition</dt><dd><code>r</code> &gt; 0 &amp;&amp; <code>r</code> &lt; 32 </dd></dl>
-<dl class="section note"><dt>Note</dt><dd><code>x</code> and <code>r</code> may be evaluated multiple times. </dd></dl>
-<dl class="section return"><dt>Returns</dt><dd>The rotated result. </dd></dl>
-
-</div>
-</div>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
 <a id="gadec56fccd4f83e34902b6b09ecccfff5" name="gadec56fccd4f83e34902b6b09ecccfff5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#gadec56fccd4f83e34902b6b09ecccfff5">&#9670;&#160;</a></span>XXH_alignment</h2>
@@ -276,335 +165,12 @@ static xxh_u64&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_readLE6
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Enum to indicate whether a pointer is aligned. </p>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggadec56fccd4f83e34902b6b09ecccfff5a41340c9f33fe739cef7a1c56dc617194" name="ggadec56fccd4f83e34902b6b09ecccfff5a41340c9f33fe739cef7a1c56dc617194"></a>XXH_aligned&#160;</td><td class="fielddoc"><p>Aligned </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggadec56fccd4f83e34902b6b09ecccfff5ab082c14fd7eef12bcb1dfda2e813586f" name="ggadec56fccd4f83e34902b6b09ecccfff5ab082c14fd7eef12bcb1dfda2e813586f"></a>XXH_unaligned&#160;</td><td class="fielddoc"><p>Possibly unaligned </p>
 </td></tr>
 </table>
-
-</div>
-</div>
-<h2 class="groupheader">Function Documentation</h2>
-<a id="ga0bd0e6873ef7d3b3520f9af3c44c357a" name="ga0bd0e6873ef7d3b3520f9af3c44c357a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga0bd0e6873ef7d3b3520f9af3c44c357a">&#9670;&#160;</a></span>XXH_malloc()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void * XXH_malloc </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>s</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Modify this function to use a different routine than malloc(). </p>
-
-</div>
-</div>
-<a id="ga72dbb2775c66d0f9bdbe1529104c38c5" name="ga72dbb2775c66d0f9bdbe1529104c38c5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga72dbb2775c66d0f9bdbe1529104c38c5">&#9670;&#160;</a></span>XXH_free()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void XXH_free </td>
-          <td>(</td>
-          <td class="paramtype">void *&#160;</td>
-          <td class="paramname"><em>p</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Modify this function to use a different routine than free(). </p>
-
-</div>
-</div>
-<a id="ga8d592f4a788e3da08bad709247452018" name="ga8d592f4a788e3da08bad709247452018"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga8d592f4a788e3da08bad709247452018">&#9670;&#160;</a></span>XXH_memcpy()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void * XXH_memcpy </td>
-          <td>(</td>
-          <td class="paramtype">void *&#160;</td>
-          <td class="paramname"><em>dest</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const void *&#160;</td>
-          <td class="paramname"><em>src</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>size</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Modify this function to use a different routine than memcpy(). </p>
-
-</div>
-</div>
-<a id="gadc976fc2a17b7e4a5796dfe3f2ad3f42" name="gadc976fc2a17b7e4a5796dfe3f2ad3f42"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gadc976fc2a17b7e4a5796dfe3f2ad3f42">&#9670;&#160;</a></span>XXH_read32()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">xxh_u32 XXH_read32 </td>
-          <td>(</td>
-          <td class="paramtype">const void *&#160;</td>
-          <td class="paramname"><em>ptr</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Reads an unaligned 32-bit integer from <code>ptr</code> in native endianness. </p>
-<p>Affected by <a class="el" href="group__tuning.html#ga04b48241beb7c34e5929d328cf5cc71a">XXH_FORCE_MEMORY_ACCESS</a>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">ptr</td><td>The pointer to read from. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>The 32-bit native endian integer from the bytes at <code>ptr</code>. </dd></dl>
-
-</div>
-</div>
-<a id="gac418a4dae6ba853573204da89bed3b58" name="gac418a4dae6ba853573204da89bed3b58"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gac418a4dae6ba853573204da89bed3b58">&#9670;&#160;</a></span>XXH_isLittleEndian()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static int XXH_isLittleEndian </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Runtime check for <a class="el" href="group__tuning.html#ga408fac02658eb4a81f7a1877f1ca3b3f">XXH_CPU_LITTLE_ENDIAN</a>. </p>
-<p>Most compilers will constant fold this. </p>
-
-</div>
-</div>
-<a id="ga5655c52219f5627d7c11d73e08ec7bd1" name="ga5655c52219f5627d7c11d73e08ec7bd1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga5655c52219f5627d7c11d73e08ec7bd1">&#9670;&#160;</a></span>XXH_swap32()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">xxh_u32 XXH_swap32 </td>
-          <td>(</td>
-          <td class="paramtype">xxh_u32&#160;</td>
-          <td class="paramname"><em>x</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>A 32-bit byteswap. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">x</td><td>The 32-bit integer to byteswap. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd><code>x</code>, byteswapped. </dd></dl>
-
-</div>
-</div>
-<a id="ga68d580b8ee14a00d0e8d7098792a98c4" name="ga68d580b8ee14a00d0e8d7098792a98c4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga68d580b8ee14a00d0e8d7098792a98c4">&#9670;&#160;</a></span>XXH_readLE32()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">xxh_u32 XXH_readLE32 </td>
-          <td>(</td>
-          <td class="paramtype">const void *&#160;</td>
-          <td class="paramname"><em>ptr</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Reads an unaligned 32-bit little endian integer from <code>ptr</code>. </p>
-<p>Affected by <a class="el" href="group__tuning.html#ga04b48241beb7c34e5929d328cf5cc71a">XXH_FORCE_MEMORY_ACCESS</a>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">ptr</td><td>The pointer to read from. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>The 32-bit little endian integer from the bytes at <code>ptr</code>. </dd></dl>
-
-</div>
-</div>
-<a id="ga56524ba77763e135610c9ffbdc269ac4" name="ga56524ba77763e135610c9ffbdc269ac4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga56524ba77763e135610c9ffbdc269ac4">&#9670;&#160;</a></span>XXH_readBE32()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">xxh_u32 XXH_readBE32 </td>
-          <td>(</td>
-          <td class="paramtype">const void *&#160;</td>
-          <td class="paramname"><em>ptr</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Reads an unaligned 32-bit big endian integer from <code>ptr</code>. </p>
-<p>Affected by <a class="el" href="group__tuning.html#ga04b48241beb7c34e5929d328cf5cc71a">XXH_FORCE_MEMORY_ACCESS</a>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">ptr</td><td>The pointer to read from. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>The 32-bit big endian integer from the bytes at <code>ptr</code>. </dd></dl>
-
-</div>
-</div>
-<a id="gab1eb5818f8467ec65b040c5e1dc7df3f" name="gab1eb5818f8467ec65b040c5e1dc7df3f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gab1eb5818f8467ec65b040c5e1dc7df3f">&#9670;&#160;</a></span>XXH_readLE32_align()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">xxh_u32 XXH_readLE32_align </td>
-          <td>(</td>
-          <td class="paramtype">const void *&#160;</td>
-          <td class="paramname"><em>ptr</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="group__impl.html#gadec56fccd4f83e34902b6b09ecccfff5">XXH_alignment</a>&#160;</td>
-          <td class="paramname"><em>align</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Like <a class="el" href="group__impl.html#ga68d580b8ee14a00d0e8d7098792a98c4">XXH_readLE32()</a>, but has an option for aligned reads. </p>
-<p>Affected by <a class="el" href="group__tuning.html#ga04b48241beb7c34e5929d328cf5cc71a">XXH_FORCE_MEMORY_ACCESS</a>. Note that when <a class="el" href="group__tuning.html#gaee35763869a969d5576e70dac1c08b8d">XXH_FORCE_ALIGN_CHECK</a> == 0, the <code>align</code> parameter is always <a class="el" href="group__impl.html#ggadec56fccd4f83e34902b6b09ecccfff5ab082c14fd7eef12bcb1dfda2e813586f">XXH_alignment::XXH_unaligned</a>.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">ptr</td><td>The pointer to read from. </td></tr>
-    <tr><td class="paramname">align</td><td>Whether <code>ptr</code> is aligned. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section pre"><dt>Precondition</dt><dd>If <code>align</code> == <a class="el" href="group__impl.html#ggadec56fccd4f83e34902b6b09ecccfff5a41340c9f33fe739cef7a1c56dc617194">XXH_alignment::XXH_aligned</a>, <code>ptr</code> must be 4 byte aligned. </dd></dl>
-<dl class="section return"><dt>Returns</dt><dd>The 32-bit little endian integer from the bytes at <code>ptr</code>. </dd></dl>
 
 </div>
 </div>

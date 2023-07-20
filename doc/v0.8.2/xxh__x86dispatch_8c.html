@@ -71,28 +71,14 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Data Structures</a> &#124;
-<a href="#define-members">Macros</a> &#124;
-<a href="#typedef-members">Typedefs</a> &#124;
-<a href="#func-members">Functions</a> &#124;
-<a href="#var-members">Variables</a>  </div>
+<a href="#define-members">Macros</a>  </div>
   <div class="headertitle"><div class="title">xxh_x86dispatch.c File Reference</div></div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;assert.h&gt;</code><br />
 </div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
-Data Structures</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h__dispatch_functions__s.html">XXH_dispatchFunctions_s</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h__dispatch128_functions__s.html">XXH_dispatch128Functions_s</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:ga2a1eaa224ecac307fa52bc0dc3f8aafd"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_HAS_INCLUDE</b>(x)&#160;&#160;&#160;0</td></tr>
-<tr class="separator:ga2a1eaa224ecac307fa52bc0dc3f8aafd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga0664b262ede9b0ef5c286ae7e2e38e2a"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#ga0664b262ede9b0ef5c286ae7e2e38e2a">XXH_X86DISPATCH_ALLOW_AVX</a></td></tr>
 <tr class="memdesc:ga0664b262ede9b0ef5c286ae7e2e38e2a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disables the AVX sanity check.  <br /></td></tr>
 <tr class="separator:ga0664b262ede9b0ef5c286ae7e2e38e2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -105,141 +91,6 @@ Macros</h2></td></tr>
 <tr class="memitem:gae0ba94e5d5bf66251a96f86b3cd7e08a"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#gae0ba94e5d5bf66251a96f86b3cd7e08a">XXH_DISPATCH_AVX512</a>&#160;&#160;&#160;0</td></tr>
 <tr class="memdesc:gae0ba94e5d5bf66251a96f86b3cd7e08a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enables/disables dispatching for AVX512.  <br /></td></tr>
 <tr class="separator:gae0ba94e5d5bf66251a96f86b3cd7e08a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga211cbe79787906758686a7cf63429019"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_debugPrint</b>(str)&#160;&#160;&#160;((void)0)</td></tr>
-<tr class="separator:ga211cbe79787906758686a7cf63429019"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga8de3ed741dadc9c979a4ff17c0a9116e"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>NDEBUG</b></td></tr>
-<tr class="separator:ga8de3ed741dadc9c979a4ff17c0a9116e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga130557e98345cf3163954e70b2721585"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_HAS_ATTRIBUTE</b>(...)&#160;&#160;&#160;0</td></tr>
-<tr class="separator:ga130557e98345cf3163954e70b2721585"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gabd836c0587bde52a755fe94dea5ff5c6"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_CONSTRUCTOR</b></td></tr>
-<tr class="separator:gabd836c0587bde52a755fe94dea5ff5c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga79dbe6e53f209561d0f52e6037d35863"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_DISPATCH_MAYBE_NULL</b>&#160;&#160;&#160;1</td></tr>
-<tr class="separator:ga79dbe6e53f209561d0f52e6037d35863"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga31dceb9fa4c465868395930c52588143"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_I_ATT</b>(intel,  att)&#160;&#160;&#160;&quot;{&quot; att &quot;|&quot; intel &quot;}\n\t&quot;</td></tr>
-<tr class="separator:ga31dceb9fa4c465868395930c52588143"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaa7c390db98604d734734a69b6f264c5f"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_SSE2_CPUID_MASK</b>&#160;&#160;&#160;(1 &lt;&lt; 26)</td></tr>
-<tr class="separator:gaa7c390db98604d734734a69b6f264c5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga2644e4c41b6736bd25b6cd6ce55e3b00"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_OSXSAVE_CPUID_MASK</b>&#160;&#160;&#160;((1 &lt;&lt; 26) | (1 &lt;&lt; 27))</td></tr>
-<tr class="separator:ga2644e4c41b6736bd25b6cd6ce55e3b00"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga789368c41eea34b0787f0551d703ef96"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_AVX2_CPUID_MASK</b>&#160;&#160;&#160;(1 &lt;&lt; 5)</td></tr>
-<tr class="separator:ga789368c41eea34b0787f0551d703ef96"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gadd852d942d5124b70ee7068939dffdd3"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_AVX2_XGETBV_MASK</b>&#160;&#160;&#160;((1 &lt;&lt; 2) | (1 &lt;&lt; 1))</td></tr>
-<tr class="separator:gadd852d942d5124b70ee7068939dffdd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaacbf1ef785e31835aaced1e1d26765d9"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_AVX512F_CPUID_MASK</b>&#160;&#160;&#160;(1 &lt;&lt; 16)</td></tr>
-<tr class="separator:gaacbf1ef785e31835aaced1e1d26765d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga96acd4414527d147edd0bf26d99ed1e8"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_AVX512F_XGETBV_MASK</b>&#160;&#160;&#160;((7 &lt;&lt; 5) | (1 &lt;&lt; 2) | (1 &lt;&lt; 1))</td></tr>
-<tr class="separator:ga96acd4414527d147edd0bf26d99ed1e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga08c1f9cefc7023cc6eb29dd84c805e48"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#ga08c1f9cefc7023cc6eb29dd84c805e48">XXH_DEFINE_DISPATCH_FUNCS</a>(suffix,  target)</td></tr>
-<tr class="memdesc:ga08c1f9cefc7023cc6eb29dd84c805e48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Defines the various dispatch functions.  <br /></td></tr>
-<tr class="separator:ga08c1f9cefc7023cc6eb29dd84c805e48"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga390ad62b94cfc5b7831dedd901c78554"><td class="memItemLeft" align="right" valign="top">
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_NB_DISPATCHES</b>&#160;&#160;&#160;4</td></tr>
-<tr class="separator:ga390ad62b94cfc5b7831dedd901c78554"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
-Typedefs</h2></td></tr>
-<tr class="memitem:gaaf9d27921ad6172deb8b0fed4f94c2c9"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_hashLong64_default</b>) (XXH_NOESCAPE const void *restrict, size_t)</td></tr>
-<tr class="separator:gaaf9d27921ad6172deb8b0fed4f94c2c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga49394c21bf7776b6a68db64fe9e8c7c9"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_hashLong64_withSeed</b>) (XXH_NOESCAPE const void *restrict, size_t, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>)</td></tr>
-<tr class="separator:ga49394c21bf7776b6a68db64fe9e8c7c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga02b7273e314b3e386ba18a12ef9c6673"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_hashLong64_withSecret</b>) (XXH_NOESCAPE const void *restrict, size_t, XXH_NOESCAPE const void *restrict, size_t)</td></tr>
-<tr class="separator:ga02b7273e314b3e386ba18a12ef9c6673"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga58b67b6f3c14529d51f50656eed68e16"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="group__public.html#ga5020905455674b8c83c1dbc73f0d3534">XXH_errorcode</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_update</b>) (XXH_NOESCAPE <a class="el" href="group___x_x_h3__family.html#ga8e454084a62efb09fad8ba3cc1c1b1d0">XXH3_state_t</a> *, XXH_NOESCAPE const void *, size_t)</td></tr>
-<tr class="separator:ga58b67b6f3c14529d51f50656eed68e16"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga5328c6dbf4888f5e6e37ec517447238c"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_hashLong128_default</b>) (XXH_NOESCAPE const void *restrict, size_t)</td></tr>
-<tr class="separator:ga5328c6dbf4888f5e6e37ec517447238c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gac5044e2975449a700871d60823221d05"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_hashLong128_withSeed</b>) (XXH_NOESCAPE const void *restrict, size_t, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>)</td></tr>
-<tr class="separator:gac5044e2975449a700871d60823221d05"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gacdda0046c3ca06d379d093ba32c820ce"><td class="memItemLeft" align="right" valign="top">
-typedef <a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_dispatchx86_hashLong128_withSecret</b>) (XXH_NOESCAPE const void *restrict, size_t, const void *restrict, size_t)</td></tr>
-<tr class="separator:gacdda0046c3ca06d379d093ba32c820ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:gaf4bb3f764539a388c7caffbbb830d865"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#gaf4bb3f764539a388c7caffbbb830d865">XXH_cpuid</a> (xxh_u32 eax, xxh_u32 ecx, xxh_u32 *abcd)</td></tr>
-<tr class="memdesc:gaf4bb3f764539a388c7caffbbb830d865"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runs CPUID.  <br /></td></tr>
-<tr class="separator:gaf4bb3f764539a388c7caffbbb830d865"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaeb0da873ff54cfd708c216c7781f3781"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#gaeb0da873ff54cfd708c216c7781f3781">XXH_featureTest</a> (void)</td></tr>
-<tr class="memdesc:gaeb0da873ff54cfd708c216c7781f3781"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the best XXH3 implementation.  <br /></td></tr>
-<tr class="separator:gaeb0da873ff54cfd708c216c7781f3781"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gacbabae364a2323a5f2e6d9c501694185"><td class="memItemLeft" align="right" valign="top">static XXH_CONSTRUCTOR void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#gacbabae364a2323a5f2e6d9c501694185">XXH_setDispatch</a> (void)</td></tr>
-<tr class="memdesc:gacbabae364a2323a5f2e6d9c501694185"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runs a CPUID check and sets the correct dispatch tables.  <br /></td></tr>
-<tr class="separator:gacbabae364a2323a5f2e6d9c501694185"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaa94bde93e35a09329bea3fc6f1d5b63f"><td class="memItemLeft" align="right" valign="top">
-static <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_hashLong_64b_defaultSecret_selection</b> (const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed64, const xxh_u8 *secret, size_t secretLen)</td></tr>
-<tr class="separator:gaa94bde93e35a09329bea3fc6f1d5b63f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gad9602ba5aadf61de0215b38f5d0ceb98"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_64bits_dispatch</b> (XXH_NOESCAPE const void *input, size_t len)</td></tr>
-<tr class="separator:gad9602ba5aadf61de0215b38f5d0ceb98"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga74d8e94493b367945bcbbfcfc220cb10"><td class="memItemLeft" align="right" valign="top">
-static <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_hashLong_64b_withSeed_selection</b> (const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed64, const xxh_u8 *secret, size_t secretLen)</td></tr>
-<tr class="separator:ga74d8e94493b367945bcbbfcfc220cb10"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga68ad82e4b72da18945f4e846bdfaa7d1"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_64bits_withSeed_dispatch</b> (XXH_NOESCAPE const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed)</td></tr>
-<tr class="separator:ga68ad82e4b72da18945f4e846bdfaa7d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga8fbd5507772718907ad8893a5c4f97b4"><td class="memItemLeft" align="right" valign="top">
-static <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_hashLong_64b_withSecret_selection</b> (const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed64, const xxh_u8 *secret, size_t secretLen)</td></tr>
-<tr class="separator:ga8fbd5507772718907ad8893a5c4f97b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga642061404ddc34c0be6e7b2bc9c964ac"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_64bits_withSecret_dispatch</b> (XXH_NOESCAPE const void *input, size_t len, XXH_NOESCAPE const void *secret, size_t secretLen)</td></tr>
-<tr class="separator:ga642061404ddc34c0be6e7b2bc9c964ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gad66d596387a3d51404d0c6808c53fb25"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="group__public.html#ga5020905455674b8c83c1dbc73f0d3534">XXH_errorcode</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_64bits_update_dispatch</b> (XXH_NOESCAPE <a class="el" href="group___x_x_h3__family.html#ga8e454084a62efb09fad8ba3cc1c1b1d0">XXH3_state_t</a> *state, XXH_NOESCAPE const void *input, size_t len)</td></tr>
-<tr class="separator:gad66d596387a3d51404d0c6808c53fb25"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaebd9d702f7d3a8c5afaebb5b9c6ebc73"><td class="memItemLeft" align="right" valign="top">
-static <a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_hashLong_128b_defaultSecret_selection</b> (const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed64, const void *secret, size_t secretLen)</td></tr>
-<tr class="separator:gaebd9d702f7d3a8c5afaebb5b9c6ebc73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaed42f3ed0cc420f1dbfe30a2b33fb04a"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_128bits_dispatch</b> (XXH_NOESCAPE const void *input, size_t len)</td></tr>
-<tr class="separator:gaed42f3ed0cc420f1dbfe30a2b33fb04a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga4ac35f0c3950bb74d68886be4e3785f5"><td class="memItemLeft" align="right" valign="top">
-static <a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_hashLong_128b_withSeed_selection</b> (const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed64, const void *secret, size_t secretLen)</td></tr>
-<tr class="separator:ga4ac35f0c3950bb74d68886be4e3785f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga51ccd434ca4ccb9ce72aaa645216dc8d"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_128bits_withSeed_dispatch</b> (XXH_NOESCAPE const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed)</td></tr>
-<tr class="separator:ga51ccd434ca4ccb9ce72aaa645216dc8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga83516472f3721b69cfcf8371147cc399"><td class="memItemLeft" align="right" valign="top">
-static <a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_hashLong_128b_withSecret_selection</b> (const void *input, size_t len, <a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a> seed64, const void *secret, size_t secretLen)</td></tr>
-<tr class="separator:ga83516472f3721b69cfcf8371147cc399"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gafe52539e7e7617b63f761b6325b3c463"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="struct_x_x_h128__hash__t.html">XXH128_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_128bits_withSecret_dispatch</b> (XXH_NOESCAPE const void *input, size_t len, XXH_NOESCAPE const void *secret, size_t secretLen)</td></tr>
-<tr class="separator:gafe52539e7e7617b63f761b6325b3c463"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga93ed6b9076e4a730c8562b1712b5d6d5"><td class="memItemLeft" align="right" valign="top">
-<a class="el" href="group__public.html#ga5020905455674b8c83c1dbc73f0d3534">XXH_errorcode</a>&#160;</td><td class="memItemRight" valign="bottom"><b>XXH3_128bits_update_dispatch</b> (XXH_NOESCAPE <a class="el" href="group___x_x_h3__family.html#ga8e454084a62efb09fad8ba3cc1c1b1d0">XXH3_state_t</a> *state, XXH_NOESCAPE const void *input, size_t len)</td></tr>
-<tr class="separator:ga93ed6b9076e4a730c8562b1712b5d6d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
-Variables</h2></td></tr>
-<tr class="memitem:ga98359f36ec13f91a3b29f69e9e6ef7a7"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="struct_x_x_h__dispatch_functions__s.html">XXH_dispatchFunctions_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#ga98359f36ec13f91a3b29f69e9e6ef7a7">XXH_kDispatch</a> [XXH_NB_DISPATCHES]</td></tr>
-<tr class="memdesc:ga98359f36ec13f91a3b29f69e9e6ef7a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Table of dispatchers for <a class="el" href="group___x_x_h3__family.html#ga0c06e71549705effd58cb7bd0969307e">XXH3_64bits()</a>.  <br /></td></tr>
-<tr class="separator:ga98359f36ec13f91a3b29f69e9e6ef7a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga0a9ce50b09c207c32a8333d2421f2e4d"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="struct_x_x_h__dispatch_functions__s.html">XXH_dispatchFunctions_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#ga0a9ce50b09c207c32a8333d2421f2e4d">XXH_g_dispatch</a> = { NULL, NULL, NULL, NULL }</td></tr>
-<tr class="memdesc:ga0a9ce50b09c207c32a8333d2421f2e4d"><td class="mdescLeft">&#160;</td><td class="mdescRight">The selected dispatch table for <a class="el" href="group___x_x_h3__family.html#ga0c06e71549705effd58cb7bd0969307e">XXH3_64bits()</a>.  <br /></td></tr>
-<tr class="separator:ga0a9ce50b09c207c32a8333d2421f2e4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gaaf2f02141bbb506599fc00e6f9531cb1"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="struct_x_x_h__dispatch128_functions__s.html">XXH_dispatch128Functions_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#gaaf2f02141bbb506599fc00e6f9531cb1">XXH_kDispatch128</a> [XXH_NB_DISPATCHES]</td></tr>
-<tr class="memdesc:gaaf2f02141bbb506599fc00e6f9531cb1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Table of dispatchers for <a class="el" href="group___x_x_h3__family.html#ga8051df2b6621c36b542ae1b5df2dd2f9">XXH3_128bits()</a>.  <br /></td></tr>
-<tr class="separator:gaaf2f02141bbb506599fc00e6f9531cb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga390b8e45e3cb022095cad491058abd05"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="struct_x_x_h__dispatch128_functions__s.html">XXH_dispatch128Functions_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__dispatch.html#ga390b8e45e3cb022095cad491058abd05">XXH_g_dispatch128</a> = { NULL, NULL, NULL, NULL }</td></tr>
-<tr class="memdesc:ga390b8e45e3cb022095cad491058abd05"><td class="mdescLeft">&#160;</td><td class="mdescRight">The selected dispatch table for <a class="el" href="group___x_x_h3__family.html#ga0c06e71549705effd58cb7bd0969307e">XXH3_64bits()</a>.  <br /></td></tr>
-<tr class="separator:ga390b8e45e3cb022095cad491058abd05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Automatic dispatcher code for the <a class="el" href="group___x_x_h3__family.html">XXH3 family</a> on x86-based targets.</p>

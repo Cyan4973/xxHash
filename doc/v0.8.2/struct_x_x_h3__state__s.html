@@ -75,17 +75,12 @@ $(function() {
   <div class="headertitle"><div class="title">XXH3_state_s Struct Reference</div></div>
 </div><!--header-->
 <div class="contents">
-
-<p>Structure for XXH3 streaming API.  
- <a href="struct_x_x_h3__state__s.html#details">More...</a></p>
-
-<p><code>#include &lt;<a class="el" href="xxhash_8h_source.html">xxhash.h</a>&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Data Fields</h2></td></tr>
 <tr class="memitem:ad46e292aaa3931ffcceb961ee129ccd5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h3__state__s.html#ad46e292aaa3931ffcceb961ee129ccd5">acc</a> [8]</td></tr>
 <tr class="separator:ad46e292aaa3931ffcceb961ee129ccd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac81c90a4d992f21a0dd00649b386b20f"><td class="memItemLeft" align="right" valign="top">unsigned char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h3__state__s.html#ac81c90a4d992f21a0dd00649b386b20f">customSecret</a> [<a class="el" href="xxhash_8h.html#ae30274eeda9ae2faa2eda08deff9696f">XXH3_SECRET_DEFAULT_SIZE</a>]</td></tr>
+<tr class="memitem:ac81c90a4d992f21a0dd00649b386b20f"><td class="memItemLeft" align="right" valign="top">unsigned char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h3__state__s.html#ac81c90a4d992f21a0dd00649b386b20f">customSecret</a> [XXH3_SECRET_DEFAULT_SIZE]</td></tr>
 <tr class="separator:ac81c90a4d992f21a0dd00649b386b20f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab2a8c0eba9804ece6442a6ab3ff49f7e"><td class="memItemLeft" align="right" valign="top">unsigned char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h3__state__s.html#ab2a8c0eba9804ece6442a6ab3ff49f7e">buffer</a> [<a class="el" href="xxhash_8h.html#a2124b1e53c873d18b16e23200c9b49a0">XXH3_INTERNALBUFFER_SIZE</a>]</td></tr>
 <tr class="separator:ab2a8c0eba9804ece6442a6ab3ff49f7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -108,18 +103,7 @@ Data Fields</h2></td></tr>
 <tr class="memitem:a14d42adf2a0fe05d8d1d5a8845dfe5df"><td class="memItemLeft" align="right" valign="top">const unsigned char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h3__state__s.html#a14d42adf2a0fe05d8d1d5a8845dfe5df">extSecret</a></td></tr>
 <tr class="separator:a14d42adf2a0fe05d8d1d5a8845dfe5df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Structure for XXH3 streaming API. </p>
-<dl class="section note"><dt>Note</dt><dd>This is only defined when <a class="el" href="group__public.html#ga546f2633ae1036f49bdc5582971d7f1e">XXH_STATIC_LINKING_ONLY</a>, <a class="el" href="group__public.html#ga5a61b869708b770ad75e3e063a2f9273">XXH_INLINE_ALL</a>, or <a class="el" href="group__public.html#gaa40be3a031b9a5bd9afc800b0959a0c9">XXH_IMPLEMENTATION</a> is defined. Otherwise it is an opaque type. Never use this definition in combination with dynamic library. This allows fields to safely be changed in the future.</dd>
-<dd>
-** This structure has a strict alignment requirement of 64 bytes!! ** Do not allocate this with <code>malloc()</code> or <code>new</code>, it will not be sufficiently aligned. Use <a class="el" href="group___x_x_h3__family.html#ga95592969a08becc37428dd547c36b8fd">XXH3_createState()</a> and <a class="el" href="group___x_x_h3__family.html#gaee640ba2104fe3107b7d679f40d17277">XXH3_freeState()</a>, or stack allocation.</dd></dl>
-<p>Typedef'd to <a class="el" href="group___x_x_h3__family.html#ga8e454084a62efb09fad8ba3cc1c1b1d0">XXH3_state_t</a>. Do never access the members of this struct directly.</p>
-<dl class="section see"><dt>See also</dt><dd><a class="el" href="xxhash_8h.html#afc79de39f0cf7e8d395f131c0d9d568e" title="Initializes a stack-allocated XXH3_state_s.">XXH3_INITSTATE()</a> for stack initialization. </dd>
-<dd>
-<a class="el" href="group___x_x_h3__family.html#ga95592969a08becc37428dd547c36b8fd" title="Allocate an XXH3_state_t.">XXH3_createState()</a>, <a class="el" href="group___x_x_h3__family.html#gaee640ba2104fe3107b7d679f40d17277" title="Frees an XXH3_state_t.">XXH3_freeState()</a>. </dd>
-<dd>
-<a class="el" href="struct_x_x_h32__state__s.html" title="Structure for XXH32 streaming API.">XXH32_state_s</a>, <a class="el" href="struct_x_x_h64__state__s.html" title="Structure for XXH64 streaming API.">XXH64_state_s</a> </dd></dl>
-</div><h2 class="groupheader">Field Documentation</h2>
+<h2 class="groupheader">Field Documentation</h2>
 <a id="ad46e292aaa3931ffcceb961ee129ccd5" name="ad46e292aaa3931ffcceb961ee129ccd5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad46e292aaa3931ffcceb961ee129ccd5">&#9670;&#160;</a></span>acc</h2>
 
@@ -142,7 +126,7 @@ Data Fields</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">unsigned char XXH3_state_s::customSecret[<a class="el" href="xxhash_8h.html#ae30274eeda9ae2faa2eda08deff9696f">XXH3_SECRET_DEFAULT_SIZE</a>]</td>
+          <td class="memname">unsigned char XXH3_state_s::customSecret[XXH3_SECRET_DEFAULT_SIZE]</td>
         </tr>
       </table>
 </div><div class="memdoc">

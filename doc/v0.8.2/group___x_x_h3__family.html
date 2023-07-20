@@ -237,7 +237,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The state struct for the XXH3 streaming API. </p>
-<dl class="section see"><dt>See also</dt><dd><a class="el" href="struct_x_x_h3__state__s.html" title="Structure for XXH3 streaming API.">XXH3_state_s</a> for details. </dd></dl>
+<dl class="section see"><dt>See also</dt><dd><a class="el" href="struct_x_x_h3__state__s.html">XXH3_state_s</a> for details. </dd></dl>
 
 </div>
 </div>
@@ -1309,10 +1309,10 @@ The memory between <code>input</code> and <code>input</code> + <code>length</cod
 <div class="line">    );</div>
 <div class="line">    printf(<span class="stringliteral">&quot;%016llx\n&quot;</span>, (<span class="keywordtype">unsigned</span> <span class="keywordtype">long</span> <span class="keywordtype">long</span>) h);</div>
 <div class="line">}</div>
-<div class="ttc" id="agroup___x_x_h3__family_html_ga870ba5470efb3befb1a70cb35dae12cd"><div class="ttname"><a href="group___x_x_h3__family.html#ga870ba5470efb3befb1a70cb35dae12cd">XXH3_64bits_withSecret</a></div><div class="ttdeci">XXH64_hash_t XXH3_64bits_withSecret(XXH_NOESCAPE const void *data, size_t len, XXH_NOESCAPE const void *secret, size_t secretSize)</div><div class="ttdoc">64-bit variant of XXH3 with a custom &quot;secret&quot;.</div><div class="ttdef"><b>Definition</b> xxhash.h:5711</div></div>
-<div class="ttc" id="agroup___x_x_h3__family_html_ga88a3a4fbe45ae0863652178fa00465b3"><div class="ttname"><a href="group___x_x_h3__family.html#ga88a3a4fbe45ae0863652178fa00465b3">XXH3_generateSecret</a></div><div class="ttdeci">XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void *secretBuffer, size_t secretSize, XXH_NOESCAPE const void *customSeed, size_t customSeedSize)</div><div class="ttdef"><b>Definition</b> xxhash.h:6684</div></div>
-<div class="ttc" id="agroup___x_x_h3__family_html_gaeb79a9111c58af32599f8e5cd71d67d2"><div class="ttname"><a href="group___x_x_h3__family.html#gaeb79a9111c58af32599f8e5cd71d67d2">XXH3_SECRET_SIZE_MIN</a></div><div class="ttdeci">#define XXH3_SECRET_SIZE_MIN</div><div class="ttdef"><b>Definition</b> xxhash.h:1081</div></div>
-<div class="ttc" id="agroup__public_html_ga5406b285b18dfcefa93efed489e3b603"><div class="ttname"><a href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a></div><div class="ttdeci">uint64_t XXH64_hash_t</div><div class="ttdoc">An unsigned 64-bit integer.</div><div class="ttdef"><b>Definition</b> xxhash.h:808</div></div>
+<div class="ttc" id="agroup___x_x_h3__family_html_ga870ba5470efb3befb1a70cb35dae12cd"><div class="ttname"><a href="group___x_x_h3__family.html#ga870ba5470efb3befb1a70cb35dae12cd">XXH3_64bits_withSecret</a></div><div class="ttdeci">XXH64_hash_t XXH3_64bits_withSecret(XXH_NOESCAPE const void *data, size_t len, XXH_NOESCAPE const void *secret, size_t secretSize)</div><div class="ttdoc">64-bit variant of XXH3 with a custom &quot;secret&quot;.</div><div class="ttdef"><b>Definition</b> xxhash.h:5726</div></div>
+<div class="ttc" id="agroup___x_x_h3__family_html_ga88a3a4fbe45ae0863652178fa00465b3"><div class="ttname"><a href="group___x_x_h3__family.html#ga88a3a4fbe45ae0863652178fa00465b3">XXH3_generateSecret</a></div><div class="ttdeci">XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void *secretBuffer, size_t secretSize, XXH_NOESCAPE const void *customSeed, size_t customSeedSize)</div><div class="ttdef"><b>Definition</b> xxhash.h:6699</div></div>
+<div class="ttc" id="agroup___x_x_h3__family_html_gaeb79a9111c58af32599f8e5cd71d67d2"><div class="ttname"><a href="group___x_x_h3__family.html#gaeb79a9111c58af32599f8e5cd71d67d2">XXH3_SECRET_SIZE_MIN</a></div><div class="ttdeci">#define XXH3_SECRET_SIZE_MIN</div><div class="ttdef"><b>Definition</b> xxhash.h:1093</div></div>
+<div class="ttc" id="agroup__public_html_ga5406b285b18dfcefa93efed489e3b603"><div class="ttname"><a href="group__public.html#ga5406b285b18dfcefa93efed489e3b603">XXH64_hash_t</a></div><div class="ttdeci">uint64_t XXH64_hash_t</div><div class="ttdoc">An unsigned 64-bit integer.</div><div class="ttdef"><b>Definition</b> xxhash.h:820</div></div>
 <div class="ttc" id="axxhash_8h_html"><div class="ttname"><a href="xxhash_8h.html">xxhash.h</a></div></div>
 </div><!-- fragment --> 
 </div>
@@ -1370,8 +1370,8 @@ The memory between <code>input</code> and <code>input</code> + <code>length</cod
 <div class="line">        };</div>
 <div class="line">    }</div>
 <div class="line">};</div>
-<div class="ttc" id="agroup___x_x_h3__family_html_ga4b51002ff2a438e38c1ee45abcd09659"><div class="ttname"><a href="group___x_x_h3__family.html#ga4b51002ff2a438e38c1ee45abcd09659">XXH3_64bits_withSeed</a></div><div class="ttdeci">XXH64_hash_t XXH3_64bits_withSeed(XXH_NOESCAPE const void *input, size_t length, XXH64_hash_t seed)</div><div class="ttdoc">64-bit seeded variant of XXH3</div><div class="ttdef"><b>Definition</b> xxhash.h:5718</div></div>
-<div class="ttc" id="agroup___x_x_h3__family_html_gaa895f02acfc127b1d34d0d558a6773b0"><div class="ttname"><a href="group___x_x_h3__family.html#gaa895f02acfc127b1d34d0d558a6773b0">XXH3_generateSecret_fromSeed</a></div><div class="ttdeci">void XXH3_generateSecret_fromSeed(XXH_NOESCAPE void *secretBuffer, XXH64_hash_t seed)</div><div class="ttdoc">Generate the same secret as the _withSeed() variants.</div><div class="ttdef"><b>Definition</b> xxhash.h:6729</div></div>
+<div class="ttc" id="agroup___x_x_h3__family_html_ga4b51002ff2a438e38c1ee45abcd09659"><div class="ttname"><a href="group___x_x_h3__family.html#ga4b51002ff2a438e38c1ee45abcd09659">XXH3_64bits_withSeed</a></div><div class="ttdeci">XXH64_hash_t XXH3_64bits_withSeed(XXH_NOESCAPE const void *input, size_t length, XXH64_hash_t seed)</div><div class="ttdoc">64-bit seeded variant of XXH3</div><div class="ttdef"><b>Definition</b> xxhash.h:5733</div></div>
+<div class="ttc" id="agroup___x_x_h3__family_html_gaa895f02acfc127b1d34d0d558a6773b0"><div class="ttname"><a href="group___x_x_h3__family.html#gaa895f02acfc127b1d34d0d558a6773b0">XXH3_generateSecret_fromSeed</a></div><div class="ttdeci">void XXH3_generateSecret_fromSeed(XXH_NOESCAPE void *secretBuffer, XXH64_hash_t seed)</div><div class="ttdoc">Generate the same secret as the _withSeed() variants.</div><div class="ttdef"><b>Definition</b> xxhash.h:6744</div></div>
 </div><!-- fragment --> <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">secretBuffer</td><td>A writable buffer of <a class="el" href="group___x_x_h3__family.html#gaeb79a9111c58af32599f8e5cd71d67d2">XXH3_SECRET_SIZE_MIN</a> bytes </td></tr>

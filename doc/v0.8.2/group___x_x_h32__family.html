@@ -72,7 +72,6 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Data Structures</a> &#124;
-<a href="#define-members">Macros</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle"><div class="title">XXH32 family<div class="ingroups"><a class="el" href="group__public.html">Public API</a></div></div></div>
@@ -84,27 +83,6 @@ Data Structures</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_x_x_h32__canonical__t.html">XXH32_canonical_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Canonical (big endian) representation of <a class="el" href="group__public.html#ga469df6c7273f15924de58143ef1afe14">XXH32_hash_t</a>.  <a href="struct_x_x_h32__canonical__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="define-members" name="define-members"></a>
-Macros</h2></td></tr>
-<tr class="memitem:gacf69248da4eb95cb066f797d4bb92987"><td class="memItemLeft" align="right" valign="top"><a id="gacf69248da4eb95cb066f797d4bb92987" name="gacf69248da4eb95cb066f797d4bb92987"></a>
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_HAS_ATTRIBUTE</b>(x)&#160;&#160;&#160;0</td></tr>
-<tr class="separator:gacf69248da4eb95cb066f797d4bb92987"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga81e3848fe7abce09f6344eff63f4f5ab"><td class="memItemLeft" align="right" valign="top"><a id="ga81e3848fe7abce09f6344eff63f4f5ab" name="ga81e3848fe7abce09f6344eff63f4f5ab"></a>
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_C23_VN</b>&#160;&#160;&#160;201711L</td></tr>
-<tr class="separator:ga81e3848fe7abce09f6344eff63f4f5ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gabef4158f45759183536b585577f1be30"><td class="memItemLeft" align="right" valign="top"><a id="gabef4158f45759183536b585577f1be30" name="gabef4158f45759183536b585577f1be30"></a>
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_HAS_C_ATTRIBUTE</b>(x)&#160;&#160;&#160;0</td></tr>
-<tr class="separator:gabef4158f45759183536b585577f1be30"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga4c868878ba934258fe9e1a56e4aac032"><td class="memItemLeft" align="right" valign="top"><a id="ga4c868878ba934258fe9e1a56e4aac032" name="ga4c868878ba934258fe9e1a56e4aac032"></a>
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_HAS_CPP_ATTRIBUTE</b>(x)&#160;&#160;&#160;0</td></tr>
-<tr class="separator:ga4c868878ba934258fe9e1a56e4aac032"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gae2b61a873531ef6c0d5d038ff83ebfc1"><td class="memItemLeft" align="right" valign="top"><a id="gae2b61a873531ef6c0d5d038ff83ebfc1" name="gae2b61a873531ef6c0d5d038ff83ebfc1"></a>
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_FALLTHROUGH</b>&#160;&#160;&#160;/* fallthrough */</td></tr>
-<tr class="separator:gae2b61a873531ef6c0d5d038ff83ebfc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga148aa21b349f2d0188982f4132152ce1"><td class="memItemLeft" align="right" valign="top"><a id="ga148aa21b349f2d0188982f4132152ce1" name="ga148aa21b349f2d0188982f4132152ce1"></a>
-#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_NOESCAPE</b></td></tr>
-<tr class="separator:ga148aa21b349f2d0188982f4132152ce1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
@@ -171,7 +149,7 @@ Functions</h2></td></tr>
 <p>It's still possible to continue inserting input into the hash state after a digest, and generate new hash values later on by invoking <code>XXH*_digest()</code>.</p>
 <p>When done, release the state using <code>XXH*_freeState()</code>.</p>
 <dl class="section see"><dt>See also</dt><dd>streaming_example at the top of <a class="el" href="xxhash_8h.html">xxhash.h</a> for an example.</dd></dl>
-<dl class="section see"><dt>See also</dt><dd><a class="el" href="struct_x_x_h32__state__s.html" title="Structure for XXH32 streaming API.">XXH32_state_s</a> for details. </dd></dl>
+<dl class="section see"><dt>See also</dt><dd><a class="el" href="struct_x_x_h32__state__s.html">XXH32_state_s</a> for details. </dd></dl>
 
 </div>
 </div>

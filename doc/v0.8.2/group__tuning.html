@@ -100,8 +100,8 @@ Macros</h2></td></tr>
 <tr class="memitem:gad5824529c4ad74d2d5cc05bf4868613a"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#gad5824529c4ad74d2d5cc05bf4868613a">XXH32_ENDJMP</a>&#160;&#160;&#160;0</td></tr>
 <tr class="memdesc:gad5824529c4ad74d2d5cc05bf4868613a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Whether to use a jump for <code>XXH32_finalize</code>.  <br /></td></tr>
 <tr class="separator:gad5824529c4ad74d2d5cc05bf4868613a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga80dc258deeac9258924815d7b3d11906"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#ga80dc258deeac9258924815d7b3d11906">XXH_OLD_NAMES</a></td></tr>
-<tr class="memdesc:ga80dc258deeac9258924815d7b3d11906"><td class="mdescLeft">&#160;</td><td class="mdescRight">Redefines old internal names.  <br /></td></tr>
+<tr class="memitem:ga80dc258deeac9258924815d7b3d11906"><td class="memItemLeft" align="right" valign="top"><a id="ga80dc258deeac9258924815d7b3d11906" name="ga80dc258deeac9258924815d7b3d11906"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>XXH_OLD_NAMES</b></td></tr>
 <tr class="separator:ga80dc258deeac9258924815d7b3d11906"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga96f0b839b3187287c904d37c993f6d1f"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#ga96f0b839b3187287c904d37c993f6d1f">XXH_NO_STREAM</a></td></tr>
 <tr class="memdesc:ga96f0b839b3187287c904d37c993f6d1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disables the streaming API.  <br /></td></tr>
@@ -109,7 +109,7 @@ Macros</h2></td></tr>
 <tr class="memitem:ga574ceb8ab088243cb0dc833b28320eb5"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#ga574ceb8ab088243cb0dc833b28320eb5">XXH_DEBUGLEVEL</a>&#160;&#160;&#160;0</td></tr>
 <tr class="memdesc:ga574ceb8ab088243cb0dc833b28320eb5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the debugging level.  <br /></td></tr>
 <tr class="separator:ga574ceb8ab088243cb0dc833b28320eb5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga408fac02658eb4a81f7a1877f1ca3b3f"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#ga408fac02658eb4a81f7a1877f1ca3b3f">XXH_CPU_LITTLE_ENDIAN</a>&#160;&#160;&#160;<a class="el" href="group__impl.html#gac418a4dae6ba853573204da89bed3b58">XXH_isLittleEndian</a>()</td></tr>
+<tr class="memitem:ga408fac02658eb4a81f7a1877f1ca3b3f"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#ga408fac02658eb4a81f7a1877f1ca3b3f">XXH_CPU_LITTLE_ENDIAN</a>&#160;&#160;&#160;XXH_isLittleEndian()</td></tr>
 <tr class="memdesc:ga408fac02658eb4a81f7a1877f1ca3b3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Whether the target is little endian.  <br /></td></tr>
 <tr class="separator:ga408fac02658eb4a81f7a1877f1ca3b3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gab216d0cd3d35dcfd7c6860ea296cdd86"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__tuning.html#gab216d0cd3d35dcfd7c6860ea296cdd86">XXH_VECTOR</a>&#160;&#160;&#160;<a class="el" href="group__tuning.html#ggaba09620eec7211bfe2567531495bf151add8559df4f18bb2868e3c2bd5fa69a5e">XXH_SCALAR</a></td></tr>
@@ -299,23 +299,6 @@ path" employing direct 32-bit/64-bit reads, resulting in <em>dramatically faster
 
 </div>
 </div>
-<a id="ga80dc258deeac9258924815d7b3d11906" name="ga80dc258deeac9258924815d7b3d11906"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga80dc258deeac9258924815d7b3d11906">&#9670;&#160;</a></span>XXH_OLD_NAMES</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define XXH_OLD_NAMES</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Redefines old internal names. </p>
-<p>For compatibility with code that uses xxHash's internals before the names were changed to improve namespacing. There is no other reason to use this. </p>
-
-</div>
-</div>
 <a id="ga96f0b839b3187287c904d37c993f6d1f" name="ga96f0b839b3187287c904d37c993f6d1f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ga96f0b839b3187287c904d37c993f6d1f">&#9670;&#160;</a></span>XXH_NO_STREAM</h2>
 
@@ -357,7 +340,7 @@ path" employing direct 32-bit/64-bit reads, resulting in <em>dramatically faster
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define XXH_CPU_LITTLE_ENDIAN&#160;&#160;&#160;<a class="el" href="group__impl.html#gac418a4dae6ba853573204da89bed3b58">XXH_isLittleEndian</a>()</td>
+          <td class="memname">#define XXH_CPU_LITTLE_ENDIAN&#160;&#160;&#160;XXH_isLittleEndian()</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -366,7 +349,7 @@ path" employing direct 32-bit/64-bit reads, resulting in <em>dramatically faster
 <p>Defined to 1 if the target is little endian, or 0 if it is big endian. It can be defined externally, for example on the compiler command line.</p>
 <p>If it is not defined, a runtime check (which is usually constant folded) is used instead.</p>
 <dl class="section note"><dt>Note</dt><dd>This is not necessarily defined to an integer constant.</dd></dl>
-<dl class="section see"><dt>See also</dt><dd><a class="el" href="group__impl.html#gac418a4dae6ba853573204da89bed3b58" title="Runtime check for XXH_CPU_LITTLE_ENDIAN.">XXH_isLittleEndian()</a> for the runtime check. </dd></dl>
+<dl class="section see"><dt>See also</dt><dd>XXH_isLittleEndian() for the runtime check. </dd></dl>
 
 </div>
 </div>
@@ -458,7 +441,7 @@ path" employing direct 32-bit/64-bit reads, resulting in <em>dramatically faster
 </table>
 <p>It also seems to fix some bad codegen on GCC, making it almost as fast as clang.</p>
 <p>When using WASM SIMD128, if this is 2 or 6, SIMDe will scalarize 2 of the lanes meaning it effectively becomes worse 4.</p>
-<dl class="section see"><dt>See also</dt><dd><a class="el" href="group___x_x_h3__impl.html#ga54f7de519bd5a0f7de15754edb5f9f84" title="The bulk processing loop for NEON and WASM SIMD128.">XXH3_accumulate_512_neon()</a> </dd></dl>
+<dl class="section see"><dt>See also</dt><dd>XXH3_accumulate_512_neon() </dd></dl>
 
 </div>
 </div>

@@ -5,7 +5,7 @@
 #
 # For details, see <https://creativecommons.org/publicdomain/zero/1.0/>.
 
-cmake_minimum_required (VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 
 set(XXHASH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
@@ -25,14 +25,10 @@ if("${CMAKE_VERSION}" VERSION_LESS "3.13")
 else()
     cmake_policy (SET CMP0077 NEW)
 endif()
-if("${CMAKE_VERSION}" VERSION_LESS "3.0")
-    project(xxHash C)
-else()
-    cmake_policy (SET CMP0048 NEW)
-    project(xxHash
-        VERSION ${XXHASH_VERSION_STRING}
-        LANGUAGES C)
-endif()
+cmake_policy (SET CMP0048 NEW)
+project(xxHash
+    VERSION ${XXHASH_VERSION_STRING}
+    LANGUAGES C)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Project build type" FORCE)
@@ -174,19 +170,9 @@ if(NOT XXHASH_BUNDLED_MODE)
     ${PROJECT_SOURCE_DIR}/xxHashConfig.cmake.in
     ${xxHash_PROJECT_CONFIG}
     INSTALL_DESTINATION ${xxHash_CONFIG_INSTALL_DIR})
-  if("${CMAKE_VERSION}" VERSION_LESS "3.0")
-      set(XXHASH_EXPORT_SET xxhash)
-      if(XXHASH_BUILD_XXHSUM)
-        set(XXHASH_EXPORT_SET ${XXHASH_EXPORT_SET} xxhsum)
-      endif()
-      export(TARGETS ${XXHASH_EXPORT_SET}
-      FILE ${xxHash_TARGETS_CONFIG}
-      NAMESPACE ${PROJECT_NAME}::)
-  else()
     export(EXPORT xxHashTargets
       FILE ${xxHash_TARGETS_CONFIG}
       NAMESPACE ${PROJECT_NAME}::)
-  endif()
 
   install(FILES ${xxHash_PROJECT_CONFIG} ${xxHash_VERSION_CONFIG}
     DESTINATION ${xxHash_CONFIG_INSTALL_DIR})

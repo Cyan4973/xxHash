@@ -411,7 +411,7 @@ inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
  *          1: position may be already occupied
  */
 static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
- {
+{
     hash = avalanche64(hash);
     unsigned const slot1 = hash & 255;
     hash >>= 8;
@@ -442,8 +442,18 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
     bf[pos2] |= bit2;
 
     return (int)maybePresent;
- }
+}
 
+
+static Filter* Filter_reduce(Filter* bf, int bflog)
+{
+    assert(6 < bflog && bflog < 64);
+    size_t const nbLines = (size_t)1 << (bflog - 6);
+    for (size_t lineNb = 0; lineNb < nbLines; lineNb++) {
+        memcpy(bf + lineNb*32, bf + lineNb*64 + 32, 32);
+    }
+    return realloc(bf, nbLines << 5);
+}
 
 /*
  * Check if provided 64-bit hash is a collision candidate
@@ -454,7 +464,7 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
  *       since all hashes are supposed to have been inserted at least once.
  */
 static inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
- {
+{
     hash = avalanche64(hash);
     unsigned const slot1 = hash & 255;
     hash >>= 8;
@@ -464,16 +474,16 @@ static inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
     size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
     size_t const lineNb = (size_t)hash & fclmask;
 
-    size_t const pos1 = (lineNb << 6) + (slot1 >> 3) + 32;
+    size_t const pos1 = (lineNb << 5) + (slot1 >> 3);
     unsigned const shift1 = slot1 & 7;
     unsigned const present1 = (bf[pos1] >> shift1) & 1;
 
-    size_t const pos2 = (lineNb << 6) + (slot2 >> 3) + 32;
+    size_t const pos2 = (lineNb << 5) + (slot2 >> 3);
     unsigned const shift2 = slot2 & 7;
     unsigned const present2 = (bf[pos2] >> shift2) & 1;
 
     return (int)(present1 & present2);
- }
+}
 
 #endif // FILTER_1_PROBE
 
@@ -707,8 +717,11 @@ static size_t search_collisions(
         {   double const filterDelay = difftime(time(NULL), filterTBegin);
             DISPLAY(" Generation and filter completed in %s, detected up to %llu candidates \n",
                     displayDelay(filterDelay), (unsigned long long) maxNbH);
-    }   }
+        }
 
+        bf = Filter_reduce(bf, bflog);
+        if (bf == NULL) EXIT("filter reduction failed");
+    }
 
     /* === store hash candidates: duplicates will be present here === */
 

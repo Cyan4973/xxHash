@@ -408,46 +408,46 @@ inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
  * Attach hash to 2 slots
  * return: Nb of potential candidates detected
  *          0: position not yet occupied
- *          2: position previously occupied by a single candidate (at most)
- *          1: position already occupied by multiple candidates
+ *          1: position may be already occupied
  */
 static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
  {
-     hash = avalanche64(hash);
-     unsigned const slot1 = hash & 255;
-     hash >>= 8;
-     unsigned const slot2 = hash & 255;
-     hash >>= 8;
+    hash = avalanche64(hash);
+    unsigned const slot1 = hash & 255;
+    hash >>= 8;
+    unsigned const slot2 = hash & 255;
+    hash >>= 8;
 
-     size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
-     size_t const cacheLineNb = (size_t)hash & fclmask;
+    size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
+    size_t const cacheLineNb = (size_t)hash & fclmask;
 
-     size_t const pos1 = (cacheLineNb << 6) + (slot1 >> 2);
-     unsigned const shift1 = (slot1 & 3) * 2;
-     unsigned const ex1 = (bf[pos1] >> shift1) & 3;
+    size_t const pos1 = (cacheLineNb << 6) + (slot1 >> 3);
+    unsigned const shift1 = slot1 & 7;
+    unsigned const bit1 = 1 << shift1;
+    unsigned present1 = bf[pos1] & bit1;
 
-     size_t const pos2 = (cacheLineNb << 6) + (slot2 >> 2);
-     unsigned const shift2 = (slot2 & 3) * 2;
-     unsigned const ex2 = (bf[pos2] >> shift2) & 3;
+    size_t const pos2 = (cacheLineNb << 6) + (slot2 >> 3);
+    unsigned const shift2 = slot2 & 7;
+    unsigned const bit2 = 1 << shift2;
+    unsigned present2 = bf[pos2] & bit2;
 
-     unsigned const existing = MIN(ex1, ex2);
+    unsigned const maybePresent = (present1 >> shift1) & (present2 >> shift2);
+    present1 &= -maybePresent;
+    present2 &= -maybePresent;
 
-     static const int addCandidates[4] = { 0, 2, 1, 1 };
-     static const unsigned nextValue[4] = { 1, 2, 3, 3 };
+    // Write presence
+    bf[pos1 + 32] |= present1;
+    bf[pos2 + 32] |= present2;
+    bf[pos1] |= bit1;
+    bf[pos2] |= bit2;
 
-     bf[pos1] &= (Filter)(~(3 << shift1)); /* erase previous value */
-     unsigned const max1 = MAX(ex1, nextValue[existing]);
-     bf[pos1] |= (Filter)(max1 << shift1);
-     unsigned const max2 = MAX(ex2, nextValue[existing]);
-     bf[pos2] |= (Filter)(max2 << shift2);
-
-     return addCandidates[existing];
+    return (int)maybePresent;
  }
 
 
 /*
  * Check if provided 64-bit hash is a collision candidate
- * Requires the slot to be occupied by at least 2 candidates.
+ * Requires both bit positions to be set.
  * return >0 if hash is a collision candidate
  *         0 otherwise (slot unoccupied, or only one candidate)
  * note: unoccupied slots should not happen in this algorithm,
@@ -455,24 +455,24 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
  */
 static inline int Filter_check(const Filter* bf, int bflog, uint64_t hash)
  {
-     hash = avalanche64(hash);
-     unsigned const slot1 = hash & 255;
-     hash >>= 8;
-     unsigned const slot2 = hash & 255;
-     hash >>= 8;
+    hash = avalanche64(hash);
+    unsigned const slot1 = hash & 255;
+    hash >>= 8;
+    unsigned const slot2 = hash & 255;
+    hash >>= 8;
 
-     size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
-     size_t const cacheLineNb = (size_t)hash & fclmask;
+    size_t const fclmask = ((size_t)1 << (bflog-6)) - 1;
+    size_t const lineNb = (size_t)hash & fclmask;
 
-     size_t const pos1 = (cacheLineNb << 6) + (slot1 >> 2);
-     unsigned const shift1 = (slot1 & 3) * 2;
-     unsigned const ex1 = (bf[pos1] >> shift1) & 3;
+    size_t const pos1 = (lineNb << 6) + (slot1 >> 3) + 32;
+    unsigned const shift1 = slot1 & 7;
+    unsigned const present1 = (bf[pos1] >> shift1) & 1;
 
-     size_t const pos2 = (cacheLineNb << 6) + (slot2 >> 2);
-     unsigned const shift2 = (slot2 & 3) * 2;
-     unsigned const ex2 = (bf[pos2] >> shift2) & 3;
+    size_t const pos2 = (lineNb << 6) + (slot2 >> 3) + 32;
+    unsigned const shift2 = slot2 & 7;
+    unsigned const present2 = (bf[pos2] >> shift2) & 1;
 
-     return (ex1 >= 2) && (ex2 >= 2);
+    return (int)(present1 & present2);
  }
 
 #endif // FILTER_1_PROBE
@@ -673,7 +673,7 @@ static size_t search_collisions(
     /* ===  filter hashes (optional)  === */
 
     Filter* bf = NULL;
-    uint64_t nbPresents = totalH;
+    uint64_t maxNbH = totalH;
 
     if (filter) {
         time_t const filterTBegin = time(NULL);
@@ -681,10 +681,9 @@ static size_t search_collisions(
         bf = create_Filter(bflog);
         if (!bf) EXIT("not enough memory for filter");
 
-
         DISPLAY(" Generate %llu hashes from samples of %u bytes \n",
                 (unsigned long long)totalH, (unsigned)sampleSize);
-        nbPresents = 0;
+        maxNbH = 0;
 
         for (uint64_t n=0; n < totalH; n++) {
             if (display && ((n&0xFFFFF) == 1) )
@@ -694,10 +693,10 @@ static size_t search_collisions(
             UniHash const h = hfunction(sf->buffer, sampleSize);
             if ((h.h64 & hMask) != hSelector) continue;
 
-            nbPresents += (uint64_t)Filter_insert(bf, bflog, h.h64);
+            maxNbH += 2 * (uint64_t)Filter_insert(bf, bflog, h.h64);
         }
 
-        if (nbPresents==0) {
+        if (maxNbH==0) {
             DISPLAY(" Analysis completed: No collision detected \n");
             if (param.resultPtr) param.resultPtr->nbCollisions = 0;
             free_Filter(bf);
@@ -707,7 +706,7 @@ static size_t search_collisions(
 
         {   double const filterDelay = difftime(time(NULL), filterTBegin);
             DISPLAY(" Generation and filter completed in %s, detected up to %llu candidates \n",
-                    displayDelay(filterDelay), (unsigned long long) nbPresents);
+                    displayDelay(filterDelay), (unsigned long long) maxNbH);
     }   }
 
 
@@ -715,8 +714,8 @@ static size_t search_collisions(
 
     time_t const storeTBegin = time(NULL);
     size_t const hashByteSize = (htype == ht128) ? 16 : 8;
-    size_t const tableSize = (size_t)((nbPresents+1) * hashByteSize);
-    assert(tableSize > nbPresents);  /* check tableSize calculation overflow */
+    size_t const tableSize = (size_t)((maxNbH+1) * hashByteSize);
+    assert(tableSize > maxNbH);  /* check tableSize calculation overflow */
     DISPLAY(" Storing hash candidates (%i MB) \n", (int)(tableSize >> 20));
 
     /* Generate and store hashes */
@@ -733,15 +732,16 @@ static size_t search_collisions(
 
         if (filter) {
             if (Filter_check(bf, bflog, h.h64)) {
-                assert(nbCandidates < nbPresents);
+                //printf("found %zu candidates / %llu generated \n", nbCandidates, n);
+                assert(nbCandidates < maxNbH);
                 addHashCandidate(hashCandidates, h, htype, nbCandidates++);
             }
         } else {
-            assert(nbCandidates < nbPresents);
+            assert(nbCandidates < maxNbH);
             addHashCandidate(hashCandidates, h, htype, nbCandidates++);
         }
     }
-    if (nbCandidates < nbPresents) {
+    if (nbCandidates < maxNbH) {
         /* Try to mitigate gnuc_quicksort behavior, by reducing allocated memory,
          * since gnuc_quicksort uses a lot of additional memory for mergesort */
         void* const checkPtr = realloc(hashCandidates, nbCandidates * hashByteSize);

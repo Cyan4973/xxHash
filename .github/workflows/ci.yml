@@ -471,7 +471,7 @@ jobs:
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
 
-  # macOS, { 11 }
+  # macOS, { 11, 12 }
 
   macos-general:
     name: ${{ matrix.system.os }}
@@ -501,7 +501,7 @@ jobs:
         make clean test MOREFLAGS='-Werror' | tee
 
 
-  # Windows, { VC++2022, VC++2019, VC++2017 } x { x64, Win32, ARM, ARM64 }
+  # Windows, { VC++2022, VC++2019 } x { x64, Win32, ARM, ARM64 }
   #
   # - Default shell for Windows environment is PowerShell Core.
   #   https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell

@@ -332,10 +332,14 @@ typedef unsigned char Filter;
 Filter* create_Filter(int bflog)
 {
     assert(bflog < 64 && bflog > 1);
-    size_t bfsize = (size_t)1 << bflog;
-    Filter* bf = malloc(bfsize);
-    assert(((void)"Filter creation failed", bf));
-    memset(bf, 0, bfsize);
+    size_t const bfsize = (size_t)1 << bflog;
+    size_t const cacheline_size = 64;
+    Filter* const bf = aligned_alloc(cacheline_size, bfsize);  // requires C11
+    if (bf==NULL) {
+        fprintf(stderr, "Filter creation failed (need %zu MB) \n", bfsize >> 20);
+        exit(1);
+    }
+    memset(bf, 0, bfsize);  // we want memory to be actually used
     return bf;
 }
 

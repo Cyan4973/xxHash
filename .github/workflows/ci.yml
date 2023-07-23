@@ -72,34 +72,33 @@ jobs:
           #   pkgs    : apt-get package names.  It can include multiple package names which are delimited by space.
           #   cc      : C compiler executable.
           #   cxx     : C++ compiler executable for `make ctocpptest`.
-          #   avx512  : Set 'true' if compiler supports avx512.  Otherwise, set 'false'.
           #   os      : GitHub Actions YAML workflow label.  See https://github.com/actions/virtual-environments#available-environments
 
           # cc
-          { pkgs: '',                                  cc: cc,        cxx: c++,         avx512: 'true',  os: ubuntu-latest, },
+          { pkgs: '',                                  cc: cc,        cxx: c++,         os: ubuntu-latest, },
 
           # gcc
-          { pkgs: '',                                  cc: gcc,       cxx: g++,         avx512: 'true',  os: ubuntu-latest, },
-          { pkgs: 'gcc-13  g++-13  lib32gcc-13-dev',   cc: gcc-13,    cxx: g++-13,      avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'gcc-12  g++-12  lib32gcc-12-dev',   cc: gcc-12,    cxx: g++-12,      avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'gcc-8   g++-8   lib32gcc-8-dev',    cc: gcc-8,     cxx: g++-8,       avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'gcc-7   g++-7   lib32gcc-7-dev',    cc: gcc-7,     cxx: g++-7,       avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: '',                                  cc: gcc,       cxx: g++,         os: ubuntu-latest, },
+          { pkgs: 'gcc-13  g++-13  lib32gcc-13-dev',   cc: gcc-13,    cxx: g++-13,      os: ubuntu-22.04,  },
+          { pkgs: 'gcc-12  g++-12  lib32gcc-12-dev',   cc: gcc-12,    cxx: g++-12,      os: ubuntu-22.04,  },
+          { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      os: ubuntu-22.04,  },
+          { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      os: ubuntu-22.04,  },
+          { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       os: ubuntu-22.04,  },
+          { pkgs: 'gcc-8   g++-8   lib32gcc-8-dev',    cc: gcc-8,     cxx: g++-8,       os: ubuntu-20.04,  },
+          { pkgs: 'gcc-7   g++-7   lib32gcc-7-dev',    cc: gcc-7,     cxx: g++-7,       os: ubuntu-20.04,  },
 
           # clang
-          { pkgs: '',                                  cc: clang,     cxx: clang++,     avx512: 'true',  os: ubuntu-latest, },
-          { pkgs: 'clang-15',                          cc: clang-15,  cxx: clang++-15,  avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'clang-14',                          cc: clang-14,  cxx: clang++-14,  avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'clang-13',                          cc: clang-13,  cxx: clang++-13,  avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'clang-12',                          cc: clang-12,  cxx: clang++-12,  avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'clang-11',                          cc: clang-11,  cxx: clang++-11,  avx512: 'true',  os: ubuntu-22.04,  },
-          { pkgs: 'clang-10',                          cc: clang-10,  cxx: clang++-10,  avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'clang-9',                           cc: clang-9,   cxx: clang++-9,   avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'clang-8',                           cc: clang-8,   cxx: clang++-8,   avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'clang-7',                           cc: clang-7,   cxx: clang++-7,   avx512: 'true',  os: ubuntu-20.04,  },
-          { pkgs: 'clang-6.0',                         cc: clang-6.0, cxx: clang++-6.0, avx512: 'true',  os: ubuntu-20.04,  },
+          { pkgs: '',                                  cc: clang,     cxx: clang++,     os: ubuntu-latest, },
+          { pkgs: 'clang-15',                          cc: clang-15,  cxx: clang++-15,  os: ubuntu-22.04,  },
+          { pkgs: 'clang-14',                          cc: clang-14,  cxx: clang++-14,  os: ubuntu-22.04,  },
+          { pkgs: 'clang-13',                          cc: clang-13,  cxx: clang++-13,  os: ubuntu-22.04,  },
+          { pkgs: 'clang-12',                          cc: clang-12,  cxx: clang++-12,  os: ubuntu-22.04,  },
+          { pkgs: 'clang-11',                          cc: clang-11,  cxx: clang++-11,  os: ubuntu-22.04,  },
+          { pkgs: 'clang-10',                          cc: clang-10,  cxx: clang++-10,  os: ubuntu-20.04,  },
+          { pkgs: 'clang-9',                           cc: clang-9,   cxx: clang++-9,   os: ubuntu-20.04,  },
+          { pkgs: 'clang-8',                           cc: clang-8,   cxx: clang++-8,   os: ubuntu-20.04,  },
+          { pkgs: 'clang-7',                           cc: clang-7,   cxx: clang++-7,   os: ubuntu-20.04,  },
+          { pkgs: 'clang-6.0',                         cc: clang-6.0, cxx: clang++-6.0, os: ubuntu-20.04,  },
         ]
 
     runs-on: ${{ matrix.os }}
@@ -163,7 +162,6 @@ jobs:
         make clean noxxh3test
 
     - name: make avx512f
-      if: ${{ matrix.avx512 == 'true' }}
       run: |
         CFLAGS="-O1 -mavx512f -Werror" make clean default
 
@@ -473,7 +471,7 @@ jobs:
         LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
 
-  # macOS, { 11 }
+  # macOS, { 11, 12 }
 
   macos-general:
     name: ${{ matrix.system.os }}
@@ -503,7 +501,7 @@ jobs:
         make clean test MOREFLAGS='-Werror' | tee
 
 
-  # Windows, { VC++2022, VC++2019, VC++2017 } x { x64, Win32, ARM, ARM64 }
+  # Windows, { VC++2022, VC++2019 } x { x64, Win32, ARM, ARM64 }
   #
   # - Default shell for Windows environment is PowerShell Core.
   #   https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell

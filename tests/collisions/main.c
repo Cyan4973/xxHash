@@ -423,12 +423,12 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
 
     size_t const pos1 = (cacheLineNb << 6) + (slot1 >> 3);
     unsigned const shift1 = slot1 & 7;
-    unsigned const bit1 = 1 << shift1;
+    unsigned const bit1 = 1U << shift1;
     unsigned present1 = bf[pos1] & bit1;
 
     size_t const pos2 = (cacheLineNb << 6) + (slot2 >> 3);
     unsigned const shift2 = slot2 & 7;
-    unsigned const bit2 = 1 << shift2;
+    unsigned const bit2 = 1U << shift2;
     unsigned present2 = bf[pos2] & bit2;
 
     unsigned const maybePresent = (present1 >> shift1) & (present2 >> shift2);
@@ -436,10 +436,10 @@ static inline int Filter_insert(Filter* bf, int bflog, uint64_t hash)
     present2 &= -maybePresent;
 
     // Write presence
-    bf[pos1 + 32] |= present1;
-    bf[pos2 + 32] |= present2;
-    bf[pos1] |= bit1;
-    bf[pos2] |= bit2;
+    bf[pos1 + 32] |= (Filter)present1;
+    bf[pos2 + 32] |= (Filter)present2;
+    bf[pos1] |= (Filter)bit1;
+    bf[pos2] |= (Filter)bit2;
 
     return (int)maybePresent;
 }

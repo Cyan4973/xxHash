@@ -451,7 +451,7 @@ test-all: test test32 test-unicode clangtest gcc-og-test cxxtest usan test-inlin
 .PHONY: test-tools
 test-tools:
 	CFLAGS=-Werror $(MAKE) -C tests/bench
-	CFLAGS=-Werror $(MAKE) -C tests/collisions
+	CFLAGS=-Werror $(MAKE) -C tests/collisions check
 
 .PHONY: test-xxh-nnn-sums
 test-xxh-nnn-sums: xxhsum_and_links

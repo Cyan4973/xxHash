@@ -54,6 +54,16 @@
 #include "sort.hh"    /* sort64 */
 
 
+#ifdef __MINGW32__
+/* MINGW claims C11 complians, yet doesn't provide aligned_alloc().
+ * _aligned_malloc() isn't a good workaround,
+ * as it seems incompatible with realloc().
+ * Let's use malloc() instead, array will not be fully aligned,
+ * resulting in some performance degradation, but nothing major.
+ * This policy can be updated once MINGW becomes really C11 compliant.
+ */
+# define aligned_alloc(a,s)  ((void)(a), malloc(s))
+#endif
 
 typedef enum { ht32, ht64, ht128 } Htype_e;
 

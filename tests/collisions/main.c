@@ -69,7 +69,7 @@ typedef enum { ht32, ht64, ht128 } Htype_e;
 
 /* ===  Debug  === */
 
-#define EXIT(...) { printf(__VA_ARGS__); printf("\n"); exit(1); }
+#define EXIT(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); fflush(NULL); exit(1); }
 
 static void hexRaw(const void* buffer, size_t size)
 {
@@ -1012,7 +1012,7 @@ int bad_argument(const char* exeName)
 
 int main(int argc, const char** argv)
 {
-    if (sizeof(size_t) < 8) return 1;  // cannot work on systems without ability to allocate objects >= 4 GB
+    printf(" *** Collision tester for 64+ bit hashes ***  \n\n");
 
     assert(argc > 0);
     const char* const exeName = argv[0];
@@ -1058,11 +1058,10 @@ int main(int argc, const char** argv)
     if (bflog == 0) bflog = highestBitSet(totalH) + 1;   /* auto-size filter */
     if (!filter) bflog = -1; // disable filter
 
-    if (sizeof(size_t) < 8)
-      EXIT("This program has not been validated on architectures other than "
-           "64bit \n");
+    if (sizeof(size_t) < 8) {
+        printf("warning: in 32-bit mode, the program is more likely going to lack address space \n");
+    }
 
-    printf(" *** Collision tester for 64+ bit hashes ***  \n\n");
     printf("Testing %s algorithm (%i-bit) \n", hname, hwidth);
     printf("This program will allocate a lot of memory,\n");
     printf("generate %llu %i-bit hashes from samples of %u bytes, \n",

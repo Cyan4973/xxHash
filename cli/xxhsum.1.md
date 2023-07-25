@@ -4,18 +4,19 @@ xxhsum(1) -- print or check xxHash non-cryptographic checksums
 SYNOPSIS
 --------
 
-`xxhsum` [*OPTION*]... [*FILE*]...  
+`xxhsum` [*OPTION*]... [*FILE*]...
 `xxhsum -b` [*OPTION*]...
 
 `xxh32sum` is equivalent to `xxhsum -H0`,
 `xxh64sum` is equivalent to `xxhsum -H1`,
-`xxh128sum` is equivalent to `xxhsum -H2`.
+`xxh128sum` is equivalent to `xxhsum -H2`,
+`xxh3sum` is equivalent to `xxhsum -H3`.
 
 
 DESCRIPTION
 -----------
 
-Print or check xxHash (32, 64 or 128 bits) checksums.  
+Print or check xxHash (32, 64 or 128 bits) checksums.
 When no *FILE*, read standard input, except if it's the console.
 When *FILE* is `-`, read standard input even if it's the console.
 
@@ -39,8 +40,6 @@ OPTIONS
 
 * `-H`*HASHTYPE*:
   Hash selection. *HASHTYPE* means `0`=XXH32, `1`=XXH64, `2`=XXH128, `3`=XXH3.
-  Note that `-H3` triggers `--tag`, which can't be skipped
-  (this is to reduce risks of confusion with `-H2` (`XXH64`)).
   Alternatively, *HASHTYPE* `32`=XXH32, `64`=XXH64, `128`=XXH128.
   Default value is `1` (XXH64)
 

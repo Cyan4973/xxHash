@@ -288,14 +288,14 @@ test-xxhsum-c: xxhsum
 	./xxhsum --tag -H1 xxhsum* | $(GREP) XXH64
 	./xxhsum --tag -H2 xxhsum* | $(GREP) XXH128
 	./xxhsum --tag -H3 xxhsum* | $(GREP) XXH3
-	./xxhsum       -H3 xxhsum* | $(GREP) XXH3  # --tag is implicit for H3
+	./xxhsum       -H3 xxhsum* | $(GREP) XXH3_ # prefix for GNU format
 	./xxhsum --tag -H32 xxhsum* | $(GREP) XXH32
 	./xxhsum --tag -H64 xxhsum* | $(GREP) XXH64
 	./xxhsum --tag -H128 xxhsum* | $(GREP) XXH128
 	./xxhsum --tag -H0 --little-endian xxhsum* | $(GREP) XXH32_LE
 	./xxhsum --tag -H1 --little-endian xxhsum* | $(GREP) XXH64_LE
 	./xxhsum --tag -H2 --little-endian xxhsum* | $(GREP) XXH128_LE
-	./xxhsum       -H3 --little-endian xxhsum* | $(GREP) XXH3_LE
+	./xxhsum --tag -H3 --little-endian xxhsum* | $(GREP) XXH3_LE
 	./xxhsum --tag -H32 --little-endian xxhsum* | $(GREP) XXH32_LE
 	./xxhsum --tag -H64 --little-endian xxhsum* | $(GREP) XXH64_LE
 	./xxhsum --tag -H128 --little-endian xxhsum* | $(GREP) XXH128_LE

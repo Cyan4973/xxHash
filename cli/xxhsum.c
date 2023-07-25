@@ -1,6 +1,6 @@
 /*
  * xxhsum - Command line interface for xxhash algorithms
- * Copyright (C) 2013-2021 Yann Collet
+ * Copyright (C) 2013-2023 Yann Collet
  *
  * GPL v2 License
  *
@@ -347,6 +347,14 @@ static void XSUM_printLine_BSD(const char* filename, const void* canonicalHash, 
     XSUM_printLine_BSD_internal(filename, canonicalHash, hashType, XSUM_algoName, XSUM_display_BigEndian);
 }
 
+static void XSUM_displayPrefix(const AlgoSelected hashType)
+{
+    assert(0 <= hashType && (size_t)hashType <= XSUM_TABLE_ELT_SIZE(XSUM_algoName));
+    if (hashType == algo_xxh3) {
+        XSUM_output("XXH3_");
+    }
+}
+
 static void XSUM_printLine_GNU_internal(const char* filename,
                                const void* canonicalHash, const AlgoSelected hashType,
                                XSUM_displayHash_f f_displayHash)
@@ -357,6 +365,7 @@ static void XSUM_printLine_GNU_internal(const char* filename,
         if (needsEscape) {
             XSUM_output("%c", '\\');
         }
+        XSUM_displayPrefix(hashType);
         f_displayHash(canonicalHash, hashLength);
         XSUM_output("  ");
         XSUM_printFilename(filename, needsEscape);
@@ -707,6 +716,7 @@ static ParseLineResult XSUM_parseLine1(ParsedLine* parsedLine, char* line, int r
         hash_len = (size_t)(firstSpace - line);
         if (hash_len==8) parsedLine->algo = algo_xxh32;
         if (hash_len==16) parsedLine->algo = algo_xxh64;
+        if (hash_len==21) parsedLine->algo = algo_xxh3;
         if (hash_len==32) parsedLine->algo = algo_xxh128;
     }
 
@@ -731,6 +741,18 @@ static ParseLineResult XSUM_parseLine1(ParsedLine* parsedLine, char* line, int r
         if (parsedLine->algo != algo_xxh64 && parsedLine->algo != algo_xxh3) return ParseLine_invalidFormat;
         {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
             if (XSUM_canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), hash_ptr, rev)
+                != CanonicalFromString_ok) {
+                return ParseLine_invalidFormat;
+            }
+            break;
+        }
+
+    case 21:
+        if (parsedLine->algo != algo_xxh3) return ParseLine_invalidFormat;
+        /* check XXH3 prefix*/
+        if (memcmp(hash_ptr, "XXH3_", 5) != 0) return ParseLine_invalidFormat;
+        {   XXH64_canonical_t* xxh64c = &parsedLine->canonical.xxh64;
+            if (XSUM_canonicalFromString(xxh64c->digest, sizeof(xxh64c->digest), (const char*)hash_ptr+5, rev)
                 != CanonicalFromString_ok) {
                 return ParseLine_invalidFormat;
             }
@@ -802,9 +824,10 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
             break;
         }
 
-        {   GetLineResult const XSUM_getLineResult = XSUM_getLine(&XSUM_parseFileArg->lineBuf,
-                                                        &XSUM_parseFileArg->lineMax,
-                                                         XSUM_parseFileArg->inFile);
+        {   GetLineResult const XSUM_getLineResult =
+                XSUM_getLine(&XSUM_parseFileArg->lineBuf,
+                    &XSUM_parseFileArg->lineMax,
+                    XSUM_parseFileArg->inFile);
 
             /* Ignore comment lines */
             if (XSUM_getLineResult == GetLine_comment) {
@@ -1260,10 +1283,8 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
                     case 64: algo = algo_xxh64; break;
                     case 2 :
                     case 128: algo = algo_xxh128; break;
-                    case 3 : /* xxh3 - necessarily uses BSD convention to avoid confusion with XXH64 */
-                        algo = algo_xxh3;
-                        convention = display_bsd;
-                        break;
+                    case 3 :
+                        algo = algo_xxh3; break;
                     default:
                         return XSUM_badusage(exename);
                 }

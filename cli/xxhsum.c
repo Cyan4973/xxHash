@@ -1229,6 +1229,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     if (strstr(exename,  "xxh32sum") != NULL) { algo = g_defaultAlgo = algo_xxh32;  algoBitmask = algo_bitmask_xxh32;  }
     if (strstr(exename,  "xxh64sum") != NULL) { algo = g_defaultAlgo = algo_xxh64;  algoBitmask = algo_bitmask_xxh64;  }
     if (strstr(exename, "xxh128sum") != NULL) { algo = g_defaultAlgo = algo_xxh128; algoBitmask = algo_bitmask_xxh128; }
+    if (strstr(exename,   "xxh3sum") != NULL) { algo = g_defaultAlgo = algo_xxh3;   algoBitmask = algo_bitmask_xxh3;  }
 
     for (i=1; i<argc; i++) {
         const char* argument = argv[i];

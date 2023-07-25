@@ -123,9 +123,9 @@ xxhsum.o: $(XXHSUM_SRC_DIR)/xxhsum.c $(XXHSUM_HEADERS) \
 xxh_x86dispatch.o: xxh_x86dispatch.c xxh_x86dispatch.h xxhash.h
 
 .PHONY: xxhsum_and_links
-xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum
+xxhsum_and_links: xxhsum xxh32sum xxh64sum xxh128sum xxh3sum
 
-xxh32sum xxh64sum xxh128sum: xxhsum
+xxh32sum xxh64sum xxh128sum xxh3sum: xxhsum
 	ln -sf $<$(EXT) $@$(EXT)
 
 xxhsum_inlinedXXH: CPPFLAGS += -DXXH_INLINE_ALL
@@ -182,7 +182,7 @@ clean:  ## remove all build artifacts
 	$(Q)$(RM) core *.o *.obj *.$(SHARED_EXT) *.$(SHARED_EXT).* *.a libxxhash.pc
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	$(Q)$(RM) xxhsum.wasm xxhsum.js xxhsum.html
-	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT)
+	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT) xxh3sum$(EXT)
 	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	$(MAKE) -C tests clean
 	$(MAKE) -C tests/bench clean
@@ -604,6 +604,7 @@ install_xxhsum: xxhsum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh32sum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh64sum
 	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh128sum
+	$(Q)ln -sf xxhsum $(DESTDIR)$(BINDIR)/xxh3sum
 
 install_man:
 	@echo Installing man pages
@@ -630,6 +631,7 @@ uninstall:  ## uninstall libraries, CLI, links and man page
 	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh32sum
 	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh64sum
 	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh128sum
+	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxh3sum
 	$(Q)$(RM) $(DESTDIR)$(BINDIR)/xxhsum
 	$(Q)$(RM) $(DESTDIR)$(MANDIR)/xxh32sum.1
 	$(Q)$(RM) $(DESTDIR)$(MANDIR)/xxh64sum.1

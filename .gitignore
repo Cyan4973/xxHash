@@ -12,6 +12,7 @@ libxxhash.*
 xxh32sum
 xxh64sum
 xxh128sum
+xxh3sum
 xxhsum
 xxhsum32
 xxhsum_privateXXH

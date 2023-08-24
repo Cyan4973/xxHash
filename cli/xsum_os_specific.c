@@ -69,6 +69,11 @@ static int XSUM_IS_CONSOLE(FILE* stdStream)
  || defined(__DJGPP__) \
  || defined(__MSYS__) \
  || defined(__HAIKU__)
+#  ifdef __OpenBSD__
+#    include <errno.h>       /* errno */
+#    include <string.h>      /* strerror */
+#    include "xsum_output.h" /* XSUM_log */
+#  endif
 #  include <unistd.h>   /* isatty */
 #  define XSUM_IS_CONSOLE(stdStream) isatty(fileno(stdStream))
 #elif defined(MSDOS) || defined(OS2)
@@ -135,6 +140,16 @@ static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 #ifndef XSUM_NO_MAIN
 int main(int argc, const char* argv[])
 {
+#ifdef __OpenBSD__
+    /*
+     * xxhsum(1) does not create or write files, permit reading only.
+     */
+    if (pledge("stdio rpath", NULL) == -1) {
+        XSUM_log("pledge: %s\n", strerror(errno));
+        return 1;
+    }
+#endif
+
     return XSUM_main(argc, argv);
 }
 #endif

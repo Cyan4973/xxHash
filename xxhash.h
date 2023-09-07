@@ -3701,6 +3701,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #    include <immintrin.h>
 #  elif defined(__SSE2__)
 #    include <emmintrin.h>
+#  elif defined(__riscv_vector)
+#    include <riscv_vector.h>
 #  endif
 #endif
 
@@ -3823,6 +3825,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
                        */
     XXH_VSX    = 5,  /*!< VSX and ZVector for POWER8/z13 (64-bit) */
     XXH_SVE    = 6,  /*!< SVE for some ARMv8-A and ARMv9-A */
+    XXH_RVV    = 7,  /*!< RVV for RISC-V */
 };
 /*!
  * @ingroup tuning
@@ -3845,6 +3848,7 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  define XXH_NEON   4
 #  define XXH_VSX    5
 #  define XXH_SVE    6
+#  define XXH_RVV    7
 #endif
 
 #ifndef XXH_VECTOR    /* can be defined on command line */
@@ -3869,6 +3873,8 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
      || (defined(__s390x__) && defined(__VEC__)) \
      && defined(__GNUC__) /* TODO: IBM XL */
 #    define XXH_VECTOR XXH_VSX
+#  elif defined(__riscv_vector)
+#    define XXH_VECTOR XXH_RVV
 #  else
 #    define XXH_VECTOR XXH_SCALAR
 #  endif
@@ -3905,6 +3911,8 @@ enum XXH_VECTOR_TYPE /* fake enum */ {
 #  elif XXH_VECTOR == XXH_AVX512  /* avx512 */
 #     define XXH_ACC_ALIGN 64
 #  elif XXH_VECTOR == XXH_SVE   /* sve */
+#     define XXH_ACC_ALIGN 64
+# elif XXH_VECTOR == XXH_RVV   /* rvv */
 #     define XXH_ACC_ALIGN 64
 #  endif
 #endif
@@ -5548,6 +5556,83 @@ XXH3_accumulate_sve(xxh_u64* XXH_RESTRICT acc,
 
 #endif
 
+#if (XXH_VECTOR == XXH_RVV)
+
+XXH_FORCE_INLINE void
+XXH3_accumulate_512_rvv(  void* XXH_RESTRICT acc,
+                    const void* XXH_RESTRICT input,
+                    const void* XXH_RESTRICT secret)
+{
+    XXH_ASSERT((((size_t)acc) & 63) == 0);
+    // Try to set vector lenght to 512 bits.
+    // If this length is unavailable, then maximum available will be used
+    size_t vl = vsetvl_e64m1(8);
+
+    uint64_t* const xacc = (uint64_t*) acc;
+    uint64_t* const xinput = (uint64_t*) input;
+    uint64_t* const xsecret = (uint64_t*) secret;
+    uint64_t swap_mask[8] = {1, 0, 3, 2, 5, 4, 7, 6};
+    vuint64m1_t xswap_mask = vle64_v_u64m1(swap_mask, vl);
+
+    // vuint64m1_t is sizeless.
+    // But we can assume that vl can be only 2, 4 or 8
+    for(size_t i = 0; i < XXH_STRIPE_LEN/(8 * vl); i++){
+        /* data_vec    = input[i]; */
+        vuint64m1_t data_vec = vreinterpret_v_u8m1_u64m1(vle8_v_u8m1((uint8_t*)(xinput + vl * i), vl * 8));
+        /* key_vec     = secret[i]; */
+        vuint64m1_t key_vec = vreinterpret_v_u8m1_u64m1(vle8_v_u8m1((uint8_t*)(xsecret + vl * i), vl * 8));
+        /* data_key    = data_vec ^ key_vec; */
+        vuint64m1_t data_key = vxor_vv_u64m1(data_vec, key_vec, vl);
+        /* data_key_lo = data_key >> 32; */
+        vuint64m1_t data_key_lo = vsrl_vx_u64m1(data_key, 32, vl);
+        /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
+        vuint64m1_t product = vmul_vv_u64m1(vand_vx_u64m1(data_key, 0xffffffff, vl), vand_vx_u64m1(data_key_lo, 0xffffffff, vl), vl);
+        /* acc_vec = xacc[i]; */
+        vuint64m1_t acc_vec = vle64_v_u64m1(xacc + vl * i, vl);
+        acc_vec = vadd_vv_u64m1(acc_vec, product, vl);
+        /* swap high and low halves */
+        vuint64m1_t data_swap = vrgather_vv_u64m1(data_vec, xswap_mask, vl);
+        acc_vec = vadd_vv_u64m1(acc_vec, data_swap, vl);
+        vse64_v_u64m1(xacc + vl * i, acc_vec, vl);
+    }
+}
+XXH_FORCE_INLINE XXH3_ACCUMULATE_TEMPLATE(rvv)
+
+XXH_FORCE_INLINE void
+XXH3_scrambleAcc_rvv(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
+{
+    XXH_ASSERT((((size_t)acc) & 63) == 0);
+
+    // Try to set vector lenght to 512 bits.
+    // If this length is unavailable, then maximum available will be used
+    size_t vl = vsetvl_e64m1(8);
+    uint64_t* const xacc = (uint64_t*) acc;
+    uint64_t* const xsecret = (uint64_t*) secret;
+
+    uint64_t prime[8] = {XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1};
+    vuint64m1_t vprime = vle64_v_u64m1(prime, vl);
+
+    // vuint64m1_t is sizeless.
+    // But we can assume that vl can be only 2, 4 or 8
+    for(size_t i = 0; i < XXH_STRIPE_LEN/(8 * vl); i++){
+        /* xacc[i] ^= (xacc[i] >> 47) */
+        vuint64m1_t acc_vec = vle64_v_u64m1(xacc + vl * i, vl);
+        vuint64m1_t shifted = vsrl_vx_u64m1(acc_vec, 47, vl);
+        vuint64m1_t data_vec = vxor_vv_u64m1(acc_vec, shifted, vl);
+        /* xacc[i] ^= xsecret[i]; */
+        vuint64m1_t key_vec = vreinterpret_v_u8m1_u64m1(vle8_v_u8m1((uint8_t*)(xsecret + vl * i), vl * 8));
+        vuint64m1_t data_key = vxor_vv_u64m1(data_vec, key_vec, vl);
+
+        /* xacc[i] *= XXH_PRIME32_1; */
+        vuint64m1_t prod_even = vmul_vv_u64m1(vand_vx_u64m1(data_key, 0xffffffff, vl), vprime, vl);
+        vuint64m1_t prod_odd = vmul_vv_u64m1(vsrl_vx_u64m1(data_key, 32, vl), vprime, vl);
+        vuint64m1_t prod = vadd_vv_u64m1(prod_even, vsll_vx_u64m1(prod_odd, 32, vl), vl);
+        vse64_v_u64m1(xacc + vl * i, prod, vl);
+    }
+}
+
+#endif
+
 /* scalar variants - universal */
 
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
@@ -5777,6 +5862,14 @@ typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
 #define XXH3_accumulate     XXH3_accumulate_sve
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_scalar
 #define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
+
+#elif (XXH_VECTOR == XXH_RVV)
+
+#define XXH3_accumulate_512 XXH3_accumulate_512_rvv
+#define XXH3_accumulate     XXH3_accumulate_rvv
+#define XXH3_scrambleAcc    XXH3_scrambleAcc_rvv
+#define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
+
 
 #else /* scalar */
 

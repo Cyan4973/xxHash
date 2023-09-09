@@ -5558,6 +5558,15 @@ XXH3_accumulate_sve(xxh_u64* XXH_RESTRICT acc,
 
 #if (XXH_VECTOR == XXH_RVV)
 
+#if ((defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 13) || \
+        (defined(__clang__) && __clang_major__ < 16))
+    #define RVV_OP(op) op
+#else
+    #define concat2(X, Y) X ## Y
+    #define concat(X, Y) concat2(X, Y)
+    #define RVV_OP(op) concat(__riscv_, op)
+#endif
+
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_rvv(  void* XXH_RESTRICT acc,
                     const void* XXH_RESTRICT input,
@@ -5566,34 +5575,34 @@ XXH3_accumulate_512_rvv(  void* XXH_RESTRICT acc,
     XXH_ASSERT((((size_t)acc) & 63) == 0);
     // Try to set vector lenght to 512 bits.
     // If this length is unavailable, then maximum available will be used
-    size_t vl = vsetvl_e64m1(8);
+    size_t vl = RVV_OP(vsetvl_e64m1)(8);
 
     uint64_t* const xacc = (uint64_t*) acc;
     uint64_t* const xinput = (uint64_t*) input;
     uint64_t* const xsecret = (uint64_t*) secret;
     uint64_t swap_mask[8] = {1, 0, 3, 2, 5, 4, 7, 6};
-    vuint64m1_t xswap_mask = vle64_v_u64m1(swap_mask, vl);
+    vuint64m1_t xswap_mask = RVV_OP(vle64_v_u64m1)(swap_mask, vl);
 
     // vuint64m1_t is sizeless.
     // But we can assume that vl can be only 2, 4 or 8
     for(size_t i = 0; i < XXH_STRIPE_LEN/(8 * vl); i++){
         /* data_vec    = input[i]; */
-        vuint64m1_t data_vec = vreinterpret_v_u8m1_u64m1(vle8_v_u8m1((uint8_t*)(xinput + vl * i), vl * 8));
+        vuint64m1_t data_vec = RVV_OP(vreinterpret_v_u8m1_u64m1)(RVV_OP(vle8_v_u8m1)((uint8_t*)(xinput + vl * i), vl * 8));
         /* key_vec     = secret[i]; */
-        vuint64m1_t key_vec = vreinterpret_v_u8m1_u64m1(vle8_v_u8m1((uint8_t*)(xsecret + vl * i), vl * 8));
+        vuint64m1_t key_vec = RVV_OP(vreinterpret_v_u8m1_u64m1)(RVV_OP(vle8_v_u8m1)((uint8_t*)(xsecret + vl * i), vl * 8));
         /* data_key    = data_vec ^ key_vec; */
-        vuint64m1_t data_key = vxor_vv_u64m1(data_vec, key_vec, vl);
+        vuint64m1_t data_key = RVV_OP(vxor_vv_u64m1)(data_vec, key_vec, vl);
         /* data_key_lo = data_key >> 32; */
-        vuint64m1_t data_key_lo = vsrl_vx_u64m1(data_key, 32, vl);
+        vuint64m1_t data_key_lo = RVV_OP(vsrl_vx_u64m1)(data_key, 32, vl);
         /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
-        vuint64m1_t product = vmul_vv_u64m1(vand_vx_u64m1(data_key, 0xffffffff, vl), vand_vx_u64m1(data_key_lo, 0xffffffff, vl), vl);
+        vuint64m1_t product = RVV_OP(vmul_vv_u64m1)(RVV_OP(vand_vx_u64m1)(data_key, 0xffffffff, vl), RVV_OP(vand_vx_u64m1)(data_key_lo, 0xffffffff, vl), vl);
         /* acc_vec = xacc[i]; */
-        vuint64m1_t acc_vec = vle64_v_u64m1(xacc + vl * i, vl);
-        acc_vec = vadd_vv_u64m1(acc_vec, product, vl);
+        vuint64m1_t acc_vec = RVV_OP(vle64_v_u64m1)(xacc + vl * i, vl);
+        acc_vec = RVV_OP(vadd_vv_u64m1)(acc_vec, product, vl);
         /* swap high and low halves */
-        vuint64m1_t data_swap = vrgather_vv_u64m1(data_vec, xswap_mask, vl);
-        acc_vec = vadd_vv_u64m1(acc_vec, data_swap, vl);
-        vse64_v_u64m1(xacc + vl * i, acc_vec, vl);
+        vuint64m1_t data_swap = RVV_OP(vrgather_vv_u64m1)(data_vec, xswap_mask, vl);
+        acc_vec = RVV_OP(vadd_vv_u64m1)(acc_vec, data_swap, vl);
+        RVV_OP(vse64_v_u64m1)(xacc + vl * i, acc_vec, vl);
     }
 }
 XXH_FORCE_INLINE XXH3_ACCUMULATE_TEMPLATE(rvv)
@@ -5605,29 +5614,29 @@ XXH3_scrambleAcc_rvv(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
     // Try to set vector lenght to 512 bits.
     // If this length is unavailable, then maximum available will be used
-    size_t vl = vsetvl_e64m1(8);
+    size_t vl = RVV_OP(vsetvl_e64m1)(8);
     uint64_t* const xacc = (uint64_t*) acc;
     uint64_t* const xsecret = (uint64_t*) secret;
 
     uint64_t prime[8] = {XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1};
-    vuint64m1_t vprime = vle64_v_u64m1(prime, vl);
+    vuint64m1_t vprime = RVV_OP(vle64_v_u64m1)(prime, vl);
 
     // vuint64m1_t is sizeless.
     // But we can assume that vl can be only 2, 4 or 8
     for(size_t i = 0; i < XXH_STRIPE_LEN/(8 * vl); i++){
         /* xacc[i] ^= (xacc[i] >> 47) */
-        vuint64m1_t acc_vec = vle64_v_u64m1(xacc + vl * i, vl);
-        vuint64m1_t shifted = vsrl_vx_u64m1(acc_vec, 47, vl);
-        vuint64m1_t data_vec = vxor_vv_u64m1(acc_vec, shifted, vl);
+        vuint64m1_t acc_vec = RVV_OP(vle64_v_u64m1)(xacc + vl * i, vl);
+        vuint64m1_t shifted = RVV_OP(vsrl_vx_u64m1)(acc_vec, 47, vl);
+        vuint64m1_t data_vec = RVV_OP(vxor_vv_u64m1)(acc_vec, shifted, vl);
         /* xacc[i] ^= xsecret[i]; */
-        vuint64m1_t key_vec = vreinterpret_v_u8m1_u64m1(vle8_v_u8m1((uint8_t*)(xsecret + vl * i), vl * 8));
-        vuint64m1_t data_key = vxor_vv_u64m1(data_vec, key_vec, vl);
+        vuint64m1_t key_vec = RVV_OP(vreinterpret_v_u8m1_u64m1)(RVV_OP(vle8_v_u8m1)((uint8_t*)(xsecret + vl * i), vl * 8));
+        vuint64m1_t data_key = RVV_OP(vxor_vv_u64m1)(data_vec, key_vec, vl);
 
         /* xacc[i] *= XXH_PRIME32_1; */
-        vuint64m1_t prod_even = vmul_vv_u64m1(vand_vx_u64m1(data_key, 0xffffffff, vl), vprime, vl);
-        vuint64m1_t prod_odd = vmul_vv_u64m1(vsrl_vx_u64m1(data_key, 32, vl), vprime, vl);
-        vuint64m1_t prod = vadd_vv_u64m1(prod_even, vsll_vx_u64m1(prod_odd, 32, vl), vl);
-        vse64_v_u64m1(xacc + vl * i, prod, vl);
+        vuint64m1_t prod_even = RVV_OP(vmul_vv_u64m1)(RVV_OP(vand_vx_u64m1)(data_key, 0xffffffff, vl), vprime, vl);
+        vuint64m1_t prod_odd = RVV_OP(vmul_vv_u64m1)(RVV_OP(vsrl_vx_u64m1)(data_key, 32, vl), vprime, vl);
+        vuint64m1_t prod = RVV_OP(vadd_vv_u64m1)(prod_even, RVV_OP(vsll_vx_u64m1)(prod_odd, 32, vl), vl);
+        RVV_OP(vse64_v_u64m1)(xacc + vl * i, prod, vl);
     }
 }
 

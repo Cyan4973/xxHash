@@ -3676,7 +3676,11 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 
 #ifndef XXH_HAS_INCLUDE
 #  ifdef __has_include
-#    define XXH_HAS_INCLUDE(x) __has_include(x)
+/*
+ * Not defined as XXH_HAS_INCLUDE(x) (function-like) because
+ * this causes segfaults in Apple Clang 4.2 (on Mac OS X 10.7 Lion)
+ */
+#    define XXH_HAS_INCLUDE __has_include
 #  else
 #    define XXH_HAS_INCLUDE(x) 0
 #  endif

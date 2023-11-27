@@ -233,7 +233,7 @@ jobs:
         key: em${{env.EM_VERSION}}-node${{ matrix.node-version }}-${{ runner.os }}
 
     - name: Setup emsdk
-      uses: mymindstorm/setup-emsdk@v12
+      uses: mymindstorm/setup-emsdk@v13
       with:
         version: ${{env.EM_VERSION}}
         actions-cache-folder: ${{env.EM_CACHE_FOLDER}}

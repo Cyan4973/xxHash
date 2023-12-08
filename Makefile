@@ -347,6 +347,8 @@ cxxtest: clean
 	@echo ---- test C++ compilation ----
 	CC="$(CXX) -Wno-deprecated" $(MAKE) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC"
 
+# In strict C90 mode, there is no `long long` type support,
+# consequently, only XXH32 can be compiled.
 .PHONY: c90test
 ifeq ($(NO_C90_TEST),true)
 c90test:
@@ -440,9 +442,19 @@ preview-man: man
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
 test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test nostdlibtest
 
-.PHONY: test-inline
-test-inline:
+# this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
+.PHONY: test-multiInclude
+test-multiInclude:
 	$(MAKE) -C tests test_multiInclude
+
+.PHONY: test-inline-notexposed
+test-inline-notexposed: xxhsum_inlinedXXH
+	$(NM) xxhsum_inlinedXXH | $(GREP) "t _XXH32_" ; test $$? -eq 1  # no XXH32 symbol should be left
+	$(NM) xxhsum_inlinedXXH | $(GREP) "t _XXH64_" ; test $$? -eq 1  # no XXH64 symbol should be left
+
+.PHONY: test-inline
+test-inline: test-inline-notexposed test-multiInclude
+
 
 .PHONY: test-all
 test-all: CFLAGS += -Werror
@@ -627,7 +639,8 @@ install_man:
 	$(Q)ln -sf xxhsum.1 $(DESTDIR)$(MANDIR)/xxh3sum.1
 
 .PHONY: install
-install: install_libxxhash.a install_libxxhash install_libxxhash.includes install_libxxhash.pc install_xxhsum install_man ## install libraries, CLI, links and man page
+## install libraries, CLI, links and man pages
+install: install_libxxhash.a install_libxxhash install_libxxhash.includes install_libxxhash.pc install_xxhsum install_man
 	@echo xxhash installation completed
 
 .PHONY: uninstall

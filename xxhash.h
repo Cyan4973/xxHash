@@ -3410,7 +3410,7 @@ static xxh_u64 XXH64_avalanche(xxh_u64 hash)
  * @return The finalized hash
  * @see XXH32_finalize().
  */
-static XXH_PUREF xxh_u64
+XXH_FORCE_INLINE XXH_PUREF xxh_u64
 XXH64_finalize(xxh_u64 hash, const xxh_u8* ptr, size_t len, XXH_alignment align)
 {
     if (ptr==NULL) XXH_ASSERT(len == 0);

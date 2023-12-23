@@ -21,6 +21,7 @@ dispatch
 tests/generate_unicode_test
 tests/sanity_test
 tests/sanity_test_vectors_generator
+fuzzer
 
 # local conf
 .clang_complete

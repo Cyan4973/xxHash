@@ -183,6 +183,7 @@ clean:  ## remove all build artifacts
 	$(Q)$(RM) xxhsum$(EXT) xxhsum32$(EXT) xxhsum_inlinedXXH$(EXT) dispatch$(EXT)
 	$(Q)$(RM) xxhsum.wasm xxhsum.js xxhsum.html
 	$(Q)$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT) xxh3sum$(EXT)
+	$(Q)$(RM) fuzzer
 	$(Q)$(RM) $(XXHSUM_SRC_DIR)/*.o $(XXHSUM_SRC_DIR)/*.obj
 	$(MAKE) -C tests clean
 	$(MAKE) -C tests/bench clean
@@ -314,6 +315,13 @@ test-xxhsum-c: xxhsum
 	echo "0000000000000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	echo "00000000  test-expects-file-not-found" | ./xxhsum -c -; test $$? -eq 1
 	@$(RM) .test.*
+
+LIB_FUZZING_ENGINE?="-fsanitize=fuzzer"
+CC_VERSION := $(shell $(CC) --version)
+ifneq (,$(findstring clang,$(CC_VERSION)))
+fuzzer: libxxhash.a fuzz/fuzzer.c
+	$(CC) $(CFLAGS) $(LIB_FUZZING_ENGINE) -I. -o fuzzer fuzz/fuzzer.c -L. -Wl,-Bstatic -lxxhash -Wl,-Bdynamic
+endif
 
 .PHONY: test-filename-escape
 test-filename-escape:

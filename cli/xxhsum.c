@@ -1105,10 +1105,14 @@ static int XSUM_usage(const char* exename)
     XSUM_log( "Print or verify checksums using fast non-cryptographic algorithm xxHash \n\n" );
     XSUM_log( "Usage: %s [options] [files] \n\n", exename);
     XSUM_log( "When no filename provided or when '-' is provided, uses stdin as input. \n");
-    XSUM_log( "Options: \n");
-    XSUM_log( "  -H#         algorithm selection: 0,1,2,3 or 32,64,128 (default: %i) \n", (int)g_defaultAlgo);
-    XSUM_log( "  -c, --check read xxHash checksum from [files] and check them \n");
-    XSUM_log( "  -h, --help  display a long help page about advanced options \n");
+    XSUM_log( "\nOptions: \n");
+    XSUM_log( "  -H#          select an xxhash algorithm (default: %i) \n", (int)g_defaultAlgo);
+    XSUM_log( "               0: XXH32 \n");
+    XSUM_log( "               1: XXH64 \n");
+    XSUM_log( "               2: XXH128 (also called XXH3_128bits) \n");
+    XSUM_log( "               3: XXH3 (also called XXH3_64bits) \n");
+    XSUM_log( "  -c, --check  read xxHash checksum from [files] and check them \n");
+    XSUM_log( "  -h, --help   display a long help page about advanced options \n");
     return 0;
 }
 
@@ -1116,7 +1120,7 @@ static int XSUM_usage(const char* exename)
 static int XSUM_usage_advanced(const char* exename)
 {
     XSUM_usage(exename);
-    XSUM_log( "Advanced :\n");
+    XSUM_log( "\nAdvanced :\n");
     XSUM_log( "  -V, --version        Display version information \n");
     XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
     XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");

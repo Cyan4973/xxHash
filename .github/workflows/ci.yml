@@ -384,6 +384,8 @@ jobs:
           { name: 'MIPS',            xcc_pkg: gcc-mips-linux-gnu,           xcc: mips-linux-gnu-gcc,           xemu_pkg: qemu-system-mips,   xemu: qemu-mips-static,    os: ubuntu-latest, },
           { name: 'M68K',            xcc_pkg: gcc-m68k-linux-gnu,           xcc: m68k-linux-gnu-gcc,           xemu_pkg: qemu-system-m68k,   xemu: qemu-m68k-static,    os: ubuntu-latest, },
           { name: 'RISC-V',          xcc_pkg: gcc-riscv64-linux-gnu,        xcc: riscv64-linux-gnu-gcc,        xemu_pkg: qemu-system-riscv64,xemu: qemu-riscv64-static, os: ubuntu-latest, },
+          # SPARC64 qemu emulation seems broken on Ubuntu-22
+          { name: 'SPARC',           xcc_pkg: gcc-sparc64-linux-gnu,        xcc: sparc64-linux-gnu-gcc,        xemu_pkg: qemu-system-sparc,  xemu: qemu-sparc64-static, os: ubuntu-20.04, },
 
           { name: 'ARM, gcc-10',     xcc_pkg: gcc-10-arm-linux-gnueabi,     xcc: arm-linux-gnueabi-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
           { name: 'AARCH64, gcc-10', xcc_pkg: gcc-10-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
@@ -465,10 +467,10 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -march=arch11 -mzvector" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: MIPS-M68K-RISCV (XXH_VECTOR=[ scalar ])
-      if: ${{ startsWith(matrix.name, 'MIPS') || startsWith(matrix.name, 'M68K') || startsWith(matrix.name, 'RISC-V') }}
+    - name: MIPS-M68K-RISCV-SPARC (XXH_VECTOR=[ scalar ])
+      if: ${{ startsWith(matrix.name, 'MIPS') || startsWith(matrix.name, 'M68K') || startsWith(matrix.name, 'RISC-V') || startsWith(matrix.name, 'SPARC') }}
       run: |
-        LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
+        make clean; LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make check
 
 
   # macOS, { 11, 12 }

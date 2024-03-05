@@ -1819,7 +1819,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  * @brief Derive a high-entropy secret from any user-defined content, named customSeed.
  *
  * @param secretBuffer    A writable buffer for derived high-entropy secret data.
- * @param secretSize      Size of secretBuffer, in bytes.  Must be >= XXH3_SECRET_DEFAULT_SIZE.
+ * @param secretSize      Size of secretBuffer, in bytes.  Must be >= XXH3_SECRET_SIZE_MIN.
  * @param customSeed      A user-defined content.
  * @param customSeedSize  Size of customSeed, in bytes.
  *
@@ -1878,7 +1878,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer
 /*!
  * @brief Generate the same secret as the _withSeed() variants.
  *
- * @param secretBuffer A writable buffer of @ref XXH3_SECRET_SIZE_MIN bytes
+ * @param secretBuffer A writable buffer of @ref XXH3_SECRET_DEFAULT_SIZE bytes
  * @param seed         The 64-bit seed to alter the hash result predictably.
  *
  * The generated secret can be used in combination with
@@ -1900,7 +1900,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer
  *    };
  *    // Fast, caches the seeded secret for future uses.
  *    class HashFast {
- *        unsigned char secret[XXH3_SECRET_SIZE_MIN];
+ *        unsigned char secret[XXH3_SECRET_DEFAULT_SIZE];
  *    public:
  *        HashFast(XXH64_hash_t s) {
  *            XXH3_generateSecret_fromSeed(secret, seed);

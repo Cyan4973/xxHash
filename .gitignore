@@ -23,9 +23,6 @@ tests/sanity_test
 tests/sanity_test_vectors_generator
 fuzzer
 
-# local conf
-.clang_complete
-
 # Mac OS-X artefacts
 *.dSYM
 .DS_Store
@@ -49,6 +46,13 @@ infer-out
 tmp*
 tests/*.unicode
 tests/unicode_test*
+*.txt
+*.xxhsum
+
+# editor artifacts
+.clang_complete
+*.swp
+.vscode/
 
 # Doxygen
 doxygen/

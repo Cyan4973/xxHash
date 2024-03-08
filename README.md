@@ -139,12 +139,15 @@ The following macros can be set at compilation time to modify libxxhash's behavi
                   `2`: makes code as small as possible, performance may cry
 - `XXH_DEBUGLEVEL` : When set to any value >= 1, enables `assert()` statements.
                      This (slightly) slows down execution, but may help finding bugs during debugging sessions.
-- `XXH_ENABLE_AUTOVECTORIZE`: Auto-vectorization may happen for XXH32 and XXH64, depending on cpu vector capabilities and compiler version.
-                              For XXH32, SSE4.1 or equivalent is enough, while XXH64 requires AVX512 or equivalent.
-                              Unfortunately, auto-vectorization is generally a bad idea, because it tends to degrade performance.
+- `XXH_ENABLE_AUTOVECTORIZE`: Auto-vectorization may be triggered for XXH32 and XXH64, depending on cpu vector capabilities and compiler version.
+                              Note: auto-vectorization tends to be triggered more easily with recent versions of `clang`.
+                              For XXH32, SSE4.1 or equivalent (NEON) is enough, while XXH64 requires AVX512.
+                              Unfortunately, auto-vectorization is not always a good idea, and often degrades performance.
                               For this reason, the xxhash source code tries to prevent auto-vectorization by default.
-                              However, should you prefer vectorized code, maybe because your cpu handles it well and it's better for performance,
-                              enable this flag: it will remove the no-vectorization protection code, thus making it more likely for XXH32 and XXH64 to be auto-vectorized.
+                              That being said, systems evolve, and this conclusion is not forthcoming.
+                              For example, it has been reported that recent Zen4 cpus are more likely to improve performance with vectorization.
+                              Therefore, should you prefer or want to test vectorized code, just enable this flag:
+                              it will remove the no-vectorization protection code, thus making it more likely for XXH32 and XXH64 to be auto-vectorized.
 - `XXH32_ENDJMP`: Switch multi-branch finalization stage of XXH32 by a single jump.
                   This is generally undesirable for performance, especially when hashing inputs of random sizes.
                   But depending on exact architecture and compiler, a jump might provide slightly better performance on small inputs. Disabled by default.

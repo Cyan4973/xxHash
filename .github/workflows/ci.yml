@@ -443,6 +443,8 @@ jobs:
       run: |
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS="-DXXH_VECTOR=XXH_NEON" CFLAGS="-O3 -march=armv7-a -fPIC -mfloat-abi=softfp -mfpu=neon-vfpv4" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
+        make -C tests clean
+        CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make -C tests sanity_test_vectors.h test_sanity
 
     - name: AARCH64 (XXH_VECTOR=[ scalar, NEON, SVE ])
       if: ${{ startsWith(matrix.name, 'AARCH64') }}

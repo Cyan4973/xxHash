@@ -161,6 +161,8 @@
 #  else
 #    define XSUM_ARCH "wasm/asmjs"
 #  endif
+#elif defined(__riscv)
+#  define XSUM_ARCH "riscv"
 #else
 #  define XSUM_ARCH "unknown"
 #endif

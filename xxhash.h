@@ -6926,7 +6926,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (XXH_NOESCAPE const XXH3_state_
         }
     }
     /* len <= XXH3_MIDSIZE_MAX : short code */
-    if (state->seed)
+    if (state->useSeed)
         return XXH3_128bits_withSeed(state->buffer, (size_t)state->totalLen, state->seed);
     return XXH3_128bits_withSecret(state->buffer, (size_t)(state->totalLen),
                                    secret, state->secretLimit + XXH_STRIPE_LEN);

@@ -1924,6 +1924,11 @@ XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer
 XXH_PUBLIC_API void XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed);
 
 /*!
+ * @brief Maximum size of "short" key in bytes.
+ */
+#define XXH3_MIDSIZE_MAX 240
+
+/*!
  * @brief Calculates 64/128-bit seeded variant of XXH3 hash of @p data.
  *
  * @param data       The block of data to be hashed, at least @p len bytes in size.
@@ -4700,11 +4705,6 @@ XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
         return XXH3_avalanche(acc);
     }
 }
-
-/*!
- * @brief Maximum size of "short" key in bytes.
- */
-#define XXH3_MIDSIZE_MAX 240
 
 XXH_NO_INLINE XXH_PUREF XXH64_hash_t
 XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,

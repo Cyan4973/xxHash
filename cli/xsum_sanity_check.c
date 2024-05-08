@@ -452,10 +452,6 @@ static void XSUM_testXXH3(const void* data, const XSUM_testdata64_t* testData)
 }
 
 
-#ifndef XXH3_MIDSIZE_MAX
-# define XXH3_MIDSIZE_MAX 240
-#endif
-
 static void XSUM_testXXH3_withSecret(const void* data, const void* secret,
                                      size_t secretSize, const XSUM_testdata64_t* testData)
 {

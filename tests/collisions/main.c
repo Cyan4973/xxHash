@@ -1100,9 +1100,9 @@ int main(int argc, const char** argv)
         time_t const programTBegin = time(NULL);
         POOL_ctx* const pt = POOL_create((size_t)nbThreads, 1);
         if (!pt) EXIT("not enough memory for threads");
-        searchCollisions_results* const MTresults = calloc (sizeof(searchCollisions_results), (size_t)nbThreads);
+        searchCollisions_results* const MTresults = calloc ((size_t)nbThreads, sizeof(searchCollisions_results));
         if (!MTresults) EXIT("not enough memory");
-        searchCollisions_parameters* const MTparams = calloc (sizeof(searchCollisions_parameters), (size_t)nbThreads);
+        searchCollisions_parameters* const MTparams = calloc ((size_t)nbThreads, sizeof(searchCollisions_parameters));
         if (!MTparams) EXIT("not enough memory");
 
         /* distribute jobs */

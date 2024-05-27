@@ -6055,7 +6055,7 @@ XXH3_64bits_withSecretandSeed(XXH_NOESCAPE const void* input, size_t length, XXH
 /* ===   XXH3 streaming   === */
 #ifndef XXH_NO_STREAM
 /*
- * Malloc's a pointer that is always aligned to align.
+ * Malloc's a pointer that is always aligned to @align.
  *
  * This must be freed with `XXH_alignedFree()`.
  *

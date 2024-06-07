@@ -299,7 +299,7 @@ The final stage will digest them according to following pseudo-code:
       input_ptr += 8; remainingLength -= 8;
   }
 
-  if (remainingLength >= 4) {
+  while (remainingLength >= 4) {
       lane = read_32bit_little_endian(input_ptr);
       acc = acc xor (lane * PRIME64_1);
       acc = (acc <<< 23) * PRIME64_2;

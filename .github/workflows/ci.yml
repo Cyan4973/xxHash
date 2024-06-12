@@ -30,7 +30,7 @@
 #   | Item                      | Section in the right pane             |
 #   | ------------------------- | ------------------------------------- |
 #   | OS, VM                    | Set up job                            |
-#   | git repo, commit hash     | Run actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b               |
+#   | git repo, commit hash     | Run actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29               |
 #   | gcc, tools                | Environment info                      |
 #
 # - To fail earlier, order of tests in the same job are roughly sorted by
@@ -107,7 +107,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: apt-get install
       run: |
@@ -175,7 +175,7 @@ jobs:
     name: Linux x64 check results consistency
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: Environment info
       run: |
@@ -223,7 +223,7 @@ jobs:
       CC: emcc
 
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: Setup cache
       id: cache-system-libraries
@@ -267,7 +267,7 @@ jobs:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: apt-get install
       run: |
@@ -314,7 +314,7 @@ jobs:
     name: Linux x64 cmake unofficial build test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: Environment info
       run: |
@@ -416,7 +416,7 @@ jobs:
       XEMU: ${{ matrix.xemu }}
       MOREFLAGS: -Werror
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
     - name: apt update & install (1)
       run: |
         sudo apt-get update
@@ -488,7 +488,7 @@ jobs:
           { os: macos-latest },
         ]
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: Environment info
       run: |
@@ -529,7 +529,7 @@ jobs:
         arch: [ x64, Win32, ARM, ARM64 ]
 
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
     - name: Build ${{ matrix.system.os }}, ${{ matrix.arch }}
       run: |
@@ -599,7 +599,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - uses: msys2/setup-msys2@7efe20baefed56359985e327d329042cde2434ff # v2
         with:
           msystem: MSYS

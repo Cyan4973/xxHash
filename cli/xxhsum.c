@@ -384,7 +384,7 @@ static void XSUM_printLine_GNU_LE(const char* filename,
     XSUM_printLine_GNU_internal(filename, canonicalHash, hashType, XSUM_display_LittleEndian);
 }
 
-typedef enum { big_endian, little_endian} Display_endianess;
+typedef enum { big_endian, little_endian} Display_endianness;
 
 typedef enum { display_gnu, display_bsd } Display_convention;
 
@@ -397,14 +397,14 @@ static XSUM_displayLine_f XSUM_kDisplayLine_fTable[2][2] = {
 
 static int XSUM_hashFile(const char* fileName,
                          const AlgoSelected hashType,
-                         const Display_endianess displayEndianess,
+                         const Display_endianness displayEndianness,
                          const Display_convention convention)
 {
     size_t const blockSize = 64 KB;
-    XSUM_displayLine_f const f_displayLine = XSUM_kDisplayLine_fTable[convention][displayEndianess];
+    XSUM_displayLine_f const f_displayLine = XSUM_kDisplayLine_fTable[convention][displayEndianness];
     FILE* inFile;
     Multihash hashValue;
-    assert(displayEndianess==big_endian || displayEndianess==little_endian);
+    assert(displayEndianness==big_endian || displayEndianness==little_endian);
     assert(convention==display_gnu || convention==display_bsd);
 
     /* Check file existence */
@@ -479,17 +479,17 @@ static int XSUM_hashFile(const char* fileName,
  */
 static int XSUM_hashFiles(const char* fnList[], int fnTotal,
                           AlgoSelected hashType,
-                          Display_endianess displayEndianess,
+                          Display_endianness displayEndianness,
                           Display_convention convention)
 {
     int fnNb;
     int result = 0;
 
     if (fnTotal==0)
-        return XSUM_hashFile(stdinName, hashType, displayEndianess, convention);
+        return XSUM_hashFile(stdinName, hashType, displayEndianness, convention);
 
     for (fnNb=0; fnNb<fnTotal; fnNb++)
-        result |= XSUM_hashFile(fnList[fnNb], hashType, displayEndianess, convention);
+        result |= XSUM_hashFile(fnList[fnNb], hashType, displayEndianness, convention);
     XSUM_logVerbose(2, "\r%70s\r", "");
     return result;
 }
@@ -975,7 +975,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
  *    - (strict mode) All lines in checksum file are consistent and well formatted.
  */
 static int XSUM_checkFile(const char* inFileName,
-                          const Display_endianess displayEndianess,
+                          const Display_endianness displayEndianness,
                           XSUM_U32 strictMode,
                           XSUM_U32 statusOnly,
                           XSUM_U32 ignoreMissing,
@@ -1024,7 +1024,7 @@ static int XSUM_checkFile(const char* inFileName,
         XSUM_log("Error: : memory allocation failed \n");
         exit(1);
     }
-    XSUM_parseFile1(XSUM_parseFileArg, displayEndianess != big_endian);
+    XSUM_parseFile1(XSUM_parseFileArg, displayEndianness != big_endian);
 
     free(XSUM_parseFileArg->blockBuf);
     free(XSUM_parseFileArg->lineBuf);
@@ -1072,7 +1072,7 @@ static int XSUM_checkFile(const char* inFileName,
 
 
 static int XSUM_checkFiles(const char* fnList[], int fnTotal,
-                           const Display_endianess displayEndianess,
+                           const Display_endianness displayEndianness,
                            XSUM_U32 strictMode,
                            XSUM_U32 statusOnly,
                            XSUM_U32 ignoreMissing,
@@ -1085,11 +1085,11 @@ static int XSUM_checkFiles(const char* fnList[], int fnTotal,
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal==0) {
-        ok &= XSUM_checkFile(stdinName, displayEndianess, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
+        ok &= XSUM_checkFile(stdinName, displayEndianness, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
     } else {
         int fnNb;
         for (fnNb=0; fnNb<fnTotal; fnNb++)
-            ok &= XSUM_checkFile(fnList[fnNb], displayEndianess, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
+            ok &= XSUM_checkFile(fnList[fnNb], displayEndianness, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
     }
     return ok ? 0 : 1;
 }
@@ -1225,7 +1225,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     static const XSUM_U32 kBenchAll = 99;
     size_t keySize    = XSUM_DEFAULT_SAMPLE_SIZE;
     AlgoSelected algo     = g_defaultAlgo;
-    Display_endianess displayEndianess = big_endian;
+    Display_endianness displayEndianness = big_endian;
     Display_convention convention = display_gnu;
     int nbIterations = NBLOOPS_DEFAULT;
 
@@ -1243,7 +1243,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         if (!strcmp(argument, "--benchmark-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
         if (!strcmp(argument, "--bench-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
         if (!strcmp(argument, "--quiet")) { XSUM_logLevel--; continue; }
-        if (!strcmp(argument, "--little-endian")) { displayEndianess = little_endian; continue; }
+        if (!strcmp(argument, "--little-endian")) { displayEndianness = little_endian; continue; }
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }
         if (!strcmp(argument, "--warn")) { warn = 1; continue; }
@@ -1364,8 +1364,8 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     if (filenamesStart==0) filenamesStart = argc;
     if (fileCheckMode) {
         return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
-                          displayEndianess, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
+                          displayEndianness, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     } else {
-        return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianess, convention);
+        return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianness, convention);
     }
 }

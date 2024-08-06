@@ -545,6 +545,24 @@ jobs:
       run: |
         .\cmake_unofficial\build\Release\xxhsum.exe -bi1
 
+    - name: Build ${{ matrix.system.os }}, ${{ matrix.arch }}, with DISPATCH
+      # DISPATCH only if target arch is x64 or Win32.
+      if: ${{ ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
+      run: |
+        cd cmake_unofficial
+        mkdir build-visual-dispatch
+        cd build-visual-dispatch
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64
+        cmake --build . --config Release
+
+    - name: Runtime Test (DISPATCH)
+      # Run benchmark for testing only if target arch is x64 or Win32.
+      if: ${{ ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
+      run: |
+        .\cmake_unofficial\build-visual-dispatch\Release\xxhsum.exe -V | grep autoVec
+        .\cmake_unofficial\build-visual-dispatch\Release\xxhsum.exe -bi1
+
+
     - name: Build ${{ matrix.system.os }}, clang-cl, ${{ matrix.arch }}
       if: ${{ matrix.system.clangcl == 'true' }}
       run: |
@@ -560,22 +578,6 @@ jobs:
       run: |
         .\cmake_unofficial\build-clang-cl\Release\xxhsum.exe -bi1
 
-    - name: Build ${{ matrix.system.os }}, clang-cl, ${{ matrix.arch }}, with DISPATCH
-      # DISPATCH only if target arch is x64 or Win32.
-      if: ${{ matrix.system.clangcl == 'true' && ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
-      run: |
-        cd cmake_unofficial
-        mkdir build-clang-cl-dispatch
-        cd build-clang-cl-dispatch
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64 -DCMAKE_GENERATOR_TOOLSET=ClangCL
-        cmake --build . --config Release
-
-    - name: Runtime Test (clang-cl + DISPATCH)
-      # Run benchmark for testing only if target arch is x64 or Win32.
-      if: ${{ matrix.system.clangcl == 'true' && ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
-      run: |
-        .\cmake_unofficial\build-clang-cl-dispatch\Release\xxhsum.exe -V | grep autoVec
-        .\cmake_unofficial\build-clang-cl-dispatch\Release\xxhsum.exe -bi1
 
 
   # Windows, { mingw64, mingw32 }

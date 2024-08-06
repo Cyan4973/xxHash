@@ -536,7 +536,7 @@ jobs:
         cd cmake_unofficial
         mkdir build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -A ${{ matrix.arch }} -DXXHASH_C_FLAGS="/WX"
+        cmake .. -DCMAKE_BUILD_TYPE=Release -A ${{ matrix.arch }} -DCMAKE_C_FLAGS="/W4 /WX"
         cmake --build . --config Release
 
     - name: Test
@@ -552,7 +552,7 @@ jobs:
         cd cmake_unofficial
         mkdir build-visual-dispatch
         cd build-visual-dispatch
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64 -DCMAKE_C_FLAGS="/WX"
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64 -DCMAKE_C_FLAGS="/W4 /WX"
         cmake --build . --config Release
 
     - name: Runtime Test (DISPATCH)

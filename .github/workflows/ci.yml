@@ -552,7 +552,7 @@ jobs:
         cd cmake_unofficial
         mkdir build-visual-dispatch
         cd build-visual-dispatch
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64 -DCMAKE_C_FLAGS="/WX"
         cmake --build . --config Release
 
     - name: Runtime Test (DISPATCH)

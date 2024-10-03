@@ -490,7 +490,6 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
 
     for (fnNb=0; fnNb<fnTotal; fnNb++)
         result |= XSUM_hashFile(fnList[fnNb], hashType, displayEndianness, convention);
-    XSUM_logVerbose(2, "\r%70s\r", "");
     return result;
 }
 

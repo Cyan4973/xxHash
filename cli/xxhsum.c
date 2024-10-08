@@ -388,7 +388,7 @@ typedef enum { big_endian, little_endian} Display_endianness;
 
 typedef enum { display_gnu, display_bsd } Display_convention;
 
-typedef void (*XSUM_displayLine_f)(const char*, const void*, AlgoSelected);  /* filename display signature */
+typedef void (*XSUM_displayLine_f)(const char*, const void*, AlgoSelected);  /* line display signature */
 
 typedef enum {
     LineStatus_hashOk,
@@ -501,18 +501,15 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
             break;
         case LineStatus_isDirectory:
             XSUM_log("xxhsum: %s: Is a directory \n", stdinName);
-            result = 1;
             break;
         case LineStatus_failedToOpen:
             XSUM_log("Error: Could not open '%s': %s. \n", stdinName, strerror(errno));
-            result = 1;
             break;
         case LineStatus_memoryError:
             XSUM_log("\nError: Out of memory.\n");
-            result = 1;
             break;
         }
-        
+
         if (filestatus != LineStatus_hashOk)
             result = 1;
     }
@@ -1165,7 +1162,7 @@ static ParseLineResult XSUM_parseGenLine(ParsedLine * parsedLine,
     }
 
     parsedLine->filename = filename;
-    
+
     return ParseLine_ok;
 }
 
@@ -1387,19 +1384,20 @@ static int XSUM_generateFiles(const char* fnList[], int fnTotal,
     Display_convention convention,
     XSUM_U32 statusOnly,
     XSUM_U32 ignoreMissing,
-    XSUM_U32 warn)
+    XSUM_U32 warn,
+    XSUM_U32 quiet)
 {
     int ok = 1;
 
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal == 0) {
-        ok &= XSUM_generateFile(stdinName, hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
+        ok &= XSUM_generateFile(stdinName, hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn, quiet);
     }
     else {
         int fnNb;
         for (fnNb = 0; fnNb < fnTotal; fnNb++)
-            ok &= XSUM_generateFile(fnList[fnNb], hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
+            ok &= XSUM_generateFile(fnList[fnNb], hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn, quiet);
     }
     return ok ? 0 : 1;
 }
@@ -1684,7 +1682,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
                           displayEndianness, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     } else if (fileCheckMode == 2) {
-        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, statusOnly, ignoreMissing, warn);
+        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
     } else {
         return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianness, convention);
     }

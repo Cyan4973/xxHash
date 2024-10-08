@@ -956,6 +956,11 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
             report->quit = 1;
             break;
 
+        case LineStatus_memoryError:
+        case LineStatus_isDirectory:
+            assert(0); /* Never happens on these paths */
+            break;
+
         case LineStatus_failedToOpen:
             if (XSUM_parseFileArg->ignoreMissing) {
                 report->nMissing++;
@@ -1142,7 +1147,8 @@ static ParseLineResult XSUM_parseGenLine(ParsedLine * parsedLine,
     if (XSUM_lineNeedsUnescape(filename)) {
         ++filename;
 
-        const size_t filenameLen = strlen(filename);
+        size_t filenameLen;
+        filenameLen = strlen(filename);
 
         char* const result = XSUM_filenameUnescape(filename, filenameLen);
         if (result == NULL) {
@@ -1170,9 +1176,9 @@ static void XSUM_parseGenFile1(ParseFileArg* XSUM_parseGenArg,
     unsigned long lineNumber = 0;
     memset(report, 0, sizeof(*report));
 
-    ParsedLine parsedLine;
     while (!report->quit) {
         LineStatus lineStatus = LineStatus_hashFailed;
+        ParsedLine parsedLine;
         memset(&parsedLine, 0, sizeof(parsedLine));
 
         lineNumber++;
@@ -1256,7 +1262,7 @@ static void XSUM_parseGenFile1(ParseFileArg* XSUM_parseGenArg,
                     XSUM_output(
                         lineStatus == LineStatus_failedToOpen ?
                             "%s:%lu: Could not open or read '%s': %s.\n" :
-                            "%s:%lu: Target is a directory '%s'.\n", // Leaves errno argument unconsumed
+                            "%s:%lu: Target is a directory '%s'.\n", /* Leaves errno argument unconsumed */
                         inFileName, lineNumber, parsedLine.filename, strerror(errno));
                 }
             }
@@ -1290,7 +1296,6 @@ static int XSUM_generateFile(const char* inFileName,
     AlgoSelected hashType,
     Display_endianness displayEndianness,
     Display_convention convention,
-    XSUM_U32 strictMode,
     XSUM_U32 statusOnly,
     XSUM_U32 ignoreMissing,
     XSUM_U32 warn,
@@ -1376,20 +1381,19 @@ static int XSUM_generateFiles(const char* fnList[], int fnTotal,
     XSUM_U32 strictMode,
     XSUM_U32 statusOnly,
     XSUM_U32 ignoreMissing,
-    XSUM_U32 warn,
-    XSUM_U32 quiet)
+    XSUM_U32 warn)
 {
     int ok = 1;
 
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal == 0) {
-        ok &= XSUM_generateFile(stdinName, hashType, displayEndianness, convention, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
+        ok &= XSUM_generateFile(stdinName, hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
     }
     else {
         int fnNb;
         for (fnNb = 0; fnNb < fnTotal; fnNb++)
-            ok &= XSUM_generateFile(fnList[fnNb], hashType, displayEndianness, convention, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
+            ok &= XSUM_generateFile(fnList[fnNb], hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
     }
     return ok ? 0 : 1;
 }
@@ -1674,7 +1678,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
                           displayEndianness, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     } else if (fileCheckMode == 2) {
-        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/);
+        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, strictMode, statusOnly, ignoreMissing, warn);
     } else {
         return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianness, convention);
     }

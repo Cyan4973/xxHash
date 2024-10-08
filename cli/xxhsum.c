@@ -403,7 +403,7 @@ static XSUM_displayLine_f XSUM_kDisplayLine_fTable[2][2] = {
     { XSUM_printLine_BSD, XSUM_printLine_BSD_LE }
 };
 
-static int XSUM_hashFile(const char* fileName,
+static LineStatus XSUM_hashFile(const char* fileName,
                          const AlgoSelected hashType,
                          const Display_endianness displayEndianness,
                          const Display_convention convention)
@@ -493,20 +493,26 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
 
     if (fnTotal == 0)
     {
-        int filestatus = XSUM_hashFile(stdinName, hashType, displayEndianness, convention);
+        LineStatus filestatus = XSUM_hashFile(stdinName, hashType, displayEndianness, convention);
         switch (filestatus)
         {
+        case LineStatus_hashOk:
+        case LineStatus_hashFailed:
+            break;
         case LineStatus_isDirectory:
             XSUM_log("xxhsum: %s: Is a directory \n", stdinName);
+            result = 1;
             break;
         case LineStatus_failedToOpen:
             XSUM_log("Error: Could not open '%s': %s. \n", stdinName, strerror(errno));
+            result = 1;
             break;
         case LineStatus_memoryError:
             XSUM_log("\nError: Out of memory.\n");
+            result = 1;
             break;
         }
-
+        
         if (filestatus != LineStatus_hashOk)
             result = 1;
     }
@@ -514,9 +520,12 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
 
     for (fnNb = 0; fnNb < fnTotal; fnNb++)
     {
-        int filestatus = XSUM_hashFile(fnList[fnNb], hashType, displayEndianness, convention);
+        LineStatus filestatus = XSUM_hashFile(fnList[fnNb], hashType, displayEndianness, convention);
         switch (filestatus)
         {
+        case LineStatus_hashOk:
+        case LineStatus_hashFailed:
+            break;
         case LineStatus_isDirectory:
             XSUM_log("xxhsum: %s: Is a directory \n", fnList[fnNb]);
             break;
@@ -1145,13 +1154,11 @@ static ParseLineResult XSUM_parseGenLine(ParsedLine * parsedLine,
     char* filename)
 {
     if (XSUM_lineNeedsUnescape(filename)) {
-        ++filename;
-
         size_t filenameLen;
+        ++filename;
         filenameLen = strlen(filename);
 
-        char* const result = XSUM_filenameUnescape(filename, filenameLen);
-        if (result == NULL) {
+        if (XSUM_filenameUnescape(filename, filenameLen) == NULL) {
             parsedLine->filename = NULL;
             return ParseLine_invalidFormat;
         }
@@ -1378,7 +1385,6 @@ static int XSUM_generateFiles(const char* fnList[], int fnTotal,
     AlgoSelected hashType,
     Display_endianness displayEndianness,
     Display_convention convention,
-    XSUM_U32 strictMode,
     XSUM_U32 statusOnly,
     XSUM_U32 ignoreMissing,
     XSUM_U32 warn)
@@ -1678,7 +1684,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
                           displayEndianness, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     } else if (fileCheckMode == 2) {
-        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, strictMode, statusOnly, ignoreMissing, warn);
+        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, statusOnly, ignoreMissing, warn);
     } else {
         return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianness, convention);
     }

@@ -57,12 +57,12 @@ OPTIONS
 * `-h`, `--help`:
   Displays help and exits
 
-### The following options are useful only when using lists in *FILE* (-c and -g):
+### The following options are useful only when using lists in *FILE* (--check and --files-from):
 
 * `-c`, `--check` *FILE*:
   Read xxHash sums from *FILE* and check them
 
-* `-g`, `--generate` *FILE*:
+* `--files-from` *FILE*:
   Read filenames from *FILE* and generate hashes for them.
   Valid *FILE*s have one filename per line, which can include embedded spaces, etc with no need for quotes, escapes, etc.
   Note that a line commencing with '\\' will enable the convention used in the encoding of filenames against output hashes,
@@ -70,7 +70,7 @@ OPTIONS
   character 0x5C, 0x0A and 0x0D respectively.
 
 * `-q`, `--quiet`:
-  Don't print OK for each successfully processed line of *FILE*
+   Don't print OK for each successfully verified hash (only for --check)
 
 * `--strict`:
   Return an error code if any line in *FILE** is invalid,
@@ -130,11 +130,11 @@ Read xxHash sums from specific files and check them
 Produce a list of files, then generate hashes for that list
 
     $ find . -type f -name '*.[ch]' > c-files.txt
-    $ xxhsum --quiet -g c-files.txt
+    $ xxhsum --files-from c-files.txt
 
 Read the list of files from standard input to avoid the need for an intermediate file
 
-    $ find . -type f -name '*.[ch]' | xxhsum --quiet -g -
+    $ find . -type f -name '*.[ch]' | xxhsum --files-from -
 
 Note that if shell expansion, length of argument list, clarity of use of spaces in filenames, etc allow it then the same output as the previous example can be generated like this
 

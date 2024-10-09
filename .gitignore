@@ -47,14 +47,12 @@ tmp*
 tests/*.unicode
 tests/unicode_test*
 *.txt
-!CMakeLists.txt
 *.xxhsum
 
 # editor artifacts
 .clang_complete
 *.swp
 .vscode/
-.vs/
 
 # Doxygen
 doxygen/

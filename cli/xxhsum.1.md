@@ -5,6 +5,7 @@ SYNOPSIS
 --------
 
 `xxhsum` [*OPTION*]... [*FILE*]...
+
 `xxhsum -b` [*OPTION*]...
 
 `xxh32sum` is equivalent to `xxhsum -H0`,
@@ -56,16 +57,23 @@ OPTIONS
 * `-h`, `--help`:
   Displays help and exits
 
-### The following options are useful only when verifying checksums (-c):
+### The following options are useful only when using lists in *FILE* (-c and -g):
 
 * `-c`, `--check` *FILE*:
   Read xxHash sums from *FILE* and check them
 
+* `-g`, `--generate` *FILE*:
+  Read filenames from *FILE* and generate hashes for them.
+  Valid *FILE*s have one filename per line, which can include embedded spaces, etc with no need for quotes, escapes, etc.
+  Note that a line commencing with '\\' will enable the convention used in the encoding of filenames against output hashes,
+  whereby subsequent \\\\, \n and \r seqeuences are converted to the single
+  character 0x5C, 0x0A and 0x0D respectively.
+
 * `-q`, `--quiet`:
-  Don't print OK for each successfully verified file
+  Don't print OK for each successfully processed line of *FILE*
 
 * `--strict`:
-  Return an error code if any line in the file is invalid,
+  Return an error code if any line in *FILE** is invalid,
   not just if some checksums are wrong.
   This policy is disabled by default,
   though UI will prompt an informational message
@@ -75,7 +83,7 @@ OPTIONS
   Don't output anything. Status code shows success.
 
 * `-w`, `--warn`:
-  Emit a warning message about each improperly formatted checksum line.
+  Emit a warning message about each improperly formatted line in *FILE*.
 
 ### The following options are useful only benchmark purpose:
 
@@ -118,6 +126,19 @@ output, and redirect it to `xyz.xxh32` and `qux.xxh64`
 Read xxHash sums from specific files and check them
 
     $ xxhsum -c xyz.xxh32 qux.xxh64
+
+Produce a list of files, then generate hashes for that list
+
+    $ find . -type f -name '*.[ch]' > c-files.txt
+    $ xxhsum --quiet -g c-files.txt
+
+Read the list of files from standard input to avoid the need for an intermediate file
+
+    $ find . -type f -name '*.[ch]' | xxhsum --quiet -g -
+
+Note that if shell expansion, length of argument list, clarity of use of spaces in filenames, etc allow it then the same output as the previous example can be generated like this
+
+    $ xxhsum `find . -name '*.[ch]'`
 
 Benchmark xxHash algorithm.
 By default, `xxhsum` benchmarks xxHash main variants

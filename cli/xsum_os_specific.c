@@ -206,7 +206,7 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
  * Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
  *
- * Note: The \\?\ prefix (prefix with question) designates a file-system–only path.
+ * Note: The \\?\ prefix (prefix with question) designates a file-system-only path.
  * Unlike the \\.\ prefix (prefix with dot), it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
  */
 static wchar_t* XSUM_widenStringAsUncPath(const char* path)
@@ -273,7 +273,7 @@ static wchar_t* XSUM_widenStringAsUncPath(const char* path)
  * In order to open a Unicode filename and long path, we need to convert filenames to UTF-16,
  * absolute path, UNC and use _wfopen.
  *
- * Note: The \\?\ prefix designates a file-system–only path.
+ * Note: The \\?\ prefix designates a file-system-only path.
  * Unlike the \\.\ prefix, it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
  */
 XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)

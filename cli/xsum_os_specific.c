@@ -201,6 +201,65 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
     }
 }
 
+/*
+ * Converts a UTF-8 path to absolute UNC path with "\\?\" prefix in UTF-16.
+ * Acts like strdup. The string must be freed afterwards.
+ * This version allows keeping the output length.
+ *
+ * Note: The \\?\ prefix (prefix with question) designates a file-system–only path.
+ * Unlike the \\.\ prefix (prefix with dot), it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
+ */
+static wchar_t* XSUM_widenStringAsUncPath(const char* path)
+{
+    wchar_t* result = NULL;     /* The result.  NULL indicates error.  Otherwise, alias of the following pointers. */
+    wchar_t* wide_path = NULL;  /* path in wchar_t */
+    wchar_t* abs_path = NULL;   /* Absolute path of wide_path */
+    wchar_t* unc_path = NULL;   /* "\\?\" + abs_path */
+    static const wchar_t unc_device_path_specifier[] = { L'\\', L'\\', L'?', L'\\', 0 };
+
+    wide_path = XSUM_widenString(path, NULL);
+    if(wide_path != NULL) {
+        if (wcsncmp(wide_path, unc_device_path_specifier, wcslen(unc_device_path_specifier)) == 0) {
+            /* wide_path starts with "\\?\" */
+            result = wide_path;
+        } else {
+            /* Allocate buffer for DOS absolute path */
+            size_t const long_path_size_in_wchars = 32768; /* 32767 wchar_t + NUL */
+            abs_path = (wchar_t*) malloc(long_path_size_in_wchars * sizeof(wchar_t));
+            if(abs_path != NULL) {
+                /* Convert wide_path to DOS absolute path. */
+                DWORD const abs_result = GetFullPathNameW(wide_path, (DWORD) long_path_size_in_wchars, abs_path, NULL);
+                if(abs_result > 0 && abs_result < long_path_size_in_wchars) {
+                    if (wcsncmp(abs_path, unc_device_path_specifier, wcslen(unc_device_path_specifier)) == 0) {
+                        /* abs_path starts with "\\?\" */
+                        result = abs_path;
+                    } else {
+                        /* Allocate buffer for UNC absolute path */
+                        unc_path = (wchar_t*) malloc(long_path_size_in_wchars * sizeof(wchar_t));
+                        if(unc_path != NULL) {
+                            /* Add \\?\ prefix to DOS absolute path */
+                            swprintf(unc_path, long_path_size_in_wchars, L"%s%s", unc_device_path_specifier, abs_path);
+                            result = unc_path;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* Free all temporary memories except result */
+    if(unc_path != NULL && unc_path != result) {
+        free(unc_path);
+    }
+    if(abs_path != NULL && abs_path != result) {
+        free(abs_path);
+    }
+    if(wide_path != NULL && wide_path != result) {
+        free(wide_path);
+    }
+    return result;
+}
+
 
 
 /*****************************************************************************
@@ -211,12 +270,16 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
  *
  * fopen will only accept ANSI filenames, which means that we can't open Unicode filenames.
  *
- * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
+ * In order to open a Unicode filename and long path, we need to convert filenames to UTF-16,
+ * absolute path, UNC and use _wfopen.
+ *
+ * Note: The \\?\ prefix designates a file-system–only path.
+ * Unlike the \\.\ prefix, it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
  */
 XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 {
     FILE* f = NULL;
-    wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
+    wchar_t* const wide_filename = XSUM_widenStringAsUncPath(filename);
     if (wide_filename != NULL) {
         wchar_t* const wide_mode = XSUM_widenString(mode, NULL);
         if (wide_mode != NULL) {
@@ -234,7 +297,7 @@ XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 {
     int r = -1;
-    wchar_t* const wide_filename = XSUM_widenString(infilename, NULL);
+    wchar_t* const wide_filename = XSUM_widenStringAsUncPath(infilename);
     if (wide_filename != NULL) {
         r = _wstat64(wide_filename, statbuf);
         free(wide_filename);

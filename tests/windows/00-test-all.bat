@@ -4,6 +4,7 @@ set /a errorno=1
 : _E = set the line number of the first !__! - 1
 set /a _E=8-1
 set "__=set /a _E+=1"
+
 !__! && for /f "delims=. tokens=1,2" %%E in ("%~n0%~x0") do set "TEST_NAME=%%E"
 !__! && for /F %%E in ('forfiles /m "%~nx0" /c "cmd /c echo 0x1b"') do set "_ESC=%%E"
 !__! && set "ORG_DIR=!CD!"

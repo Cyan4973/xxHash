@@ -24,25 +24,21 @@ set "__=set /a _E+=1"
 !__! && mkdir "!TMPNAME!"                                         || goto :ERROR
 !__! && cd    "!TMPNAME!"                                         || goto :ERROR
 !__! && :
-!__! && : Create long path > 300 chars
+!__! && : Delete test-specimen.
 !__! && :
-!__! && set "LONG_PATH=0---------1---------2---------3---------4---------5---------6---------7---------8---------9---------\a---------b---------c---------d---------e---------f---------g---------h---------i---------j---------\k---------l---------m---------n---------o---------p---------q---------r---------s---------t---------"
-!__! && rmdir /S /Q "!LONG_PATH!" 2>nul
-!__! && mkdir "!LONG_PATH!"                                       || goto :ERROR
+!__! && : Copy the LICENSE file as "test-specimen."
 !__! && :
-!__! && : Copy the LICENSE file under !LONG_PATH!
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\test-specimen."   || goto :ERROR
 !__! && :
-!__! && copy "!XXHASH_DIR!\LICENSE" "!LONG_PATH!" >nul            || goto :ERROR
-!__! && :
-!__! && : Test xxhsum for !LONG_PATH!\LICENSE
+!__! && : Test xxhsum for "test-specimen."
 !__! && :
 !__! && set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
 !__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
-!__! && "!XXHSUM_EXE!"     "!LONG_PATH!\LICENSE"                  || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H0 "!LONG_PATH!\LICENSE" > test.xxh0      || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H1 "!LONG_PATH!\LICENSE" > test.xxh1      || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H2 "!LONG_PATH!\LICENSE" > test.xxh2      || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H3 "!LONG_PATH!\LICENSE" > test.xxh3      || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "test-specimen."                       || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H0 "test-specimen." > test.xxh0           || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H1 "test-specimen." > test.xxh1           || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H2 "test-specimen." > test.xxh2           || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H3 "test-specimen." > test.xxh3           || goto :ERROR
 !__! && type *.xxh*                                               || goto :ERROR
 !__! && "!XXHSUM_EXE!" -c test.xxh0 test.xxh1 test.xxh2 test.xxh3 || goto :ERROR
 

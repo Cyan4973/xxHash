@@ -18,6 +18,7 @@ set "__=set /a _E+=1"
 !__! && call .\build-with-cmake.bat     || goto :ERROR
 !__! && call .\test-long-path.bat       || goto :ERROR
 !__! && call .\test-trailing-period.bat || goto :ERROR
+!__! && call .\test-trailing-space.bat  || goto :ERROR
 
 echo Status =!_ESC![92m OK !_ESC![0m (%TEST_NAME%) && set /a errorno=0 && goto :END
 

@@ -75,6 +75,22 @@ CMAKE_DEPENDENT_OPTION(BUILD_SHARED_LIBS "Build shared libraries" ON "NOT XXHASH
 CMAKE_HOST_SYSTEM_INFORMATION(RESULT PLATFORM QUERY OS_PLATFORM)
 message(STATUS "Architecture: ${PLATFORM}")
 
+# Detect target is Windows 10+/Windows Server 2016+ or not
+option(XXHASH_WIN_TARGET_WIN10 "Treat this build as targeting Windows 10 or later (MinGW too)" OFF)
+if (XXHASH_WIN_TARGET_WIN10)
+  add_compile_definitions(_WIN32_WINNT=0x0A00)
+endif()
+
+set(XXHASH_HAS_WIN10_TARGET FALSE)
+if (WIN32)
+  # MSVC and Windows >= 10
+  if (MSVC AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "10.0")
+    set(XXHASH_HAS_WIN10_TARGET TRUE)
+  elseif (XXHASH_WIN_TARGET_WIN10)
+    set(XXHASH_HAS_WIN10_TARGET TRUE)
+  endif()
+endif()
+
 # libxxhash
 if((DEFINED DISPATCH) AND (DEFINED PLATFORM))
   # Only support DISPATCH option on x86_64.
@@ -122,6 +138,10 @@ if(XXHASH_BUILD_XXHSUM)
   add_executable(${PROJECT_NAME}::xxhsum ALIAS xxhsum)
 
   target_link_libraries(xxhsum PRIVATE xxhash)
+  if (XXHASH_HAS_WIN10_TARGET)
+    target_compile_definitions(xxhsum PRIVATE XXHSUM_WIN32_LONGPATH=1)
+    target_link_libraries(xxhsum PRIVATE Pathcch.lib)
+  endif()
   target_include_directories(xxhsum PRIVATE "${XXHASH_DIR}")
 endif(XXHASH_BUILD_XXHSUM)
 

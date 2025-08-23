@@ -158,8 +158,13 @@ int main(int argc, const char* argv[])
 #else
 #  include <windows.h>
 #  include <wchar.h>
-#  if defined(XXHSUM_WIN32_LONGPATH) && XXHSUM_WIN32_LONGPATH
+#  if defined(XXHSUM_WIN32_LONGPATH) && (XXHSUM_WIN32_LONGPATH)
 #    include <pathcch.h> /* PathCchCanonicalizeEx, PathCchCombineEx */
+     /* Older Windows SDK (< WIN10 1703 (RS2)) doesn't contain the following macro */
+#    if defined(PATHCCH_DO_NOT_NORMALIZE_SEGMENTS) && \
+        defined(PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH)
+#      define XXHSUM_WIN32_USE_PATHCCH 1
+#    endif
 #  endif
 
 /*****************************************************************************
@@ -214,7 +219,7 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
  */
 static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
 {
-#if defined(XXHSUM_WIN32_LONGPATH) && XXHSUM_WIN32_LONGPATH
+#if defined(XXHSUM_WIN32_USE_PATHCCH) && (XXHSUM_WIN32_USE_PATHCCH)
     wchar_t* const wide_path = XSUM_widenString(path, NULL);  /* path in wchar_t */
     size_t const path_len = strlen(path);
     int const starts_with_extended_prefix = path_len >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\';

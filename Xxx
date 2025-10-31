@@ -1,0 +1,36 @@
+#include "stdlib.h"   /* abort() */
+#include "xxhash.h"
+
+
+XXH64_hash_t calcul_hash_streaming(FileHandler fh)
+{
+    /* create a hash state */
+    XXH64_state_t* const state = XXH64_createState();
+    if (state==NULL) abort();
+
+    size_t const bufferSize = SOME_SIZE;
+    void* const buffer = malloc(bufferSize);
+    if (buffer==NULL) abort();
+
+    /* Initialize state with selected seed */
+    XXH64_hash_t const seed = 0;   /* or any other value */
+    if (XXH64_reset(state, seed) == XXH_ERROR) abort();
+
+    /* Feed the state with input data, any size, any number of times */
+    (...)
+    while ( /* some data left */ ) {
+        size_t const length = get_more_data(buffer, bufferSize, fh);
+        if (XXH64_update(state, buffer, length) == XXH_ERROR) abort();
+        (...)
+    }
+    (...)
+
+    /* Produce the final hash value */
+    XXH64_hash_t const hash = XXH64_digest(state);
+
+    /* State could be re-used; but in this example, it is simply freed  */
+    free(buffer);
+    XXH64_freeState(state);
+
+    return hash;
+}

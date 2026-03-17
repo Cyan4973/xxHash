@@ -5076,7 +5076,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m512i);
         __m512i const seed_pos = _mm512_set1_epi64((xxh_i64)seed64);
-        __m512i const seed     = _mm512_mask_sub_epi64(seed_pos, 0xAA, _mm512_set1_epi8(0), seed_pos);
+        __m512i const seed     = _mm512_mask_sub_epi64(seed_pos, 0xAA, _mm512_setzero_si512(), seed_pos);
 
         const __m512i* const src  = (const __m512i*) ((const void*) XXH3_kSecret);
               __m512i* const dest = (      __m512i*) customSecret;

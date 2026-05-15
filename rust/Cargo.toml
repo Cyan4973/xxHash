@@ -1,0 +1,15 @@
+[package]
+name = "xxhash-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Official Rust bindings for xxHash"
+
+[lib]
+name = "xxhash_rs"
+crate-type = ["lib"]
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+bindgen = "0.71"

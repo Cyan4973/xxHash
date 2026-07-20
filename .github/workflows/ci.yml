@@ -237,7 +237,7 @@ jobs:
         actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ matrix.node-version }}
 

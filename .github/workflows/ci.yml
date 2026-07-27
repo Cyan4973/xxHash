@@ -225,7 +225,7 @@ jobs:
 
     - name: Setup cache
       id: cache-system-libraries
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ${{env.EM_CACHE_FOLDER}}
         key: em${{env.EM_VERSION}}-node${{ matrix.node-version }}-${{ runner.os }}

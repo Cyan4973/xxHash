@@ -240,11 +240,13 @@ typedef union {
  * XSUM_hashStream:
  * Reads data from `inFile`, generating an incremental hash of type hashType,
  * using `buffer` of size `blockSize` for temporary storage.
+ * On read failure, sets `*readError` to 1 if `readError` is non-NULL.
  */
 static Multihash
 XSUM_hashStream(FILE* inFile,
                 AlgoSelected hashType,
-                void* buffer, size_t blockSize)
+                void* buffer, size_t blockSize,
+                int* readError)
 {
     XXH32_state_t state32;
     XXH64_state_t state64;
@@ -279,7 +281,7 @@ XSUM_hashStream(FILE* inFile,
         }
         if (ferror(inFile)) {
             XSUM_log("Error: a failure occurred reading the input file.\n");
-            exit(1);
+            if (readError != NULL) *readError = 1;
     }   }
 
     {   Multihash finalHash = {0};
@@ -389,6 +391,7 @@ typedef enum {
     LineStatus_hashOk,
     LineStatus_hashFailed,
     LineStatus_failedToOpen,
+    LineStatus_failedToRead,
     LineStatus_isDirectory,
     LineStatus_memoryError
 } LineStatus;
@@ -427,6 +430,7 @@ static LineStatus XSUM_hashFile(const char* fileName,
 
     /* Memory allocation & streaming */
     {   void* const buffer = malloc(blockSize);
+        int readError = 0;
         if (buffer == NULL) {
             XSUM_log("\nError: Out of memory.\n");
             fclose(inFile);
@@ -434,10 +438,11 @@ static LineStatus XSUM_hashFile(const char* fileName,
         }
 
         /* Stream file & update hash */
-        hashValue = XSUM_hashStream(inFile, hashType, buffer, blockSize);
+        hashValue = XSUM_hashStream(inFile, hashType, buffer, blockSize, &readError);
 
         fclose(inFile);
         free(buffer);
+        if (readError) return LineStatus_failedToRead;
     }
 
     /* display Hash value in selected format */
@@ -494,6 +499,7 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
         {
         case LineStatus_hashOk:
         case LineStatus_hashFailed:
+        case LineStatus_failedToRead:
             break;
         case LineStatus_isDirectory:
             XSUM_log("xxhsum: %s: Is a directory \n", stdinName);
@@ -518,6 +524,7 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
         {
         case LineStatus_hashOk:
         case LineStatus_hashFailed:
+        case LineStatus_failedToRead:
             break;
         case LineStatus_isDirectory:
             XSUM_log("xxhsum: %s: Is a directory \n", fnList[fnNb]);
@@ -922,30 +929,35 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
                 break;
             }
             lineStatus = LineStatus_hashFailed;
-            {   Multihash const xxh = XSUM_hashStream(fp, parsedLine.algo, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize);
-                switch (parsedLine.algo)
-                {
-                case algo_xxh32:
-                    if (xxh.hash32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
-                        lineStatus = LineStatus_hashOk;
-                    }
-                    break;
+            {   int readError = 0;
+                Multihash const xxh = XSUM_hashStream(fp, parsedLine.algo, XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize, &readError);
+                if (readError) {
+                    lineStatus = LineStatus_failedToRead;
+                } else {
+                    switch (parsedLine.algo)
+                    {
+                    case algo_xxh32:
+                        if (xxh.hash32 == XXH32_hashFromCanonical(&parsedLine.canonical.xxh32)) {
+                            lineStatus = LineStatus_hashOk;
+                        }
+                        break;
 
-                case algo_xxh64:
-                case algo_xxh3:
-                    if (xxh.hash64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
-                        lineStatus = LineStatus_hashOk;
-                    }
-                    break;
+                    case algo_xxh64:
+                    case algo_xxh3:
+                        if (xxh.hash64 == XXH64_hashFromCanonical(&parsedLine.canonical.xxh64)) {
+                            lineStatus = LineStatus_hashOk;
+                        }
+                        break;
 
-                case algo_xxh128:
-                    if (XXH128_isEqual(xxh.hash128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
-                        lineStatus = LineStatus_hashOk;
-                    }
-                    break;
+                    case algo_xxh128:
+                        if (XXH128_isEqual(xxh.hash128, XXH128_hashFromCanonical(&parsedLine.canonical.xxh128))) {
+                            lineStatus = LineStatus_hashOk;
+                        }
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                    }
                 }
             }
             if (fp != stdin) fclose(fp);
@@ -972,6 +984,14 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
                     XSUM_output("%s:%lu: Could not open or read '%s': %s.\n",
                         inFileName, lineNumber, parsedLine.filename, strerror(errno));
                 }
+            }
+            break;
+
+        case LineStatus_failedToRead:
+            report->nOpenOrReadFailures++;
+            if (!XSUM_parseFileArg->statusOnly) {
+                XSUM_output("%s:%lu: Could not read '%s'.\n",
+                    inFileName, lineNumber, parsedLine.filename);
             }
             break;
 
@@ -1265,6 +1285,14 @@ static void XSUM_parseGenFile1(ParseFileArg* XSUM_parseGenArg,
                             "%s:%lu: Target is a directory '%s'.\n", /* Leaves errno argument unconsumed */
                         inFileName, lineNumber, parsedLine.filename, strerror(errno));
                 }
+            }
+            break;
+
+        case LineStatus_failedToRead:
+            report->nOpenOrReadFailures++;
+            if (!XSUM_parseGenArg->statusOnly) {
+                XSUM_output("%s:%lu: Could not read '%s'.\n",
+                    inFileName, lineNumber, parsedLine.filename);
             }
             break;
 

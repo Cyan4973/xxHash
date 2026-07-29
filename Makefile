@@ -139,6 +139,9 @@ $(eval $(call c_program,xxhsum_inlinedXXH,$(CLI_OBJS)))
 # =================================================
 # library
 
+ifeq (,$(filter Windows%,$(OS)))
+libxxhash.a: CFLAGS += -fPIC
+endif
 libxxhash.a:
 $(eval $(call static_library,libxxhash.a,xxhash.o))
 

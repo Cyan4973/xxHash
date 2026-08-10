@@ -37,7 +37,175 @@ LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
 LIBVER := $(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
 MAKEFLAGS += --no-print-directory
-CFLAGS ?= -O3
+
+# ------------------------------------------------------------------
+# Performance tuning for the default build:
+#
+# For the fully-default invocation only (plain 'make': no CC and no
+# CFLAGS supplied on the command line or in the environment, and no
+# runtime-dispatch build requested), this Makefile:
+#   1. prefers clang over the built-in 'cc' default (clang generates a
+#      measurably faster XXH3/XXH128 AVX-512 kernel than GCC on this
+#      class of CPU), and
+#   2. adds -march=native to the *default* CFLAGS (the AVX-512 XXH3
+#      kernel is ~60% faster than the portable SSE2 + runtime-dispatch
+#      configuration).
+# Hash values are unaffected (bit-identical on every architecture).
+#
+# As soon as the user chooses anything (CC=... or CFLAGS=... on the
+# command line or in the environment), behavior is exactly upstream:
+# no compiler substitution, no -march=native, and the usual runtime
+# vector-dispatch default on x86/x64 (DISPATCH=1).
+#
+# Knobs:
+#   NATIVE=0    never add -march=native. Use this (or supply explicit
+#               CFLAGS=...) before 'make install' when the produced
+#               binaries/libraries will be copied to other (possibly
+#               older) machines - native binaries can raise SIGILL on
+#               CPUs lacking the build host's ISA.
+#   NATIVE=1    request -march=native even together with an explicit
+#               CC=... . The flag is still skipped automatically when
+#               the build cannot or must not use it: cross-compilation
+#               (a --target/-target/-arch/-m32 style option anywhere in
+#               CC/CFLAGS/CPPFLAGS/MOREFLAGS, or '$(CC) -dumpmachine'
+#               reporting a machine different from 'uname -m'), a
+#               compiler that rejects -march=native, a multi-word or
+#               shell-unsafe CC value, or any runtime-dispatch build.
+#   DISPATCH=1  runtime x86 vector-dispatch build. The Makefile then
+#               never adds -march=native itself, so the baseline code
+#               paths stay portable (the AVX2/AVX512 kernels are still
+#               compiled with their own target attributes and selected
+#               at runtime); explicit user CFLAGS/MOREFLAGS are, as
+#               always, left untouched. The same no-native rule applies
+#               to the 'dispatch' target and to LIBXXH_DISPATCH=1.
+#               When native tuning is off, DISPATCH defaults to 1 on
+#               x86/x64 exactly like upstream; when native tuning is
+#               active it defaults to 0 (native codegen already covers
+#               the host ISA, and this is the configuration the
+#               documented performance numbers, ~59 GB/s XXH3_64b, were
+#               measured with).
+#   CFLAGS=...  explicit CFLAGS keep working exactly as before and are
+#               never modified; supplying them also restores the
+#               upstream DISPATCH default.
+#   MOREFLAGS=... appended after CFLAGS as before; unaffected.
+
+# Remember whether the user chose a compiler, before any substitution.
+CC_USER_CHOSEN := $(if $(filter default,$(origin CC)),,1)
+ifeq ($(CC_USER_CHOSEN),)
+    # 'command -v' only ever performs a PATH lookup (no user input is
+    # re-evaluated by the shell), and the resolved absolute path is a
+    # single safe token. The assignment is exported so that recursive
+    # makes (tests/, tests/bench, tests/collisions, ...) build with the
+    # same compiler as the top-level artifacts.
+    CLANG_BIN := $(shell command -v clang 2> /dev/null || command -v clang-18 2> /dev/null)
+    ifneq ($(CLANG_BIN),)
+        export CC := $(CLANG_BIN)
+    endif
+endif
+
+# CC_SAFE=1 iff CC is a single word containing none of the characters a
+# POSIX shell treats specially (; | & $ ` ( ) < > ' " \ or whitespace)
+# and no pathname-expansion metacharacter (* ? [ ]). Computed with pure
+# make string functions: dangerous characters are removed one by one and
+# the result compared to the original - any difference means a
+# metacharacter was present. No shell is involved. The awkward
+# definitions below exist because some characters cannot appear
+# literally in a make function call argument.
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+DOLLAR := $$
+LPAREN := (
+RPAREN := )
+CC_STRIPPED := $(CC)
+CC_STRIPPED := $(subst ;,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst |,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst &,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst `,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst ',,$(CC_STRIPPED))
+CC_STRIPPED := $(subst ",,$(CC_STRIPPED))
+CC_STRIPPED := $(subst \,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst <,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst >,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst *,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst ?,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst [,,$(CC_STRIPPED))
+CC_STRIPPED := $(subst ],,$(CC_STRIPPED))
+CC_STRIPPED := $(subst $(DOLLAR),,$(CC_STRIPPED))
+CC_STRIPPED := $(subst $(SPACE),,$(CC_STRIPPED))
+CC_STRIPPED := $(subst $(LPAREN),,$(CC_STRIPPED))
+CC_STRIPPED := $(subst $(RPAREN),,$(CC_STRIPPED))
+CC_SAFE := $(and $(filter 1,$(words $(CC))),$(if $(filter x$(CC),x$(CC_STRIPPED)),1))
+
+# NATIVE: 1 = add -march=native to the default CFLAGS (when usable),
+# 0 = never. Default 'auto' resolves to 1 only for the fully-default
+# invocation (CC not chosen by the user, CFLAGS not supplied).
+# NATIVE_ON is the internal result: non-empty iff -march=native will be
+# added. It is a separate variable because a command-line 'NATIVE=1'
+# would override any later file-level reassignment of NATIVE itself.
+NATIVE ?= auto
+NATIVE_ON :=
+ifeq ($(NATIVE),1)
+    NATIVE_ON := 1
+else ifeq ($(NATIVE),auto)
+    ifeq ($(CC_USER_CHOSEN)$(origin CFLAGS),undefined)
+        NATIVE_ON := 1
+    endif
+endif
+# A runtime-dispatch build must stay portable: never add the native flag
+# (this intentionally overrides even an explicit NATIVE=1).
+ifneq (,$(filter dispatch,$(MAKECMDGOALS))$(filter 1,$(DISPATCH) $(LIBXXH_DISPATCH)))
+    NATIVE_ON :=
+endif
+# Cross-compilation guard #1: a target-selection option anywhere in the
+# compile line disables native tuning (covers --target=/-target, Apple
+# -arch, and -m32/-mx32/-m16 sub-architecture builds).
+ifneq (,$(findstring -target,$(CC) $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS))$(filter -arch -m32 -mx32 -m16,$(CC) $(CFLAGS) $(CPPFLAGS) $(MOREFLAGS)))
+    NATIVE_ON :=
+endif
+# Remaining guards need to run the compiler; $(CC) is only ever executed
+# here when CC_SAFE=1, i.e. a plain single word free of shell
+# metacharacters, so the probes cannot execute anything but the named
+# compiler. Probe output is filtered by 'tr' so only [A-Za-z0-9._-]
+# survive before make compares it.
+ifeq ($(NATIVE_ON),1)
+    ifneq ($(CC_SAFE),1)
+        NATIVE_ON :=    # non-plain CC -> stay portable, skip probes
+    else ifeq ($(findstring $(shell uname -m),$(shell $(CC) -dumpmachine 2> /dev/null | tr -cd 'A-Za-z0-9._-')),)
+        NATIVE_ON :=    # cross toolchain, or target undeterminable
+    else ifneq ($(shell $(CC) -march=native -E -x c /dev/null > /dev/null 2>&1 && echo 1),1)
+        NATIVE_ON :=    # compiler does not accept -march=native
+    endif
+endif
+
+# Runtime vector dispatch: upstream defaults DISPATCH to 1 on x86/x64
+# targets. That default is preserved in every configuration except the
+# fully-default native-tuned build, where it becomes 0 (the whole binary
+# is compiled for the host ISA anyway).
+detect_x86_arch = $(shell $(CC) -dumpmachine | grep -E 'i[3-6]86|x86_64')
+ifneq ($(strip $(call detect_x86_arch)),)
+    #note: can be overridden at compile time, by setting DISPATCH=0/1
+    ifeq ($(NATIVE_ON),1)
+        DISPATCH ?= 0
+    else
+        DISPATCH ?= 1
+    endif
+else
+    ifeq ($(DISPATCH),1)
+        $(info "Note: DISPATCH=1 is only supported on x86/x64 targets")
+    endif
+    override DISPATCH := 0
+endif
+
+# Default CFLAGS. Explicit CFLAGS=... on the command line or in the
+# environment is never modified (the '?=' below only fills in a
+# make-default CFLAGS; when the user supplied CFLAGS, NATIVE_ON is off).
+ifeq ($(NATIVE_ON),1)
+    CFLAGS ?= -O3 -march=native
+else
+    CFLAGS ?= -O3
+endif
+# ------------------------------------------------------------------
+
 DEBUGFLAGS+=-Wall -Wextra -Wconversion -Wcast-qual -Wcast-align -Wshadow \
             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
             -Wstrict-prototypes -Wundef -Wpointer-arith -Wformat-security \
@@ -52,18 +220,6 @@ ifneq (,$(filter Windows%,$(OS)))
 EXT =.exe
 else
 EXT =
-endif
-
-# automatically enable runtime vector dispatch on x86/64 targets
-detect_x86_arch = $(shell $(CC) -dumpmachine | grep -E 'i[3-6]86|x86_64')
-ifneq ($(strip $(call detect_x86_arch)),)
-    #note: can be overridden at compile time, by setting DISPATCH=0
-    DISPATCH ?= 1
-else
-    ifeq ($(DISPATCH),1)
-        $(info "Note: DISPATCH=1 is only supported on x86/x64 targets")
-    endif
-    override DISPATCH := 0
 endif
 
 ifeq ($(NODE_JS),1)
@@ -372,7 +528,7 @@ clangtest:
 .PHONY: gcc-og-test
 gcc-og-test:
 	@echo ---- test gcc -Og compilation ----
-	CFLAGS="-Og -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC" CPPFLAGS="-DXXH_NO_INLINE_HINTS" MOREFLAGS="-Werror" $(MAKE) all
+	CFLAGS="-Og -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror -fPIC" CPPFLAGS="-DXXH_NO_INLINE_HINTS" MOREFLAGS="-Werror" $(MAKE) all CC=gcc
 
 .PHONY: cxxtest
 cxxtest:

@@ -245,6 +245,15 @@
 extern "C" {
 #endif
 
+/* Temporarily leave extern "C" around system #includes (issue #1122). */
+#if defined(__cplusplus) && !defined(XXH_NO_EXTERNC_GUARD)
+#  define XXH_EXTERNC_PAUSE  } /* leave extern "C" for system headers */
+#  define XXH_EXTERNC_RESUME extern "C" {
+#else
+#  define XXH_EXTERNC_PAUSE
+#  define XXH_EXTERNC_RESUME
+#endif
+
 /* ****************************
  *  INLINE mode
  ******************************/
@@ -566,7 +575,9 @@ XXH_PUBLIC_API XXH_CONSTF unsigned XXH_versionNumber (void);
 /* ****************************
 *  Common basic types
 ******************************/
+XXH_EXTERNC_PAUSE
 #include <stddef.h>   /* size_t */
+XXH_EXTERNC_RESUME
 /*!
  * @brief Exit code for the streaming API.
  */
@@ -590,15 +601,19 @@ typedef uint32_t XXH32_hash_t;
 #elif !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+XXH_EXTERNC_PAUSE
 #   ifdef _AIX
 #     include <inttypes.h>
 #   else
 #     include <stdint.h>
 #   endif
+XXH_EXTERNC_RESUME
     typedef uint32_t XXH32_hash_t;
 
 #else
+XXH_EXTERNC_PAUSE
 #   include <limits.h>
+XXH_EXTERNC_RESUME
 #   if UINT_MAX == 0xFFFFFFFFUL
       typedef unsigned int XXH32_hash_t;
 #   elif ULONG_MAX == 0xFFFFFFFFUL
@@ -859,14 +874,18 @@ typedef uint64_t XXH64_hash_t;
 #elif !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+XXH_EXTERNC_PAUSE
 #   ifdef _AIX
 #     include <inttypes.h>
 #   else
 #     include <stdint.h>
 #   endif
+XXH_EXTERNC_RESUME
    typedef uint64_t XXH64_hash_t;
 #else
+XXH_EXTERNC_PAUSE
 #  include <limits.h>
+XXH_EXTERNC_RESUME
 #  if defined(__LP64__) && ULONG_MAX == 0xFFFFFFFFFFFFFFFFULL
      /* LP64 ABI says uint64_t is unsigned long */
      typedef unsigned long XXH64_hash_t;
@@ -2370,7 +2389,9 @@ static void XXH_free(void* p) { (void)p; }
  * Modify the local functions below should you wish to use
  * different memory routines for malloc() and free()
  */
+XXH_EXTERNC_PAUSE
 #include <stdlib.h>
+XXH_EXTERNC_RESUME
 
 /*!
  * @internal
@@ -2391,7 +2412,9 @@ static void XXH_free(void* p) { free(p); }
  * @internal
  * @brief XXH_memcpy() macro can be redirected at compile time
  */
+XXH_EXTERNC_PAUSE
 #  include <string.h>
+XXH_EXTERNC_RESUME
 #  define XXH_memcpy memcpy
 #endif
 
@@ -2400,7 +2423,9 @@ static void XXH_free(void* p) { free(p); }
  * @internal
  * @brief XXH_memset() macro can be redirected at compile time
  */
+XXH_EXTERNC_PAUSE
 #  include <string.h>
+XXH_EXTERNC_RESUME
 #  define XXH_memset memset
 #endif
 
@@ -2410,13 +2435,16 @@ static void XXH_free(void* p) { free(p); }
  * @brief XXH_memcmp() macro can be redirected at compile time
  * Note: only needed by XXH128.
  */
+XXH_EXTERNC_PAUSE
 #  include <string.h>
+XXH_EXTERNC_RESUME
 #  define XXH_memcmp memcmp
 #endif
 
 
-
+XXH_EXTERNC_PAUSE
 #include <limits.h>   /* ULLONG_MAX */
+XXH_EXTERNC_RESUME
 
 
 /* *************************************
@@ -2499,7 +2527,9 @@ static void XXH_free(void* p) { free(p); }
 #endif
 
 #if (XXH_DEBUGLEVEL>=1)
+XXH_EXTERNC_PAUSE
 #  include <assert.h>   /* note: can still be disabled with NDEBUG */
+XXH_EXTERNC_RESUME
 #  define XXH_ASSERT(c)   assert(c)
 #else
 #  if defined(__INTEL_COMPILER)
@@ -2557,11 +2587,13 @@ static void XXH_free(void* p) { free(p); }
 #if !defined (__VMS) \
  && (defined (__cplusplus) \
  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+XXH_EXTERNC_PAUSE
 #   ifdef _AIX
 #     include <inttypes.h>
 #   else
 #     include <stdint.h>
 #   endif
+XXH_EXTERNC_RESUME
     typedef uint8_t xxh_u8;
 #else
     typedef unsigned char xxh_u8;
@@ -3855,6 +3887,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #  endif
 #endif
 
+XXH_EXTERNC_PAUSE
 #if defined(__GNUC__) || defined(__clang__)
 #  if defined(__ARM_FEATURE_SVE)
 #    include <arm_sve.h>
@@ -3883,6 +3916,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #if defined(_MSC_VER)
 #  include <intrin.h>
 #endif
+XXH_EXTERNC_RESUME
 
 /*
  * One goal of XXH3 is to make it fast on both 32-bit and 64-bit, while
@@ -4255,11 +4289,13 @@ XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
 #  undef vector
 #  undef pixel
 
+XXH_EXTERNC_PAUSE
 #  if defined(__s390x__)
 #    include <s390intrin.h>
 #  else
 #    include <altivec.h>
 #  endif
+XXH_EXTERNC_RESUME
 
 /* Restore the original macro values, if applicable. */
 #  pragma pop_macro("pixel")
@@ -4371,7 +4407,9 @@ do { \
 #  if XXH_SIZE_OPT >= 1
 #    define XXH_PREFETCH(ptr) (void)(ptr)
 #  elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))  /* _mm_prefetch() not defined outside of x86/x64 */
+XXH_EXTERNC_PAUSE
 #    include <mmintrin.h>   /* https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx */
+XXH_EXTERNC_RESUME
 #    define XXH_PREFETCH(ptr)  _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
 #  elif defined(__GNUC__) && ( (__GNUC__ >= 4) || ( (__GNUC__ == 3) && (__GNUC_MINOR__ >= 1) ) )
 #    define XXH_PREFETCH(ptr)  __builtin_prefetch((ptr), 0 /* rw==read */, 3 /* locality */)
@@ -7484,6 +7522,9 @@ XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
  */
 #endif  /* XXH_IMPLEMENTATION */
 
+
+#undef XXH_EXTERNC_PAUSE
+#undef XXH_EXTERNC_RESUME
 
 #if defined (__cplusplus) && !defined(XXH_NO_EXTERNC_GUARD)
 } /* extern "C" */

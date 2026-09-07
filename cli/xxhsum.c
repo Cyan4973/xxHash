@@ -1550,6 +1550,30 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     if (strstr(exename, "xxh128sum") != NULL) { algo = g_defaultAlgo = algo_xxh128; algoBitmask = algo_bitmask_xxh128; }
     if (strstr(exename,   "xxh3sum") != NULL) { algo = g_defaultAlgo = algo_xxh3;   algoBitmask = algo_bitmask_xxh3;  }
 
+    /* The loop below stops scanning for options as soon as it hits the first
+     * filename, since it only supports a continuous list of filenames (see
+     * the comment further down). That means a trailing --quiet ends up
+     * swallowed as a bogus filename instead of being applied, e.g.
+     * "xxhsum -c list.xxhash --quiet" stays noisy while
+     * "xxhsum --quiet -c list.xxhash" doesn't (issue #1098). Strip every
+     * --quiet out of argv here first, before that loop runs, so it always
+     * takes effect regardless of where it was passed. Stop at an explicit
+     * "--", since anything after that is a literal filename. */
+    {   int src, dst = 1;
+        for (src=1; src<argc; src++) {
+            if (!strcmp(argv[src], "--")) {
+                for (; src<argc; src++) argv[dst++] = argv[src];
+                break;
+            }
+            if (!strcmp(argv[src], "--quiet")) {
+                XSUM_logLevel--;
+                continue;
+            }
+            argv[dst++] = argv[src];
+        }
+        argc = dst;
+    }
+
     for (i=1; i<argc; i++) {
         const char* argument = argv[i];
         assert(argument != NULL);
@@ -1559,7 +1583,6 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         if (!strcmp(argument, "--filelist")) { readFilenamesMode = 1; continue; }
         if (!strcmp(argument, "--benchmark-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
         if (!strcmp(argument, "--bench-all")) { benchmarkMode = 1; selectBenchIDs = kBenchAll; continue; }
-        if (!strcmp(argument, "--quiet")) { XSUM_logLevel--; continue; }
         if (!strcmp(argument, "--little-endian")) { displayEndianness = little_endian; continue; }
         if (!strcmp(argument, "--strict")) { strictMode = 1; continue; }
         if (!strcmp(argument, "--status")) { statusOnly = 1; continue; }

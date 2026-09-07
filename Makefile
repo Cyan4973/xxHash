@@ -254,6 +254,9 @@ test-xxhsum-c: xxhsum
 	! ./xxhsum -q $(TEST_FILES) 2>&1 | grep Loading
 	# xxhsum does not display "Loading" message into stderr either
 	! ./xxhsum $(TEST_FILES) 2>&1 | grep Loading
+	# --quiet takes effect no matter where it's placed, not just before -c (#1098)
+	test -z "$$(./xxhsum --quiet -c .test.README.md.xxh < README.md)"
+	test -z "$$(./xxhsum -c .test.README.md.xxh --quiet < README.md)"
 	# Check that xxhsum do display filename that it failed to open.
 	LC_ALL=C ./xxhsum nonexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
 	# xxhsum to/from file, shell redirection

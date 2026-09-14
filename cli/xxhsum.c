@@ -1553,7 +1553,7 @@ static XSUM_U64 XSUM_readU64FromChar( const char** number_str ){
 
 XSUM_API int XSUM_main(int argc, const char* argv[])
 {
-    int i, filenamesStart = 0;
+    int i, filenamesCount = 0;
     const char* const exename = XSUM_lastNameFromPath(argv[0]);
     int benchmarkMode = 0;
     int fileCheckMode = 0;
@@ -1581,6 +1581,21 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     for (i=1; i<argc; i++) {
         const char* argument = argv[i];
         assert(argument != NULL);
+
+        if (!strcmp(argument, "--")) {
+            while (++i < argc) {
+                const char* const filename = argv[i];
+                argv[i] = argv[1 + filenamesCount];
+                argv[1 + filenamesCount++] = filename;
+            }
+            break;  /* treat rest of arguments as strictly file names */
+        }
+        if (*argument != '-') {
+            /* Swap to preserve every argv entry for callers which free them. */
+            argv[i] = argv[1 + filenamesCount];
+            argv[1 + filenamesCount++] = argument;
+            continue;
+        }
 
         if (!strcmp(argument, "--check")) { fileCheckMode = 1; continue; }
         if (!strcmp(argument, "--files-from")) { readFilenamesMode = 1; continue; }
@@ -1610,15 +1625,6 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
                         return XSUM_usage_advanced(exename);
                 }
             continue;
-        }
-
-        if (!strcmp(argument, "--")) {
-            if (filenamesStart==0 && i!=argc-1) filenamesStart=i+1; /* only supports a continuous list of filenames */
-            break;  /* treat rest of arguments as strictly file names */
-        }
-        if (*argument != '-') {
-            if (filenamesStart==0) filenamesStart=i;   /* only supports a continuous list of filenames */
-            break;  /* treat rest of arguments as strictly file names */
         }
 
         /* command selection */
@@ -1718,27 +1724,25 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         g_nbIterations = nbIterations;
         if (selectBenchIDs == 0) memcpy(g_testIDs, k_testIDs_default, (size_t)g_nbTestFunctions);
         if (selectBenchIDs == kBenchAll) memset(g_testIDs, 1, (size_t)g_nbTestFunctions);
-        if (filenamesStart==0) return XSUM_benchInternal(keySize);
-        return XSUM_benchFiles(argv+filenamesStart, argc-filenamesStart);
+        if (filenamesCount==0) return XSUM_benchInternal(keySize);
+        return XSUM_benchFiles(argv+1, filenamesCount);
     }
 
     /* Check if input is defined as console; trigger an error in this case */
-    if ( (filenamesStart==0) && XSUM_isConsole(stdin) && !explicitStdin) {
+    if ( (filenamesCount==0) && XSUM_isConsole(stdin) && !explicitStdin) {
         XSUM_log("No input provided \n");
         return 1;
     }
 
-    if (filenamesStart==0) filenamesStart = argc;
-
     if (fileCheckMode) {
-        return XSUM_checkFiles(argv+filenamesStart, argc-filenamesStart,
+        return XSUM_checkFiles(argv+1, filenamesCount,
                           displayEndianness, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     }
 
     if (readFilenamesMode) {
-        return XSUM_generateFiles(argv + filenamesStart, argc - filenamesStart, algo, displayEndianness, convention, statusOnly, ignoreMissing, warn);
+        return XSUM_generateFiles(argv + 1, filenamesCount, algo, displayEndianness, convention, statusOnly, ignoreMissing, warn);
     }
 
-    return XSUM_hashFiles(argv+filenamesStart, argc-filenamesStart, algo, displayEndianness, convention);
+    return XSUM_hashFiles(argv+1, filenamesCount, algo, displayEndianness, convention);
 
 }

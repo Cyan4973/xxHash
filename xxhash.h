@@ -2052,6 +2052,10 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 
 #endif  /* defined(XXH_STATIC_LINKING_ONLY) && !defined(XXHASH_H_STATIC_13879238742) */
 
+#if defined (__cplusplus) && !defined(XXH_NO_EXTERNC_GUARD)
+} /* extern "C" */
+#endif
+
 
 /* ======================================================================== */
 /* ======================================================================== */
@@ -7483,8 +7487,3 @@ XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
  * @}
  */
 #endif  /* XXH_IMPLEMENTATION */
-
-
-#if defined (__cplusplus) && !defined(XXH_NO_EXTERNC_GUARD)
-} /* extern "C" */
-#endif

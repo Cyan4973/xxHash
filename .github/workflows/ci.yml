@@ -57,6 +57,37 @@ permissions:
   contents: read
 
 jobs:
+  reproduce-system-header-in-extern-c:
+    name: Reproduce system header included inside extern C
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install AArch64 C++ cross-compiler
+      run: |
+        sudo apt-get update
+        sudo apt-get install g++-aarch64-linux-gnu
+
+    - name: Reproduce issue 1122
+      run: |
+        probe_dir="${RUNNER_TEMP}/xxhash-extern-c-probe"
+        mkdir -p "${probe_dir}"
+        # Model a system arm_neon.h that exposes C++ declarations. Such
+        # declarations are ill-formed when xxhash.h includes it in extern "C".
+        cat > "${probe_dir}/arm_neon.h" <<'EOF'
+        #include_next <arm_neon.h>
+        template <typename T>
+        struct XXH_system_header_cxx_probe {};
+        EOF
+        aarch64-linux-gnu-g++ \
+          -std=c++11 \
+          -march=armv8-a+simd \
+          -Wall -Wextra -Werror \
+          -I"${probe_dir}" \
+          -x c++ \
+          -fsyntax-only \
+          xxhash.c
+
   xxhash-c-compilers:
     name: CC=${{ matrix.cc }}, ${{ matrix.os }}
     strategy:

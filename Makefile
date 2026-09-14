@@ -256,6 +256,17 @@ test-xxhsum-c: xxhsum
 	! ./xxhsum $(TEST_FILES) 2>&1 | grep Loading
 	# Check that xxhsum do display filename that it failed to open.
 	LC_ALL=C ./xxhsum nonexistent 2>&1 | grep "Error: Could not open 'nonexistent'"
+	# A read error must not prevent subsequent files from being hashed (#1064).
+	@if test -r /proc/self/mem; then \
+		./xxhsum Makefile > .test.read-error.expected || exit 1; \
+		if ./xxhsum /proc/self/mem Makefile > .test.read-error.actual; then \
+			echo "Expected /proc/self/mem to fail while reading" >&2; \
+			exit 1; \
+		fi; \
+		diff -u .test.read-error.expected .test.read-error.actual; \
+	else \
+		echo "Skipping read-error test: /proc/self/mem is unavailable"; \
+	fi
 	# xxhsum to/from file, shell redirection
 	./xxhsum $(TEST_FILES) > .test.xxh64
 	./xxhsum --tag $(TEST_FILES) > .test.xxh64_tag

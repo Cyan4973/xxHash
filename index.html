@@ -83,7 +83,6 @@
     </div>
 
 
-
 <xmp theme="sandstone" style="display:none;">
 <a id="benchmarks"></a>
 
@@ -94,8 +93,15 @@ These measurements were performed in August 2020.
 The reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
 The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` flag.
 
+Some algorithms are _faster than RAM_: such speeds are only reachable when the input is already
+in CPU cache (L3 or better). Otherwise, they max out at RAM speed limit.
+_Small data velocity_ is a _rough_ evaluation of an algorithm's efficiency on small inputs;
+see [the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-) for a detailed analysis.
+
 | Hash Name     | Width | Bandwidth (GB/s) | Small Data Velocity | Quality | Comment |
 | ---------     | ----- | ---------------- | ----- | --- | --- |
+| __XXH3__ (AVX2) |  64 | 59.4 GB/s        | 133.1 | 10 | AVX2 support (optional)
+| __XXH128__ (AVX2) | 128 | 57.9 GB/s      | 118.1 | 10 | AVX2 support (optional)
 | __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10 |
 | __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10 |
 | _memcpy_      |   N/A | 28.0 GB/s        |   N/A | N/A | _for reference_
@@ -117,15 +123,8 @@ The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` f
 [open source benchmark program]: https://github.com/Cyan4973/xxHash/tree/release/tests/bench
 [collisions]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study
 
-note 1: Small data velocity is a _rough_ evaluation of algorithm's efficiency on small data.
-For more detailed analysis, please refer to [the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-).
-
-note 2: On 32-bit applications, the ranking between hashes differs drastically, strongly favoring 32-bit hashes,
+note: On 32-bit applications, the ranking between hashes differs drastically, strongly favoring 32-bit hashes,
 See [this section of the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#bandwidth-on-x86-with-various-data-size-of-len-2n-32-bit-friendliness) for illustration.
-
-note 3: some algorithms feature _faster than RAM_ speed.
-In which case, they can only reach their full speed when input data is already in CPU cache (L3 or better).
-Otherwise, they max out at RAM speed limit.
 
 
 <br/>
@@ -207,7 +206,6 @@ To write one yourself, follow the [format specification].
 |__Batch__ (XXH32, port)    |Antonio Aacini     |https://github.com/Aacini/xxHash32
 |__sh__ (port)              |Jan Chren          |https://gitlab.com/rindeal/xxHashish
 |__x86 assembly__ (XXH32)   |Antonio Aacini     |https://github.com/Aacini/xxHash32
-
 
 
 <br/>

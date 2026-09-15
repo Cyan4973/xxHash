@@ -1,0 +1,12 @@
+{
+  "name": "xxhash-homepage",
+  "private": true,
+  "description": "Source for xxhash.com. Not published; npm is only used to pull in the test runner.",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node build.js && node tests/run.js"
+  },
+  "devDependencies": {
+    "jsdom": "^22.1.0"
+  }
+}

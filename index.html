@@ -335,5 +335,12 @@ The following versions produce xxHash-compatible results in different languages.
     });
     </script>
     <script src="strapdown/v/0.2/strapdown.js"></script>
+
+    <!-- Runs after strapdown has rebuilt the body. The logos are decorative:
+         each one sits next to a <span> naming the project, so an empty alt
+         keeps screen readers from reading out the image file name too. -->
+    <script>
+    document.querySelectorAll('.list-inline img').forEach(function (img) { img.alt = ''; });
+    </script>
   </body>
 </html>

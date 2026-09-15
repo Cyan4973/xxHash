@@ -70,7 +70,10 @@
         <p style="line-height: 1.5; font-weight: 400">
         xxHash is an extremely fast non-cryptographic hash algorithm, working at RAM speed limit.
         It is proposed in four flavors (XXH32, XXH64, XXH3_64bits and XXH3_128bits).
-        The latest variant, XXH3, offers improved performance across the board, especially on small data.
+        <br/>
+        All four variants are stable: the same input always produces the same hash, in any version.
+        Hashes stored today stay valid tomorrow, as guaranteed by the
+        <a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">format specification</a>.
         </p>
         <p style="margin-top:1.5em">
           <a class="btn btn-primary" href="https://github.com/Cyan4973/xxHash#readme">Get started</a>

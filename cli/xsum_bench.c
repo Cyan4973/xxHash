@@ -434,7 +434,16 @@ int XSUM_benchInternal(size_t keySize)
         exit(12);
     }
 
-    {   const void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
+    {   void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
+
+        /*
+         * Fill the buffer with non-zero content.
+         * A freshly calloc()'d buffer that is only ever read (never written)
+         * can end up entirely backed by the same shared physical zero page
+         * on Linux, making the benchmark measure cache speed rather than
+         * real memory bandwidth.
+         */
+        XSUM_fillTestBuffer((XSUM_U8*)alignedBuffer, keySize);
 
         /* bench */
         XSUM_logVerbose(1, "Sample of ");

@@ -210,7 +210,7 @@ footer .cols { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit,
 footer h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text); margin: 0 0 .6rem; }
 footer ul { list-style: none; margin: 0; padding: 0; }
 footer li { margin-bottom: .35rem; }
-.thanks { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.colophon { margin: 2.5rem 0 0; padding-top: 1.5rem; border-top: 1px solid var(--border); }
 
 /* Last rule in the sheet, deliberately. [hidden] has the same specificity as the
    class selectors that set `display: grid` on the things we hide (the platform
@@ -230,17 +230,17 @@ footer li { margin-bottom: .35rem; }
   <div class="wrap">
     <a class="brand" href="#">xxHash</a>
     <nav class="links">
-      <a href="#speed">Speed</a>
+      <a href="#benchmarks">Speed</a>
       <a href="#try">Try it</a>
-      <a href="#languages">Languages</a>
-      <a href="#usedby" class="hide-sm">Used by</a>
+      <a href="#other-languages">Languages</a>
+      <a href="#references" class="hide-sm">Used by</a>
       <a href="doc/v0.8.3/index.html" class="hide-sm">Docs</a>
       <a class="gh" href="https://github.com/Cyan4973/xxHash"><svg aria-hidden="true"><use href="#gh"/></svg> GitHub</a>
     </nav>
   </div>
 </header>
 
-<div class="hero wrap">
+<div class="hero wrap" id="summary">
   <h1>xxHash</h1>
   <p class="sub">Hashing faster than RAM speed</p>
   <p class="tag">
@@ -261,7 +261,7 @@ footer li { margin-bottom: .35rem; }
     <div class="row">
 {{trust-strip}}
     </div>
-    <p class="note"><a href="#usedby">and {{used-by-remainder}} other projects &rarr;</a></p>
+    <p class="note"><a href="#references">and {{used-by-remainder}} other projects &rarr;</a></p>
   </div>
 </div>
 
@@ -269,7 +269,7 @@ footer li { margin-bottom: .35rem; }
   <div class="wrap">
     <h2>Choosing a variant</h2>
     <p class="lede">All four are fully supported and specified. They differ in output width
-      and in speed &mdash; the <a href="#speed">benchmarks</a> show by how much.</p>
+      and in speed &mdash; the <a href="#benchmarks">benchmarks</a> show by how much.</p>
     <div class="tbl-scroll">
       <table id="variants">
         <thead><tr><th>Variant</th><th>Output</th><th>Notes</th></tr></thead>
@@ -292,7 +292,7 @@ footer li { margin-bottom: .35rem; }
   </div>
 </section>
 
-<section id="speed">
+<section id="benchmarks">
   <div class="wrap">
     <h2>Speed</h2>
     <p class="lede">Single-threaded bandwidth on a 100&nbsp;KB input, which stays in CPU cache.
@@ -356,7 +356,7 @@ footer li { margin-bottom: .35rem; }
   </div>
 </section>
 
-<section id="languages">
+<section id="other-languages">
   <div class="wrap">
     <h2>Implementations</h2>
     <p class="lede">{{implementation-count}} ports and bindings that produce xxHash-compatible digests. To write your own,
@@ -377,7 +377,7 @@ footer li { margin-bottom: .35rem; }
   </div>
 </section>
 
-<section id="usedby" class="usedby">
+<section id="references" class="usedby">
   <div class="wrap">
     <h2>Used by</h2>
     <p class="lede">{{used-by-count}} projects that ship xxHash. Missing one?
@@ -403,6 +403,7 @@ footer li { margin-bottom: .35rem; }
           <li><a href="https://github.com/Cyan4973/xxHash">Source on GitHub</a></li>
           <li><a href="https://github.com/Cyan4973/xxHash/releases/latest">Latest release</a></li>
           <li><a href="https://github.com/Cyan4973/xxHash/issues">Issue tracker</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/graphs/contributors">Contributors</a></li>
         </ul>
       </div>
       <div>
@@ -413,13 +414,7 @@ footer li { margin-bottom: .35rem; }
         </ul>
       </div>
     </div>
-    <div class="thanks">
-      <p>Thanks to
-        <a href="https://github.com/t-mat/">Takayuki Matsuoka</a> for <code>xxhsum -c</code> and the original canvas of this page,
-        <a href="https://github.com/JCash">Mathias Westerdahl</a> for the first version of XXH64, and
-        <a href="https://github.com/easyaspi314">Devin Hussey</a> for the low-level work on XXH3 and XXH128.</p>
-      <p style="margin:0">&copy; Yann Collet</p>
-    </div>
+    <p class="colophon">&copy; Yann Collet</p>
   </div>
 </footer>
 

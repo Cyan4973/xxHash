@@ -35,8 +35,20 @@ module.exports = async function () {
   t.is("images without alt", q(".usedby img:not([alt])") + q(".trust img:not([alt])"), 0);
 
   t.section("counts in the prose are generated, not typed");
-  t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#languages .lede").textContent));
-  t.ok("used-by count", /^53 projects/.test(d.querySelector("#usedby .lede").textContent.trim()));
+  t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#other-languages .lede").textContent));
+  t.ok("used-by count", /^53 projects/.test(d.querySelector("#references .lede").textContent.trim()));
+
+  t.section("anchors the old page published still resolve");
+  // README.md links to xxhash.com/#other-languages, and deep links to the other
+  // three exist in the wild. Renaming a section must not break them.
+  for (const id of ["summary", "benchmarks", "other-languages", "references"]) {
+    t.ok("#" + id, d.getElementById(id));
+  }
+  const ids = new Set([...d.querySelectorAll("[id]")].map((e) => e.id));
+  const dangling = [...d.querySelectorAll('a[href^="#"]')]
+    .map((a) => a.getAttribute("href").slice(1))
+    .filter((h) => h && !ids.has(h));
+  t.is("dangling internal links", [...new Set(dangling)].join(",") || 0, 0);
 
   t.section("every referenced image exists");
   const fs = require("fs"), path = require("path"), { ROOT } = require("./harness");

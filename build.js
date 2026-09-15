@@ -186,7 +186,7 @@ function renderUsedBy(categories) {
   const strip = featured
     .map(
       (f) =>
-        `      <a href="#usedby" title="${escapeHtml(f.label)}">` +
+        `      <a href="#references" title="${escapeHtml(f.label)}">` +
         `<img src="${escapeHtml(f.src)}" alt="${escapeHtml(f.label)}"></a>`
     )
     .join("\n");

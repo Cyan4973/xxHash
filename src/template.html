@@ -97,6 +97,10 @@ nav.links a:hover { color: var(--text); text-decoration: none; }
 .star-btn > span { padding: .65rem .9rem; line-height: 1;
                    border: 1px solid var(--border); background: var(--bg); color: var(--text); }
 .star-face { border-radius: 8px 0 0 8px; }
+/* reuses the octicon mark defined once at the top of <body>, rather than a text
+   star glyph, which some platforms substitute with a colour emoji */
+.star-face svg { width: 1.05em; height: 1.05em; fill: currentColor;
+                 vertical-align: -.15em; margin-right: .4em; }
 .star-face:only-child { border-radius: 8px; }
 .star-btn:hover .star-face { background: var(--surface); }
 .star-count { border-left: 0; border-radius: 0 8px 8px 0;
@@ -252,7 +256,7 @@ footer li { margin-bottom: .35rem; }
     <a class="btn btn-ghost" href="#try">Try it in your browser</a>
     <a class="btn btn-ghost" href="doc/v0.8.3/index.html">API docs</a>
     <!-- count is filled in at runtime by the script at the bottom of the page -->
-    <a class="star-btn" href="https://github.com/Cyan4973/xxHash/stargazers"><span class="star-face">&#9733; Star</span></a>
+    <a class="star-btn" href="https://github.com/Cyan4973/xxHash/stargazers"><span class="star-face"><svg aria-hidden="true"><use href="#gh"/></svg>Star</span></a>
   </div>
 </div>
 

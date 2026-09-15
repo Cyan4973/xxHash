@@ -57,7 +57,7 @@ module.exports = async function () {
     const page = render({ origin: ORIGIN, fetch: impl });
     await settle(page);
     t.is(label, page.document.querySelectorAll(".star-count").length, 0);
-    t.is(label + ", button intact", page.document.querySelector(".star-face").textContent.trim(), "★ Star");
+    t.is(label + ", button intact", page.document.querySelector(".star-face").textContent.trim(), "Star");
     await page.close();
   }
 

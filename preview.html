@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xxHash — extremely fast hash algorithm</title>
+<meta name="description" content="xxHash is an extremely fast non-cryptographic hash algorithm, working at RAM speed limit. Four stable variants: XXH32, XXH64, XXH3-64 and XXH3-128.">
+<style>
+/* ---------------------------------------------------------------
+   One stylesheet, no framework. Tokens first, then layout.
+   Dark mode follows the OS; nothing to toggle, nothing to store.
+   --------------------------------------------------------------- */
+:root {
+  --bg:        #ffffff;
+  --surface:   #f6f7f9;
+  --surface-2: #eef0f4;
+  --text:      #14161a;
+  --muted:     #5b6472;
+  --border:    #e2e6ec;
+  --accent:    #1e5eff;
+  --accent-bg: #eef3ff;
+  --shadow:    0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0d1117;
+    --surface:   #151b23;
+    --surface-2: #1c232d;
+    --text:      #e6edf3;
+    --muted:     #93a1b1;
+    --border:    #262d38;
+    --accent:    #5a8cff;
+    --accent-bg: #141d33;
+    --shadow:    none;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+code, kbd, pre, .mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; margin: 0; }
+p { margin: 0 0 1rem; }
+
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 1.25rem; }
+section { padding: 4.5rem 0; border-top: 1px solid var(--border); }
+section > .wrap > h2 { font-size: 1.9rem; margin-bottom: .5rem; }
+.lede { color: var(--muted); max-width: 62ch; margin-bottom: 2rem; }
+
+/* ------------------------------ header ------------------------------ */
+header.top {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+header.top .wrap { display: flex; align-items: center; gap: 1.5rem; height: 3.5rem; }
+.brand { font-weight: 700; font-size: 1.15rem; color: var(--text); letter-spacing: -.02em; }
+.brand:hover { text-decoration: none; }
+nav.links { display: flex; gap: 1.25rem; margin-left: auto; align-items: center; }
+nav.links a { color: var(--muted); font-size: .92rem; }
+nav.links a:hover { color: var(--text); text-decoration: none; }
+.gh { display: inline-flex; align-items: center; gap: .4rem; }
+.gh svg { width: 1.1em; height: 1.1em; fill: currentColor; }
+@media (max-width: 720px) { nav.links a.hide-sm { display: none; } }
+
+/* ------------------------------- hero ------------------------------- */
+.hero { padding: 5rem 0 3.5rem; }
+.hero h1 { font-size: clamp(2.2rem, 5vw, 3rem); font-weight: 700; }
+.hero p.sub { font-size: 1.3rem; margin: .5rem 0 0; }
+.hero p.tag { font-size: 1.05rem; color: var(--muted); max-width: 62ch; margin: .75rem 0 2rem; }
+.cta { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.btn {
+  display: inline-block; padding: .65rem 1.25rem; border-radius: 8px;
+  font-weight: 600; font-size: .95rem; border: 1px solid transparent;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { border-color: var(--border); color: var(--text); background: var(--bg); }
+.btn-ghost:hover { background: var(--surface); }
+/* Star button. Our own markup: the count span is appended by the script at the
+   bottom only once a number is actually in hand, so a failed or rate-limited
+   API call leaves a plain "Star" button rather than an empty bubble. */
+.star-btn { display: inline-flex; align-items: center; margin-left: .5rem; flex: 0 0 auto;
+            font-size: .9rem; font-weight: 600; }
+.star-btn:hover { text-decoration: none; }
+.star-btn > span { padding: .65rem .9rem; line-height: 1;
+                   border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.star-face { border-radius: 8px 0 0 8px; }
+.star-face:only-child { border-radius: 8px; }
+.star-btn:hover .star-face { background: var(--surface); }
+.star-count { border-left: 0; border-radius: 0 8px 8px 0;
+              color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------- trust strip ---------------------------- */
+.trust { padding: 2rem 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.trust .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem 2.5rem; }
+.trust img { height: 34px; width: auto; }
+.trust .note { text-align: center; color: var(--muted); font-size: .85rem; margin: 1.25rem 0 0; }
+
+/* ----------------------------- variants ----------------------------- */
+#variants td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+
+.callout {
+  margin-top: 2rem; border-left: 3px solid var(--accent); background: var(--surface);
+  padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; font-size: .95rem;
+}
+.callout strong { color: var(--text); }
+
+/* ---------------------------- benchmarks ---------------------------- */
+.tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+.tab {
+  padding: .45rem .9rem; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--muted); font-size: .9rem; font-weight: 500; cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chart { display: grid; grid-template-columns: minmax(7.5rem, auto) 1fr minmax(4.5rem, auto); gap: .5rem 1rem; align-items: center; }
+.chart .name { font-size: .9rem; font-weight: 600; white-space: nowrap; }
+.chart .track { background: var(--surface-2); border-radius: 5px; height: 1.4rem; overflow: hidden; }
+.chart .bar { height: 100%; border-radius: 5px; background: var(--accent); }
+.chart .val { font-size: .9rem; text-align: right; font-variant-numeric: tabular-nums; }
+.chart .name.ref, .chart .val.ref { color: var(--muted); font-weight: 400; font-style: italic; }
+.chart .track.ref .bar { background: repeating-linear-gradient(45deg, var(--muted), var(--muted) 4px, transparent 4px, transparent 9px); opacity: .55; }
+.method { color: var(--muted); font-size: .85rem; margin-top: 1.75rem; }
+
+details.compare { margin-top: 2.5rem; border: 1px solid var(--border); border-radius: 10px; padding: 0 1.25rem; }
+details.compare summary { cursor: pointer; padding: 1rem 0; font-weight: 600; }
+details.compare[open] { padding-bottom: 1.25rem; }
+
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:hover { background: var(--surface); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-scroll { overflow-x: auto; }
+.me { font-weight: 700; }
+
+/* ------------------------------ try it ------------------------------ */
+.try { background: var(--surface); }
+.try textarea {
+  width: 100%; min-height: 5.5rem; resize: vertical; padding: .85rem 1rem;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+  color: var(--text); font-size: .95rem; font-family: inherit;
+}
+.try textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.try-file { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: .75rem; }
+.try-note { color: var(--muted); font-size: .85rem; }
+.try.dragging { outline: 2px dashed var(--accent); outline-offset: -10px; }
+.subject { margin: 1.25rem 0 0; font-size: .85rem; color: var(--muted); }
+.subject b { color: var(--text); font-weight: 600; }
+.subject.error { color: #b42318; }
+@media (prefers-color-scheme: dark) { .subject.error { color: #ff7b72; } }
+.digests { margin-top: 1.25rem; display: grid; gap: .5rem; }
+.digest {
+  display: grid; grid-template-columns: 9rem 1fr auto; gap: 1rem; align-items: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .9rem;
+}
+.digest .k { font-weight: 600; font-size: .85rem; }
+.digest .v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .95rem; overflow-x: auto; white-space: nowrap; }
+.digest .copy {
+  border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  border-radius: 6px; font-size: .75rem; padding: .25rem .55rem; cursor: pointer;
+}
+.digest .copy:hover { color: var(--text); border-color: var(--muted); }
+@media (max-width: 620px) { .digest { grid-template-columns: 1fr; gap: .25rem; } }
+
+/* -------------------------- implementations -------------------------- */
+.filter {
+  width: 100%; max-width: 22rem; padding: .6rem .9rem; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: .95rem;
+}
+.filter:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#implcount { color: var(--muted); font-size: .85rem; margin-left: .75rem; }
+#impl td:first-child { font-weight: 600; white-space: nowrap; }
+#impl .host { color: var(--muted); }
+#impl .grouphead td {
+  padding-top: 2rem; border-bottom: none; font-weight: 600; font-size: .8rem;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+}
+#impl .grouphead:hover { background: none; }
+
+/* ------------------------------ used by ------------------------------ */
+.usedby h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 2.5rem 0 1rem; }
+.usedby h3:first-of-type { margin-top: 1rem; }
+.grid {
+  display: grid; gap: .6rem;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+}
+.grid a {
+  display: flex; align-items: center; gap: .6rem; padding: .6rem .75rem;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+  color: var(--text); font-size: .88rem; line-height: 1.25;
+}
+.grid a:hover { text-decoration: none; border-color: var(--accent); background: var(--accent-bg); }
+.grid img { width: 26px; height: 26px; object-fit: contain; flex: 0 0 auto; }
+
+/* ------------------------------ footer ------------------------------ */
+footer { border-top: 1px solid var(--border); padding: 3rem 0; color: var(--muted); font-size: .88rem; }
+footer .cols { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+footer h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text); margin: 0 0 .6rem; }
+footer ul { list-style: none; margin: 0; padding: 0; }
+footer li { margin-bottom: .35rem; }
+.thanks { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+
+/* Last rule in the sheet, deliberately. [hidden] has the same specificity as the
+   class selectors that set `display: grid` on the things we hide (the platform
+   charts), so it only wins from here -- and !important keeps it winning if more
+   rules are ever appended below. */
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <!-- @primer/octicons, MIT -->
+  <symbol id="gh" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#">xxHash</a>
+    <nav class="links">
+      <a href="#speed">Speed</a>
+      <a href="#try">Try it</a>
+      <a href="#languages">Languages</a>
+      <a href="#usedby" class="hide-sm">Used by</a>
+      <a href="doc/v0.8.3/index.html" class="hide-sm">Docs</a>
+      <a class="gh" href="https://github.com/Cyan4973/xxHash"><svg aria-hidden="true"><use href="#gh"/></svg> GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero wrap">
+  <h1>xxHash</h1>
+  <p class="sub">Hashing faster than RAM speed</p>
+  <p class="tag">
+    A non-cryptographic hash algorithm, proposed in four flavors: XXH32, XXH64,
+    XXH3_64bits and XXH3_128bits.
+  </p>
+  <div class="cta">
+    <a class="btn btn-primary" href="https://github.com/Cyan4973/xxHash#readme">Get started</a>
+    <a class="btn btn-ghost" href="#try">Try it in your browser</a>
+    <a class="btn btn-ghost" href="doc/v0.8.3/index.html">API docs</a>
+    <!-- count is filled in at runtime by the script at the bottom of the page -->
+    <a class="star-btn" href="https://github.com/Cyan4973/xxHash/stargazers"><span class="star-face">&#9733; Star</span></a>
+  </div>
+</div>
+
+<div class="trust">
+  <div class="wrap">
+    <div class="row">
+      <a href="#usedby" title="Linux"><img src="images/logo50/linux.png" alt="Linux"></a>
+      <a href="#usedby" title="Microsoft Azure"><img src="images/logo50/azure50.png" alt="Microsoft Azure"></a>
+      <a href="#usedby" title="RocksDB"><img src="images/logo50/rocksdb.png" alt="RocksDB"></a>
+      <a href="#usedby" title="MySQL"><img src="images/logo50/mysql.png" alt="MySQL"></a>
+      <a href="#usedby" title="ClickHouse"><img src="images/logo50/clickhouse.png" alt="ClickHouse"></a>
+      <a href="#usedby" title="Minecraft"><img src="images/logo50/minecraft.png" alt="Minecraft"></a>
+      <a href="#usedby" title="HAProxy"><img src="images/logo50/haproxy.png" alt="HAProxy"></a>
+      <a href="#usedby" title="Netflix"><img src="images/logo50/netflix.png" alt="Netflix"></a>
+      <a href="#usedby" title="rsync"><img src="images/logo50/rsync.png" alt="rsync"></a>
+      <a href="#usedby" title="NSight compute"><img src="images/logo50/nvidia.png" alt="NSight compute"></a>
+    </div>
+    <p class="note"><a href="#usedby">and 43 other projects &rarr;</a></p>
+  </div>
+</div>
+
+<section id="which">
+  <div class="wrap">
+    <h2>Choosing a variant</h2>
+    <p class="lede">All four are fully supported and specified. They differ in output width
+      and in speed &mdash; the <a href="#speed">benchmarks</a> show by how much.</p>
+    <div class="tbl-scroll">
+      <table id="variants">
+        <thead><tr><th>Variant</th><th>Output</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>XXH3_64bits</code></td><td>64-bit</td><td>Fastest, and the strongest on small inputs. The recommended default.</td></tr>
+          <tr><td><code>XXH3_128bits</code></td><td>128-bit</td><td>Same speed as <code>XXH3_64bits</code>, with a wider output.</td></tr>
+          <tr><td><code>XXH64</code></td><td>64-bit</td><td>Fast on 64-bit platforms, and widely deployed.</td></tr>
+          <tr><td><code>XXH32</code></td><td>32-bit</td><td>Fastest of the 32-bit hashes, and favoured on 32-bit targets.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <strong>All variants are stable.</strong> The same input always produces the same hash, in any
+      version, on any platform. Hashes stored today remain valid tomorrow, as documented by the
+      <a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">format specification</a>.
+    </div>
+    <div class="callout" style="border-left-color: var(--muted)">
+      <strong>Not cryptographic.</strong> xxHash is built for speed, not for resisting an
+      adversary. Do not use it for signatures, password storage, or any place where an
+      attacker chooses the input and profits from a collision.
+    </div>
+  </div>
+</section>
+
+<section id="speed">
+  <div class="wrap">
+    <h2>Speed</h2>
+    <p class="lede">Single-threaded bandwidth on a 100&nbsp;KB input, which stays in CPU cache.
+      The <em>memcpy</em> bar is measured from RAM instead &mdash; it is there to show where the
+      memory wall sits, not as a like-for-like comparison.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-plat="intel-i7-9700k" aria-selected="true">Intel i7-9700K</button>
+      <button class="tab" role="tab" data-plat="apple-m1-pro" aria-selected="false">Apple M1 Pro</button>
+      <button class="tab" role="tab" data-plat="amd-zen-5" aria-selected="false">AMD Zen 5</button>
+    </div>
+
+    <div class="chart" data-plat="intel-i7-9700k">
+      <div class="name"><strong>XXH3</strong> (AVX2)</div><div class="track"><div class="bar" style="width:100.0%"></div></div><div class="val">59.4 GB/s</div>
+      <div class="name"><strong>XXH128</strong> (AVX2)</div><div class="track"><div class="bar" style="width:97.5%"></div></div><div class="val">57.9 GB/s</div>
+      <div class="name"><strong>XXH3</strong> (SSE2)</div><div class="track"><div class="bar" style="width:53.0%"></div></div><div class="val">31.5 GB/s</div>
+      <div class="name"><strong>XXH128</strong> (SSE2)</div><div class="track"><div class="bar" style="width:49.8%"></div></div><div class="val">29.6 GB/s</div>
+      <div class="name ref"><em>memcpy</em>, from RAM</div><div class="track ref"><div class="bar" style="width:47.1%"></div></div><div class="val ref">28.0 GB/s</div>
+      <div class="name"><strong>XXH64</strong></div><div class="track"><div class="bar" style="width:32.7%"></div></div><div class="val">19.4 GB/s</div>
+      <div class="name"><strong>XXH32</strong></div><div class="track"><div class="bar" style="width:16.3%"></div></div><div class="val">9.7 GB/s</div>
+    </div>
+
+    <div class="chart" data-plat="apple-m1-pro" hidden>
+      <div class="name ref"><em>memcpy</em>, from RAM</div><div class="track ref"><div class="bar" style="width:100.0%"></div></div><div class="val ref">45 GB/s</div>
+      <div class="name"><strong>XXH3</strong> (NEON)</div><div class="track"><div class="bar" style="width:80.7%"></div></div><div class="val">36.3 GB/s</div>
+      <div class="name"><strong>XXH128</strong> (NEON)</div><div class="track"><div class="bar" style="width:78.0%"></div></div><div class="val">35.1 GB/s</div>
+      <div class="name"><strong>XXH64</strong></div><div class="track"><div class="bar" style="width:29.8%"></div></div><div class="val">13.4 GB/s</div>
+      <div class="name"><strong>XXH32</strong></div><div class="track"><div class="bar" style="width:14.7%"></div></div><div class="val">6.6 GB/s</div>
+    </div>
+
+    <div class="chart" data-plat="amd-zen-5" hidden>
+      <div class="name"><strong>XXH3</strong> (AVX512)</div><div class="track"><div class="bar" style="width:100.0%"></div></div><div class="val">159 GB/s</div>
+      <div class="name"><strong>XXH128</strong> (AVX512)</div><div class="track"><div class="bar" style="width:98.1%"></div></div><div class="val">156 GB/s</div>
+      <div class="name"><strong>XXH3</strong> (AVX2)</div><div class="track"><div class="bar" style="width:52.8%"></div></div><div class="val">84.0 GB/s</div>
+      <div class="name"><strong>XXH128</strong> (AVX2)</div><div class="track"><div class="bar" style="width:52.5%"></div></div><div class="val">83.5 GB/s</div>
+      <div class="name"><strong>XXH3</strong> (SSE2)</div><div class="track"><div class="bar" style="width:24.5%"></div></div><div class="val">38.9 GB/s</div>
+      <div class="name"><strong>XXH128</strong> (SSE2)</div><div class="track"><div class="bar" style="width:23.5%"></div></div><div class="val">37.4 GB/s</div>
+      <div class="name ref"><em>memcpy</em>, from RAM</div><div class="track ref"><div class="bar" style="width:17.9%"></div></div><div class="val ref">28.5 GB/s</div>
+      <div class="name"><strong>XXH64</strong></div><div class="track"><div class="bar" style="width:17.5%"></div></div><div class="val">27.8 GB/s</div>
+      <div class="name"><strong>XXH32</strong></div><div class="track"><div class="bar" style="width:8.7%"></div></div><div class="val">13.8 GB/s</div>
+    </div>
+
+    <p class="method">
+      Measured with the <a href="https://github.com/Cyan4973/xxHash/tree/release/tests/bench">open source
+      benchmark program</a>. On 32-bit targets the ranking shifts considerably in favour of 32-bit
+      hashes &mdash; see <a href="https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#bandwidth-on-x86-with-various-data-size-of-len-2n-32-bit-friendliness">the wiki</a>.
+    </p>
+
+    <details class="compare">
+      <summary>Compare with other hash algorithms</summary>
+      <p class="method" style="margin-top:0">
+        Intel i7-9700K, Ubuntu x64 20.04, <code>clang</code> v10.0 <code>-O3</code>.
+        <em>Small data velocity</em> is a rough measure of efficiency on short inputs;
+        see <a href="https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-">the wiki</a>
+        for the detailed analysis.
+      </p>
+      <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Hash</th><th class="num">Width</th><th class="num">Bandwidth</th><th class="num">Small data</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr class="me"><td><strong>XXH3</strong> (AVX2)</td><td class="num">64</td><td class="num">59.4 GB/s</td><td class="num">133.1</td><td>AVX2 support (optional)</td></tr>
+          <tr class="me"><td><strong>XXH128</strong> (AVX2)</td><td class="num">128</td><td class="num">57.9 GB/s</td><td class="num">118.1</td><td>AVX2 support (optional)</td></tr>
+          <tr class="me"><td><strong>XXH3</strong> (SSE2)</td><td class="num">64</td><td class="num">31.5 GB/s</td><td class="num">133.1</td><td></td></tr>
+          <tr class="me"><td><strong>XXH128</strong> (SSE2)</td><td class="num">128</td><td class="num">29.6 GB/s</td><td class="num">118.1</td><td></td></tr>
+          <tr><td><em>memcpy</em></td><td class="num">—</td><td class="num">28.0 GB/s</td><td class="num">—</td><td><em>from RAM, for reference</em></td></tr>
+          <tr><td>City64</td><td class="num">64</td><td class="num">22.0 GB/s</td><td class="num">76.6</td><td></td></tr>
+          <tr><td>T1ha2</td><td class="num">64</td><td class="num">22.0 GB/s</td><td class="num">99.0</td><td>Slightly worse <a href="https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study">collisions</a></td></tr>
+          <tr><td>City128</td><td class="num">128</td><td class="num">21.7 GB/s</td><td class="num">57.7</td><td></td></tr>
+          <tr class="me"><td><strong>XXH64</strong></td><td class="num">64</td><td class="num">19.4 GB/s</td><td class="num">71.0</td><td></td></tr>
+          <tr><td>SpookyHash</td><td class="num">64</td><td class="num">19.3 GB/s</td><td class="num">53.2</td><td></td></tr>
+          <tr><td>Mum</td><td class="num">64</td><td class="num">18.0 GB/s</td><td class="num">67.0</td><td>Slightly worse <a href="https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study">collisions</a></td></tr>
+          <tr class="me"><td><strong>XXH32</strong></td><td class="num">32</td><td class="num">9.7 GB/s</td><td class="num">71.9</td><td></td></tr>
+          <tr><td>City32</td><td class="num">32</td><td class="num">9.1 GB/s</td><td class="num">66.0</td><td></td></tr>
+          <tr><td>Murmur3</td><td class="num">32</td><td class="num">3.9 GB/s</td><td class="num">56.1</td><td></td></tr>
+          <tr><td>SipHash</td><td class="num">64</td><td class="num">3.0 GB/s</td><td class="num">43.2</td><td></td></tr>
+          <tr><td>FNV64</td><td class="num">64</td><td class="num">1.2 GB/s</td><td class="num">62.7</td><td>Poor avalanche properties</td></tr>
+          <tr><td>Blake2</td><td class="num">256</td><td class="num">1.1 GB/s</td><td class="num">5.1</td><td>Cryptographic</td></tr>
+          <tr><td>SHA1</td><td class="num">160</td><td class="num">0.8 GB/s</td><td class="num">5.6</td><td>Cryptographic but broken</td></tr>
+          <tr><td>MD5</td><td class="num">128</td><td class="num">0.6 GB/s</td><td class="num">7.8</td><td>Cryptographic but broken</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section id="try" class="try">
+  <div class="wrap">
+    <h2>Try it</h2>
+    <p class="lede">xxHash compiled to WebAssembly, running in this page. Nothing is uploaded.
+      Useful as a reference oracle when writing a port.</p>
+
+    <textarea id="input" spellcheck="false" aria-label="Text to hash" placeholder="Type or paste anything&hellip;">Hello, xxHash!</textarea>
+
+    <div class="try-file">
+      <label class="btn btn-ghost" for="file">Hash a file&hellip;</label>
+      <input type="file" id="file" hidden>
+      <span class="try-note">or drop one anywhere in this section. Read in your browser, never uploaded.</span>
+    </div>
+
+    <p class="subject" id="subject"></p>
+
+    <div class="digests" id="digests">
+      <div class="digest"><div class="k">XXH3_64bits</div><div class="v mono" data-h="xxhash3">&mdash;</div><button class="copy">copy</button></div>
+      <div class="digest"><div class="k">XXH3_128bits</div><div class="v mono" data-h="xxhash128">&mdash;</div><button class="copy">copy</button></div>
+      <div class="digest"><div class="k">XXH64</div><div class="v mono" data-h="xxhash64">&mdash;</div><button class="copy">copy</button></div>
+      <div class="digest"><div class="k">XXH32</div><div class="v mono" data-h="xxhash32">&mdash;</div><button class="copy">copy</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="languages">
+  <div class="wrap">
+    <h2>Implementations</h2>
+    <p class="lede">60 ports and bindings that produce xxHash-compatible digests. To write your own,
+      follow the <a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">format specification</a>
+      and check yourself against the box above.</p>
+
+    <input class="filter" id="filter" type="search" placeholder="Filter by language, author or host&hellip;" aria-label="Filter implementations">
+    <span id="implcount"></span>
+
+    <div class="tbl-scroll">
+      <table id="impl">
+        <thead><tr><th>Language</th><th>Author</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td><strong>C</strong> multithreaded</td><td>Shawn Bayern</td><td class="host"><a href="https://github.com/shawnbayern/xxHash">github.com/shawnbayern/xxHash</a></td></tr>
+          <tr><td><strong>C#</strong> (std pkg)</td><td>Microsoft</td><td class="host"><a href="https://learn.microsoft.com/en-us/dotnet/api/system.io.hashing?view=net-9.0-pp">learn.microsoft.com/en-us/dotnet/api/system.io.hashing?view=net-9.0-pp</a></td></tr>
+          <tr><td><strong>C#</strong> (port)</td><td>Melnik Alexander</td><td class="host"><a href="https://github.com/uranium62/xxHash">github.com/uranium62/xxHash</a></td></tr>
+          <tr><td><strong>C#</strong> (.net std 2.0)</td><td>Sedat Kapanoğlu</td><td class="host"><a href="https://github.com/ssg/HashDepot#xxhash">github.com/ssg/HashDepot#xxhash</a></td></tr>
+          <tr><td><strong>C++</strong> (simple)</td><td>Stefan Brumme</td><td class="host"><a href="https://create.stephan-brumme.com/xxhash/">create.stephan-brumme.com/xxhash</a></td></tr>
+          <tr><td><strong>C++</strong> constexpr (XXH64)</td><td>Daniel Kirchner</td><td class="host"><a href="https://github.com/ekpyron/xxhashct">github.com/ekpyron/xxhashct</a></td></tr>
+          <tr><td><strong>C++</strong> constexpr (XXH32)</td><td>Takayuki Matsuoka</td><td class="host"><a href="https://github.com/Cyan4973/xxHash/issues/496">github.com/Cyan4973/xxHash/issues/496</a></td></tr>
+          <tr><td><strong>C++</strong> constexpr (XXH3)</td><td>chys87</td><td class="host"><a href="https://github.com/chys87/constexpr-xxh3">github.com/chys87/constexpr-xxh3</a></td></tr>
+          <tr><td><strong>C++ 17</strong></td><td>Red Gavin</td><td class="host"><a href="https://github.com/RedSpah/xxhash_cpp">github.com/RedSpah/xxhash_cpp</a></td></tr>
+          <tr><td><strong>Crystal</strong></td><td>Lucjan Suski</td><td class="host"><a href="https://github.com/methyl/xxhash">github.com/methyl/xxhash</a></td></tr>
+          <tr><td><strong>D</strong></td><td>Masahiro Nakagawa</td><td class="host"><a href="https://github.com/repeatedly/xxhash-d">github.com/repeatedly/xxhash-d</a></td></tr>
+          <tr><td><strong>Dart</strong> (XXH3)</td><td>SamJakob</td><td class="host"><a href="https://pub.dev/packages/xxh3">pub.dev/packages/xxh3</a></td></tr>
+          <tr><td><strong>Elixir</strong> (nif)</td><td>Ali Farhadi</td><td class="host"><a href="https://github.com/farhadi/xxh3">github.com/farhadi/xxh3</a></td></tr>
+          <tr><td><strong>Elixir</strong> (port)</td><td>Mykola Konyk</td><td class="host"><a href="https://github.com/ttvd/elixir-xxhash">github.com/ttvd/elixir-xxhash</a></td></tr>
+          <tr><td><strong>Erlang</strong></td><td>Pierre Matri</td><td class="host"><a href="https://github.com/pierresforge/erlang-xxhash">github.com/pierresforge/erlang-xxhash</a></td></tr>
+          <tr><td><strong>Erlang</strong> (XXH3)</td><td>Ali Farhadi</td><td class="host"><a href="https://github.com/farhadi/xxh3">github.com/farhadi/xxh3</a></td></tr>
+          <tr><td><strong>Go</strong> (XXH64)</td><td>Ahmed Waheed</td><td class="host"><a href="https://github.com/OneOfOne/xxhash">github.com/OneOfOne/xxhash</a></td></tr>
+          <tr><td><strong>Go</strong> (XXH3)</td><td>Jeff Wendling</td><td class="host"><a href="https://github.com/zeebo/xxh3">github.com/zeebo/xxh3</a></td></tr>
+          <tr><td><strong>Go + ASM</strong></td><td>Caleb Spare</td><td class="host"><a href="https://github.com/cespare/xxhash">github.com/cespare/xxhash</a></td></tr>
+          <tr><td><strong>Haskell</strong></td><td>Henri Verroken</td><td class="host"><a href="http://hackage.haskell.org/package/xxhash-ffi">hackage.haskell.org/package/xxhash-ffi</a></td></tr>
+          <tr><td><strong>Haskell</strong> (port)</td><td>Christian Marie</td><td class="host"><a href="http://hackage.haskell.org/package/xxhash">hackage.haskell.org/package/xxhash</a></td></tr>
+          <tr><td><strong>Java</strong></td><td>Adrien Grand</td><td class="host"><a href="https://github.com/lz4/lz4-java/tree/master/src/java/net/jpountz/xxhash">github.com/lz4/lz4-java/tree/master/src/java/net/jpountz/xxhash</a></td></tr>
+          <tr><td><strong>Java</strong> (all, port)</td><td>Dynatrace</td><td class="host"><a href="https://github.com/dynatrace-oss/hash4j/blob/main/src/main/java/com/dynatrace/hash4j/hashing/XXH3_64.java">github.com/dynatrace-oss/hash4j/blob/main/src/main/java/com/dynatrace/hash4j/hashing/XXH3_64.java</a></td></tr>
+          <tr><td><strong>Java</strong> (XXH3, XXH128)</td><td>James Z.M. Gao</td><td class="host"><a href="https://github.com/OpenHFT/Zero-Allocation-Hashing/blob/master/src/main/java/net/openhft/hashing/XXH3.java">github.com/OpenHFT/Zero-Allocation-Hashing/blob/master/src/main/java/net/openhft/hashing/XXH3.java</a></td></tr>
+          <tr><td><strong>JavaScript</strong> (WebAssembly)</td><td>Michael Jungo</td><td class="host"><a href="https://www.npmjs.com/package/xxhash-wasm">www.npmjs.com/package/xxhash-wasm</a></td></tr>
+          <tr><td><strong>JavaScript</strong> (port)</td><td>Pierre Curto</td><td class="host"><a href="https://npmjs.org/package/xxhashjs">npmjs.org/package/xxhashjs</a></td></tr>
+          <tr><td><strong>JavaScript</strong> (nodeJS)</td><td>Brian White</td><td class="host"><a href="https://npmjs.org/package/xxhash">npmjs.org/package/xxhash</a></td></tr>
+          <tr><td><strong>JavaScript</strong> (nodeJS, xxh3)</td><td>Nhan Khong</td><td class="host"><a href="https://github.com/ktrongnhan/xxhash-addon">github.com/ktrongnhan/xxhash-addon</a></td></tr>
+          <tr><td><strong>JavaScript</strong> (React Native)</td><td>Alex Shumihin</td><td class="host"><a href="https://github.com/pioner92/react-native-xxhash">github.com/pioner92/react-native-xxhash</a></td></tr>
+          <tr><td><strong>JSX</strong> (static JavaScript)</td><td>Yoshiki Shibukawa</td><td class="host"><a href="https://www.npmjs.org/package/xxhash.jsx">www.npmjs.org/package/xxhash.jsx</a></td></tr>
+          <tr><td><strong>Julia</strong></td><td>Hanan Rosemarin</td><td class="host"><a href="https://github.com/hros/XXhash.jl">github.com/hros/XXhash.jl</a></td></tr>
+          <tr><td><strong>Kotlin</strong></td><td>Matthew Dolan</td><td class="host"><a href="https://github.com/appmattus/crypto/tree/main/cryptohash">github.com/appmattus/crypto/tree/main/cryptohash</a></td></tr>
+          <tr><td><strong>Lua</strong> (binding)</td><td>Masatoshi Teruya</td><td class="host"><a href="https://github.com/mah0x211/lua-xxhash">github.com/mah0x211/lua-xxhash</a></td></tr>
+          <tr><td><strong>Lua</strong> (jit, XXH32)</td><td>szensk</td><td class="host"><a href="https://github.com/szensk/luaxxhash">github.com/szensk/luaxxhash</a></td></tr>
+          <tr><td><strong>Lua</strong> (jit, XXH64)</td><td>Soojin Nam</td><td class="host"><a href="https://github.com/sjnam/luajit-xxHash">github.com/sjnam/luajit-xxHash</a></td></tr>
+          <tr><td><strong>OCaml</strong></td><td>Pieter Goetschalckx</td><td class="host"><a href="http://opam.ocaml.org/packages/xxhash/">opam.ocaml.org/packages/xxhash</a></td></tr>
+          <tr><td><strong>Pascal</strong></td><td>Vojtěch Čihák</td><td class="host"><a href="http://sourceforge.net/projects/xxhashfpc">sourceforge.net/projects/xxhashfpc</a></td></tr>
+          <tr><td><strong>Perl</strong></td><td>Sanko Robinson</td><td class="host"><a href="https://metacpan.org/module/Digest::xxHash">metacpan.org/module/Digest::xxHash</a></td></tr>
+          <tr><td><strong>Perl</strong> (streaming)</td><td>Bela Bodecs</td><td class="host"><a href="https://github.com/DoubleBB/digest-xxhash64">github.com/DoubleBB/digest-xxhash64</a></td></tr>
+          <tr><td><strong>PHP</strong></td><td>Nir Heimann</td><td class="host"><a href="https://github.com/nheimann1/php-xxhash">github.com/nheimann1/php-xxhash</a></td></tr>
+          <tr><td><strong>PHP</strong> (port)</td><td>Scott Dutton</td><td class="host"><a href="https://github.com/exussum12/xxhash">github.com/exussum12/xxhash</a></td></tr>
+          <tr><td><strong>PHP7</strong></td><td>Craig R Megasaxon</td><td class="host"><a href="https://github.com/Megasaxon/php-xxhash">github.com/Megasaxon/php-xxhash</a></td></tr>
+          <tr><td><strong>PHP8</strong></td><td>Anatol Belski</td><td class="host"><a href="https://php.watch/versions/8.1/xxHash">php.watch/versions/8.1/xxHash</a></td></tr>
+          <tr><td><strong>PicoLisp</strong></td><td>mpech</td><td class="host"><a href="https://git.envs.net/mpech/xxhash-picolisp">git.envs.net/mpech/xxhash-picolisp</a></td></tr>
+          <tr><td><strong>Python</strong></td><td>Yue Du</td><td class="host"><a href="https://pypi.python.org/pypi/xxhash/">pypi.python.org/pypi/xxhash</a></td></tr>
+          <tr><td><strong>R</strong></td><td>Dirk Eddelbuettel</td><td class="host"><a href="https://github.com/eddelbuettel/digest">github.com/eddelbuettel/digest</a></td></tr>
+          <tr><td><strong>R</strong> (XXH3)</td><td>mikefc</td><td class="host"><a href="https://github.com/coolbutuseless/xxhashlite">github.com/coolbutuseless/xxhashlite</a></td></tr>
+          <tr><td><strong>Ruby</strong> (port)</td><td>Justin W Smith</td><td class="host"><a href="http://rubygems.org/gems/ruby-xxHash">rubygems.org/gems/ruby-xxHash</a></td></tr>
+          <tr><td><strong>Ruby</strong> (wrapper)</td><td>Vasiliy Ermolovich</td><td class="host"><a href="https://rubygems.org/gems/xxhash">rubygems.org/gems/xxhash</a></td></tr>
+          <tr><td><strong>Ruby</strong> (digest::class)</td><td>konsolebox</td><td class="host"><a href="https://rubygems.org/gems/digest-xxhash">rubygems.org/gems/digest-xxhash</a></td></tr>
+          <tr><td><strong>Rust</strong></td><td>Jake Goulding</td><td class="host"><a href="https://libraries.io/cargo/twox-hash">libraries.io/cargo/twox-hash</a></td></tr>
+          <tr><td><strong>Rust</strong> (const xxh3)</td><td>Arthur Martirosyan</td><td class="host"><a href="https://crates.io/crates/xxhash-rust">crates.io/crates/xxhash-rust</a></td></tr>
+          <tr><td><strong>Scala</strong></td><td>Desmond Yeung</td><td class="host"><a href="https://github.com/desmondyeung/scala-hashing">github.com/desmondyeung/scala-hashing</a></td></tr>
+          <tr><td><strong>Swift</strong></td><td>Daisuke T</td><td class="host"><a href="https://github.com/daisuke-t-jp/xxHash-Swift">github.com/daisuke-t-jp/xxHash-Swift</a></td></tr>
+          <tr><td><strong>Tcl</strong> (XXH32, port)</td><td>D. Bohdan</td><td class="host"><a href="https://wiki.tcl-lang.org/48790">wiki.tcl-lang.org/48790</a></td></tr>
+          <tr><td><strong>Zig</strong></td><td>ziglang</td><td class="host"><a href="https://github.com/Cyan4973/xxHash/issues/1001">github.com/Cyan4973/xxHash/issues/1001</a></td></tr>
+          <tr class="grouphead"><td colspan="3">Shells and assembly</td></tr>
+          <tr><td><strong>Bash</strong> (port)</td><td>Devin Hussey</td><td class="host"><a href="https://github.com/easyaspi314/xxbash">github.com/easyaspi314/xxbash</a></td></tr>
+          <tr><td><strong>Batch</strong> (XXH32, port)</td><td>Antonio Aacini</td><td class="host"><a href="https://github.com/Aacini/xxHash32">github.com/Aacini/xxHash32</a></td></tr>
+          <tr><td><strong>sh</strong> (port)</td><td>Jan Chren</td><td class="host"><a href="https://gitlab.com/rindeal/xxHashish">gitlab.com/rindeal/xxHashish</a></td></tr>
+          <tr><td><strong>x86 assembly</strong> (XXH32)</td><td>Antonio Aacini</td><td class="host"><a href="https://github.com/Aacini/xxHash32">github.com/Aacini/xxHash32</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="usedby" class="usedby">
+  <div class="wrap">
+    <h2>Used by</h2>
+    <p class="lede">53 projects that ship xxHash. Missing one?
+      <a href="https://github.com/Cyan4973/xxHash/issues">Open an issue.</a></p>
+    <h3>Systems &amp; Infrastructure</h3>
+    <div class="grid">
+      <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=59e1a2f4bf83744e748636415fde7d1e9f557e05"><img src="images/logo50/linux.png" alt=""><span>Linux</span></a>
+      <a href="https://docs.microsoft.com/en-us/azure/kusto/query/hashfunction"><img src="images/logo50/azure50.png" alt=""><span>Microsoft Azure</span></a>
+      <a href="https://www.qemu.org/"><img src="images/logo50/qemu.png" alt=""><span>Qemu</span></a>
+      <a href="https://btrfs.wiki.kernel.org/index.php/Main_Page"><img src="images/logo50/btrfs.png" alt=""><span>btrfs</span></a>
+      <a href="https://wiki.freebsd.org/pkgng"><img src="images/logo50/freebsd.png" alt=""><span>PKG</span></a>
+      <a href="https://forum.huawei.com/enterprise/en/how-to-understand-inline-deduplication-and-compression/thread/604642-891"><img src="images/logo50/huawei.png" alt=""><span>Dorado</span></a>
+    </div>
+    <h3>Databases</h3>
+    <div class="grid">
+      <a href="http://prestodb.io/"><img src="images/logo50/prestoDB.png" alt=""><span>PrestoDB</span></a>
+      <a href="https://rocksdb.org/"><img src="images/logo50/rocksdb.png" alt=""><span>RocksDB</span></a>
+      <a href="https://www.mysql.com/"><img src="images/logo50/mysql.png" alt=""><span>MySQL</span></a>
+      <a href="https://clickhouse.com/"><img src="images/logo50/clickhouse.png" alt=""><span>ClickHouse</span></a>
+      <a href="https://www.arangodb.org/"><img src="images/logo50/arangoDB.png" alt=""><span>ArangoDB</span></a>
+      <a href="https://pgroonga.github.io/"><img src="images/logo50/pgroonga.png" alt=""><span>PGroonga</span></a>
+      <a href="http://spark.apache.org/"><img src="images/logo50/spark.png" alt=""><span>Spark</span></a>
+      <a href="https://mariadb.org/"><img src="images/logo50/mariadb.png" alt=""><span>MariaDB</span></a>
+      <a href="https://groonga.org/docs/news.html#release-10-0-8"><img src="images/logo50/groonga.png" alt=""><span>Groonga</span></a>
+    </div>
+    <h3>Games</h3>
+    <div class="grid">
+      <a href="https://youtu.be/DkspHgt27Io?t=717"><img src="images/logo50/CoD_BO_CW.png" alt=""><span>CoD Black Ops</span></a>
+      <a href="https://mafiagame.fandom.com/wiki/Mafia:_Definitive_Edition_Credits"><img src="images/logo50/mafiade.png" alt=""><span>Mafia</span></a>
+      <a href="https://www.minecraft.net"><img src="images/logo50/minecraft.png" alt=""><span>Minecraft</span></a>
+      <a href="https://ppsspp.org/"><img src="images/logo50/ppsspp.png" alt=""><span>PPSSPP</span></a>
+      <a href="https://dolphin-emu.org/"><img src="images/logo50/dolphin.png" alt=""><span>Dolphin</span></a>
+      <a href="https://cxbx-reloaded.co.uk"><img src="images/logo50/cxbx.png" alt=""><span>Cxbx-reloaded</span></a>
+      <a href="http://www.cocos2d.org/"><img src="images/logo50/cocos2D.png" alt=""><span>Cocos2D</span></a>
+      <a href="https://www.lwjgl.org/"><img src="images/logo50/lwjgl.png" alt=""><span>LWJGL</span></a>
+      <a href="https://codeberg.org/Heathen-Engineering/O3DE-xxHash"><img src="images/logo50/heathen.png" alt=""><span>O3DE Gem</span></a>
+      <a href="http://fc-solve.shlomifish.org/"><img src="images/logo50/placeholder.png" alt=""><span>Freecell Solver</span></a>
+    </div>
+    <h3>Filters</h3>
+    <div class="grid">
+      <a href="https://www.haproxy.org/"><img src="images/logo50/haproxy.png" alt=""><span>HAProxy</span></a>
+      <a href="https://rspamd.com/"><img src="images/logo50/rspamd.png" alt=""><span>Rspamd</span></a>
+      <a href="https://www.pfsense.org/"><img src="images/logo50/pfsense.png" alt=""><span>pfSense</span></a>
+      <a href="http://freecode.com/projects/fio/"><img src="images/logo50/placeholder.png" alt=""><span>fio</span></a>
+      <a href="https://npmjs.org/package/bloomxx/"><img src="images/logo50/placeholder.png" alt=""><span>bloomxx</span></a>
+      <a href="http://devisedbydavid.com/open_source/bloom_filter"><img src="images/logo50/placeholder.png" alt=""><span>C &amp; Python Bloom Filter</span></a>
+      <a href="https://github.com/mozilla-services/lua_bloom_filter"><img src="images/logo50/mozilla.png" alt=""><span>LUA Bloom Filter</span></a>
+    </div>
+    <h3>File Transfer</h3>
+    <div class="grid">
+      <a href="https://partnerhelp.netflixstudios.com/hc/en-us/articles/360000581207-Production-Assets-Data-Management"><img src="images/logo50/netflix.png" alt=""><span>Netflix</span></a>
+      <a href="https://rsync.samba.org/"><img src="images/logo50/rsync.png" alt=""><span>rsync</span></a>
+      <a href="http://www.lz4.org/"><img src="images/logo50/lz4.png" alt=""><span>LZ4</span></a>
+      <a href="https://pomfort.com/silverstack/"><img src="images/logo50/silverstack.png" alt=""><span>Silverstack</span></a>
+      <a href="http://www.lespace.co.jp/file_bl/rapidcopy/rapidcopy.html"><img src="images/logo50/rapidcopy.png" alt=""><span>Rapidcopy</span></a>
+      <a href="https://www.hedgeformac.com/"><img src="images/logo50/syncFactory.png" alt=""><span>Hedge</span></a>
+      <a href="https://ipmsg.org/tools/fastcopy.html.en"><img src="images/logo50/fastcopy.png" alt=""><span>fastcopy</span></a>
+      <a href="https://codesector.com/teracopy"><img src="images/logo50/teracopy.png" alt=""><span>TeraCopy</span></a>
+      <a href="https://www.dragonflybsd.org/hammer/"><img src="images/logo50/hammer.png" alt=""><span>Hammer 2</span></a>
+      <a href="https://compressme.net/"><img src="images/logo50/chk48.png" alt=""><span>CHK</span></a>
+    </div>
+    <h3>Other</h3>
+    <div class="grid">
+      <a href="https://devblogs.microsoft.com/cppblog/linker-throughput-improvement-in-visual-studio-2019/"><img src="images/logo50/microsoft.png" alt=""><span>Visual Studio</span></a>
+      <a href="https://docs.nvidia.com/nsight-compute/CopyrightAndLicenses/index.html"><img src="images/logo50/nvidia.png" alt=""><span>NSight compute</span></a>
+      <a href="https://www.xpra.org/"><img src="images/logo50/xpra.png" alt=""><span>Xpra</span></a>
+      <a href="http://www.teamviewer.com/"><img src="images/logo50/teamviewer.png" alt=""><span>TeamViewer</span></a>
+      <a href="http://factorcode.org/"><img src="images/logo50/factor.png" alt=""><span>Factor</span></a>
+      <a href="http://nvlabs.github.io/nvbio/index.html"><img src="images/logo50/nvbio.png" alt=""><span>nVBio</span></a>
+      <a href="https://genozip.com/"><img src="images/logo50/genozip.png" alt=""><span>Genozip</span></a>
+      <a href="http://dvisvgm.de/"><img src="images/logo50/placeholder.png" alt=""><span>dvisvgm</span></a>
+      <a href="http://www.fastbuild.org/"><img src="images/logo50/fastbuild.png" alt=""><span>FastBuild</span></a>
+      <a href="http://keypirinha.com/"><img src="images/logo50/keypirinha.png" alt=""><span>Keypirinha</span></a>
+      <a href="http://quickhash-gui.org/"><img src="images/logo50/quickhash.png" alt=""><span>QuickHash</span></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="doc/v0.8.3/index.html">API reference</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">Format specification</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/wiki">Wiki</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/Cyan4973/xxHash">Source on GitHub</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/releases/latest">Latest release</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/issues">Issue tracker</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>License</h4>
+        <ul>
+          <li>Library: BSD 2-Clause</li>
+          <li>xxhsum CLI: GPLv2</li>
+        </ul>
+      </div>
+    </div>
+    <div class="thanks">
+      <p>Thanks to
+        <a href="https://github.com/t-mat/">Takayuki Matsuoka</a> for <code>xxhsum -c</code> and the original canvas of this page,
+        <a href="https://github.com/JCash">Mathias Westerdahl</a> for the first version of XXH64, and
+        <a href="https://github.com/easyaspi314">Devin Hussey</a> for the low-level work on XXH3 and XXH128.</p>
+      <p style="margin:0">&copy; Yann Collet</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---------------- live star count ----------------
+   Asked for directly from GitHub's own API on every page load, so the number is
+   current rather than frozen into the HTML. No widget and no CDN in the path:
+   the old ghbtns.com iframe is an unmaintained third-party service that stopped
+   returning counts.
+
+   The cache is not about staleness, it is about the failure mode. The API allows
+   60 unauthenticated calls per hour per IP, and behind a shared corporate address
+   that budget is often already spent -- which is precisely when a counter goes
+   blank. Six hours covers a working day in one or two calls while keeping the
+   number same-day accurate; a star count does not need to be fresher than that.  */
+(function () {
+  var btn = document.querySelector('.star-btn');
+  if (!btn || !window.fetch) return;
+  var KEY = 'xxhash-stars', TTL = 6 * 60 * 60 * 1000;
+
+  function paint(n) {
+    var old = btn.querySelector('.star-count');
+    if (old) btn.removeChild(old);
+    var span = document.createElement('span');
+    span.className = 'star-count';
+    span.textContent = Number(n).toLocaleString('en-US');
+    btn.appendChild(span);
+  }
+
+  var cached = null;
+  try { cached = JSON.parse(localStorage.getItem(KEY)); } catch (e) { /* private mode */ }
+  if (cached && Date.now() - cached.at < TTL) { paint(cached.n); return; }
+
+  fetch('https://api.github.com/repos/Cyan4973/xxHash')
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d) {
+      if (typeof d.stargazers_count !== 'number') throw new Error('unexpected payload');
+      paint(d.stargazers_count);
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ n: d.stargazers_count, at: Date.now() }));
+      } catch (e) { /* storage full or blocked; the number still showed */ }
+    })
+    .catch(function () {
+      // Rate-limited, offline, or GitHub having a bad day. An expired count is
+      // still a real count and beats a blank button, so fall back to it when we
+      // have one; otherwise leave the plain Star button alone.
+      if (cached) paint(cached.n);
+    });
+})();
+
+/* ---------------- platform selector ---------------- */
+document.querySelectorAll('.tab').forEach(function (tab) {
+  tab.addEventListener('click', function () {
+    var plat = tab.dataset.plat;
+    document.querySelectorAll('.tab').forEach(function (t) {
+      t.setAttribute('aria-selected', t === tab);
+    });
+    document.querySelectorAll('.chart').forEach(function (c) {
+      c.hidden = c.dataset.plat !== plat;
+    });
+  });
+});
+
+/* ---------------- implementations filter ---------------- */
+(function () {
+  var input = document.getElementById('filter');
+  var rows  = Array.prototype.slice.call(document.querySelectorAll('#impl tbody tr'));
+  var count = document.getElementById('implcount');
+  var total = rows.filter(function (r) { return !r.classList.contains('grouphead'); }).length;
+
+  function apply() {
+    var q = input.value.trim().toLowerCase();
+    var shown = 0;
+    rows.forEach(function (r) {
+      var hit = !q || r.textContent.toLowerCase().indexOf(q) !== -1;
+      r.hidden = !hit;
+      if (hit) shown++;
+    });
+    count.textContent = q ? shown + ' of ' + total : total + ' implementations';
+  }
+  input.addEventListener('input', apply);
+  apply();
+})();
+
+/* ---------------- live hasher ----------------
+   Loads the wasm builds lazily, on first interaction with the section, so the
+   landing page itself costs nothing. Digests are computed in the page; no input
+   ever leaves the browser.                                                     */
+(function () {
+  var ALGOS = ['xxhash3', 'xxhash128', 'xxhash64', 'xxhash32'];
+  var loading = null;
+
+  function load() {
+    if (loading) return loading;
+    loading = Promise.all(ALGOS.map(function (a) {
+      return new Promise(function (res, rej) {
+        var s = document.createElement('script');
+        s.src = 'preview-assets/' + a + '.umd.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }));
+    return loading;
+  }
+
+  // A file is read in slices and streamed through update(), so memory stays at one
+  // chunk no matter how big the file is. The cap is about time, not memory: past
+  // this size the wait stops feeling like a demo, and xxhsum is the right tool.
+  var MAX_FILE = 512 * 1024 * 1024;
+  var CHUNK = 4 * 1024 * 1024;
+  var STREAMING = { xxhash3: 'createXXHash3', xxhash128: 'createXXHash128',
+                    xxhash64: 'createXXHash64', xxhash32: 'createXXHash32' };
+
+  var input = document.getElementById('input');
+  var subject = document.getElementById('subject');
+  var pending = null;
+  var run = 0;                      // cancels the results of superseded runs
+
+  function now() {
+    return (window.performance && performance.now) ? performance.now() : Date.now();
+  }
+
+  function bytes(n) {
+    if (n < 1024) return n + ' bytes';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
+  function say(html, isError) {
+    subject.innerHTML = html;
+    subject.classList.toggle('error', !!isError);
+  }
+
+  function put(algo, digest) {
+    var cell = document.querySelector('[data-h="' + algo + '"]');
+    if (cell) cell.textContent = digest;
+  }
+
+  function clearDigests() { ALGOS.forEach(function (a) { put(a, '—'); }); }
+
+  // Four streaming hashers, built once and re-init()ed per file. Creating them
+  // instantiates four wasm modules, which is not free and does not need redoing.
+  var hashersReady = null;
+  function hashers() {
+    if (!hashersReady) {
+      hashersReady = load().then(function () {
+        return Promise.all(ALGOS.map(function (a) { return window.hashwasm[STREAMING[a]](); }));
+      });
+    }
+    return hashersReady;
+  }
+
+  // Blob.arrayBuffer() is the direct route; FileReader is the fallback for older
+  // browsers (and is what makes this path testable outside a real browser).
+  function readSlice(blob) {
+    if (blob.arrayBuffer) return blob.arrayBuffer();
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+      r.readAsArrayBuffer(blob);
+    });
+  }
+
+  function failed() {
+    document.getElementById('digests').innerHTML =
+      '<p style="color:var(--muted)">Could not load the WebAssembly module.</p>';
+  }
+
+  /* ---- text ---- */
+  function refresh() {
+    var mine = ++run;
+    load().then(function () {
+      if (mine !== run) return;
+      var text = input.value;
+      say(text ? 'text, ' + bytes(new Blob([text]).size) : 'empty input');
+      ALGOS.forEach(function (a) {
+        window.hashwasm[a](text).then(function (digest) {
+          if (mine === run) put(a, digest);
+        });
+      });
+    }).catch(failed);
+  }
+
+  /* ---- file ---- */
+  function hashFile(file) {
+    var mine = ++run;
+    if (file.size > MAX_FILE) {
+      clearDigests();
+      say('<b>' + file.name + '</b> is ' + bytes(file.size) + '. This page stops at ' +
+          bytes(MAX_FILE) + ' &mdash; use <code>xxhsum</code> for anything larger.', true);
+      return;
+    }
+    clearDigests();
+    say(window.hashwasm ? 'reading <b>' + file.name + '</b> from your disk&hellip;'
+                        : 'loading the hasher&hellip;');
+
+    hashers().then(function (hashers) {
+      hashers.forEach(function (h) { h.init(); });
+      var done = 0, lastPaint = 0;
+
+      function absorb(view) {
+        hashers.forEach(function (h) { h.update(view); });
+        done += view.length;
+        // repainting per chunk costs more than it informs once chunks are small
+        if (file.size > CHUNK && now() - lastPaint > 100) {
+          lastPaint = now();
+          say('hashing <b>' + file.name + '</b>&hellip; ' +
+              Math.round((done / file.size) * 100) + '%');
+        }
+      }
+
+      function finish() {
+        if (mine !== run) return;
+        ALGOS.forEach(function (a, i) { put(a, hashers[i].digest()); });
+        say('<b>' + file.name + '</b> &mdash; ' + bytes(file.size));
+      }
+
+      // Preferred path: one sequential stream. The browser does its own buffering
+      // and read-ahead, instead of us paying a separate file-system round trip for
+      // every slice -- which measured about 15 MB/s on a 20 MB file.
+      if (file.stream) {
+        var reader = file.stream().getReader();
+        return (function pump() {
+          return reader.read().then(function (r) {
+            if (mine !== run) return reader.cancel();
+            if (r.done) return finish();
+            absorb(r.value);
+            return pump();
+          });
+        })();
+      }
+
+      // Fallback for browsers without Blob.stream(): slice the file by hand.
+      var offset = 0;
+      function step() {
+        if (mine !== run) return null;
+        if (offset >= file.size) { finish(); return null; }
+        var end = Math.min(offset + CHUNK, file.size);
+        return readSlice(file.slice(offset, end)).then(function (buf) {
+          if (mine !== run) return null;
+          absorb(new Uint8Array(buf));
+          offset = end;
+          return step();
+        });
+      }
+      return step();
+    }).catch(function (e) {
+      clearDigests();
+      say('could not read <b>' + file.name + '</b>: ' + e, true);
+    });
+  }
+
+  input.addEventListener('input', function () {
+    clearTimeout(pending);
+    pending = setTimeout(refresh, 80);
+  });
+
+  var picker = document.getElementById('file');
+  document.querySelector('label[for="file"]').addEventListener('click', function () { load(); });
+  picker.addEventListener('change', function () {
+    if (picker.files && picker.files[0]) hashFile(picker.files[0]);
+  });
+
+  // drop anywhere in the section
+  var zone = document.getElementById('try');
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    zone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      zone.classList.add('dragging');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    zone.addEventListener(ev, function (e) {
+      if (ev === 'dragleave' && zone.contains(e.relatedTarget)) return;
+      zone.classList.remove('dragging');
+    });
+  });
+  zone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) hashFile(f);
+  });
+
+  // compute once when the section first scrolls into view; if the browser has no
+  // IntersectionObserver, just do it now rather than leaving the box empty
+  if (typeof IntersectionObserver === 'function') {
+    var io = new IntersectionObserver(function (entries) {
+      if (entries.some(function (e) { return e.isIntersecting; })) {
+        io.disconnect();
+        refresh();
+      }
+    }, { rootMargin: '200px' });
+    io.observe(document.getElementById('try'));
+  } else {
+    refresh();
+  }
+
+  document.querySelectorAll('.digest .copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var v = btn.parentNode.querySelector('.v').textContent;
+      navigator.clipboard.writeText(v).then(function () {
+        btn.textContent = 'copied';
+        setTimeout(function () { btn.textContent = 'copy'; }, 1200);
+      });
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -34,3 +34,8 @@ body, html {
     vertical-align: -0.25em;
     fill: currentColor;
 }
+
+/* platform selector above the per-platform bandwidth table */
+#platform-tabs > li > a {
+    font-size: 1.4em;
+}

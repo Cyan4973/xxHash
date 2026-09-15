@@ -93,8 +93,9 @@ These measurements were performed in August 2020.
 The reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
 The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` flag.
 
-Some algorithms are _faster than RAM_: such speeds are only reachable when the input is already
-in CPU cache (L3 or better). Otherwise, they max out at RAM speed limit.
+Bandwidth tests are measured on a 100 KB input, which stays in CPU cache.
+The _memcpy_ reference, in contrast, is measured from RAM.
+It shows that some algorithms can process data faster than RAM can deliver it, so hash is no longer the bottleneck.
 _Small data velocity_ is a _rough_ evaluation of an algorithm's efficiency on small inputs;
 see [the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-) for a detailed analysis.
 
@@ -104,7 +105,7 @@ see [the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#be
 | __XXH128__ (AVX2) | 128 | 57.9 GB/s      | 118.1 | 10 | AVX2 support (optional)
 | __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10 |
 | __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10 |
-| _memcpy_      |   N/A | 28.0 GB/s        |   N/A | N/A | _for reference_
+| _memcpy (from RAM)_| N/A | 28.0 GB/s     |   N/A | N/A | _from RAM, for reference_
 | City64        |    64 | 22.0 GB/s        |  76.6 | 10 |
 | T1ha2         |    64 | 22.0 GB/s        |  99.0 |  9 | Slightly worse [collisions]
 | City128       |   128 | 21.7 GB/s        |  57.7 | 10 |
@@ -125,6 +126,38 @@ see [the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#be
 
 note: On 32-bit applications, the ranking between hashes differs drastically, strongly favoring 32-bit hashes,
 See [this section of the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#bandwidth-on-x86-with-various-data-size-of-len-2n-32-bit-friendliness) for illustration.
+
+### Bandwidth per platform
+
+<ul class="nav nav-tabs" id="platform-tabs">
+  <li><a href="#" data-platform="Intel i7-9700K">Intel i7-9700K</a></li>
+  <li><a href="#" data-platform="Apple M1 Pro">Apple M1 Pro</a></li>
+  <li><a href="#" data-platform="AMD Zen 5">AMD Zen 5</a></li>
+</ul>
+
+|Platform       |Variant          |Bandwidth
+|--             |--               |--
+|Intel i7-9700K |__XXH3__ (AVX2)  |59.4 GB/s
+|Intel i7-9700K |__XXH128__ (AVX2)|57.9 GB/s
+|Intel i7-9700K |__XXH3__ (SSE2)  |31.5 GB/s
+|Intel i7-9700K |__XXH128__ (SSE2)|29.6 GB/s
+|Intel i7-9700K |_memcpy_ (from RAM)|28.0 GB/s
+|Intel i7-9700K |__XXH64__        |19.4 GB/s
+|Intel i7-9700K |__XXH32__        |9.7 GB/s
+|Apple M1 Pro   |_memcpy_ (from RAM)|45 GB/s
+|Apple M1 Pro   |__XXH3__ (NEON)  |36.3 GB/s
+|Apple M1 Pro   |__XXH128__ (NEON)|35.1 GB/s
+|Apple M1 Pro   |__XXH64__        |13.4 GB/s
+|Apple M1 Pro   |__XXH32__        |6.6 GB/s
+|AMD Zen 5      |__XXH3__ (AVX512)|159 GB/s
+|AMD Zen 5      |__XXH128__ (AVX512)|156 GB/s
+|AMD Zen 5      |__XXH3__ (AVX2)  |84.0 GB/s
+|AMD Zen 5      |__XXH128__ (AVX2)|83.5 GB/s
+|AMD Zen 5      |__XXH3__ (SSE2)  |38.9 GB/s
+|AMD Zen 5      |__XXH128__ (SSE2)|37.4 GB/s
+|AMD Zen 5      |_memcpy_ (from RAM)|28.5 GB/s
+|AMD Zen 5      |__XXH64__        |27.8 GB/s
+|AMD Zen 5      |__XXH32__        |13.8 GB/s
 
 
 <br/>
@@ -360,6 +393,35 @@ To write one yourself, follow the [format specification].
          keeps screen readers from reading out the image file name too. -->
     <script>
     document.querySelectorAll('.list-inline img').forEach(function (img) { img.alt = ''; });
+
+    // Benchmark table is authored as one markdown table with a Platform column;
+    // only the selected platform's rows are shown, and that column is hidden.
+    (function () {
+      var tabs = document.getElementById('platform-tabs');
+      if (!tabs) return;
+      var table = tabs.nextElementSibling;
+      while (table && table.tagName !== 'TABLE') table = table.nextElementSibling;
+      if (!table) return;
+
+      function show(platform) {
+        Array.prototype.forEach.call(table.rows, function (row, i) {
+          if (i > 0) row.style.display = row.cells[0].textContent.trim() === platform ? '' : 'none';
+          row.cells[0].style.display = 'none';
+        });
+        Array.prototype.forEach.call(tabs.querySelectorAll('li'), function (li) {
+          li.classList.toggle('active', li.querySelector('a').dataset.platform === platform);
+        });
+      }
+
+      tabs.addEventListener('click', function (e) {
+        var a = e.target.closest('a[data-platform]');
+        if (!a) return;
+        e.preventDefault();
+        show(a.dataset.platform);
+      });
+
+      show(tabs.querySelector('a[data-platform]').dataset.platform);
+    })();
     </script>
   </body>
 </html>

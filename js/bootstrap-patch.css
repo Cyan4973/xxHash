@@ -26,3 +26,11 @@ body, html {
     }
 }
 /* bootstrap hack end */
+
+/* GitHub mark in the navbar; the artwork is the <symbol> at the top of <body> */
+.gh-icon {
+    height: 1.33em;
+    width: 1.33em;
+    vertical-align: -0.25em;
+    fill: currentColor;
+}

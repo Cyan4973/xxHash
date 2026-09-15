@@ -158,6 +158,14 @@ int main(int argc, const char* argv[])
 #else
 #  include <windows.h>
 #  include <wchar.h>
+#  if defined(XXHSUM_WIN32_LONGPATH) && (XXHSUM_WIN32_LONGPATH)
+#    include <pathcch.h> /* PathCchCanonicalizeEx, PathCchCombineEx */
+     /* Older Windows SDK (< WIN10 1703 (RS2)) doesn't contain the following macro */
+#    if defined(PATHCCH_DO_NOT_NORMALIZE_SEGMENTS) && \
+        defined(PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH)
+#      define XXHSUM_WIN32_USE_PATHCCH 1
+#    endif
+#  endif
 
 /*****************************************************************************
  *                       Unicode conversion tools
@@ -201,6 +209,76 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
     }
 }
 
+/*
+ * Converts a UTF-8 path to absolute extended-length path with "\\?\" prefix in UTF-16.
+ * Acts like strdup. The string must be freed afterwards.
+ * This version allows keeping the output length.
+ *
+ * Note: The \\?\ prefix (prefix with question) designates a file-system-only path.
+ * Unlike the \\.\ prefix (prefix with dot), it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
+ */
+static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
+{
+#if defined(XXHSUM_WIN32_USE_PATHCCH) && (XXHSUM_WIN32_USE_PATHCCH)
+    wchar_t* const wide_path = XSUM_widenString(path, NULL);  /* path in wchar_t */
+    size_t const path_len = strlen(path);
+    int const starts_with_extended_prefix = path_len >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\';
+
+    /* If path starts with "\\?\" */
+    if(starts_with_extended_prefix) {
+        /* just return wchar_t version of it. */
+        return wide_path;
+    } else {
+        wchar_t* result = NULL;
+
+        size_t const size_in_wchars  = 32768; /* 32767 wchar_t + NUL */
+        ULONG  const canonical_flags = PATHCCH_DO_NOT_NORMALIZE_SEGMENTS;
+        ULONG  const combine_flags   = canonical_flags | PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH;
+
+        /* exl_path : buffer for extended length path */
+        wchar_t* const exl_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+        if(exl_path != NULL) {
+            int const starts_with_unc_absolute = path_len >= 2 && path[0] == '\\' && path[1] == '\\';
+            int const starts_with_dos_absolute = path_len >= 3 && isalpha(path[0]) && path[1] == ':' && (path[2] == '\\' || path[2] == '/');
+
+            /* If path starts with "\\" or "[A-Za-z]:\" */
+            if(starts_with_unc_absolute || starts_with_dos_absolute) {
+                if(exl_path != NULL) {
+                    HRESULT const hr = PathCchCanonicalizeEx(exl_path, size_in_wchars, wide_path, canonical_flags);
+                    if(SUCCEEDED(hr)) {
+                        result = exl_path;
+                    }
+                }
+            } else {
+                /* path is relative path */
+                wchar_t* const cwd = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+                if(cwd != NULL) {
+                    DWORD const n = GetCurrentDirectoryW((DWORD) size_in_wchars, cwd);
+                    if(n != 0 && n < size_in_wchars) {
+                        if(exl_path != NULL) {
+                            HRESULT const hr = PathCchCombineEx(exl_path, size_in_wchars, cwd, wide_path, combine_flags);
+                            if(SUCCEEDED(hr)) {
+                                result = exl_path;
+                            }
+                        }
+                    }
+                    free(cwd);
+                }
+            }
+
+            /* Tricky part: if result doesn't use exl_path, free exl_path */
+            if(result != exl_path) {
+                free(exl_path);
+            }
+        }
+        free(wide_path);
+        return result;
+    }
+#else
+    return XSUM_widenString(path, NULL);  /* path in wchar_t */
+#endif
+}
+
 
 
 /*****************************************************************************
@@ -211,12 +289,16 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
  *
  * fopen will only accept ANSI filenames, which means that we can't open Unicode filenames.
  *
- * In order to open a Unicode filename, we need to convert filenames to UTF-16 and use _wfopen.
+ * In order to open a Unicode filename and long path, we need to convert filenames to UTF-16,
+ * absolute path, UNC and use _wfopen.
+ *
+ * Note: The \\?\ prefix designates a file-system-only path.
+ * Unlike the \\.\ prefix, it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
  */
 XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 {
     FILE* f = NULL;
-    wchar_t* const wide_filename = XSUM_widenString(filename, NULL);
+    wchar_t* const wide_filename = XSUM_widenStringAsExtendedLengthPath(filename);
     if (wide_filename != NULL) {
         wchar_t* const wide_mode = XSUM_widenString(mode, NULL);
         if (wide_mode != NULL) {
@@ -234,7 +316,7 @@ XSUM_API FILE* XSUM_fopen(const char* filename, const char* mode)
 static int XSUM_stat(const char* infilename, XSUM_stat_t* statbuf)
 {
     int r = -1;
-    wchar_t* const wide_filename = XSUM_widenString(infilename, NULL);
+    wchar_t* const wide_filename = XSUM_widenStringAsExtendedLengthPath(infilename);
     if (wide_filename != NULL) {
         r = _wstat64(wide_filename, statbuf);
         free(wide_filename);

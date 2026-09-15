@@ -5,6 +5,8 @@
 *.c text eol=lf
 *.h text eol=lf
 
+# These are explicitly windows files and should use crlf
+*.bat text eol=crlf
+
 # Denote files that should not be modified.
 *.odt binary
-

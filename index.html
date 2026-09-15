@@ -293,10 +293,47 @@ The following versions produce xxHash-compatible results in different languages.
 ---
 </xmp>
 
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+    <!-- The only two bootstrap.js behaviours this page uses are the mobile navbar
+         toggle and the "Index" dropdown. Both are a class toggle, so they are done
+         here directly rather than pulling in jQuery + bootstrap.js from a CDN. -->
+    <script>
+    document.addEventListener('click', function (e) {
+      if (!(e.target instanceof Element)) return;
+      var collapse = e.target.closest('[data-toggle="collapse"]');
+      var dropdown = e.target.closest('[data-toggle="dropdown"]');
+
+      // clicking anywhere closes an open dropdown, except its own toggle
+      var open = document.querySelectorAll('.dropdown.open');
+      for (var i = 0; i < open.length; i++) {
+        if (!dropdown || open[i] !== dropdown.parentNode) open[i].classList.remove('open');
+      }
+
+      if (collapse) {
+        e.preventDefault();
+        var target = document.querySelector(collapse.getAttribute('data-target'));
+        if (target) {
+          var shown = target.classList.toggle('in');
+          collapse.classList.toggle('collapsed', !shown);
+          collapse.setAttribute('aria-expanded', shown);
+        }
+      } else if (dropdown) {
+        e.preventDefault();
+        var parent = dropdown.parentNode;
+        var opened = parent.classList.toggle('open');
+        dropdown.setAttribute('aria-expanded', opened);
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      var open = document.querySelectorAll('.dropdown.open');
+      for (var i = 0; i < open.length; i++) {
+        open[i].classList.remove('open');
+        var toggle = open[i].querySelector('[data-toggle="dropdown"]');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+    </script>
     <script src="strapdown/v/0.2/strapdown.js"></script>
   </body>
 </html>

@@ -1440,7 +1440,7 @@ static int XSUM_usage_advanced(const char* exename)
     XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
     XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
     XSUM_log( "      --binary         Read in binary mode \n");
-    XSUM_log( "      --seed #         Set seed (default: 0) \n");
+    XSUM_log( "  -s#, --seed #        Set seed (default: 0) \n");
     XSUM_log( "  -b                   Run benchmark \n");
     XSUM_log( "  -b#                  Bench only algorithm variant # \n");
     XSUM_log( "  -i#                  Number of times to run the benchmark (default: %i) \n", NBLOOPS_DEFAULT);
@@ -1696,6 +1696,12 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
             case 'B':
                 argument++;
                 keySize = XSUM_readU32FromChar(&argument);
+                break;
+
+            /* Modify seed */
+            case 's':
+                argument++;
+                g_default_seed = XSUM_readU64FromChar(&argument);
                 break;
 
             /* Modify verbosity of benchmark output (hidden option) */

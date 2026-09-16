@@ -210,8 +210,7 @@ static int XSUM_algoBitmask_Accepts(XSUM_U32 algoBitmask, AlgoSelected parsedLin
 *  File Hashing
 **********************************************************/
 
-static XSUM_U32 g_default_seed_u32 = 0;                   /* Default seed for algo_xxh32 */
-static XSUM_U64 g_default_seed_u64 = 0;                   /* Default seed for algo_xxh64, algo_xxh3 and algo_xxh128 */
+static XSUM_U64 g_default_seed = 0;  /* XXH32 uses the low 32 bits */
 
 /* for support of --little-endian display mode */
 static void XSUM_display_LittleEndian(const void* ptr, size_t length)
@@ -262,9 +261,9 @@ XSUM_hashStream(FILE* inFile,
     memset( &state3, 0, sizeof(state3) );
 
     /* Init */
-    (void)XXH32_reset(&state32, g_default_seed_u32);
-    (void)XXH64_reset(&state64, g_default_seed_u64);
-    (void)XXH3_128bits_reset_withSeed(&state3, g_default_seed_u64);
+    (void)XXH32_reset(&state32, (XSUM_U32)g_default_seed);
+    (void)XXH64_reset(&state64, g_default_seed);
+    (void)XXH3_128bits_reset_withSeed(&state3, g_default_seed);
 
     /* Load file & update hash */
     {   size_t readSize;
@@ -1617,14 +1616,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
             i++;
             if (i >= argc) return XSUM_badusage(exename);
             seed_str = argv[i];
-            switch( algo ){
-                    case algo_xxh32  : g_default_seed_u32 = XSUM_readU32FromChar(&seed_str); break;
-                    case algo_xxh64  :
-                    case algo_xxh3   :
-                    case algo_xxh128 : g_default_seed_u64 = XSUM_readU64FromChar(&seed_str); break;
-                    default:
-                        return XSUM_usage_advanced(exename);
-                }
+            g_default_seed = XSUM_readU64FromChar(&seed_str);
             continue;
         }
 

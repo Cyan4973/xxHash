@@ -245,6 +245,9 @@ test32: xxhsum32
 TEST_FILES = xxhsum$(EXT) xxhash.c xxhash.h
 .PHONY: test-xxhsum-c
 test-xxhsum-c: xxhsum
+	# --seed requires a value
+	./xxhsum --seed 2>&1 | $(GREP) -q "^Wrong parameters"
+	./xxhsum -H0 --seed 2>&1 | $(GREP) -q "^Wrong parameters"
 	# xxhsum to/from pipe
 	./xxhsum $(TEST_FILES) | ./xxhsum -c -
 	./xxhsum -H0 $(TEST_FILES) | ./xxhsum -c -

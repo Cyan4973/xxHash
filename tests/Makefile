@@ -43,6 +43,9 @@ else
 ENABLE_UNICODE ?= 0
 endif
 
+# the dispatcher can only be built for x86/x64 targets
+X86_TARGET := $(strip $(shell $(CC) -dumpmachine | $(GREP) -E 'i[3-6]86|x86_64'))
+
 .PHONY: default
 default: all
 
@@ -74,6 +77,21 @@ test_multiInclude:
 	# symbols prefixed TESTN_ should exist in xxhash.o (though not be invoked)
 	$(NM) multiInclude_withxxhash | $(GREP) TESTN_
 	$(RM) multiInclude_withxxhash
+
+# a unit requesting XXH_INLINE_ALL can still employ the x86 dispatcher
+# https://github.com/Cyan4973/xxHash/issues/1071
+.PHONY: test_inline_dispatch
+ifneq ($(X86_TARGET),)
+test_inline_dispatch: inlineDispatch
+	$(RUN_ENV) ./inlineDispatch$(EXT)
+	$(RM) inlineDispatch$(EXT)
+else
+test_inline_dispatch:
+	@echo "Skipping inlined dispatch test, the dispatcher requires an x86/x64 target"
+endif
+
+inlineDispatch: CFLAGS += -Werror
+$(eval $(call c_program,inlineDispatch,inlineDispatch.o xxh_x86dispatch.o))
 
 .PHONY: test_ppc_redefine
 test_ppc_redefine: ppc_define.o
@@ -135,5 +153,6 @@ $(eval $(call c_program,test_alias,test_alias.o))
 clean:
 	@$(RM) *.o
 	@$(RM) multiInclude
+	@$(RM) inlineDispatch$(EXT)
 	@$(RM) *.unicode unicode_test.*
 	@$(RM) sanity_test$(EXT) sanity_test_vectors_generator$(EXT)

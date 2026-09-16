@@ -37,6 +37,27 @@
 
 #include "xxhash.h"  /* XXH64_hash_t, XXH3_state_t */
 
+/*!
+ * @def XXH_DISPATCH_API
+ * @brief Marks the dispatch symbols.
+ *
+ * The dispatch functions always live in a separately compiled unit
+ * (`xxh_x86dispatch.c`), so they must keep external linkage.
+ * They can't employ @ref XXH_PUBLIC_API, which becomes `static`
+ * when the including unit requests @ref XXH_INLINE_ALL.
+ */
+#ifndef XXH_DISPATCH_API
+#  if defined(_WIN32) && defined(_MSC_VER) && (defined(XXH_IMPORT) || defined(XXH_EXPORT))
+#    ifdef XXH_EXPORT
+#      define XXH_DISPATCH_API __declspec(dllexport)
+#    else
+#      define XXH_DISPATCH_API __declspec(dllimport)
+#    endif
+#  else
+#    define XXH_DISPATCH_API   /* do nothing */
+#  endif
+#endif
+
 #if defined (__cplusplus)
 extern "C" {
 #endif
@@ -47,17 +68,17 @@ extern "C" {
  * @return The best @ref XXH_VECTOR implementation.
  * @see XXH_VECTOR_TYPES
  */
-XXH_PUBLIC_API int XXH_featureTest(void);
+XXH_DISPATCH_API int XXH_featureTest(void);
 
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_dispatch(XXH_NOESCAPE const void* input, size_t len);
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSeed_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH64_hash_t  XXH3_64bits_withSecret_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH_NOESCAPE const void* secret, size_t secretLen);
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update_dispatch(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t len);
+XXH_DISPATCH_API XXH64_hash_t  XXH3_64bits_dispatch(XXH_NOESCAPE const void* input, size_t len);
+XXH_DISPATCH_API XXH64_hash_t  XXH3_64bits_withSeed_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed);
+XXH_DISPATCH_API XXH64_hash_t  XXH3_64bits_withSecret_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH_NOESCAPE const void* secret, size_t secretLen);
+XXH_DISPATCH_API XXH_errorcode XXH3_64bits_update_dispatch(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t len);
 
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_dispatch(XXH_NOESCAPE const void* input, size_t len);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH_NOESCAPE const void* secret, size_t secretLen);
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update_dispatch(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t len);
+XXH_DISPATCH_API XXH128_hash_t XXH3_128bits_dispatch(XXH_NOESCAPE const void* input, size_t len);
+XXH_DISPATCH_API XXH128_hash_t XXH3_128bits_withSeed_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed);
+XXH_DISPATCH_API XXH128_hash_t XXH3_128bits_withSecret_dispatch(XXH_NOESCAPE const void* input, size_t len, XXH_NOESCAPE const void* secret, size_t secretLen);
+XXH_DISPATCH_API XXH_errorcode XXH3_128bits_update_dispatch(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t len);
 
 #if defined (__cplusplus)
 }

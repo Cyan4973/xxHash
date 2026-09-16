@@ -392,35 +392,42 @@ int XSUM_benchFiles(const char* fileNamesTable[], int nbFiles)
         assert(inFileName != NULL);
 
         {   FILE* const inFile = XSUM_fopen( inFileName, "rb" );
-            size_t const benchedSize = XSUM_selectBenchedSize(inFileName);
-            char* const buffer = (char*)calloc(benchedSize+16+3, 1);
-            void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
-
-            /* Checks */
             if (inFile==NULL){
                 XSUM_log("Error: Could not open '%s': %s.\n", inFileName, strerror(errno));
-                free(buffer);
                 exit(11);
             }
-            if(!buffer) {
-                XSUM_log("\nError: Out of memory.\n");
-                fclose(inFile);
-                exit(12);
+
+            {   size_t const benchedSize = XSUM_selectBenchedSize(inFileName);
+                size_t const bufferPadding = 16 + 3;
+                char* buffer;
+
+                /* XSUM_selectBenchedSize() caps the result below MAX_MEM,
+                 * leaving room for bufferPadding even on 32-bit targets. */
+                assert(benchedSize <= (size_t)-1 - bufferPadding);
+                buffer = (char*)calloc(benchedSize + bufferPadding, 1);
+                if (buffer == NULL) {
+                    XSUM_log("\nError: Out of memory.\n");
+                    fclose(inFile);
+                    exit(12);
+                }
+
+                {   void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
+
+                    /* Fill input buffer */
+                    {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
+                        fclose(inFile);
+                        if(readSize != benchedSize) {
+                            XSUM_log("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
+                            free(buffer);
+                            exit(13);
+                    }   }
+
+                    /* bench */
+                    XSUM_benchMem(alignedBuffer, benchedSize);
+                }
+
+                free(buffer);
             }
-
-            /* Fill input buffer */
-            {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
-                fclose(inFile);
-                if(readSize != benchedSize) {
-                    XSUM_log("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
-                    free(buffer);
-                    exit(13);
-            }   }
-
-            /* bench */
-            XSUM_benchMem(alignedBuffer, benchedSize);
-
-            free(buffer);
     }   }
     return 0;
 }

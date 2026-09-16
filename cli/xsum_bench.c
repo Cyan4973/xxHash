@@ -428,7 +428,13 @@ int XSUM_benchFiles(const char* fileNamesTable[], int nbFiles)
 
 int XSUM_benchInternal(size_t keySize)
 {
-    void* const buffer = calloc(keySize+16+3, 1);
+    size_t const bufferPadding = 16 + 3;
+    void* buffer;
+    if (keySize > (size_t)-1 - bufferPadding) {
+        XSUM_log("\nError: benchmark block size is too large.\n");
+        return 1;
+    }
+    buffer = calloc(keySize + bufferPadding, 1);
     if (buffer == NULL) {
         XSUM_log("\nError: Out of memory.\n");
         exit(12);

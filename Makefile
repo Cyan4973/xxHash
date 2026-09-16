@@ -501,8 +501,13 @@ test-inline-notexposed: xxhsum_inlinedXXH
 	$(NM) xxhsum_inlinedXXH | $(GREP) "t _XXH32_" ; test $$? -eq 1  # no XXH32 symbol should be left
 	$(NM) xxhsum_inlinedXXH | $(GREP) "t _XXH64_" ; test $$? -eq 1  # no XXH64 symbol should be left
 
+# this test checks that a unit requesting XXH_INLINE_ALL can nonetheless employ the x86 dispatcher
+.PHONY: test-inline-dispatch
+test-inline-dispatch:
+	$(MAKE) -C tests test_inline_dispatch
+
 .PHONY: test-inline
-test-inline: test-inline-notexposed test-multiInclude
+test-inline: test-inline-notexposed test-multiInclude test-inline-dispatch
 
 
 .PHONY: test-all

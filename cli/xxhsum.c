@@ -1615,6 +1615,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
         if (!strcmp(argument, "--seed") ){
             const char* seed_str;
             i++;
+            if (i >= argc) return XSUM_badusage(exename);
             seed_str = argv[i];
             switch( algo ){
                     case algo_xxh32  : g_default_seed_u32 = XSUM_readU32FromChar(&seed_str); break;

@@ -240,6 +240,7 @@ test-mem: xxhsum check
 test32: xxhsum32
 	@echo ---- test 32-bit ----
 	./xxhsum32 -bi0 xxhash.c
+	./xxhsum32 -bi0 -B4294967277 2>&1 | $(GREP) "Error: benchmark block size is too large"
 
 TEST_FILES = xxhsum$(EXT) xxhash.c xxhash.h
 .PHONY: test-xxhsum-c

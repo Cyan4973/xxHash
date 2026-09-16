@@ -3172,6 +3172,11 @@ XXH32_finalize(xxh_u32 hash, const xxh_u8* ptr, size_t len, XXH_alignment align)
  * @param align Whether @p input is aligned.
  * @return The calculated hash.
  */
+#if defined(_MSC_VER)
+#  pragma warning(push)
+/* MSVC's LTCG reports valid branches eliminated for constant input lengths. */
+#  pragma warning(disable : 4702)  /* C4702: unreachable code */
+#endif
 XXH_FORCE_INLINE XXH_PUREF xxh_u32
 XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment align)
 {
@@ -3194,6 +3199,9 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
 
     return XXH32_finalize(h32, input, len&15, align);
 }
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)

@@ -248,6 +248,13 @@ test-xxhsum-c: xxhsum
 	# --seed requires a value
 	./xxhsum --seed 2>&1 | $(GREP) -q "^Wrong parameters"
 	./xxhsum -H0 --seed 2>&1 | $(GREP) -q "^Wrong parameters"
+	# --seed is independent of option order
+	test "$$(./xxhsum -H0 --seed 1234 Makefile)" = "$$(./xxhsum --seed 1234 -H0 Makefile)"
+	# -s# is equivalent to --seed #
+	test "$$(./xxhsum -H0 --seed 1234 Makefile)" = "$$(./xxhsum -H0 -s1234 Makefile)"
+	test "$$(./xxhsum -H1 --seed 4294967296 Makefile)" = "$$(./xxhsum -H1 -s4294967296 Makefile)"
+	# --seed applies to every algorithm detected by --check
+	{ ./xxhsum -H0 --seed 1234 Makefile; ./xxhsum -H1 --seed 1234 Makefile; } | ./xxhsum --seed 1234 -c -
 	# xxhsum to/from pipe
 	./xxhsum $(TEST_FILES) | ./xxhsum -c -
 	./xxhsum -H0 $(TEST_FILES) | ./xxhsum -c -

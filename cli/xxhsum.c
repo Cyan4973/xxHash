@@ -210,8 +210,7 @@ static int XSUM_algoBitmask_Accepts(XSUM_U32 algoBitmask, AlgoSelected parsedLin
 *  File Hashing
 **********************************************************/
 
-static XSUM_U32 g_default_seed_u32 = 0;                   /* Default seed for algo_xxh32 */
-static XSUM_U64 g_default_seed_u64 = 0;                   /* Default seed for algo_xxh64, algo_xxh3 and algo_xxh128 */
+#define XSUM_DEFAULT_SEED 0
 
 /* for support of --little-endian display mode */
 static void XSUM_display_LittleEndian(const void* ptr, size_t length)
@@ -253,6 +252,7 @@ typedef enum {
 static LineStatus
 XSUM_hashStream(FILE* inFile,
                 AlgoSelected hashType,
+                XSUM_U64 seed,
                 void* buffer, size_t blockSize,
                 Multihash* finalHash)
 {
@@ -262,9 +262,9 @@ XSUM_hashStream(FILE* inFile,
     memset( &state3, 0, sizeof(state3) );
 
     /* Init */
-    (void)XXH32_reset(&state32, g_default_seed_u32);
-    (void)XXH64_reset(&state64, g_default_seed_u64);
-    (void)XXH3_128bits_reset_withSeed(&state3, g_default_seed_u64);
+    (void)XXH32_reset(&state32, (XSUM_U32)seed);
+    (void)XXH64_reset(&state64, seed);
+    (void)XXH3_128bits_reset_withSeed(&state3, seed);
 
     /* Load file & update hash */
     {   size_t readSize;
@@ -399,6 +399,7 @@ static XSUM_displayLine_f XSUM_kDisplayLine_fTable[2][2] = {
 
 static LineStatus XSUM_hashFile(const char* fileName,
                          const AlgoSelected hashType,
+                         XSUM_U64 seed,
                          const Display_endianness displayEndianness,
                          const Display_convention convention)
 {
@@ -434,7 +435,7 @@ static LineStatus XSUM_hashFile(const char* fileName,
         }
 
         /* Stream file & update hash */
-        hashStatus = XSUM_hashStream(inFile, hashType, buffer, blockSize, &hashValue);
+        hashStatus = XSUM_hashStream(inFile, hashType, seed, buffer, blockSize, &hashValue);
 
         fclose(inFile);
         free(buffer);
@@ -483,6 +484,7 @@ static LineStatus XSUM_hashFile(const char* fileName,
  */
 static int XSUM_hashFiles(const char* fnList[], int fnTotal,
                           AlgoSelected hashType,
+                          XSUM_U64 seed,
                           Display_endianness displayEndianness,
                           Display_convention convention)
 {
@@ -491,7 +493,7 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
 
     if (fnTotal == 0)
     {
-        LineStatus filestatus = XSUM_hashFile(stdinName, hashType, displayEndianness, convention);
+        LineStatus filestatus = XSUM_hashFile(stdinName, hashType, seed, displayEndianness, convention);
         switch (filestatus)
         {
         case LineStatus_hashOk:
@@ -518,7 +520,7 @@ static int XSUM_hashFiles(const char* fnList[], int fnTotal,
 
     for (fnNb = 0; fnNb < fnTotal; fnNb++)
     {
-        LineStatus filestatus = XSUM_hashFile(fnList[fnNb], hashType, displayEndianness, convention);
+        LineStatus filestatus = XSUM_hashFile(fnList[fnNb], hashType, seed, displayEndianness, convention);
         switch (filestatus)
         {
         case LineStatus_hashOk:
@@ -600,6 +602,7 @@ typedef struct {
     int          warn;
     int          quiet;
     XSUM_U32     algoBitmask;
+    XSUM_U64     seed;
     ParseFileReport report;
 } ParseFileArg;
 
@@ -931,6 +934,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
             }
             {   Multihash xxh;
                 lineStatus = XSUM_hashStream(fp, parsedLine.algo,
+                    XSUM_parseFileArg->seed,
                     XSUM_parseFileArg->blockBuf, XSUM_parseFileArg->blockSize, &xxh);
                 if (lineStatus == LineStatus_hashOk) {
                     lineStatus = LineStatus_hashFailed;
@@ -1038,6 +1042,7 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
  */
 static int XSUM_checkFile(const char* inFileName,
                           const Display_endianness displayEndianness,
+                          XSUM_U64 seed,
                           int strictMode,
                           int statusOnly,
                           int ignoreMissing,
@@ -1080,6 +1085,7 @@ static int XSUM_checkFile(const char* inFileName,
     XSUM_parseFileArg->warn        = warn;
     XSUM_parseFileArg->quiet       = quiet;
     XSUM_parseFileArg->algoBitmask = algoBitmask;
+    XSUM_parseFileArg->seed        = seed;
 
     if ( (XSUM_parseFileArg->lineBuf == NULL)
       || (XSUM_parseFileArg->blockBuf == NULL) ) {
@@ -1135,6 +1141,7 @@ static int XSUM_checkFile(const char* inFileName,
 
 static int XSUM_checkFiles(const char* fnList[], int fnTotal,
                            const Display_endianness displayEndianness,
+                           XSUM_U64 seed,
                            int strictMode,
                            int statusOnly,
                            int ignoreMissing,
@@ -1147,11 +1154,11 @@ static int XSUM_checkFiles(const char* fnList[], int fnTotal,
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal==0) {
-        ok &= XSUM_checkFile(stdinName, displayEndianness, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
+        ok &= XSUM_checkFile(stdinName, displayEndianness, seed, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
     } else {
         int fnNb;
         for (fnNb=0; fnNb<fnTotal; fnNb++)
-            ok &= XSUM_checkFile(fnList[fnNb], displayEndianness, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
+            ok &= XSUM_checkFile(fnList[fnNb], displayEndianness, seed, strictMode, statusOnly, ignoreMissing, warn, quiet, algoBitmask);
     }
     return ok ? 0 : 1;
 }
@@ -1258,7 +1265,7 @@ static void XSUM_parseGenFile1(ParseFileArg* XSUM_parseGenArg,
 
         report->nProperlyFormattedLines++;
 
-        lineStatus = XSUM_hashFile(parsedLine.filename, hashType, displayEndianness, convention);
+        lineStatus = XSUM_hashFile(parsedLine.filename, hashType, XSUM_parseGenArg->seed, displayEndianness, convention);
 
         switch (lineStatus)
         {
@@ -1308,6 +1315,7 @@ static void XSUM_parseGenFile1(ParseFileArg* XSUM_parseGenArg,
  */
 static int XSUM_generateFile(const char* inFileName,
     AlgoSelected hashType,
+    XSUM_U64 seed,
     Display_endianness displayEndianness,
     Display_convention convention,
     int statusOnly,
@@ -1347,6 +1355,7 @@ static int XSUM_generateFile(const char* inFileName,
     XSUM_parseGenArg->statusOnly = statusOnly;
     XSUM_parseGenArg->ignoreMissing = ignoreMissing;
     XSUM_parseGenArg->warn = warn;
+    XSUM_parseGenArg->seed = seed;
 
     if ((XSUM_parseGenArg->lineBuf == NULL)
         || (XSUM_parseGenArg->blockBuf == NULL)) {
@@ -1387,6 +1396,7 @@ static int XSUM_generateFile(const char* inFileName,
 
 static int XSUM_generateFiles(const char* fnList[], int fnTotal,
     AlgoSelected hashType,
+    XSUM_U64 seed,
     Display_endianness displayEndianness,
     Display_convention convention,
     int statusOnly,
@@ -1398,12 +1408,12 @@ static int XSUM_generateFiles(const char* fnList[], int fnTotal,
     /* Special case for stdinName "-",
      * note: stdinName is not a string.  It's special pointer. */
     if (fnTotal == 0) {
-        ok &= XSUM_generateFile(stdinName, hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn);
+        ok &= XSUM_generateFile(stdinName, hashType, seed, displayEndianness, convention, statusOnly, ignoreMissing, warn);
     }
     else {
         int fnNb;
         for (fnNb = 0; fnNb < fnTotal; fnNb++)
-            ok &= XSUM_generateFile(fnList[fnNb], hashType, displayEndianness, convention, statusOnly, ignoreMissing, warn);
+            ok &= XSUM_generateFile(fnList[fnNb], hashType, seed, displayEndianness, convention, statusOnly, ignoreMissing, warn);
     }
     return ok ? 0 : 1;
 }
@@ -1441,7 +1451,7 @@ static int XSUM_usage_advanced(const char* exename)
     XSUM_log( "      --tag            Produce BSD-style checksum lines \n");
     XSUM_log( "      --little-endian  Checksum values use little endian convention (default: big endian) \n");
     XSUM_log( "      --binary         Read in binary mode \n");
-    XSUM_log( "      --seed #         Set seed (default: 0) \n");
+    XSUM_log( "  -s#, --seed #        Set seed (default: 0) \n");
     XSUM_log( "  -b                   Run benchmark \n");
     XSUM_log( "  -b#                  Bench only algorithm variant # \n");
     XSUM_log( "  -i#                  Number of times to run the benchmark (default: %i) \n", NBLOOPS_DEFAULT);
@@ -1567,6 +1577,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
     XSUM_U32 selectBenchIDs= 0;  /* 0 == use default k_testIDs_default, kBenchAll == bench all */
     static const XSUM_U32 kBenchAll = 99;
     size_t keySize    = XSUM_DEFAULT_SAMPLE_SIZE;
+    XSUM_U64 seed     = XSUM_DEFAULT_SEED;
     AlgoSelected algo     = g_defaultAlgo;
     Display_endianness displayEndianness = big_endian;
     Display_convention convention = display_gnu;
@@ -1617,14 +1628,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
             i++;
             if (i >= argc) return XSUM_badusage(exename);
             seed_str = argv[i];
-            switch( algo ){
-                    case algo_xxh32  : g_default_seed_u32 = XSUM_readU32FromChar(&seed_str); break;
-                    case algo_xxh64  :
-                    case algo_xxh3   :
-                    case algo_xxh128 : g_default_seed_u64 = XSUM_readU64FromChar(&seed_str); break;
-                    default:
-                        return XSUM_usage_advanced(exename);
-                }
+            seed = XSUM_readU64FromChar(&seed_str);
             continue;
         }
 
@@ -1706,6 +1710,12 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
                 keySize = XSUM_readU32FromChar(&argument);
                 break;
 
+            /* Modify seed */
+            case 's':
+                argument++;
+                seed = XSUM_readU64FromChar(&argument);
+                break;
+
             /* Modify verbosity of benchmark output (hidden option) */
             case 'q':
                 argument++;
@@ -1737,13 +1747,13 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
 
     if (fileCheckMode) {
         return XSUM_checkFiles(argv+1, filenamesCount,
-                          displayEndianness, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
+                          displayEndianness, seed, strictMode, statusOnly, ignoreMissing, warn, (XSUM_logLevel < 2) /*quiet*/, algoBitmask);
     }
 
     if (readFilenamesMode) {
-        return XSUM_generateFiles(argv + 1, filenamesCount, algo, displayEndianness, convention, statusOnly, ignoreMissing, warn);
+        return XSUM_generateFiles(argv + 1, filenamesCount, algo, seed, displayEndianness, convention, statusOnly, ignoreMissing, warn);
     }
 
-    return XSUM_hashFiles(argv+1, filenamesCount, algo, displayEndianness, convention);
+    return XSUM_hashFiles(argv+1, filenamesCount, algo, seed, displayEndianness, convention);
 
 }

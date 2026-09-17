@@ -622,7 +622,7 @@ jobs:
       run: |
         $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
         $vsPath = & $vswhere -latest -property installationPath
-        $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -Last
+        $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -Last 1
         $imports = & $dumpbin.FullName /dependents C:\install\bin\xxhsum.exe
         if ($imports -match "(?i)pathcch\.dll") { throw "xxhsum.exe imports pathcch.dll" }
 

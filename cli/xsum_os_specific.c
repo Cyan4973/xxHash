@@ -161,6 +161,7 @@ int main(int argc, const char* argv[])
 
 #  define XSUM_PATHCCH_DO_NOT_NORMALIZE_SEGMENTS     0x00000008UL
 #  define XSUM_PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH 0x00000010UL
+#  define XSUM_LOAD_LIBRARY_SEARCH_SYSTEM32          0x00000800UL
 
 typedef HRESULT (WINAPI *XSUM_PathCchCanonicalizeExFn)(
     wchar_t*, size_t, const wchar_t*, ULONG);
@@ -189,15 +190,9 @@ static XSUM_PathCch const* XSUM_getPathCch(void)
     static XSUM_PathCch api = { NULL, NULL, NULL };
     static int initialized = 0;
     if (!initialized) {
-        static wchar_t const pathcch_dll[] = L"\\pathcch.dll";
-        wchar_t system_path[MAX_PATH];
-        UINT const system_path_len = GetSystemDirectoryW(system_path, MAX_PATH);
         XSUM_PathCchProc proc;
-        if (system_path_len > 0
-                && system_path_len + sizeof(pathcch_dll) / sizeof(pathcch_dll[0]) <= MAX_PATH) {
-            memcpy(system_path + system_path_len, pathcch_dll, sizeof(pathcch_dll));
-            api.module = LoadLibraryW(system_path);
-        }
+        api.module = LoadLibraryExW(L"api-ms-win-core-path-l1-1-0.dll", NULL,
+                                    XSUM_LOAD_LIBRARY_SEARCH_SYSTEM32);
         if (api.module != NULL) {
             proc.proc = GetProcAddress(api.module, "PathCchCanonicalizeEx");
             api.canonicalize = proc.canonicalize;

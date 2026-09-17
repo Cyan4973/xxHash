@@ -10,7 +10,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const PAGE = path.join(ROOT, "preview.html");
+const PAGE = path.join(ROOT, "index.html");
 
 /* -------------------------------- vectors -------------------------------- */
 // Digests are frozen by the xxHash format specification, so they are safe to
@@ -52,7 +52,7 @@ function sample(n) {
 /* --------------------------------- render --------------------------------- */
 
 /**
- * Render preview.html with scripts running.
+ * Render index.html with scripts running.
  *   opts.fetch      - stub for window.fetch; omit to leave it undefined
  *   opts.blobStream - true to provide Blob.stream(), false to remove it
  *   opts.storage    - object seeded into localStorage before scripts run

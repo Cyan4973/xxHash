@@ -4,7 +4,7 @@
 const { render, until, suite } = require("./harness");
 
 const API = "https://api.github.com/repos/Cyan4973/xxHash";
-const ORIGIN = "https://xxhash.com/preview.html";   // localStorage needs a real origin
+const ORIGIN = "https://xxhash.com/";   // localStorage needs a real origin
 const HOUR = 60 * 60 * 1000;
 
 const okResponse = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ stargazers_count: 12345 }) });

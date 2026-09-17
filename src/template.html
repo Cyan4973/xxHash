@@ -516,7 +516,7 @@ document.querySelectorAll('.tab').forEach(function (tab) {
     loading = Promise.all(ALGOS.map(function (a) {
       return new Promise(function (res, rej) {
         var s = document.createElement('script');
-        s.src = 'preview-assets/' + a + '.umd.min.js';
+        s.src = 'assets/' + a + '.umd.min.js';
         s.onload = res; s.onerror = rej;
         document.head.appendChild(s);
       });

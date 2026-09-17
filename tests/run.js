@@ -3,7 +3,7 @@
 //   node tests/run.js            run every suite
 //   node tests/run.js hashing    run the suites whose name contains "hashing"
 //
-// Tests the *generated* preview.html, so run `node build.js` first if you have
+// Tests the *generated* index.html, so run `node build.js` first if you have
 // edited anything under src/. Requires jsdom: `npm install`.
 
 const fs = require("fs");
@@ -22,8 +22,8 @@ process.on("unhandledRejection", (e) => {
 });
 
 (async () => {
-  if (!fs.existsSync(path.join(__dirname, "..", "preview.html"))) {
-    console.error("preview.html is missing -- run `node build.js` first.");
+  if (!fs.existsSync(path.join(__dirname, "..", "index.html"))) {
+    console.error("index.html is missing -- run `node build.js` first.");
     process.exit(2);
   }
   try {

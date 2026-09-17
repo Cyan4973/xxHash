@@ -2,7 +2,9 @@
 //
 // Generates the homepage from `src/template.html` + `src/data.md`.
 //
-//   node build.js          # writes preview.html
+//   node build.js          # writes index.html
+//
+// The page this replaced is kept verbatim at legacy.html.
 //
 // Everything that is a *list* lives in data.md as an ordinary markdown pipe
 // table, so adding a language or a logo stays a one-line edit. Everything that
@@ -16,7 +18,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = __dirname;
-const OUT = path.join(ROOT, "preview.html");
+const OUT = path.join(ROOT, "index.html");
 
 /* ------------------------------ markdown bits ------------------------------ */
 

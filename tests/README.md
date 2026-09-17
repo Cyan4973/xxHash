@@ -3,11 +3,11 @@
 ```sh
 npm install          # once: pulls in jsdom
 npm test             # node build.js && node tests/run.js
-node tests/run.js    # tests whatever preview.html currently is
+node tests/run.js    # tests whatever index.html currently is
 node tests/run.js star hashing    # only some suites
 ```
 
-The suites render the generated `preview.html` in jsdom **with its scripts
+The suites render the generated `index.html` in jsdom **with its scripts
 running**, so they exercise the same code a browser does.
 
 | suite | covers |
@@ -25,7 +25,7 @@ is right and the handlers fire — it does not mean the page looks right. Use th
 preview server for that:
 
 ```sh
-python3 -m http.server 8321      # then browse to preview.html
+python3 -m http.server 8321      # then browse to index.html
 ```
 
 Three bugs that reached a browser before a test caught them, as a reminder of

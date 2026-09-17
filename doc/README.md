@@ -1,9 +1,15 @@
-xxHash Specification
-=======================
+xxHash Specifications
+=====================
 
-This directory contains material defining the xxHash algorithm.
-It's described in [this specification document](xxhash_spec.md).
+This directory contains documentation and reference material for the xxHash
+family of hash algorithms:
 
-The algorithm is also be illustrated by a [simple educational library](https://github.com/easyaspi314/xxhash-clean),
-written by @easyaspi314 and designed for readability
-(as opposed to the reference library which is designed for speed).
+- [xxhash_spec.md](xxhash_spec.md) specifies XXH32, XXH64, and XXH3.
+- [xxhash.cry](xxhash.cry) provides executable Cryptol specifications of XXH32
+  and XXH64.
+
+For readable implementations of these algorithms, see the
+[xxhash-clean](https://github.com/easyaspi314/xxhash-clean) educational library,
+written by [@easyaspi314](https://github.com/easyaspi314). That project
+prioritizes readability, while the reference implementation in this repository
+prioritizes speed.

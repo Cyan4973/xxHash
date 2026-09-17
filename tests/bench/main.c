@@ -54,7 +54,7 @@ static int readIntFromChar(const char** stringPtr)
     while ((**stringPtr >='0') && (**stringPtr <='9')) {
         assert(result < max);
         result *= 10;
-        result += (unsigned)(**stringPtr - '0');
+        result += **stringPtr - '0';
         (*stringPtr)++ ;
     }
     if ((**stringPtr=='K') || (**stringPtr=='M')) {

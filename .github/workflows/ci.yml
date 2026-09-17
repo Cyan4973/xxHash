@@ -339,6 +339,12 @@ jobs:
       run: |
         make clean test-cli-comment-line
 
+    - name: LIBXXH_DISPATCH static library
+      run: |
+        make clean libxxhash.a LIBXXH_DISPATCH=1
+        cc -Wall -Wextra -Werror tests/inlineDispatch.c libxxhash.a -o staticDispatch
+        ./staticDispatch
+
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test
     runs-on: ubuntu-latest

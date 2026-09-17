@@ -15,10 +15,11 @@ set "__=set /a _E+=1"
 !__! && :
 !__! && : Invoke all test scripts
 !__! && :
-!__! && call .\build-with-cmake.bat     || goto :ERROR
+!__! && if not defined XXHSUM_EXE (call .\build-with-cmake.bat || goto :ERROR)
 !__! && call .\test-long-path.bat       || goto :ERROR
 !__! && call .\test-trailing-period.bat || goto :ERROR
 !__! && call .\test-trailing-space.bat  || goto :ERROR
+!__! && call .\test-reserved-names.bat  || goto :ERROR
 
 echo Status =!_ESC![92m OK !_ESC![0m (%TEST_NAME%) && set /a errorno=0 && goto :END
 

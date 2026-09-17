@@ -33,9 +33,12 @@ set "__=set /a _E+=1"
 !__! && :
 !__! && : Test xxhsum for "test-specimen "
 !__! && :
-!__! && set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
+!__! && if not defined XXHSUM_EXE set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
+!__! && set "ABS_PATH=!CD!\test-specimen "
 !__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "test-specimen "                       || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "!ABS_PATH!"                           || goto :ERROR
+!__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\test-specimen " || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H0 "test-specimen " > test.xxh0           || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H1 "test-specimen " > test.xxh1           || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H2 "test-specimen " > test.xxh2           || goto :ERROR

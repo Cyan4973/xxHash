@@ -640,6 +640,25 @@ jobs:
           Remove-SmbShare -Name $shareName -Force
         }
 
+    - name: Test long Unicode path
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $component = "long-unicode-path-" + ("x" * 90)
+        $root = Join-Path $env:TMP "xxhash-unicode-$PID"
+        $directory = Join-Path (Join-Path (Join-Path $root $component) $component) $component
+        $file = Join-Path $directory "résumé-日本語.txt"
+        if ($file.Length -le 260) { throw "Unicode test path is not long enough" }
+        try {
+          [System.IO.Directory]::CreateDirectory("\\?\$directory") | Out-Null
+          [System.IO.File]::WriteAllText("\\?\$file", "xxHash")
+          C:\install\bin\xxhsum.exe $file
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+          if ([System.IO.Directory]::Exists("\\?\$root")) {
+            [System.IO.Directory]::Delete("\\?\$root", $true)
+          }
+        }
+
     - name: Test MSVC link-time optimization
       if: ${{ matrix.arch == 'x64' }}
       shell: cmd
@@ -733,6 +752,7 @@ jobs:
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q 'x86-64' || $(exit 1)
           ./xxhsum.exe --version
+          cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"
 
       - name: mingw32
         if: ${{ matrix.msystem == 'mingw32' }}
@@ -744,3 +764,4 @@ jobs:
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q '386' || $(exit 1)
           ./xxhsum.exe --version
+          cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"

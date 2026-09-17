@@ -25,26 +25,17 @@ set "__=set /a _E+=1"
 !__! && mkdir "!TMPNAME!"                                         || goto :ERROR
 !__! && cd    "!TMPNAME!"                                         || goto :ERROR
 !__! && :
-!__! && : Delete test-specimen.
+!__! && : Create files whose names are normally interpreted as DOS devices
 !__! && :
-!__! && : Copy the LICENSE file as "test-specimen."
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\NUL"             || goto :ERROR
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\CON.txt"         || goto :ERROR
 !__! && :
-!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\test-specimen."   || goto :ERROR
-!__! && :
-!__! && : Test xxhsum for "test-specimen."
+!__! && : Test xxhsum for literal reserved names
 !__! && :
 !__! && if not defined XXHSUM_EXE set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
-!__! && set "ABS_PATH=!CD!\test-specimen."
-!__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
-!__! && "!XXHSUM_EXE!"     "test-specimen."                       || goto :ERROR
-!__! && "!XXHSUM_EXE!"     "!ABS_PATH!"                           || goto :ERROR
-!__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\test-specimen." || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H0 "test-specimen." > test.xxh0           || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H1 "test-specimen." > test.xxh1           || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H2 "test-specimen." > test.xxh2           || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H3 "test-specimen." > test.xxh3           || goto :ERROR
-!__! && type *.xxh*                                               || goto :ERROR
-!__! && "!XXHSUM_EXE!" -c test.xxh0 test.xxh1 test.xxh2 test.xxh3 || goto :ERROR
+!__! && "!XXHSUM_EXE!" "NUL" "CON.txt" > test.xxh               || goto :ERROR
+!__! && type test.xxh                                              || goto :ERROR
+!__! && "!XXHSUM_EXE!" -c test.xxh                                || goto :ERROR
 
 echo Status =!_ESC![92m OK !_ESC![0m (%TEST_NAME%) && set /a errorno=0 && goto :END
 

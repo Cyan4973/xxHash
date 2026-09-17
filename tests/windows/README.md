@@ -7,6 +7,7 @@ This directory contains test scripts for Windows.
 Prerequisites
 -------------
 
+- Windows 10, version 1703 or later
 - Visual C++
 - git
 - cmake

@@ -35,11 +35,16 @@ set "__=set /a _E+=1"
 !__! && :
 !__! && copy "!XXHASH_DIR!\LICENSE" "!LONG_PATH!" >nul            || goto :ERROR
 !__! && :
-!__! && : Test xxhsum for !LONG_PATH!\LICENSE
+!__! && : Test xxhsum with relative, absolute, extended and optional UNC paths
 !__! && :
 !__! && set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
+!__! && set "ABS_LONG_PATH=!CD!\!LONG_PATH!\LICENSE"
+!__! && set "EXT_LONG_PATH=\\?\!ABS_LONG_PATH!"
 !__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "!LONG_PATH!\LICENSE"                  || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "!ABS_LONG_PATH!"                      || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "!EXT_LONG_PATH!"                      || goto :ERROR
+!__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\!LONG_PATH!\LICENSE" || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H0 "!LONG_PATH!\LICENSE" > test.xxh0      || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H1 "!LONG_PATH!\LICENSE" > test.xxh1      || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H2 "!LONG_PATH!\LICENSE" > test.xxh2      || goto :ERROR

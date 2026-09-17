@@ -617,6 +617,29 @@ jobs:
       run: |
         C:\install\bin\xxhsum.exe -bi1
 
+    - name: Verify PathCch is loaded dynamically
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsPath = & $vswhere -latest -property installationPath
+        $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -Last
+        $imports = & $dumpbin.FullName /dependents C:\install\bin\xxhsum.exe
+        if ($imports -match "(?i)pathcch\.dll") { throw "xxhsum.exe imports pathcch.dll" }
+
+    - name: Test Windows paths
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $shareName = "xxhash-ci-$PID"
+        $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        New-SmbShare -Name $shareName -Path $env:TMP -FullAccess $account
+        try {
+          $env:XXHASH_TEST_UNC_ROOT = "\\localhost\$shareName"
+          cmd /d /c tests\windows\00-test-all.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+          Remove-SmbShare -Name $shareName -Force
+        }
+
     - name: Test MSVC link-time optimization
       if: ${{ matrix.arch == 'x64' }}
       shell: cmd

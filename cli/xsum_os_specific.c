@@ -186,6 +186,7 @@ static wchar_t* XSUM_widenString(const char* str, int* lenOut)
  * Converts a UTF-16 string to UTF-8. Acts like strdup. The string must be freed afterwards.
  * This version allows keeping the output length.
  */
+#ifndef XSUM_NO_MAIN
 static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
 {
     int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
@@ -200,6 +201,7 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
         return buf;
     }
 }
+#endif
 
 
 

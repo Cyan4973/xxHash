@@ -107,7 +107,8 @@ static void checkResult32(XXH32_hash_t r1, XXH32_hash_t r2, const char* testName
         return;
     }
 
-    XSUM_log("\rError: %s #%zd, line #%zd: Sanity check failed!\n", testName, testNb, lineNb);
+    XSUM_log("\rError: %s #%u, line #%u: Sanity check failed!\n",
+             testName, (unsigned)testNb, (unsigned)lineNb);
     XSUM_log("\rGot 0x%08X, expected 0x%08X.\n", (unsigned)r1, (unsigned)r2);
 
     if(abortByError) {
@@ -124,7 +125,8 @@ static void checkResult64(XXH64_hash_t r1, XXH64_hash_t r2, const char* testName
         return;
     }
 
-    XSUM_log("\rError: %s #%zd, line #%zd: Sanity check failed!\n", testName, testNb, lineNb);
+    XSUM_log("\rError: %s #%u, line #%u: Sanity check failed!\n",
+             testName, (unsigned)testNb, (unsigned)lineNb);
     XSUM_log("\rGot 0x%08X%08XULL, expected 0x%08X%08XULL.\n",
             (unsigned)(r1>>32), (unsigned)r1, (unsigned)(r2>>32), (unsigned)r2);
 
@@ -142,7 +144,8 @@ static void checkResult128(XXH128_hash_t r1, XXH128_hash_t r2, const char* testN
         return;
     }
 
-    XSUM_log("\rError: %s #%zd, line #%zd: Sanity check failed!\n", testName, testNb, lineNb);
+    XSUM_log("\rError: %s #%u, line #%u: Sanity check failed!\n",
+             testName, (unsigned)testNb, (unsigned)lineNb);
     XSUM_log("\rGot { 0x%08X%08XULL, 0x%08X%08XULL }, expected { 0x%08X%08XULL, 0x%08X%08XULL } \n",
             (unsigned)(r1.low64>>32), (unsigned)r1.low64, (unsigned)(r1.high64>>32), (unsigned)r1.high64,
             (unsigned)(r2.low64>>32), (unsigned)r2.low64, (unsigned)(r2.high64>>32), (unsigned)r2.high64 );
@@ -161,7 +164,8 @@ static void checkResultTestDataSample(const XSUM_U8* r1, const XSUM_U8* r2, cons
         return;
     }
 
-    XSUM_log("\rError: %s #%zd, line #%zd: Sanity check failed!\n", testName, testNb, lineNb);
+    XSUM_log("\rError: %s #%u, line #%u: Sanity check failed!\n",
+             testName, (unsigned)testNb, (unsigned)lineNb);
     XSUM_log("\rGot { 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X }, expected { 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X } \n",
             r1[0], r1[1], r1[2], r1[3], r1[4],
             r2[0], r2[1], r2[2], r2[3], r2[4] );
@@ -797,7 +801,7 @@ int main(int argc, const char* argv[])
 
     releaseSanityBuffer(sanityBuffer);
 
-    XSUM_log("\rOK. (passes %zd tests)\n", testCount);
+    XSUM_log("\rOK. (passes %u tests)\n", (unsigned)testCount);
 
     return EXIT_SUCCESS;
 }

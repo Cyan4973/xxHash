@@ -55,7 +55,7 @@ EXT =
 endif
 
 # automatically enable runtime vector dispatch on x86/64 targets
-detect_x86_arch = $(shell $(CC) -dumpmachine | grep -E 'i[3-6]86|x86_64')
+detect_x86_arch = $(shell $(CC) $(CFLAGS) -dumpmachine | grep -E 'i[3-6]86|x86_64')
 ifneq ($(strip $(call detect_x86_arch)),)
     #note: can be overridden at compile time, by setting DISPATCH=0
     DISPATCH ?= 1

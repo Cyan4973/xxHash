@@ -26,9 +26,9 @@
 HEADER_DIRS = ./ ../../ allcodecs/
 CPPFLAGS += $(addprefix -I ,$(HEADER_DIRS))
 CFLAGS   += -Wall -Wextra -Wconversion \
-            -std=c11
+            -std=c11 $(MOREFLAGS)
 CXXFLAGS += -Wall -Wextra -Wconversion \
-            -std=c++11
+            -std=c++11 $(MOREFLAGS)
 LDFLAGS  += -pthread
 TESTHASHES = 3200000
 

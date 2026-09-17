@@ -687,7 +687,7 @@ static size_t search_collisions(
     int const hwidth = hashfnTable[hashID].bits;
     if (totalH == 0) totalH = select_nbh(hwidth);
     if (bflog == 0) bflog = highestBitSet(totalH) + 1;   /* auto-size filter */
-    uint64_t const bfsize = (1ULL << bflog);
+    assert(!filter || (0 <= bflog && bflog < 64));
 
 
     /* ===  filter hashes (optional)  === */
@@ -696,6 +696,7 @@ static size_t search_collisions(
     uint64_t maxNbH = totalH;
 
     if (filter) {
+        uint64_t const bfsize = 1ULL << bflog;
         time_t const filterTBegin = time(NULL);
         DISPLAY(" Creating filter (%i GB) \n", (int)(bfsize >> 30));
         bf = create_Filter(bflog);

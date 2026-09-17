@@ -192,7 +192,7 @@ jobs:
     - name: test-all
       if: always()
       run: |
-        make clean test-all
+        make clean test-all MOREFLAGS="-Wconversion -Werror"
 
     - name: test-alias
       run: |
@@ -237,7 +237,6 @@ jobs:
     - name: tests/bench
       run: |
         make -C tests/bench
-        make -C tests/bench clean main.o CC=gcc MOREFLAGS="-Wconversion -Werror"
 
 
   ubuntu-wasm:

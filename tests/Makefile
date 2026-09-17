@@ -24,7 +24,7 @@
 # ################################################################
 
 MAKEFLAGS += --no-print-directory
-CFLAGS += -Wall -Wextra -Wundef -g
+CFLAGS += -Wall -Wextra -Wundef -g $(MOREFLAGS)
 
 CP = cp
 NM = nm

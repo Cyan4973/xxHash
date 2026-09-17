@@ -48,7 +48,7 @@ static void bench_oneHash_largeInput(Bench_Entry hashDesc, int minlog, int maxlo
         double const nbhps = bench_hash(hashDesc.hash, BMK_throughput,
                                         inputSize, BMK_fixedSize,
                                         BENCH_LARGE_TOTAL_MS, BENCH_LARGE_ITER_MS);
-        printf(",%6.0f", nbhps * inputSize / MB_UNIT); fflush(NULL);
+        printf(",%6.0f", nbhps * (double)inputSize / MB_UNIT); fflush(NULL);
     }
     printf("\n");
 }

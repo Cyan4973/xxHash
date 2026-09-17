@@ -4749,30 +4749,55 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
 }
 
 /*
- * DISCLAIMER: There are known *seed-dependent* multicollisions here due to
- * multiplication by zero, affecting hashes of lengths 17 to 240.
+ * DISCLAIMER: the mid-size code path built on XXH3_mix16B() (lengths 17 to 240)
+ * has known collision weaknesses. XXH3 is a non-cryptographic hash: collision
+ * resistance is not one of its guarantees, and the seed (or custom secret) only
+ * makes intentional collisions *harder*, it is not a security boundary.
+ * These weaknesses are nonetheless documented here, so that users relying on a
+ * seed for a low per-pair collision probability know what to expect.
  *
- * However, they are very unlikely.
+ * 1) XXH3_mul128_fold64() does not separate complemented multiplicands.
+ *    Modulo 2^128, and with s = a + b + 1 :
+ *        (~a) * (~b) == a*b + s - (s + 1) * 2^64
+ *    so the low half of the product gains `s` while the high half loses `s`.
+ *    Since carry chains are short, both halves happen to flip the same bits
+ *    fairly often, leaving their xor (the "fold") unchanged with probability
+ *    ~2^-27, instead of the ideal 2^-64. Complementing a single multiplicand
+ *    behaves the same way.
  *
- * Keep this in mind when using the unseeded XXH3_64bits() variant: As with all
- * unseeded non-cryptographic hashes, it does not attempt to defend itself
- * against specially crafted inputs, only random inputs.
+ *    Consequence for XXH3_64bits(): for any length in [32, 240], two messages
+ *    differing only by the complement of their first 8 (or first 16) bytes
+ *    collide with probability ~2^-27 over a uniformly random, hidden seed or
+ *    secret. This is 2^37 times the ideal rate, although still a poor
+ *    collision engine in absolute terms (~1 in 100 millions prepared pairs).
  *
- * Compared to classic UMAC where a 1 in 2^31 chance of 4 consecutive bytes
- * cancelling out the secret is taken an arbitrary number of times (addressed
- * in XXH3_accumulate_512), this collision is very unlikely with random inputs
- * and/or proper seeding:
+ *    Consequence for XXH128(): XXH128_mix32B() mixes each 16-byte chunk a
+ *    second time as a raw 64-bit sum, which normally breaks the pattern above.
+ *    But that sum is *also* invariant under complementation when
+ *    w0 + w1 == 2^64 - 1, and under that additional constraint both output
+ *    halves collide simultaneously, again with probability ~2^-27.
+ *    So the 128-bit variant is _not_ immune, contrarily to what was previously
+ *    believed, and its effective margin here (2^-27 vs. an ideal 2^-128) is
+ *    even thinner than the 64-bit one.
  *
- * This only has a 1 in 2^63 chance of 8 consecutive bytes cancelling out, in a
- * function that is only called up to 16 times per hash with up to 240 bytes of
- * input.
+ *    Detailed analysis and measurements in
+ *    https://github.com/Cyan4973/xxHash/issues/1127 .
  *
- * This is not too bad for a non-cryptographic hash function, especially with
- * only 64 bit outputs.
+ * 2) *seed-dependent* multicollisions, due to multiplication by zero: when one
+ *    of the two multiplicands below is zero, the whole 16-byte chunk stops
+ *    contributing to the hash, so all chunks sharing this property collide.
+ *    For random inputs, this is a 1 in 2^63 chance of 8 consecutive bytes
+ *    cancelling out, in a function invoked at most 16 times per hash, hence
+ *    essentially unreachable by accident. But it is trivially reachable by an
+ *    attacker who knows the secret (i.e. the unseeded variants). For
+ *    comparison, classic UMAC takes a 1 in 2^31 chance of 4 consecutive bytes
+ *    cancelling out the secret an arbitrary number of times (addressed for
+ *    long inputs in XXH3_accumulate_512).
  *
- * The 128-bit variant (which trades some speed for strength) is NOT affected
- * by this, although it is always a good idea to use a proper seed if you care
- * about strength.
+ * None of the above can be fixed without changing XXH3_mix16B(), which would
+ * change every hash value in the [17, 240] range, and XXH3 output values are
+ * now frozen. Therefore, if adversarial collision resistance matters for your
+ * use case, use a cryptographic hash or a MAC instead.
  */
 XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                                      const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
@@ -6868,8 +6893,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (XXH_NOESCAPE const XXH3_state_t*
  * XXH3's 128-bit variant has better mixing and strength than the 64-bit variant,
  * even without counting the significantly larger output size.
  *
- * For example, extra steps are taken to avoid the seed-dependent collisions
- * in 17-240 byte inputs (See XXH3_mix16B and XXH128_mix32B).
+ * For example, extra steps are taken to mitigate the seed-dependent collisions
+ * in 17-240 byte inputs (See XXH3_mix16B and XXH128_mix32B). Note that these
+ * steps only mitigate, they do not eliminate the issue: see the DISCLAIMER
+ * above XXH3_mix16B() for the cases that get through.
  *
  * This strength naturally comes at the cost of some speed, especially on short
  * lengths. Note that longer hashes are about as fast as the 64-bit version

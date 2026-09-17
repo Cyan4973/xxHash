@@ -253,18 +253,24 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
  *
  * Note: The \\?\ prefix (prefix with question) designates a file-system-only path.
  * Unlike the \\.\ prefix (prefix with dot), it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).
+ * Explicit \\.\ device paths are therefore left unchanged.
  */
 static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
 {
     wchar_t* const wide_path = XSUM_widenString(path, NULL);  /* path in wchar_t */
     size_t const path_len = strlen(path);
     int const starts_with_extended_prefix = path_len >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\';
+    int const starts_with_device_prefix = path_len >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '.' && path[3] == '\\';
+    int const starts_with_drive = path_len >= 2
+        && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z'))
+        && path[1] == ':';
+    int const starts_with_dos_absolute = starts_with_drive && path_len >= 3
+        && (path[2] == '\\' || path[2] == '/');
 
     if (wide_path == NULL) return NULL;
 
-    /* If path starts with "\\?\" */
-    if(starts_with_extended_prefix) {
-        /* just return wchar_t version of it. */
+    /* Extended-length and device paths already have explicit semantics. */
+    if(starts_with_extended_prefix || starts_with_device_prefix) {
         return wide_path;
     } else {
         XSUM_PathCch const* const pathcch = XSUM_getPathCch();
@@ -278,9 +284,6 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
         wchar_t* const exl_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
         if(exl_path != NULL && pathcch->module != NULL) {
             int const starts_with_unc_absolute = path_len >= 2 && path[0] == '\\' && path[1] == '\\';
-            int const starts_with_dos_absolute = path_len >= 3
-                && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z'))
-                && path[1] == ':' && (path[2] == '\\' || path[2] == '/');
 
             /* If path starts with "\\" or "[A-Za-z]:\" */
             if(starts_with_unc_absolute || starts_with_dos_absolute) {
@@ -289,6 +292,19 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
                     if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
                         result = exl_path;
                     }
+                }
+            } else if(starts_with_drive) {
+                /* Resolve drive-relative paths using that drive's current directory. */
+                wchar_t* const abs_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+                if(abs_path != NULL) {
+                    DWORD const n = GetFullPathNameW(wide_path, (DWORD)size_in_wchars, abs_path, NULL);
+                    if(n != 0 && n < size_in_wchars && pathcch->canonicalize != NULL) {
+                        HRESULT const hr = pathcch->canonicalize(exl_path, size_in_wchars, abs_path, path_flags);
+                        if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
+                            result = exl_path;
+                        }
+                    }
+                    free(abs_path);
                 }
             } else {
                 /* path is relative path */

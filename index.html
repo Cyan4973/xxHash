@@ -78,6 +78,11 @@ nav.links a:hover { color: var(--text); text-decoration: none; }
 .hero h1 { font-size: clamp(2.2rem, 5vw, 3rem); font-weight: 700; }
 .hero p.sub { font-size: 1.3rem; margin: .5rem 0 0; }
 .hero p.tag { font-size: 1.05rem; color: var(--muted); max-width: 62ch; margin: .75rem 0 2rem; }
+/* "non-cryptographic" links to the definition. Darker than the sentence around
+   it and dotted-underlined, so it reads as a term being defined rather than as
+   one more thing to click -- it should be noticed without asking to be. */
+.hero p.tag a { color: var(--text); text-decoration: underline dotted; text-underline-offset: 3px; }
+.hero p.tag a:hover { color: var(--accent); text-decoration: underline; }
 .cta { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
 .btn {
   display: inline-block; padding: .65rem 1.25rem; border-radius: 8px;
@@ -248,8 +253,8 @@ footer li { margin-bottom: .35rem; }
   <h1>xxHash</h1>
   <p class="sub">Hashing faster than RAM speed</p>
   <p class="tag">
-    A non-cryptographic hash algorithm, proposed in four flavors: XXH32, XXH64,
-    XXH3_64bits and XXH3_128bits.
+    A <a href="https://en.wikipedia.org/wiki/Non-cryptographic_hash_function">non-cryptographic</a>
+    hash algorithm, proposed in four flavors: XXH32, XXH64, XXH3_64bits and XXH3_128bits.
   </p>
   <div class="cta">
     <a class="btn btn-primary" href="https://github.com/Cyan4973/xxHash#readme">Get started</a>

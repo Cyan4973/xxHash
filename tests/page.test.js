@@ -20,6 +20,16 @@ module.exports = async function () {
   t.is("subtitle", d.querySelector(".hero .sub").textContent.trim(), "Hashing faster than RAM speed");
   t.is("no stats bar", q(".stats"), 0);
   t.is("star button", q("a.star-btn"), 1);
+  // People do reach for XXH3 where they need a cryptographic hash. The word is
+  // in the subtitle either way; the link is what makes it read as a warning.
+  {
+    const a = d.querySelector(".hero .tag a");
+    t.is("'non-cryptographic' is a link", a && a.textContent.trim(), "non-cryptographic");
+    t.is("pointing at the definition", a && a.getAttribute("href"),
+      "https://en.wikipedia.org/wiki/Non-cryptographic_hash_function");
+    t.ok("underlined, not colour alone",
+      /underline/.test(w.getComputedStyle(a).textDecoration || w.getComputedStyle(a).textDecorationLine));
+  }
 
   t.section("content carried over from index.html");
   t.is("variant rows", q("#variants tbody tr"), 4);

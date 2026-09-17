@@ -139,14 +139,15 @@ $(eval $(call c_program,xxhsum_inlinedXXH,$(CLI_OBJS)))
 # =================================================
 # library
 
+LIBXXHASH_OBJS := xxhash.o $(if $(filter 1,$(LIBXXH_DISPATCH)),xxh_x86dispatch.o)
+
 libxxhash.a:
-$(eval $(call static_library,libxxhash.a,xxhash.o))
+$(eval $(call static_library,libxxhash.a,$(LIBXXHASH_OBJS)))
 
 $(LIBXXH): LDFLAGS += $(SONAME_FLAGS)
 ifeq (,$(filter Windows%,$(OS)))
 $(LIBXXH): CFLAGS += -fPIC
 endif
-LIBXXHASH_OBJS := xxhash.o $(if $(filter 1,$(LIBXXH_DISPATCH)),xxh_x86dispatch.o)
 $(eval $(call c_dynamic_library,$(LIBXXH),$(LIBXXHASH_OBJS)))
 
 libxxhash.$(SHARED_EXT_MAJOR): $(LIBXXH)

@@ -688,7 +688,7 @@ jobs:
         shell: msys2 {0}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: msys2/setup-msys2@7efe20baefed56359985e327d329042cde2434ff # v2
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           msystem: MSYS
           install: mingw-w64-i686-make ${{ matrix.toolchain }}

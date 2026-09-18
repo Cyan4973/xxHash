@@ -31,7 +31,6 @@ set "__=set /a _E+=1"
 !__! && set "PATH_COMPONENT="
 !__! && for /L %%I in (1,1,10) do set "PATH_COMPONENT=!PATH_COMPONENT!0123456789"
 !__! && set "LONG_PATH=!PATH_COMPONENT!\!PATH_COMPONENT!\!PATH_COMPONENT!"
-!__! && rmdir /S /Q "!LONG_PATH!" 2>nul
 !__! && mkdir "!LONG_PATH!"                                       || goto :ERROR
 !__! && mkdir "!LONG_PATH!\child"                                 || goto :ERROR
 !__! && :

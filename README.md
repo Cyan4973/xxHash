@@ -1,97 +1,180 @@
-
 xxHash - Extremely fast hash algorithm
 ======================================
 
-xxHash is an Extremely fast Hash algorithm, processing at RAM speed limits.
-Code is highly portable, and produces hashes identical across all platforms (little / big endian).
-The library includes the following algorithms :
-- XXH32 : generates 32-bit hashes, using 32-bit arithmetic
-- XXH64 : generates 64-bit hashes, using 64-bit arithmetic
-- XXH3 (since `v0.8.0`): generates 64 or 128-bit hashes, using vectorized arithmetic.
-  The 128-bit variant is called XXH128.
+[Website](https://xxhash.com/) · [API documentation](xxhash.h) · [`xxhsum` manual](cli/xxhsum.1.md) · [Format specification](doc/xxhash_spec.md)
 
-All variants successfully complete the [SMHasher](https://code.google.com/p/smhasher/wiki/SMHasher) test suite
-which evaluates the quality of hash functions (collision, dispersion and randomness).
-Additional tests, which evaluate more thoroughly speed and collision properties of 64-bit hashes, [are also provided](https://github.com/Cyan4973/xxHash/tree/dev/tests).
+xxHash is an extremely fast non-cryptographic hash algorithm, working at RAM
+speed limits. It is highly portable and produces identical hashes on all
+platforms, including little- and big-endian systems. Once finalized, algorithm
+outputs remain stable across xxHash releases.
 
-|Branch      |Status   |
-|------------|---------|
-|release     | [![Build Status](https://github.com/Cyan4973/xxHash/actions/workflows/ci.yml/badge.svg?branch=release)](https://github.com/Cyan4973/xxHash/actions?query=branch%3Arelease+) |
-|dev         | [![Build Status](https://github.com/Cyan4973/xxHash/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Cyan4973/xxHash/actions?query=branch%3Adev+) |
+The library includes the following algorithms:
 
+- XXH32 generates 32-bit hashes, using 32-bit arithmetic.
+- XXH64 generates 64-bit hashes, using 64-bit arithmetic.
+- XXH3, available since v0.8.0, generates 64-bit or 128-bit hashes using
+  vectorized arithmetic. The 128-bit variant is called XXH128.
+
+For new applications, `XXH3_64bits()` is the recommended default. Use
+`XXH3_128bits()` when a 128-bit hash is required.
 
 Benchmarks
--------------------------
+----------
 
-The benchmarked reference system uses an Intel i7-9700K cpu, and runs Ubuntu x64 20.04.
-The [open source benchmark program] is compiled with `clang` v10.0 using `-O3` flag.
+The benchmarked reference system uses an Intel i7-9700K CPU running Ubuntu
+x64 20.04. The [open source benchmark program] is compiled with Clang v10.0
+using `-O3`.
 
-| Hash Name     | Width | Bandwidth (GB/s) | Small Data Velocity | Quality | Comment |
-| ---------     | ----- | ---------------- | ----- | --- | --- |
-| __XXH3__ (SSE2) |  64 | 31.5 GB/s        | 133.1 | 10
-| __XXH128__ (SSE2) | 128 | 29.6 GB/s      | 118.1 | 10
-| _RAM sequential read_ | N/A | 28.0 GB/s  |   N/A | N/A | _for reference_
-| City64        |    64 | 22.0 GB/s        |  76.6 | 10
-| T1ha2         |    64 | 22.0 GB/s        |  99.0 |  9 | Slightly worse [collisions]
-| City128       |   128 | 21.7 GB/s        |  57.7 | 10
-| __XXH64__     |    64 | 19.4 GB/s        |  71.0 | 10
-| SpookyHash    |    64 | 19.3 GB/s        |  53.2 | 10
-| Mum           |    64 | 18.0 GB/s        |  67.0 |  9 | Slightly worse [collisions]
-| __XXH32__     |    32 |  9.7 GB/s        |  71.9 | 10
-| City32        |    32 |  9.1 GB/s        |  66.0 | 10
-| Murmur3       |    32 |  3.9 GB/s        |  56.1 | 10
-| SipHash       |    64 |  3.0 GB/s        |  43.2 | 10
-| FNV64         |    64 |  1.2 GB/s        |  62.7 |  5 | Poor avalanche properties
-| Blake2        |   256 |  1.1 GB/s        |   5.1 | 10 | Cryptographic
-| SHA1          |   160 |  0.8 GB/s        |   5.6 | 10 | Cryptographic but broken
-| MD5           |   128 |  0.6 GB/s        |   7.8 | 10 | Cryptographic but broken
+| Hash Name | Width | Bandwidth | Small Data Velocity | Comment |
+| --- | ---: | ---: | ---: | --- |
+| **XXH3** (AVX2) | 64 | 59.4 GB/s | 133.1 | |
+| **XXH128** (AVX2) | 128 | 57.9 GB/s | 118.1 | |
+| **XXH3** (SSE2) | 64 | 31.5 GB/s | 133.1 | |
+| **XXH128** (SSE2) | 128 | 29.6 GB/s | 118.1 | |
+| *memcpy*, from RAM | N/A | 28.0 GB/s | N/A | *for reference* |
+| City64 | 64 | 22.0 GB/s | 76.6 | |
+| T1ha2 | 64 | 22.0 GB/s | 99.0 | Slightly worse [collisions] |
+| City128 | 128 | 21.7 GB/s | 57.7 | |
+| **XXH64** | 64 | 19.4 GB/s | 71.0 | |
+| SpookyHash | 64 | 19.3 GB/s | 53.2 | |
+| Mum | 64 | 18.0 GB/s | 67.0 | Slightly worse [collisions] |
+| **XXH32** | 32 | 9.7 GB/s | 71.9 | |
+| City32 | 32 | 9.1 GB/s | 66.0 | |
+| Murmur3 | 32 | 3.9 GB/s | 56.1 | |
+| SipHash | 64 | 3.0 GB/s | 43.2 | |
+| FNV64 | 64 | 1.2 GB/s | 62.7 | Poor avalanche properties |
+| Blake2 | 256 | 1.1 GB/s | 5.1 | Cryptographic |
+| SHA1 | 160 | 0.8 GB/s | 5.6 | Cryptographic but broken |
+| MD5 | 128 | 0.6 GB/s | 7.8 | Cryptographic but broken |
 
-[open source benchmark program]: https://github.com/Cyan4973/xxHash/tree/release/tests/bench
+[open source benchmark program]: tests/bench
 [collisions]: https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison#collision-study
 
-note 1: Small data velocity is a _rough_ evaluation of algorithm's efficiency on small data. For more detailed analysis, please refer to next paragraph.
+For current measurements on additional platforms, see the
+[benchmarks on xxhash.com](https://xxhash.com/#benchmarks).
 
-note 2: some algorithms feature _faster than RAM_ speed. In which case, they can only reach their full speed potential when input is already in CPU cache (L3 or better). Otherwise, they max out on RAM speed limit.
+Note 1: Small data velocity is a _rough_ evaluation of an algorithm's
+efficiency on small data. For more detailed analysis, see the next section.
+
+Note 2: Some algorithms feature _faster than RAM_ speed. They can only reach
+their full speed potential when input is already in CPU cache (L3 or better).
+Otherwise, they are limited by RAM speed.
 
 ### Small data
 
 Performance on large data is only one part of the picture.
 Hashing is also very useful in constructions like hash tables and bloom filters.
-In these use cases, it's frequent to hash a lot of small data (starting at a few bytes).
-Algorithm's performance can be very different for such scenarios, since parts of the algorithm,
-such as initialization or finalization, become fixed cost.
-The impact of branch mis-prediction also becomes much more present.
+In these use cases, it is common to hash many small inputs, sometimes only a
+few bytes long. An algorithm's performance can be very different in such
+scenarios, since initialization and finalization become fixed costs. Branch
+misprediction also has a much greater impact.
 
 XXH3 has been designed for excellent performance on both long and small inputs,
 which can be observed in the following graph:
 
 ![XXH3, latency, random size](https://user-images.githubusercontent.com/750081/61976089-aedeab00-af9f-11e9-9239-e5375d6c080f.png)
 
-For a more detailed analysis, please visit the wiki :
-https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-
+For a more detailed analysis, see the
+[performance comparison on the wiki](https://github.com/Cyan4973/xxHash/wiki/Performance-comparison#benchmarks-concentrating-on-small-data-).
+
+**xxHash is not a cryptographic hash function.** Do not use it for signatures,
+password storage, or any other purpose that requires resistance to attacks.
+
+|Branch      |Status   |
+|------------|---------|
+|release     | [![Build Status](https://github.com/Cyan4973/xxHash/actions/workflows/ci.yml/badge.svg?branch=release)](https://github.com/Cyan4973/xxHash/actions?query=branch%3Arelease+) |
+|dev         | [![Build Status](https://github.com/Cyan4973/xxHash/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Cyan4973/xxHash/actions?query=branch%3Adev+) |
+
+Getting started
+---------------
+
+The default `make` target builds both the library and the `xxhsum` command line
+utility:
+
+```sh
+make
+./xxhsum -H3 README.md
+```
+
+The library can then be linked as `libxxhash`, or compiled directly from
+`xxhash.c`. For a header-only integration, define `XXH_INLINE_ALL` before
+including `xxhash.h`:
+
+```c
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+```
+
+For CMake integration, see the [CMake guide](build/cmake/README.md). The
+[`xxhsum` manual](cli/xxhsum.1.md) documents checksum generation, verification,
+benchmarking and advanced command line options.
+
+### Example
+
+The simplest API hashes a contiguous block of memory in a single call:
+
+```c
+#include <stddef.h>
+#include "xxhash.h"
+
+XXH64_hash_t hash_buffer(const void* buffer, size_t size)
+{
+    return XXH3_64bits(buffer, size);
+}
+```
+
+The API also supports incremental hashing of streams of unknown size. Complete
+single-shot and streaming examples are provided in the documented
+[API header](xxhash.h).
 
 Quality
 -------------------------
 
 Speed is not the only property that matters.
-Produced hash values must respect excellent dispersion and randomness properties,
-so that any sub-section of it can be used to maximally spread out a table or index,
-as well as reduce the amount of collisions to the minimal theoretical level, following the [birthday paradox].
+For non-adversarial inputs, xxHash aims to produce a uniform distribution so
+that any subset of the output bits can spread entries evenly in a table or
+index. Like any fixed-width hash, it is still subject to collisions and the
+[birthday paradox].
 
-`xxHash` has been tested with Austin Appleby's excellent SMHasher test suite,
-and passes all tests, ensuring reasonable quality levels.
-It also passes extended tests from [newer forks of SMHasher], featuring additional scenarios and conditions.
+All variants successfully complete Austin Appleby's
+[SMHasher](https://www.google.com/search?q=SMHasher) test suite, providing a
+baseline measure of statistical quality.
+Additional tests that evaluate speed and collision properties more thoroughly
+are [also provided](tests).
 
-Finally, xxHash provides its own [massive collision tester](https://github.com/Cyan4973/xxHash/tree/dev/tests/collisions),
+Finally, xxHash provides its own [massive collision tester](tests/collisions),
 able to generate and compare billions of hashes to test the limits of 64-bit hash algorithms.
 On this front too, xxHash features good results, in line with the [birthday paradox].
 A more detailed analysis is documented [in the wiki](https://github.com/Cyan4973/xxHash/wiki/Collision-ratio-comparison).
 
 [birthday paradox]: https://en.wikipedia.org/wiki/Birthday_problem
-[newer forks of SMHasher]: https://github.com/rurban/smhasher
+
+Packages
+--------
+
+xxHash is available from many package managers. With
+[vcpkg](https://github.com/microsoft/vcpkg), install the library with:
+
+```sh
+vcpkg install xxhash
+```
+
+Add the `xxhsum` feature to install the command line utility as well:
+
+```sh
+vcpkg install "xxhash[xxhsum]"
+```
+
+The current package versions available across distributions are tracked by
+[Repology](https://repology.org/project/xxhash/versions).
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/xxhash.svg)](https://repology.org/project/xxhash/versions)
 
 
-### Build modifiers
+Advanced build options
+----------------------
+
+### Library macros
 
 The following macros can be set at compilation time to modify `libxxhash`'s behavior. They are generally disabled by default.
 
@@ -128,7 +211,7 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
                               For XXH32, SSE4.1 or equivalent (NEON) is enough, while XXH64 requires AVX512.
                               Unfortunately, auto-vectorization is generally detrimental to XXH performance.
                               For this reason, the xxhash source code tries to prevent auto-vectorization by default.
-                              That being said, systems evolve, and this conclusion is not forthcoming.
+                              That being said, systems evolve, and this conclusion may change.
                               For example, it has been reported that recent Zen4 cpus are more likely to improve performance with vectorization.
                               Therefore, should you prefer or want to test vectorized code, you can enable this flag:
                               it will remove the no-vectorization protection code, thus making it more likely for XXH32 and XXH64 to be auto-vectorized.
@@ -147,7 +230,7 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
 - `XXH_DEBUGLEVEL` : When set to any value >= 1, enables `assert()` statements.
                      This (slightly) slows down execution, but may help finding bugs during debugging sessions.
 
-#### Binary size control
+### Binary size control
 - `XXH_NO_XXH3` : removes symbols related to `XXH3` (both 64 & 128 bits) from generated binary.
                   `XXH3` is by far the largest contributor to `libxxhash` size,
                   so it's useful to reduce binary size for applications which do not employ `XXH3`.
@@ -165,111 +248,40 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
                   `1`: default for `-Os` and `-Oz`: disables some speed hacks for size optimization
                   `2`: makes code as small as possible, performance may cry
 
-#### Build modifiers specific for XXH3
+### Build modifiers specific to XXH3
 - `XXH_VECTOR` : manually select a vector instruction set (default: auto-selected at compilation time). Available instruction sets are `XXH_SCALAR`, `XXH_SSE2`, `XXH_AVX2`, `XXH_AVX512`, `XXH_NEON` and `XXH_VSX`. Compiler may require additional flags to ensure proper support (for example, `gcc` on x86_64 requires `-mavx2` for `AVX2`, or `-mavx512f` for `AVX512`).
 - `XXH_PREFETCH_DIST` : select prefetching distance. For close-to-metal adaptation to specific hardware platforms. XXH3 only.
 - `XXH_NO_PREFETCH` : disable prefetching. Some platforms or situations may perform better without prefetching. XXH3 only.
 
-#### Build modifiers for `xxhsum` CLI
+### Build modifiers for the `xxhsum` CLI
 - `XXH_1ST_SPEED_TARGET` : select an initial speed target, expressed in MiB/s, for the first speed test in benchmark mode. Benchmark will adjust the target at subsequent iterations, but the first test is made "blindly" by targeting this speed. Currently conservatively set to 10 MiB/s, to support very slow (emulated) platforms.
 
-#### Makefile variables
+### Makefile variables
 The following variables control runtime dispatch when building with `make`:
 - `DISPATCH=1` : use `xxh_x86dispatch.c` in the Command Line Interface `xxhsum`, selecting at runtime between `scalar`, `sse2`, `avx2` or `avx512` instruction sets. This option is only valid for `x86`/`x64` systems. It is enabled by default when an `x86`/`x64` target is detected. It can be forcefully turned off using `DISPATCH=0`.
 - `LIBXXH_DISPATCH=1` : enable the same runtime dispatch in both the static and dynamic `libxxhash` libraries. This option is only valid for `x86`/`x64` systems and is disabled by default. It is generally expected that library users will frequently hash short inputs, for which inlining is important and runtime dispatch may be detrimental, so this variable is disabled by default. It can nonetheless be explicitly selected. When enabled, the symbols declared in `xxh_x86dispatch.h` are included in the libraries and the header is installed. Applications must include this header to redirect the XXH3 entry points to their dispatched variants.
 - `NODE_JS=1` : When compiling `xxhsum` for Node.js with Emscripten, this links the `NODERAWFS` library for unrestricted filesystem access and patches `isatty` to make the command line utility correctly detect the terminal. This does make the binary specific to Node.js.
 
-### Building xxHash - Using vcpkg
 
-You can download and install xxHash using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+License
+-------
 
-    git clone https://github.com/Microsoft/vcpkg.git
-    cd vcpkg
-    ./bootstrap-vcpkg.sh
-    ./vcpkg integrate install
-    ./vcpkg install xxhash
-
-The xxHash port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
-
-### Example
-
-The simplest example calls xxhash 64-bit variant as a one-shot function
-generating a hash value from a single buffer, and invoked from a C/C++ program:
-
-```C
-#include "xxhash.h"
-
-    (...)
-    XXH64_hash_t hash = XXH64(buffer, size, seed);
-}
-```
-
-Streaming variant is more involved, but makes it possible to provide data incrementally:
-
-```C
-#include "stdlib.h"   /* abort() */
-#include "xxhash.h"
+The library files `xxhash.c` and `xxhash.h` are licensed under the
+[BSD 2-Clause License](LICENSE). The `xxhsum` command line utility is licensed
+under [GPLv2](cli/COPYING).
 
 
-XXH64_hash_t calcul_hash_streaming(FileHandler fh)
-{
-    /* create a hash state */
-    XXH64_state_t* const state = XXH64_createState();
-    if (state==NULL) abort();
-
-    size_t const bufferSize = SOME_SIZE;
-    void* const buffer = malloc(bufferSize);
-    if (buffer==NULL) abort();
-
-    /* Initialize state with selected seed */
-    XXH64_hash_t const seed = 0;   /* or any other value */
-    if (XXH64_reset(state, seed) == XXH_ERROR) abort();
-
-    /* Feed the state with input data, any size, any number of times */
-    (...)
-    while ( /* some data left */ ) {
-        size_t const length = get_more_data(buffer, bufferSize, fh);
-        if (XXH64_update(state, buffer, length) == XXH_ERROR) abort();
-        (...)
-    }
-    (...)
-
-    /* Produce the final hash value */
-    XXH64_hash_t const hash = XXH64_digest(state);
-
-    /* State could be re-used; but in this example, it is simply freed  */
-    free(buffer);
-    XXH64_freeState(state);
-
-    return hash;
-}
-```
-
-
-### License
-
-The library files `xxhash.c` and `xxhash.h` are BSD licensed.
-The utility `xxhsum` is GPL licensed.
-
-
-### Other programming languages
+Other programming languages
+---------------------------
 
 Beyond the C reference version,
 xxHash is also available from many different programming languages,
 thanks to great contributors.
-They are [listed here](http://www.xxhash.com/#other-languages).
+They are [listed on the xxHash website](https://xxhash.com/#other-languages).
 
 
-### Packaging status
-
-Many distributions bundle a package manager
-which allows easy xxhash installation as both a `libxxhash` library
-and `xxhsum` command line interface.
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/xxhash.svg)](https://repology.org/project/xxhash/versions)
-
-
-### Special Thanks
+Special thanks
+--------------
 
 - Takayuki Matsuoka, aka @t-mat, for creating `xxhsum -c` and great support during early xxh releases
 - Mathias Westerdahl, aka @JCash, for introducing the first version of `XXH64`

@@ -36,6 +36,7 @@ fuzzer
 # build artifacts
 cachedObjs/
 cmakebuild/
+my_build/
 
 
 # project managers artifacts

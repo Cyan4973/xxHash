@@ -616,6 +616,50 @@ jobs:
       run: |
         C:\install\bin\xxhsum.exe -bi1
 
+    - name: Verify PathCch is loaded dynamically
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsPath = & $vswhere -latest -property installationPath
+        $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -Last 1
+        $imports = & $dumpbin.FullName /imports C:\install\bin\xxhsum.exe
+        if ($imports -match "PathCch(Canonicalize|Combine)Ex") { throw "xxhsum.exe imports PathCch statically" }
+
+    - name: Test Windows paths
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $shareName = "xxhash-ci-$PID"
+        $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        New-SmbShare -Name $shareName -Path $env:TMP -FullAccess $account
+        try {
+          $env:XXHASH_TEST_UNC_ROOT = "\\localhost\$shareName"
+          cmd /d /c tests\windows\00-test-all.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+          Remove-SmbShare -Name $shareName -Force
+        }
+
+    - name: Test long Unicode path
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $component = "long-unicode-path-" + ("x" * 90)
+        $root = Join-Path $env:TMP "xxhash-unicode-$PID"
+        $directory = Join-Path (Join-Path (Join-Path $root $component) $component) $component
+        $file = Join-Path $directory "résumé-日本語.txt"
+        if ($file.Length -le 260) { throw "Unicode test path is not long enough" }
+        try {
+          [System.IO.Directory]::CreateDirectory("\\?\$directory") | Out-Null
+          [System.IO.File]::WriteAllText("\\?\$file", "xxHash")
+          C:\install\bin\xxhsum.exe $file
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          C:\install\bin\xxhsum.exe "\\?\$file"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+          if ([System.IO.Directory]::Exists("\\?\$root")) {
+            [System.IO.Directory]::Delete("\\?\$root", $true)
+          }
+        }
+
     - name: Test MSVC link-time optimization
       if: ${{ matrix.arch == 'x64' }}
       shell: cmd
@@ -708,7 +752,6 @@ jobs:
           # Expected output is "./xxhsum.exe: PE32+ executable (console) x86-64, for MS Windows"
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q 'x86-64' || $(exit 1)
-          ./xxhsum.exe --version
 
       - name: mingw32
         if: ${{ matrix.msystem == 'mingw32' }}
@@ -719,4 +762,9 @@ jobs:
           # Expected output is "./xxhsum.exe: PE32 executable (console) Intel i386, for MS Windows"
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q '386' || $(exit 1)
+
+      - name: Test MinGW binary
+        run: |
           ./xxhsum.exe --version
+          cmd.exe //d //c "xxhsum.exe *.c > nul"
+          cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"

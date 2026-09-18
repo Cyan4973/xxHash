@@ -259,7 +259,6 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
 {
     wchar_t* const wide_path = XSUM_widenString(path, NULL);  /* path in wchar_t */
     wchar_t* separator;
-    size_t path_len;
     int starts_with_extended_prefix;
     int starts_with_device_prefix;
     int starts_with_drive;
@@ -273,14 +272,13 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
         if (*separator == L'/') *separator = L'\\';
     }
 
-    path_len = wcslen(wide_path);
-    starts_with_extended_prefix = path_len >= 4 && wcsncmp(wide_path, L"\\\\?\\", 4) == 0;
-    starts_with_device_prefix = path_len >= 4 && wcsncmp(wide_path, L"\\\\.\\", 4) == 0;
-    starts_with_drive = path_len >= 2
-        && ((wide_path[0] >= L'A' && wide_path[0] <= L'Z') || (wide_path[0] >= L'a' && wide_path[0] <= L'z'))
+    starts_with_extended_prefix = wcsncmp(wide_path, L"\\\\?\\", 4) == 0;
+    starts_with_device_prefix = wcsncmp(wide_path, L"\\\\.\\", 4) == 0;
+    starts_with_drive = ((wide_path[0] >= L'A' && wide_path[0] <= L'Z')
+                      || (wide_path[0] >= L'a' && wide_path[0] <= L'z'))
         && wide_path[1] == L':';
-    starts_with_dos_absolute = starts_with_drive && path_len >= 3 && wide_path[2] == L'\\';
-    starts_with_unc_absolute = path_len >= 2 && wide_path[0] == L'\\' && wide_path[1] == L'\\';
+    starts_with_dos_absolute = starts_with_drive && wide_path[2] == L'\\';
+    starts_with_unc_absolute = wide_path[0] == L'\\' && wide_path[1] == L'\\';
 
     /* Extended-length and device paths already have explicit semantics. */
     if(starts_with_extended_prefix || starts_with_device_prefix) {

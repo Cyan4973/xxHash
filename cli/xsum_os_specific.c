@@ -631,8 +631,8 @@ int main(int ansi_argc, const char* ansi_argv[])
     wchar_t** utf16_envp;         /* Unused but required */
     _startupinfo startinfo = {0}; /* 0 == don't change new mode */
 
-    /* Get wmain's UTF-16 arguments without interpreting '?' in \\?\ paths. */
-    if (__wgetmainargs(&utf16_argc, &utf16_argv, &utf16_envp, 0, &startinfo) < 0)
+    /* Get wmain's UTF-16 arguments. Make sure we expand wildcards. */
+    if (__wgetmainargs(&utf16_argc, &utf16_argv, &utf16_envp, 1, &startinfo) < 0)
         /* In the very unlikely case of an error, use the ANSI arguments. */
         return XSUM_main(ansi_argc, ansi_argv);
 

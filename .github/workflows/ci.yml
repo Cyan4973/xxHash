@@ -653,6 +653,8 @@ jobs:
           [System.IO.File]::WriteAllText("\\?\$file", "xxHash")
           C:\install\bin\xxhsum.exe $file
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          C:\install\bin\xxhsum.exe "\\?\$file"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         } finally {
           if ([System.IO.Directory]::Exists("\\?\$root")) {
             [System.IO.Directory]::Delete("\\?\$root", $true)
@@ -752,6 +754,7 @@ jobs:
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q 'x86-64' || $(exit 1)
           ./xxhsum.exe --version
+          cmd.exe //d //c "xxhsum.exe *.c > nul"
           cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"
 
       - name: mingw32
@@ -764,4 +767,5 @@ jobs:
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q '386' || $(exit 1)
           ./xxhsum.exe --version
+          cmd.exe //d //c "xxhsum.exe *.c > nul"
           cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"

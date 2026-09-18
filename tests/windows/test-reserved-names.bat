@@ -28,16 +28,16 @@ set "__=set /a _E+=1"
 !__! && :
 !__! && : Create files whose names are normally interpreted as DOS devices
 !__! && :
-!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\NUL"             || goto :ERROR
-!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\CON.txt"         || goto :ERROR
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\NUL"              || goto :ERROR
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\CON.txt"          || goto :ERROR
 !__! && :
 !__! && : Test xxhsum for literal reserved names
 !__! && :
 !__! && if not defined XXHSUM_EXE set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
-!__! && "!XXHSUM_EXE!" "NUL" "CON.txt" > test.xxh               || goto :ERROR
-!__! && type test.xxh                                              || goto :ERROR
+!__! && "!XXHSUM_EXE!" "NUL" "CON.txt" > test.xxh                 || goto :ERROR
+!__! && type test.xxh                                             || goto :ERROR
 !__! && "!XXHSUM_EXE!" -c test.xxh                                || goto :ERROR
-!__! && "!XXHSUM_EXE!" "\\.\NUL" > nul                           || goto :ERROR
+!__! && "!XXHSUM_EXE!" "\\.\NUL" > nul                            || goto :ERROR
 
 echo Status =!_ESC![92m OK !_ESC![0m (%TEST_NAME%) && set /a errorno=0 && goto :END
 

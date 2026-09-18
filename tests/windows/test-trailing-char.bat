@@ -30,7 +30,7 @@ set "__=set /a _E+=1"
 !__! && :
 !__! && : Copy the LICENSE file with the requested trailing character
 !__! && :
-!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\!SPECIMEN!"      || goto :ERROR
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\!SPECIMEN!"       || goto :ERROR
 !__! && :
 !__! && : Test xxhsum with the requested trailing character
 !__! && :

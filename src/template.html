@@ -213,6 +213,13 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .grid a:hover { text-decoration: none; border-color: var(--accent); background: var(--accent-bg); }
 .grid img { width: 26px; height: 26px; object-fit: contain; flex: 0 0 auto; }
 
+/* btrfs.png is entirely black on transparency, so it vanishes on the dark page.
+   Inverting an all-black mark gives an all-white one. This logo only: the others
+   have colours of their own. */
+@media (prefers-color-scheme: dark) {
+  img[src$="btrfs.png"] { filter: invert(1); }
+}
+
 /* ------------------------------ footer ------------------------------ */
 footer { border-top: 1px solid var(--border); padding: 3rem 0; color: var(--muted); font-size: .88rem; }
 footer .cols { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }

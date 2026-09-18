@@ -249,7 +249,6 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
 /*
  * Converts a UTF-8 path to absolute extended-length path with "\\?\" prefix in UTF-16.
  * Acts like strdup. The string must be freed afterwards.
- * This version allows keeping the output length.
  *
  * Note: The \\?\ prefix (prefix with question) designates a file-system-only path.
  * Unlike the \\.\ prefix (prefix with dot), it does not provide access to DOS device names (e.g. COM1, NUL, CON, etc).

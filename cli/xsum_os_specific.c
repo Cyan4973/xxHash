@@ -287,8 +287,6 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
         return wide_path;
     } else {
         XSUM_PathCch const* const pathcch = XSUM_getPathCch();
-        wchar_t* result = NULL;
-
         size_t const size_in_wchars  = 32768; /* 32767 wchar_t + NUL */
         ULONG const path_flags = XSUM_PATHCCH_DO_NOT_NORMALIZE_SEGMENTS
                                | XSUM_PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH;
@@ -300,56 +298,42 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
 
         /* exl_path : buffer for extended length path */
         if(exl_path != NULL) {
+            HRESULT hr = E_FAIL;
+
             /* If path starts with "\\" or "[A-Za-z]:\" */
             if(starts_with_unc_absolute || starts_with_dos_absolute) {
                 if(pathcch->canonicalize != NULL) {
-                    HRESULT const hr = pathcch->canonicalize(exl_path, size_in_wchars, wide_path, path_flags);
-                    if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
-                        result = exl_path;
-                    }
+                    hr = pathcch->canonicalize(exl_path, size_in_wchars, wide_path, path_flags);
                 }
-            } else if(starts_with_drive) {
-                wchar_t drive_path[3];
-                wchar_t* const drive_cwd = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
-                drive_path[0] = wide_path[0];
-                drive_path[1] = L':';
-                drive_path[2] = L'\0';
-                if(drive_cwd != NULL) {
-                    DWORD const n = GetFullPathNameW(drive_path, (DWORD)size_in_wchars, drive_cwd, NULL);
-                    if(n != 0 && n < size_in_wchars && pathcch->combine != NULL) {
-                        HRESULT const hr = pathcch->combine(exl_path, size_in_wchars,
-                                                           drive_cwd, wide_path + 2, path_flags);
-                        if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
-                            result = exl_path;
-                        }
+            } else if(pathcch->combine != NULL) {
+                wchar_t* const base_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+                wchar_t const* path_tail = wide_path;
+                DWORD n = 0;
+
+                if(base_path != NULL) {
+                    if(starts_with_drive) {
+                        wchar_t drive_path[3];
+                        drive_path[0] = wide_path[0];
+                        drive_path[1] = L':';
+                        drive_path[2] = L'\0';
+                        n = GetFullPathNameW(drive_path, (DWORD)size_in_wchars, base_path, NULL);
+                        path_tail += 2;
+                    } else {
+                        n = GetCurrentDirectoryW((DWORD)size_in_wchars, base_path);
                     }
-                    free(drive_cwd);
-                }
-            } else {
-                /* path is relative path */
-                wchar_t* const cwd = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
-                if(cwd != NULL) {
-                    DWORD const n = GetCurrentDirectoryW((DWORD) size_in_wchars, cwd);
                     if(n != 0 && n < size_in_wchars) {
-                        if(pathcch->combine != NULL) {
-                            HRESULT const hr = pathcch->combine(exl_path, size_in_wchars, cwd, wide_path, path_flags);
-                            if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
-                                result = exl_path;
-                            }
-                        }
+                        hr = pathcch->combine(exl_path, size_in_wchars,
+                                              base_path, path_tail, path_flags);
                     }
-                    free(cwd);
+                    free(base_path);
                 }
             }
 
-            /* Tricky part: if result doesn't use exl_path, free exl_path */
-            if(result != exl_path) {
-                free(exl_path);
+            if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
+                free(wide_path);
+                return exl_path;
             }
-        }
-        if (result != NULL) {
-            free(wide_path);
-            return result;
+            free(exl_path);
         }
         return wide_path;
     }

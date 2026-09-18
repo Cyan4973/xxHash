@@ -44,7 +44,7 @@
 
 /*!
  * readIntFromChar():
- * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Allows K, KB, KiB, M, MB and MiB as binary suffixes.
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  */
 static int readIntFromChar(const char** stringPtr)

@@ -1493,7 +1493,7 @@ static const char* XSUM_lastNameFromPath(const char* path)
 /*!
  * XSUM_readU32FromCharChecked():
  * @return 0 if success, and store the result in *value.
- * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Allows K, KB, KiB, M, MB and MiB as binary suffixes.
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  * @return 1 if an overflow error occurs
  */
@@ -1526,7 +1526,7 @@ static int XSUM_readU32FromCharChecked(const char** stringPtr, XSUM_U32* value)
 /*!
  * XSUM_readU32FromChar():
  * @return: unsigned integer value read from input in `char` format.
- *  allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ *  Allows K, KB, KiB, M, MB and MiB as binary suffixes.
  *  Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  *  Note: function will exit() program if digit sequence overflows
  */

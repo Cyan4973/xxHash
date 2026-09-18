@@ -23,3 +23,10 @@ git clone https://github.com/Cyan4973/xxHash
 cd xxHash
 .\tests\windows\00-test-all.bat
 ```
+
+
+Failure diagnostics
+-------------------
+
+The test scripts prefix commands with `!__!` to track their source line.
+For example, `Error = 23` means that the command on line 23 failed.

@@ -1,7 +1,11 @@
 // Structure and content of the generated page, plus the two interactive bits
 // that are pure DOM: the platform selector and the implementation filter.
 
-const { render, until, suite } = require("./harness");
+const fs = require("fs");
+const path = require("path");
+const { render, until, suite, ROOT } = require("./harness");
+
+const TEMPLATE = path.join(ROOT, "src", "template.html");
 
 module.exports = async function () {
   const t = suite("page structure");
@@ -48,6 +52,22 @@ module.exports = async function () {
   t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#other-languages .lede").textContent));
   t.ok("used-by count", /^53 projects/.test(d.querySelector("#references .lede").textContent.trim()));
 
+  t.section("the API docs links point at a page that is really there");
+  {
+    const docs = [...d.querySelectorAll('a[href^="doc/"]')].map((a) => a.getAttribute("href"));
+    t.is("three of them", docs.length, 3);
+    t.is("all naming one release", new Set(docs).size, 1);
+    t.ok("no version typed into the template", !/v0\.8\.3/.test(fs.readFileSync(TEMPLATE, "utf8")));
+    t.ok("the file exists", fs.existsSync(path.join(ROOT, docs[0])));
+    // Independent of build.js's own comparison: numeric collation, not a copy
+    // of the loop under test.
+    const newest = fs.readdirSync(path.join(ROOT, "doc"))
+      .filter((n) => /^v\d/.test(n))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .pop();
+    t.is("the newest release under doc/", docs[0], `doc/${newest}/index.html`);
+  }
+
   t.section("anchors the old page published still resolve");
   // README.md links to xxhash.com/#other-languages, and deep links to the other
   // three exist in the wild. Renaming a section must not break them.
@@ -61,7 +81,6 @@ module.exports = async function () {
   t.is("dangling internal links", [...new Set(dangling)].join(",") || 0, 0);
 
   t.section("every referenced image exists");
-  const fs = require("fs"), path = require("path"), { ROOT } = require("./harness");
   const missing = [...d.querySelectorAll("img[src]")]
     .map((i) => i.getAttribute("src"))
     .filter((s) => !fs.existsSync(path.join(ROOT, s)));

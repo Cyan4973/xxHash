@@ -9,7 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const SUITES = ["page", "hashing", "star", "local"];
+const SUITES = ["build", "page", "hashing", "star", "local"];
 
 // A closed jsdom window can still have callbacks queued against its document.
 // Those surface here as unhandled rejections and are teardown noise, not page

@@ -7,11 +7,13 @@ node tests/run.js    # tests whatever index.html currently is
 node tests/run.js star hashing    # only some suites
 ```
 
-The suites render the generated `index.html` in jsdom **with its scripts
-running**, so they exercise the same code a browser does.
+Most suites render the generated `index.html` in jsdom **with its scripts
+running**, so they exercise the same code a browser does. `build` is the
+exception: it calls into `build.js` directly, with no page involved.
 
 | suite | covers |
 | --- | --- |
+| `build` | picking the newest `doc/vX.Y.Z/` the three API-docs links point at |
 | `page` | structure and content, the platform selector, the implementation filter |
 | `hashing` | digests for text and files, both file-reading paths, the size limit |
 | `star` | the GitHub star count and every way it can fail |

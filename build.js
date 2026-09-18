@@ -197,45 +197,83 @@ function renderUsedBy(categories) {
   return { sections, strip, featured: featured.length, total };
 }
 
+/* ------------------------------ documentation ------------------------------ */
+// Doxygen output is published one directory per release, as doc/vX.Y.Z/. The
+// template links to {{doc-version}} instead of naming a release, so dropping in
+// a new doc/ directory and rebuilding is all it takes to move the links.
+
+function latestDocVersion(dir) {
+  const parse = (name) => name.slice(1).split(".").map(Number);
+  const versions = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^v\d+(\.\d+)*$/.test(e.name))
+    .map((e) => e.name)
+    // a directory we cannot land on is not a candidate, however new it looks
+    .filter((name) => fs.existsSync(path.join(dir, name, "index.html")));
+
+  if (!versions.length) throw new Error(`no doc/vX.Y.Z/index.html under ${dir} to link to`);
+
+  // Compare component by component, numerically: v0.8.10 is newer than v0.8.9,
+  // which a plain string sort gets backwards.
+  return versions.sort((a, b) => {
+    const [x, y] = [parse(a), parse(b)];
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+      if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+    }
+    return 0;
+  })[versions.length - 1];
+}
+
 /* ---------------------------------- build ---------------------------------- */
 
-const data = readData(path.join(ROOT, "src", "data.md"));
-const need = (name) => {
-  if (!data[name]) throw new Error(`src/data.md is missing the "## ${name}" block`);
-  return parseTable(data[name]);
-};
+function build() {
+  const data = readData(path.join(ROOT, "src", "data.md"));
+  const need = (name) => {
+    if (!data[name]) throw new Error(`src/data.md is missing the "## ${name}" block`);
+    return parseTable(data[name]);
+  };
 
-const bandwidth = renderBandwidth(need("bandwidth"));
-const comparison = renderComparison(need("comparison"));
-const implMain = need("implementations");
-const implShell = need("shells");
-const usedBy = renderUsedBy(splitCategories(data["used-by"] || []));
+  const bandwidth = renderBandwidth(need("bandwidth"));
+  const comparison = renderComparison(need("comparison"));
+  const implMain = need("implementations");
+  const implShell = need("shells");
+  const usedBy = renderUsedBy(splitCategories(data["used-by"] || []));
+  const docVersion = latestDocVersion(path.join(ROOT, "doc"));
 
-const fields = {
-  variants: renderVariants(need("variants")),
-  "bandwidth-tabs": bandwidth.tabs,
-  "bandwidth-charts": bandwidth.charts,
-  comparison: comparison,
-  implementations: renderImplementations(implMain, implShell),
-  "implementation-count": String(implMain.length + implShell.length),
-  "used-by": usedBy.sections,
-  "trust-strip": usedBy.strip,
-  "used-by-count": String(usedBy.total),
-  "used-by-remainder": String(usedBy.total - usedBy.featured),
-};
+  const fields = {
+    "doc-version": docVersion,
+    variants: renderVariants(need("variants")),
+    "bandwidth-tabs": bandwidth.tabs,
+    "bandwidth-charts": bandwidth.charts,
+    comparison: comparison,
+    implementations: renderImplementations(implMain, implShell),
+    "implementation-count": String(implMain.length + implShell.length),
+    "used-by": usedBy.sections,
+    "trust-strip": usedBy.strip,
+    "used-by-count": String(usedBy.total),
+    "used-by-remainder": String(usedBy.total - usedBy.featured),
+  };
 
-let page = fs.readFileSync(path.join(ROOT, "src", "template.html"), "utf8");
-for (const [key, value] of Object.entries(fields)) {
-  const token = `{{${key}}}`;
-  if (!page.includes(token)) throw new Error(`template.html never uses ${token}`);
-  page = page.split(token).join(value);
+  let page = fs.readFileSync(path.join(ROOT, "src", "template.html"), "utf8");
+  for (const [key, value] of Object.entries(fields)) {
+    const token = `{{${key}}}`;
+    if (!page.includes(token)) throw new Error(`template.html never uses ${token}`);
+    page = page.split(token).join(value);
+  }
+  const leftover = page.match(/\{\{[a-z-]+\}\}/g);
+  if (leftover) throw new Error(`template.html has unfilled placeholders: ${leftover.join(", ")}`);
+
+  fs.writeFileSync(OUT, page);
+
+  console.log(`wrote ${path.relative(ROOT, OUT)}  (${(fs.statSync(OUT).size / 1024).toFixed(1)} KB)`);
+  console.log(`  implementations : ${implMain.length} + ${implShell.length} shells`);
+  console.log(`  used by         : ${usedBy.total} projects, ${usedBy.featured} featured in the trust strip`);
+  console.log(`  comparison rows : ${need("comparison").length}`);
+  console.log(`  api docs        : ${docVersion}, the newest under doc/`);
 }
-const leftover = page.match(/\{\{[a-z-]+\}\}/g);
-if (leftover) throw new Error(`template.html has unfilled placeholders: ${leftover.join(", ")}`);
 
-fs.writeFileSync(OUT, page);
 
-console.log(`wrote ${path.relative(ROOT, OUT)}  (${(fs.statSync(OUT).size / 1024).toFixed(1)} KB)`);
-console.log(`  implementations : ${implMain.length} + ${implShell.length} shells`);
-console.log(`  used by         : ${usedBy.total} projects, ${usedBy.featured} featured in the trust strip`);
-console.log(`  comparison rows : ${need("comparison").length}`);
+// Requiring this file (the tests do, for latestDocVersion) must not rebuild.
+if (require.main === module) build();
+
+module.exports = { latestDocVersion };

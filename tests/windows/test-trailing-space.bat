@@ -24,6 +24,7 @@ set "__=set /a _E+=1"
 !__! && set "TMPNAME=xxHash_%TIME::=-%%RANDOM%"
 !__! && mkdir "!TMPNAME!"                                         || goto :ERROR
 !__! && cd    "!TMPNAME!"                                         || goto :ERROR
+!__! && set "TEST_DIR=!CD!"
 !__! && :
 !__! && : Delete test-specimen.
 !__! && :
@@ -53,4 +54,6 @@ echo Status =!_ESC![92m OK !_ESC![0m (%TEST_NAME%) && set /a errorno=0 && goto :
 echo !_ESC![2K Error = !_E! && echo Status =!_ESC![91m NG !_ESC![0m (%TEST_NAME%)
 
 :END
-cd /d "!ORG_DIR!" && exit /B !errorno!
+cd /d "!ORG_DIR!" || set /a errorno=1
+if defined TEST_DIR rmdir /S /Q "\\?\!TEST_DIR!" || set /a errorno=1
+exit /B !errorno!

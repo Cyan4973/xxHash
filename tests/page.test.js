@@ -52,6 +52,14 @@ module.exports = async function () {
   t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#other-languages .lede").textContent));
   t.ok("used-by count", /^53 projects/.test(d.querySelector("#references .lede").textContent.trim()));
 
+  t.section("the footer carries every document we publish");
+  {
+    const docs = [...d.querySelectorAll("footer a")].map((a) => a.textContent.trim());
+    for (const name of ["API reference", "xxhsum manual", "Format specification", "Wiki"]) {
+      t.ok(name, docs.includes(name));
+    }
+  }
+
   t.section("link policy: usable things come from the release branch");
   {
     const hrefs = [...d.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));

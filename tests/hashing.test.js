@@ -75,6 +75,14 @@ module.exports = async function () {
     t.ok("oversized states the limit", /stops at 512\.0 MB/.test(subject()));
     t.ok("oversized states the file size", /huge\.iso is 900\.0 MB/.test(subject()));
     t.ok("oversized points at xxhsum", /xxhsum/.test(subject()));
+    {
+      // the refusal is the moment the CLI becomes the answer, so name it and
+      // say where to read about it, rather than leaving the reader to search
+      const manual = d.querySelector("#subject a");
+      t.is("and links its manual", manual && manual.getAttribute("href"),
+        "https://github.com/Cyan4973/xxHash/blob/release/cli/xxhsum.1.md");
+      t.is("on the word itself", manual && manual.textContent.trim(), "xxhsum");
+    }
     t.ok("oversized flagged as an error", d.getElementById("subject").classList.contains("error"));
     t.is("oversized clears stale digests", d.querySelector('[data-h="xxhash3"]').textContent, "—");
     await page.close();

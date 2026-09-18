@@ -603,6 +603,7 @@ footer li { margin-bottom: .35rem; }
         <h4>Documentation</h4>
         <ul>
           <li><a href="doc/v0.8.3/index.html">API reference</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/blob/release/cli/xxhsum.1.md">xxhsum manual</a></li>
           <li><a href="https://github.com/Cyan4973/xxHash/blob/release/doc/xxhash_spec.md">Format specification</a></li>
           <li><a href="https://github.com/Cyan4973/xxHash/wiki">Wiki</a></li>
         </ul>
@@ -735,6 +736,8 @@ document.querySelectorAll('.tab').forEach(function (tab) {
   // this size the wait stops feeling like a demo, and xxhsum is the right tool.
   var MAX_FILE = 512 * 1024 * 1024;
   var CHUNK = 4 * 1024 * 1024;
+  // offered at the point the cap is hit, which is when the CLI becomes the answer
+  var MANUAL = 'https://github.com/Cyan4973/xxHash/blob/release/cli/xxhsum.1.md';
   var STREAMING = { xxhash3: 'createXXHash3', xxhash128: 'createXXHash128',
                     xxhash64: 'createXXHash64', xxhash32: 'createXXHash32' };
 
@@ -816,7 +819,8 @@ document.querySelectorAll('.tab').forEach(function (tab) {
     if (file.size > MAX_FILE) {
       clearDigests();
       say('<b>' + file.name + '</b> is ' + bytes(file.size) + '. This page stops at ' +
-          bytes(MAX_FILE) + ' &mdash; use <code>xxhsum</code> for anything larger.', true);
+          bytes(MAX_FILE) + ' &mdash; use <a href="' + MANUAL + '"><code>xxhsum</code></a>' +
+          ' for anything larger.', true);
       return;
     }
     clearDigests();

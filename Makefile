@@ -485,11 +485,22 @@ namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
 MAN = $(CLI_DIR)/xxhsum.1
 MD2ROFF ?= ronn
 MD2ROFF_FLAGS ?= --roff --warnings --manual="User Commands" --organization="xxhsum $(XXHSUM_VERSION)"
+VERSION_SYNC = build/update_version.sh
 $(MAN): $(CLI_DIR)/xxhsum.1.md xxhash.h
 	cat $< | $(MD2ROFF) $(MD2ROFF_FLAGS) | $(SED) -n '/^\.\\\".*/!p' > $@
 
 .PHONY: man
 man: $(MAN)  ## generate man page from markdown source
+
+.PHONY: update-version
+update-version:  ## synchronize version metadata with xxhash.h
+	$(SHELL) $(VERSION_SYNC) "$(LIBVER)"
+	$(MAKE) -B man
+	$(SHELL) $(VERSION_SYNC) --check "$(LIBVER)"
+
+.PHONY: check-version
+check-version:  ## check version metadata against xxhash.h
+	$(SHELL) $(VERSION_SYNC) --check "$(LIBVER)"
 
 .PHONY: clean-man
 clean-man:
@@ -527,7 +538,7 @@ test-all: CFLAGS += -Werror
 test-all: test test32 test-unicode clangtest gcc-og-test cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
 
 .PHONY: test-tools
-test-tools:
+test-tools: check-version
 	CFLAGS=-Werror $(MAKE) -C tests/bench
 	CFLAGS=-Werror $(MAKE) -C tests/collisions check
 

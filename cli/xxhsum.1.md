@@ -114,7 +114,9 @@ OPTIONS
 * `-B`*BLOCKSIZE*:
   Only useful for benchmark mode (`-b`). See *EXAMPLES* for details.
   *BLOCKSIZE* specifies benchmark mode's test data block size in bytes and
-  accepts the suffixes `K`, `KB`, `KiB`, `M`, `MB`, and `MiB`.
+  accepts the suffixes `K`, `KB`, `KiB`, `M`, `MB`, and `MiB`. All suffixes
+  use powers of 1024: `K`, `KB`, and `KiB` multiply by 1024, while `M`, `MB`,
+  and `MiB` multiply by 1048576.
   Default value is 102400.
 
 * `-i`*ITERATIONS*:

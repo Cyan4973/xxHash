@@ -28,11 +28,6 @@
 #define TIMELOOP_MICROSEC     SEC_TO_MICRO      /* 1 second */
 #define TIMELOOP_NANOSEC      (1*1000000000ULL) /* 1 second */
 
-#define KB *(1 <<10)
-#define MB *(1 <<20)
-#define GB *(1U<<30)
-
-
 /* *************************************
 *  Debug errors
 ***************************************/

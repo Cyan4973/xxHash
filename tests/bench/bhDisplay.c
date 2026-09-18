@@ -37,7 +37,7 @@
 
 /* ===  benchmark large input  === */
 
-#define MB_UNIT           1000000
+#define MB_PER_SEC_UNIT   1000000
 #define BENCH_LARGE_ITER_MS   490
 #define BENCH_LARGE_TOTAL_MS 1010
 static void bench_oneHash_largeInput(Bench_Entry hashDesc, int minlog, int maxlog)
@@ -48,7 +48,7 @@ static void bench_oneHash_largeInput(Bench_Entry hashDesc, int minlog, int maxlo
         double const nbhps = bench_hash(hashDesc.hash, BMK_throughput,
                                         inputSize, BMK_fixedSize,
                                         BENCH_LARGE_TOTAL_MS, BENCH_LARGE_ITER_MS);
-        printf(",%6.0f", nbhps * (double)inputSize / MB_UNIT); fflush(NULL);
+        printf(",%6.0f", nbhps * (double)inputSize / MB_PER_SEC_UNIT); fflush(NULL);
     }
     printf("\n");
 }
@@ -57,7 +57,7 @@ void bench_largeInput(Bench_Entry const* hashDescTable, int nbHashes, int minlog
 {
     assert(maxlog <  31);
     assert(minlog >=  0);
-    printf("benchmarking large inputs : from %u bytes (log%i) to %u MB (log%i) \n",
+    printf("benchmarking large inputs : from %u bytes (log%i) to %u MiB (log%i) [MB/s]: \n",
         1U << minlog, minlog,
         (1U << maxlog) >> 20, maxlog);
     for (int i=0; i<nbHashes; i++)
@@ -84,7 +84,7 @@ static void bench_throughput_oneHash_smallInputs(Bench_Entry hashDesc, size_t si
 
 void bench_throughput_smallInputs(Bench_Entry const* hashDescTable, int nbHashes, size_t sizeMin, size_t sizeMax)
 {
-    printf("Throughput small inputs of fixed size (from %zu to %zu bytes): \n",
+    printf("Throughput small inputs of fixed size (from %zu to %zu bytes) [hashes/s]: \n",
             sizeMin, sizeMax);
     for (int i=0; i<nbHashes; i++)
         bench_throughput_oneHash_smallInputs(hashDescTable[i], sizeMin, sizeMax);
@@ -108,7 +108,7 @@ static void bench_latency_oneHash_smallInputs(Bench_Entry hashDesc, size_t size_
 
 void bench_latency_smallInputs(Bench_Entry const* hashDescTable, int nbHashes, size_t size_min, size_t size_max)
 {
-    printf("Latency for small inputs of fixed size : \n");
+    printf("Latency for small inputs of fixed size [hashes/s]: \n");
     for (int i=0; i<nbHashes; i++)
         bench_latency_oneHash_smallInputs(hashDescTable[i], size_min, size_max);
 }
@@ -131,7 +131,7 @@ static void bench_randomInputLength_withOneHash(Bench_Entry hashDesc, size_t siz
 
 void bench_throughput_randomInputLength(Bench_Entry const* hashDescTable, int nbHashes, size_t size_min, size_t size_max)
 {
-    printf("benchmarking random size inputs [1-N] : \n");
+    printf("benchmarking random size inputs [1-N] [hashes/s]: \n");
     for (int i=0; i<nbHashes; i++)
         bench_randomInputLength_withOneHash(hashDescTable[i], size_min, size_max);
 }
@@ -154,7 +154,7 @@ static void bench_latency_oneHash_randomInputLength(Bench_Entry hashDesc, size_t
 
 void bench_latency_randomInputLength(Bench_Entry const* hashDescTable, int nbHashes, size_t size_min, size_t size_max)
 {
-    printf("Latency for small inputs of random size [1-N] : \n");
+    printf("Latency for small inputs of random size [1-N] [hashes/s]: \n");
     for (int i=0; i<nbHashes; i++)
         bench_latency_oneHash_randomInputLength(hashDescTable[i], size_min, size_max);
 }

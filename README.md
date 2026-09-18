@@ -171,7 +171,7 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
 - `XXH_NO_PREFETCH` : disable prefetching. Some platforms or situations may perform better without prefetching. XXH3 only.
 
 #### Build modifiers for `xxhsum` CLI
-- `XXH_1ST_SPEED_TARGET` : select an initial speed target, expressed in MB/s, for the first speed test in benchmark mode. Benchmark will adjust the target at subsequent iterations, but the first test is made "blindly" by targeting this speed. Currently conservatively set to 10 MB/s, to support very slow (emulated) platforms.
+- `XXH_1ST_SPEED_TARGET` : select an initial speed target, expressed in MiB/s, for the first speed test in benchmark mode. Benchmark will adjust the target at subsequent iterations, but the first test is made "blindly" by targeting this speed. Currently conservatively set to 10 MiB/s, to support very slow (emulated) platforms.
 
 #### Makefile variables
 The following variables control runtime dispatch when building with `make`:

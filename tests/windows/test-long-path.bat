@@ -28,7 +28,9 @@ set "__=set /a _E+=1"
 !__! && :
 !__! && : Create long path > 300 chars
 !__! && :
-!__! && set "LONG_PATH=0---------1---------2---------3---------4---------5---------6---------7---------8---------9---------\a---------b---------c---------d---------e---------f---------g---------h---------i---------j---------\k---------l---------m---------n---------o---------p---------q---------r---------s---------t---------"
+!__! && set "PATH_COMPONENT="
+!__! && for /L %%I in (1,1,10) do set "PATH_COMPONENT=!PATH_COMPONENT!0123456789"
+!__! && set "LONG_PATH=!PATH_COMPONENT!\!PATH_COMPONENT!\!PATH_COMPONENT!"
 !__! && rmdir /S /Q "!LONG_PATH!" 2>nul
 !__! && mkdir "!LONG_PATH!"                                       || goto :ERROR
 !__! && mkdir "!LONG_PATH!\child"                                 || goto :ERROR

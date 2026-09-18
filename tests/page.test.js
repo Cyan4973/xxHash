@@ -41,7 +41,7 @@ module.exports = async function () {
   t.is("implementations", q("#impl tbody tr:not(.grouphead)"), 60);
   t.is("shells/assembly heading", q("#impl .grouphead"), 1);
   t.is("used-by categories", q(".usedby h3"), 6);
-  t.is("used-by entries", q(".usedby .grid a"), 53);
+  t.is("used-by entries", q(".usedby .grid a"), 54);
   t.is("trust strip logos", q(".trust img"), 10);
   t.is("comparison rows", q("details.compare tbody tr"), 19);
   t.ok("quality column dropped", !/quality/i.test(d.querySelector("details.compare").textContent));
@@ -50,7 +50,7 @@ module.exports = async function () {
 
   t.section("counts in the prose are generated, not typed");
   t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#other-languages .lede").textContent));
-  t.ok("used-by count", /^53 projects/.test(d.querySelector("#references .lede").textContent.trim()));
+  t.ok("used-by count", /^54 projects/.test(d.querySelector("#references .lede").textContent.trim()));
 
   t.section("the footer carries every document we publish");
   {

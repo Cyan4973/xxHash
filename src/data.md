@@ -120,7 +120,7 @@ variants keep their relative order.
 |__PHP__ (port)             |Scott Dutton        |https://github.com/exussum12/xxhash
 |__PHP7__                   |Craig R Megasaxon   |https://github.com/Megasaxon/php-xxhash
 |__PHP8__                   |Anatol Belski       |https://php.watch/versions/8.1/xxHash
-|__PicoLisp__               |mpech               |https://git.envs.net/mpech/xxhash-picolisp
+|__PicoLisp__               |mpech               |https://github.com/tankf33der/xxhash-picolisp
 |__Python__                 |Yue Du              |https://pypi.python.org/pypi/xxhash/
 |__R__                      |Dirk Eddelbuettel   |https://github.com/eddelbuettel/digest
 |__R__ (XXH3)               |mikefc              |https://github.com/coolbutuseless/xxhashlite
@@ -156,7 +156,7 @@ name also shows that logo in the strip under the hero.
 |*Linux           |linux.png   |https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=59e1a2f4bf83744e748636415fde7d1e9f557e05
 |*Microsoft Azure |azure50.png |https://docs.microsoft.com/en-us/azure/kusto/query/hashfunction
 |Qemu             |qemu.png    |https://www.qemu.org/
-|btrfs            |btrfs.png   |https://btrfs.wiki.kernel.org/index.php/Main_Page
+|btrfs            |btrfs.png   |https://btrfs.readthedocs.io/en/latest/Checksumming.html
 |PKG              |freebsd.png |https://wiki.freebsd.org/pkgng
 |Dorado           |huawei.png  |https://forum.huawei.com/enterprise/en/how-to-understand-inline-deduplication-and-compression/thread/604642-891
 
@@ -196,10 +196,11 @@ name also shows that logo in the strip under the hero.
 |*HAProxy                |haproxy.png |https://www.haproxy.org/
 |Rspamd                  |rspamd.png  |https://rspamd.com/
 |pfSense                 |pfsense.png |https://www.pfsense.org/
-|fio                     |            |http://freecode.com/projects/fio/
+|fio                     |            |https://github.com/axboe/fio
 |bloomxx                 |            |https://npmjs.org/package/bloomxx/
-|C & Python Bloom Filter |            |http://devisedbydavid.com/open_source/bloom_filter
-|LUA Bloom Filter        |mozilla.png |https://github.com/mozilla-services/lua_bloom_filter
+|C Bloom Filter          |            |https://bitbucket.org/davidschonborn/c-bloom-filter
+|Python Bloom Filter     |            |https://bitbucket.org/davidschonborn/python-bloom-filter
+|LUA Bloom Filter        |mozilla.png |https://github.com/mozilla-services/lua_sandbox_extensions/tree/main/bloom_filter
 
 ### File Transfer
 

@@ -4767,15 +4767,19 @@ XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_
  *
  *    Consequence for XXH3_64bits(): for any length in [32, 240], two messages
  *    differing only by the complement of their first 8 (or first 16) bytes
- *    collide with probability ~2^-27 over a uniformly random, hidden seed or
- *    secret. This is 2^37 times the ideal rate, although still a poor
- *    collision engine in absolute terms (~1 in 100 millions prepared pairs).
+ *    collide with probability ~2^-27 over a uniformly random secret. The
+ *    _withSeed variant is also affected, but its collision probability depends
+ *    on the chosen pair because the 64-bit seed produces a structured secret.
+ *    A fixed pair has been measured to collide with probability ~2^-21 over
+ *    random seeds. This is an observed result, not a known upper bound.
  *
  *    Consequence for XXH128(): XXH128_mix32B() mixes each 16-byte chunk a
  *    second time as a raw 64-bit sum, which normally breaks the pattern above.
  *    But that sum is *also* invariant under complementation when
  *    w0 + w1 == 2^64 - 1, and under that additional constraint both output
- *    halves collide simultaneously, again with probability ~2^-27.
+ *    halves collide simultaneously, again with probability ~2^-27 over a
+ *    uniformly random secret. The seeded variant is also affected, and its
+ *    exact probability can similarly depend on the chosen pair.
  *    So the 128-bit variant is _not_ immune, contrarily to what was previously
  *    believed, and its effective margin here (2^-27 vs. an ideal 2^-128) is
  *    even thinner than the 64-bit one.

@@ -300,17 +300,21 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
                     }
                 }
             } else if(starts_with_drive) {
-                /* Resolve drive-relative paths using that drive's current directory. */
-                wchar_t* const abs_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
-                if(abs_path != NULL) {
-                    DWORD const n = GetFullPathNameW(wide_path, (DWORD)size_in_wchars, abs_path, NULL);
-                    if(n != 0 && n < size_in_wchars && pathcch->canonicalize != NULL) {
-                        HRESULT const hr = pathcch->canonicalize(exl_path, size_in_wchars, abs_path, path_flags);
+                wchar_t drive_path[3];
+                wchar_t* const drive_cwd = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+                drive_path[0] = wide_path[0];
+                drive_path[1] = L':';
+                drive_path[2] = L'\0';
+                if(drive_cwd != NULL) {
+                    DWORD const n = GetFullPathNameW(drive_path, (DWORD)size_in_wchars, drive_cwd, NULL);
+                    if(n != 0 && n < size_in_wchars && pathcch->combine != NULL) {
+                        HRESULT const hr = pathcch->combine(exl_path, size_in_wchars,
+                                                           drive_cwd, wide_path + 2, path_flags);
                         if(SUCCEEDED(hr) && wcsncmp(exl_path, L"\\\\?\\", 4) == 0) {
                             result = exl_path;
                         }
                     }
-                    free(abs_path);
+                    free(drive_cwd);
                 }
             } else {
                 /* path is relative path */

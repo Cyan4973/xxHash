@@ -38,6 +38,7 @@ set "__=set /a _E+=1"
 !__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "test-specimen "                       || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "!ABS_PATH!"                           || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "!CD:~0,2!test-specimen "              || goto :ERROR
 !__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\test-specimen " || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H0 "test-specimen " > test.xxh0           || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H1 "test-specimen " > test.xxh1           || goto :ERROR

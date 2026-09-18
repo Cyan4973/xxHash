@@ -274,11 +274,17 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
         return wide_path;
     } else {
         XSUM_PathCch const* const pathcch = XSUM_getPathCch();
+        wchar_t* separator;
         wchar_t* result = NULL;
 
         size_t const size_in_wchars  = 32768; /* 32767 wchar_t + NUL */
         ULONG const path_flags = XSUM_PATHCCH_DO_NOT_NORMALIZE_SEGMENTS
                                | XSUM_PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH;
+
+        /* Extended-length paths only accept backslashes as separators. */
+        for (separator = wide_path; *separator != L'\0'; ++separator) {
+            if (*separator == L'/') *separator = L'\\';
+        }
 
         /* exl_path : buffer for extended length path */
         wchar_t* const exl_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));

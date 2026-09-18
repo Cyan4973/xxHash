@@ -41,10 +41,7 @@ set "__=set /a _E+=1"
 !__! && "!XXHSUM_EXE!"     "!ABS_PATH!"                           || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "!CD:~0,2!!SPECIMEN!"                  || goto :ERROR
 !__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\!SPECIMEN!" || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H0 "!SPECIMEN!" > test.xxh0               || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H1 "!SPECIMEN!" > test.xxh1               || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H2 "!SPECIMEN!" > test.xxh2               || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H3 "!SPECIMEN!" > test.xxh3               || goto :ERROR
+!__! && for %%H in (0 1 2 3) do ("!XXHSUM_EXE!" -H%%H "!SPECIMEN!" > test.xxh%%H || goto :ERROR)
 !__! && type *.xxh*                                               || goto :ERROR
 !__! && "!XXHSUM_EXE!" -c test.xxh0 test.xxh1 test.xxh2 test.xxh3 || goto :ERROR
 

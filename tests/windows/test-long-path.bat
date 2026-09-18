@@ -53,10 +53,7 @@ set "__=set /a _E+=1"
 !__! && "!XXHSUM_EXE!"     "!DRIVE_RELATIVE_PATH!"                || goto :ERROR
 !__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\!LONG_PATH!\LICENSE" || goto :ERROR
 !__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!SLASH_UNC_ROOT!/!TMPNAME!/!SLASH_LONG_PATH!" || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H0 "!LONG_PATH!\LICENSE" > test.xxh0      || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H1 "!LONG_PATH!\LICENSE" > test.xxh1      || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H2 "!LONG_PATH!\LICENSE" > test.xxh2      || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H3 "!LONG_PATH!\LICENSE" > test.xxh3      || goto :ERROR
+!__! && for %%H in (0 1 2 3) do ("!XXHSUM_EXE!" -H%%H "!LONG_PATH!\LICENSE" > test.xxh%%H || goto :ERROR)
 !__! && type *.xxh*                                               || goto :ERROR
 !__! && "!XXHSUM_EXE!" -c test.xxh0 test.xxh1 test.xxh2 test.xxh3 || goto :ERROR
 

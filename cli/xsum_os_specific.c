@@ -292,10 +292,14 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
         size_t const size_in_wchars  = 32768; /* 32767 wchar_t + NUL */
         ULONG const path_flags = XSUM_PATHCCH_DO_NOT_NORMALIZE_SEGMENTS
                                | XSUM_PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH;
-        wchar_t* const exl_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+        wchar_t* exl_path = NULL;
+
+        if(pathcch->module != NULL) {
+            exl_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
+        }
 
         /* exl_path : buffer for extended length path */
-        if(exl_path != NULL && pathcch->module != NULL) {
+        if(exl_path != NULL) {
             /* If path starts with "\\" or "[A-Za-z]:\" */
             if(starts_with_unc_absolute || starts_with_dos_absolute) {
                 if(pathcch->canonicalize != NULL) {

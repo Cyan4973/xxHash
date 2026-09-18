@@ -37,24 +37,32 @@ sync_file() {
     file="$repo_dir/$relative_file"
     tmp_file="${file}.tmp.$$"
 
-    if ! awk -v kind="$kind" -v version="$version" '
+    awk_status=0
+    awk -v kind="$kind" -v version="$version" '
         {
             isVersion = (kind == "doxy" && $0 ~ /^PROJECT_NUMBER[[:space:]]*=/) \
                      || (kind == "clib" && $0 ~ /^[[:space:]]*"version"[[:space:]]*:/) \
                      || (kind == "man" && $0 ~ /^\.TH .*"xxhsum [0-9]/)
             if (isVersion) {
+                original = $0
                 matches++
                 if (!sub(/[0-9]+\.[0-9]+\.[0-9]+/, version)) bad = 1
+                if ($0 != original) changed = 1
             }
             print
         }
-        END { if (matches != 1 || bad) exit 1 }
-    ' "$file" > "$tmp_file"; then
+        END {
+            if (matches != 1 || bad) exit 2
+            if (!changed) exit 3
+        }
+    ' "$file" > "$tmp_file" || awk_status=$?
+
+    if [ "$awk_status" -ne 0 ] && [ "$awk_status" -ne 3 ]; then
         echo "Unable to find exactly one version in $relative_file" >&2
         exit 1
     fi
 
-    if cmp -s "$file" "$tmp_file"; then
+    if [ "$awk_status" -eq 3 ]; then
         rm -f "$tmp_file"
     elif [ "$mode" = "check" ]; then
         echo "$relative_file is not synchronized with version $version" >&2

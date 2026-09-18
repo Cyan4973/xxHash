@@ -1,11 +1,14 @@
 .
-.TH "XXHSUM" "1" "May 2024" "xxhsum 0.8.3" "User Commands"
+.TH "XXHSUM" "1" "September 2026" "xxhsum 0.8.4" "User Commands"
 .
 .SH "NAME"
 \fBxxhsum\fR \- print or check xxHash non\-cryptographic checksums
 .
 .SH "SYNOPSIS"
-\fBxxhsum\fR [\fIOPTION\fR]\.\.\. [\fIFILE\fR]\.\.\. \fBxxhsum \-b\fR [\fIOPTION\fR]\.\.\.
+\fBxxhsum\fR [\fIOPTION\fR]\.\.\. [\fIFILE\fR]\.\.\.
+.
+.P
+\fBxxhsum \-b\fR [\fIOPTION\fR]\.\.\.
 .
 .P
 \fBxxh32sum\fR is equivalent to \fBxxhsum \-H0\fR, \fBxxh64sum\fR is equivalent to \fBxxhsum \-H1\fR, \fBxxh128sum\fR is equivalent to \fBxxhsum \-H2\fR, \fBxxh3sum\fR is equivalent to \fBxxhsum \-H3\fR\.
@@ -39,16 +42,16 @@ As xxHash is a fast non\-cryptographic checksum algorithm, \fBxxhsum\fR should n
 .SH "OPTIONS"
 .
 .TP
-\fB\-V\fR, \fB\-\-version\fR
-Displays xxhsum version and exits
-.
-.TP
 \fB\-H\fR\fIHASHTYPE\fR
 Hash selection\. \fIHASHTYPE\fR means \fB0\fR=XXH32, \fB1\fR=XXH64, \fB2\fR=XXH128, \fB3\fR=XXH3\. Alternatively, \fIHASHTYPE\fR \fB32\fR=XXH32, \fB64\fR=XXH64, \fB128\fR=XXH128\. Default value is \fB1\fR (XXH64)
 .
 .TP
+\fB\-s\fR\fISEED\fR, \fB\-\-seed\fR \fISEED\fR
+Set the unsigned decimal seed used for hashing and checksum verification\. The seed is not stored in checksum files, so the same value must be provided when verifying seeded checksums\. Default value is \fB0\fR\.
+.
+.TP
 \fB\-\-binary\fR
-Read in binary mode\.
+Accepted for compatibility\. This option has no effect because \fBxxhsum\fR always reads files in binary mode\.
 .
 .TP
 \fB\-\-tag\fR
@@ -59,32 +62,50 @@ Output in the BSD style\.
 Set output hexadecimal checksum value as little endian convention\. By default, value is displayed as big endian\.
 .
 .TP
+\fB\-V\fR, \fB\-\-version\fR
+Displays xxhsum version and exits
+.
+.TP
 \fB\-h\fR, \fB\-\-help\fR
 Displays help and exits
 .
-.SS "The following options are useful only when verifying checksums (\-c):"
+.TP
+\fB\-\-\fR
+Treat all following arguments as file names\. This is useful for file names beginning with \fB\-\fR\.
+.
+.SS "Advanced file input options"
+.
+.TP
+\fB\-\-files\-from\fR, \fB\-\-filelist\fR \fIFILE\fR
+Read filenames from \fIFILE\fR and generate hashes for them\. \fBstdin\fR is also a valid way to provide filenames (when no \fIFILE\fR or \fB\-\fR provided)\. Valid format is one filename per line, which can include embedded spaces, etc with no need for quotes, escapes, etc\. A line beginning with byte \fB0x5C\fR enables filename unescaping\. Subsequent byte sequences \fB0x5C 0x5C\fR, \fB0x5C 0x6E\fR, and \fB0x5C 0x72\fR are converted to the single bytes \fB0x5C\fR, \fB0x0A\fR, and \fB0x0D\fR, respectively\.
+.
+.SS "Checksum verification options:"
 .
 .TP
 \fB\-c\fR, \fB\-\-check\fR \fIFILE\fR
 Read xxHash sums from \fIFILE\fR and check them
 .
 .TP
-\fB\-q\fR, \fB\-\-quiet\fR
-Don\'t print OK for each successfully verified file
-.
-.TP
 \fB\-\-strict\fR
-Return an error code if any line in the file is invalid, not just if some checksums are wrong\. This policy is disabled by default, though UI will prompt an informational message if any line in the file is detected invalid\.
-.
-.TP
-\fB\-\-status\fR
-Don\'t output anything\. Status code shows success\.
+Return an error code if any line in \fIFILE\fR is invalid, not just if some checksums are wrong\. This policy is disabled by default, though UI will prompt an informational message if any line in the file is detected invalid\.
 .
 .TP
 \fB\-w\fR, \fB\-\-warn\fR
-Emit a warning message about each improperly formatted checksum line\.
+Emit a warning message about each improperly formatted line in \fIFILE\fR\.
 .
-.SS "The following options are useful only benchmark purpose:"
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Don\'t print OK for each successfully verified hash\. In benchmark mode, don\'t display the version header\.
+.
+.TP
+\fB\-\-status\fR
+Don\'t output anything\. Only generate a Status code to show success\.
+.
+.TP
+\fB\-\-ignore\-missing\fR
+Don\'t fail or report status for missing files\.
+.
+.SS "Benchmark options:"
 .
 .TP
 \fB\-b\fR
@@ -96,7 +117,7 @@ Specify ID of variant to be tested\. Multiple variants can be selected, separate
 .
 .TP
 \fB\-B\fR\fIBLOCKSIZE\fR
-Only useful for benchmark mode (\fB\-b\fR)\. See \fIEXAMPLES\fR for details\. \fIBLOCKSIZE\fR specifies benchmark mode\'s test data block size in bytes\. Default value is 102400
+Only useful for benchmark mode (\fB\-b\fR)\. See \fIEXAMPLES\fR for details\. \fIBLOCKSIZE\fR specifies benchmark mode\'s test data block size in bytes and accepts the suffixes \fBK\fR, \fBKB\fR, \fBKiB\fR, \fBM\fR, \fBMB\fR, and \fBMiB\fR\. Default value is 102400\.
 .
 .TP
 \fB\-i\fR\fIITERATIONS\fR
@@ -140,6 +161,46 @@ Read xxHash sums from specific files and check them
 .nf
 
 $ xxhsum \-c xyz\.xxh32 qux\.xxh64
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Produce a list of files, then generate hashes for that list
+.
+.IP "" 4
+.
+.nf
+
+$ find \. \-type f \-name \'*\.[ch]\' > c\-files\.txt
+$ xxhsum \-\-files\-from c\-files\.txt
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Read the list of files from standard input to avoid the need for an intermediate file
+.
+.IP "" 4
+.
+.nf
+
+$ find \. \-type f \-name \'*\.[ch]\' | xxhsum \-\-files\-from \-
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Note that if shell expansion, length of argument list, clarity of use of spaces in filenames, etc allow it then the same output as the previous example can be generated like this
+.
+.IP "" 4
+.
+.nf
+
+$ xxhsum `find \. \-name \'*\.[ch]\'`
 .
 .fi
 .

@@ -42,6 +42,7 @@ set "__=set /a _E+=1"
 !__! && set "ABS_LONG_PATH=!CD!\!LONG_PATH!\LICENSE"
 !__! && set "DRIVE_RELATIVE_PATH=!CD:~0,2!!LONG_PATH!\LICENSE"
 !__! && set "SLASH_LONG_PATH=!LONG_PATH:\=/!/LICENSE"
+!__! && set "SLASH_UNC_ROOT=!XXHASH_TEST_UNC_ROOT:\=/!"
 !__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "!LONG_PATH!\LICENSE"                  || goto :ERROR
 !__! && "!XXHSUM_EXE!"     ".\!LONG_PATH!\LICENSE"                || goto :ERROR
@@ -50,6 +51,7 @@ set "__=set /a _E+=1"
 !__! && "!XXHSUM_EXE!"     "!ABS_LONG_PATH!"                      || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "!DRIVE_RELATIVE_PATH!"                || goto :ERROR
 !__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\!LONG_PATH!\LICENSE" || goto :ERROR
+!__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!SLASH_UNC_ROOT!/!TMPNAME!/!SLASH_LONG_PATH!" || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H0 "!LONG_PATH!\LICENSE" > test.xxh0      || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H1 "!LONG_PATH!\LICENSE" > test.xxh1      || goto :ERROR
 !__! && "!XXHSUM_EXE!" -H2 "!LONG_PATH!\LICENSE" > test.xxh2      || goto :ERROR

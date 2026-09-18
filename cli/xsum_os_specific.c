@@ -258,23 +258,35 @@ static char* XSUM_narrowString(const wchar_t *str, int *lenOut)
 static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
 {
     wchar_t* const wide_path = XSUM_widenString(path, NULL);  /* path in wchar_t */
-    size_t const path_len = strlen(path);
-    int const starts_with_extended_prefix = path_len >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\';
-    int const starts_with_device_prefix = path_len >= 4 && path[0] == '\\' && path[1] == '\\' && path[2] == '.' && path[3] == '\\';
-    int const starts_with_drive = path_len >= 2
-        && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z'))
-        && path[1] == ':';
-    int const starts_with_dos_absolute = starts_with_drive && path_len >= 3
-        && (path[2] == '\\' || path[2] == '/');
+    wchar_t* separator;
+    size_t path_len;
+    int starts_with_extended_prefix;
+    int starts_with_device_prefix;
+    int starts_with_drive;
+    int starts_with_dos_absolute;
+    int starts_with_unc_absolute;
 
     if (wide_path == NULL) return NULL;
+
+    /* Extended-length paths only accept backslashes as separators. */
+    for (separator = wide_path; *separator != L'\0'; ++separator) {
+        if (*separator == L'/') *separator = L'\\';
+    }
+
+    path_len = wcslen(wide_path);
+    starts_with_extended_prefix = path_len >= 4 && wcsncmp(wide_path, L"\\\\?\\", 4) == 0;
+    starts_with_device_prefix = path_len >= 4 && wcsncmp(wide_path, L"\\\\.\\", 4) == 0;
+    starts_with_drive = path_len >= 2
+        && ((wide_path[0] >= L'A' && wide_path[0] <= L'Z') || (wide_path[0] >= L'a' && wide_path[0] <= L'z'))
+        && wide_path[1] == L':';
+    starts_with_dos_absolute = starts_with_drive && path_len >= 3 && wide_path[2] == L'\\';
+    starts_with_unc_absolute = path_len >= 2 && wide_path[0] == L'\\' && wide_path[1] == L'\\';
 
     /* Extended-length and device paths already have explicit semantics. */
     if(starts_with_extended_prefix || starts_with_device_prefix) {
         return wide_path;
     } else {
         XSUM_PathCch const* const pathcch = XSUM_getPathCch();
-        wchar_t* separator;
         wchar_t* result = NULL;
 
         size_t const size_in_wchars  = 32768; /* 32767 wchar_t + NUL */
@@ -282,15 +294,8 @@ static wchar_t* XSUM_widenStringAsExtendedLengthPath(const char* path)
                                | XSUM_PATHCCH_ENSURE_IS_EXTENDED_LENGTH_PATH;
         wchar_t* const exl_path = (wchar_t*) malloc(size_in_wchars * sizeof(wchar_t));
 
-        /* Extended-length paths only accept backslashes as separators. */
-        for (separator = wide_path; *separator != L'\0'; ++separator) {
-            if (*separator == L'/') *separator = L'\\';
-        }
-
         /* exl_path : buffer for extended length path */
         if(exl_path != NULL && pathcch->module != NULL) {
-            int const starts_with_unc_absolute = path_len >= 2 && path[0] == '\\' && path[1] == '\\';
-
             /* If path starts with "\\" or "[A-Za-z]:\" */
             if(starts_with_unc_absolute || starts_with_dos_absolute) {
                 if(pathcch->canonicalize != NULL) {

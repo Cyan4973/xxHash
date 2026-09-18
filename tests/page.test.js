@@ -52,6 +52,22 @@ module.exports = async function () {
   t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#other-languages .lede").textContent));
   t.ok("used-by count", /^53 projects/.test(d.querySelector("#references .lede").textContent.trim()));
 
+  t.section("link policy: usable things come from the release branch");
+  {
+    const hrefs = [...d.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    const refs = hrefs
+      .map((h) => /\/xxHash\/(?:blob|tree)\/([^/#?]+)/.exec(h))
+      .filter(Boolean)
+      .map((m) => m[1]);
+    t.ok("some links do reach into the source", refs.length >= 3);
+    t.is("all of them on one branch", [...new Set(refs)].join(","), "release");
+    t.is("nothing points into dev", hrefs.filter((h) => /\/dev\//.test(h)).length, 0);
+    t.ok("no branch pinned to a version number", !refs.some((r) => /^v?\d/.test(r)));
+    // the counterpart: the project itself is not a released artifact
+    t.ok("source link stays on the default branch",
+      hrefs.includes("https://github.com/Cyan4973/xxHash"));
+  }
+
   t.section("the top bar keeps what the old one offered");
   {
     const nav = (sel) => [...d.querySelectorAll("header.top nav a" + (sel || ""))]

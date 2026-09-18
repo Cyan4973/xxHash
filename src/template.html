@@ -235,6 +235,15 @@ footer li { margin-bottom: .35rem; }
   <symbol id="gh" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></symbol>
 </svg>
 
+<!-- Link policy, enforced by tests/page.test.js:
+     Anything a reader might *use* -- the README behind "Get started", the format
+     specification, the benchmark program -- points into the `release` branch, so
+     it describes the version they can actually download. `dev` is a moving
+     target and may document what has not shipped.
+     Anything about the project as an activity -- "Source on GitHub", issues,
+     contributors -- points at the repository root, and so follows the default
+     branch. A branch name is never written next to a version number: `release`
+     tracks the current release on its own, with nothing here to bump. -->
 <header class="top">
   <div class="wrap">
     <a class="brand" href="#">xxHash</a>
@@ -259,7 +268,7 @@ footer li { margin-bottom: .35rem; }
     hash algorithm, proposed in four flavors: XXH32, XXH64, XXH3_64bits and XXH3_128bits.
   </p>
   <div class="cta">
-    <a class="btn btn-primary" href="https://github.com/Cyan4973/xxHash#readme">Get started</a>
+    <a class="btn btn-primary" href="https://github.com/Cyan4973/xxHash/tree/release#readme">Get started</a>
     <a class="btn btn-ghost" href="#try">Try it in your browser</a>
     <a class="btn btn-ghost" href="doc/{{doc-version}}/index.html">API docs</a>
     <!-- count is filled in at runtime by the script at the bottom of the page -->
@@ -293,7 +302,7 @@ footer li { margin-bottom: .35rem; }
     <div class="callout">
       <strong>All variants are stable.</strong> The same input always produces the same hash, in any
       version, on any platform. Hashes stored today remain valid tomorrow, as documented by the
-      <a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">format specification</a>.
+      <a href="https://github.com/Cyan4973/xxHash/blob/release/doc/xxhash_spec.md">format specification</a>.
     </div>
     <div class="callout" style="border-left-color: var(--muted)">
       <strong>Not cryptographic.</strong> xxHash is built for speed, not for resisting an
@@ -371,7 +380,7 @@ footer li { margin-bottom: .35rem; }
   <div class="wrap">
     <h2>Implementations</h2>
     <p class="lede">{{implementation-count}} ports and bindings that produce xxHash-compatible digests. To write your own,
-      follow the <a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">format specification</a>
+      follow the <a href="https://github.com/Cyan4973/xxHash/blob/release/doc/xxhash_spec.md">format specification</a>
       and check yourself against the box above.</p>
 
     <input class="filter" id="filter" type="search" placeholder="Filter by language, author or host&hellip;" aria-label="Filter implementations">
@@ -404,7 +413,7 @@ footer li { margin-bottom: .35rem; }
         <h4>Documentation</h4>
         <ul>
           <li><a href="doc/{{doc-version}}/index.html">API reference</a></li>
-          <li><a href="https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md">Format specification</a></li>
+          <li><a href="https://github.com/Cyan4973/xxHash/blob/release/doc/xxhash_spec.md">Format specification</a></li>
           <li><a href="https://github.com/Cyan4973/xxHash/wiki">Wiki</a></li>
         </ul>
       </div>

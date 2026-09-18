@@ -52,6 +52,19 @@ module.exports = async function () {
   t.ok("implementations count", /60 ports and bindings/.test(d.querySelector("#other-languages .lede").textContent));
   t.ok("used-by count", /^53 projects/.test(d.querySelector("#references .lede").textContent.trim()));
 
+  t.section("the top bar keeps what the old one offered");
+  {
+    const nav = (sel) => [...d.querySelectorAll("header.top nav a" + (sel || ""))]
+      .map((a) => a.getAttribute("href"));
+    t.ok("latest release", nav().includes("https://github.com/Cyan4973/xxHash/releases/latest"));
+    t.ok("docs", nav().some((h) => h.startsWith("doc/")));
+    t.ok("github", nav().includes("https://github.com/Cyan4973/xxHash"));
+    // what survives once the wide-screen-only links drop off
+    const small = nav(":not(.hide-sm)");
+    t.is("still there on a phone", small.length, 4);
+    t.ok("github among them", small.includes("https://github.com/Cyan4973/xxHash"));
+  }
+
   t.section("the API docs links point at a page that is really there");
   {
     const docs = [...d.querySelectorAll('a[href^="doc/"]')].map((a) => a.getAttribute("href"));

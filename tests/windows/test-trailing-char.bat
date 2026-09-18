@@ -5,9 +5,11 @@ set /a errorno=1
 set /a _E=8-1
 set "__=set /a _E+=1"
 
-!__! && for /f "delims=. tokens=1,2" %%E in ("%~n0%~x0") do set "TEST_NAME=%%E"
+!__! && for /f "delims=. tokens=1,2" %%E in ("%~n0%~x0") do set "TEST_NAME=%%E (%~1)"
 !__! && for /F %%E in ('forfiles /m "%~nx0" /c "cmd /c echo 0x1b"') do set "_ESC=%%E"
 !__! && set "ORG_DIR=!CD!"
+!__! && set "SPECIMEN=test-specimen%~1"
+!__! && if "%~1"=="" goto :ERROR
 !__! && :
 !__! && : cd to the directory which contains this batch file
 !__! && :
@@ -26,25 +28,23 @@ set "__=set /a _E+=1"
 !__! && cd    "!TMPNAME!"                                         || goto :ERROR
 !__! && set "TEST_DIR=!CD!"
 !__! && :
-!__! && : Delete test-specimen.
+!__! && : Copy the LICENSE file with the requested trailing character
 !__! && :
-!__! && : Copy the LICENSE file as "test-specimen "
+!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\!SPECIMEN!"      || goto :ERROR
 !__! && :
-!__! && type "!XXHASH_DIR!\LICENSE" > "\\?\!CD!\test-specimen "   || goto :ERROR
-!__! && :
-!__! && : Test xxhsum for "test-specimen "
+!__! && : Test xxhsum with the requested trailing character
 !__! && :
 !__! && if not defined XXHSUM_EXE set "XXHSUM_EXE=!XXHASH_DIR!\my_build\Release\xxhsum.exe"
-!__! && set "ABS_PATH=!CD!\test-specimen "
+!__! && set "ABS_PATH=!CD!\!SPECIMEN!"
 !__! && "!XXHSUM_EXE!" --version                                  || goto :ERROR
-!__! && "!XXHSUM_EXE!"     "test-specimen "                       || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "!SPECIMEN!"                           || goto :ERROR
 !__! && "!XXHSUM_EXE!"     "!ABS_PATH!"                           || goto :ERROR
-!__! && "!XXHSUM_EXE!"     "!CD:~0,2!test-specimen "              || goto :ERROR
-!__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\test-specimen " || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H0 "test-specimen " > test.xxh0           || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H1 "test-specimen " > test.xxh1           || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H2 "test-specimen " > test.xxh2           || goto :ERROR
-!__! && "!XXHSUM_EXE!" -H3 "test-specimen " > test.xxh3           || goto :ERROR
+!__! && "!XXHSUM_EXE!"     "!CD:~0,2!!SPECIMEN!"                  || goto :ERROR
+!__! && if defined XXHASH_TEST_UNC_ROOT "!XXHSUM_EXE!" "!XXHASH_TEST_UNC_ROOT!\!TMPNAME!\!SPECIMEN!" || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H0 "!SPECIMEN!" > test.xxh0               || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H1 "!SPECIMEN!" > test.xxh1               || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H2 "!SPECIMEN!" > test.xxh2               || goto :ERROR
+!__! && "!XXHSUM_EXE!" -H3 "!SPECIMEN!" > test.xxh3               || goto :ERROR
 !__! && type *.xxh*                                               || goto :ERROR
 !__! && "!XXHSUM_EXE!" -c test.xxh0 test.xxh1 test.xxh2 test.xxh3 || goto :ERROR
 

@@ -25,7 +25,7 @@
 
 int g_xsumarch_avoid_empty_unit = 0;
 
-#if ((defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)) && !defined(_M_ARM64EC)) || defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
+#if ((defined(__x86_64__) || defined(_M_X64)) && !defined(_M_ARM64EC)) || defined(__i386__) || defined(_M_IX86) || defined(_M_IX86_FP)
 #if defined(XXHSUM_DISPATCH)
 
 #include "../xxh_x86dispatch.h"

@@ -342,7 +342,7 @@ static XSUM_U32 XSUM_rand(void)
  * Technically, XXH3_64bits_update is identical to XXH3_128bits_update as of
  * v0.8.0, but we treat them as separate.
  */
-typedef XXH_errorcode (*XSUM_XXH3_update_t)(XXH3_state_t* state, const void* input, size_t length);
+typedef XXH_errorcode (*XSUM_XXH3_update_t)(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* input, size_t length);
 
 /*
  * Runs the passed XXH3_update variant on random lengths. This is to test the
@@ -412,7 +412,7 @@ static void XSUM_testXXH3(const void* data, const XSUM_testdata64_t* testData)
 
         /* random ingestion */
         (void)XXH3_64bits_reset_withSeed(state, seed);
-        XSUM_XXH3_randomUpdate(state, data, len, &XXH3_64bits_update);
+        XSUM_XXH3_randomUpdate(state, data, len, XXH3_64bits_update);
         XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         /* byte by byte ingestion */
@@ -483,7 +483,7 @@ static void XSUM_testXXH3_withSecret(const void* data, const void* secret,
 
         /* random ingestion */
         (void)XXH3_64bits_reset_withSecret(state, secret, secretSize);
-        XSUM_XXH3_randomUpdate(state, data, len, &XXH3_64bits_update);
+        XSUM_XXH3_randomUpdate(state, data, len, XXH3_64bits_update);
         XSUM_checkResult64(XXH3_64bits_digest(state), Nresult);
 
         /* byte by byte ingestion */
@@ -565,7 +565,7 @@ static void XSUM_testXXH128(const void* data, const XSUM_testdata128_t* testData
 
         /* random ingestion */
         (void)XXH3_128bits_reset_withSeed(state, seed);
-        XSUM_XXH3_randomUpdate(state, data, len, &XXH3_128bits_update);
+        XSUM_XXH3_randomUpdate(state, data, len, XXH3_128bits_update);
         XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
 
         /* byte by byte ingestion */
@@ -632,7 +632,7 @@ static void XSUM_testXXH128_withSecret(const void* data, const void* secret, siz
 
         /* random ingestion */
         (void)XXH3_128bits_reset_withSecret(state, secret, secretSize);
-        XSUM_XXH3_randomUpdate(state, data, len, &XXH3_128bits_update);
+        XSUM_XXH3_randomUpdate(state, data, len, XXH3_128bits_update);
         XSUM_checkResult128(XXH3_128bits_digest(state), Nresult);
 
         /* byte by byte ingestion */

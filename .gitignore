@@ -21,6 +21,7 @@ dispatch
 tests/generate_unicode_test
 tests/sanity_test
 tests/sanity_test_vectors_generator
+tests/test_alias
 fuzzer
 
 # Mac OS-X artefacts
@@ -32,8 +33,11 @@ fuzzer
 *.wasm
 *.js
 
-# CMake build directories
-build*/
+# build artifacts
+cachedObjs/
+cmakebuild/
+my_build/
+
 
 # project managers artifacts
 .projectile

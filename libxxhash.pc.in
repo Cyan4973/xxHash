@@ -11,5 +11,6 @@ Name: xxhash
 Description: extremely fast hash algorithm
 URL: http://www.xxhash.com/
 Version: @VERSION@
+License: BSD-2-clause
 Libs: -L${libdir} -lxxhash
 Cflags: -I${includedir}

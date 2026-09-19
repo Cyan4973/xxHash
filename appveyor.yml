@@ -1,115 +1,147 @@
-#---------------------------------#
-#      general configuration      #
-#---------------------------------#
+# ==============================================================================
+#                            AppVeyor CI Configuration
+# ==============================================================================
+
 version: 1.0.{build}
 max_jobs: 2
-
-#---------------------------------#
-#    environment configuration    #
-#---------------------------------#
 clone_depth: 2
+
+# ==============================================================================
+#                              Build Matrix
+# ==============================================================================
+
 environment:
   matrix:
-  - COMPILER: "visual"
-    ARCH: "x64"
-    TEST_XXHSUM: "true"
-  - COMPILER: "visual"
-    ARCH: "Win32"
-    TEST_XXHSUM: "true"
-  - COMPILER: "visual"
-    ARCH: "Win32"
-    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
-    TEST_XXHSUM: "true"
-  - COMPILER: "visual"
-    ARCH: "ARM"
-# Below tests are now disabled due to redundancy.
-# Their equivalent already runs correctly on Github Actions.
-#  - COMPILER: "visual"
-#    ARCH: "x64"
-#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-#    TEST_XXHSUM: "true"
-#  - COMPILER: "visual"
-#    ARCH: "ARM64"
-#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-#    # note: ARM64 is not available with Visual Studio 14 2015, which is default for Appveyor
+    # Visual Studio 2017 build (not supported by GitHub Actions) - both Win32 and x64
+    - COMPILER: "visual"
+      ARCHS: "Win32,x64"
+      AVX2: "true"
+      APPVEYOR_BUILD_WORKER_IMAGE: "Visual Studio 2017"
+      TEST_XXHSUM: "true"
 
-# The following tests were also flacky on Appveyor, for various reasons.
-#  - COMPILER: "gcc"
-#    PLATFORM: "mingw64"
-#  - COMPILER: "gcc"
-#    PLATFORM: "mingw32"
-#  - COMPILER: "gcc"
-#    PLATFORM: "clang"
+    # Visual Studio 2019 build (no longer supported by GitHub Actions) - Win32 and x64
+    - COMPILER: "visual"
+      ARCHS: "Win32,x64"
+      AVX2: "true"
+      APPVEYOR_BUILD_WORKER_IMAGE: "Visual Studio 2019"
+      TEST_XXHSUM: "true"
 
-install:
-  - ECHO Installing %COMPILER% %PLATFORM% %ARCH%
-  - MKDIR bin
-  - if [%COMPILER%]==[gcc] SET PATH_ORIGINAL=%PATH%
-  - if [%COMPILER%]==[gcc] (
-      SET "PATH_MINGW32=c:\MinGW\bin;c:\MinGW\usr\bin" &&
-      SET "PATH_MINGW64=c:\msys64\mingw64\bin;c:\msys64\usr\bin" &&
-      COPY C:\MinGW\bin\mingw32-make.exe C:\MinGW\bin\make.exe &&
-      COPY C:\MinGW\bin\gcc.exe C:\MinGW\bin\cc.exe
-    )
+    # ARM build (no testing - cannot run on x86/x64 CI)
+    - COMPILER: "visual"
+      ARCHS: "ARM"
+      AVX2: "false"
+      TEST_XXHSUM: "false"
 
-#---------------------------------#
-#       build configuration       #
-#---------------------------------#
+# ==============================================================================
+#                              Build Scripts
+# ==============================================================================
+
 build_script:
-  - if [%PLATFORM%]==[mingw32] SET PATH=%PATH_MINGW32%;%PATH_ORIGINAL%
-  - if [%PLATFORM%]==[mingw64] SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
-  - if [%PLATFORM%]==[clang]   SET PATH=%PATH_MINGW64%;%PATH_ORIGINAL%
-  - ECHO ***
-  - ECHO Building %COMPILER% %PLATFORM% %ARCH%
-  - ECHO ***
+  - echo "========================================"
+  - echo "Building Visual Studio configurations"
+  - echo "========================================"
 
-  - if [%COMPILER%]==[gcc] (
-      if [%PLATFORM%]==[clang] (
-        clang -v
-      ) ELSE (
-        gcc -v
-      )
-    )
-  - if [%COMPILER%]==[gcc] (
-      echo ----- &&
-      make -v &&
-      echo ----- &&
-      if not [%PLATFORM%]==[clang] (
-        if [%PLATFORM%]==[mingw32] ( SET CPPFLAGS=-DPOOL_MT=0 ) &&
-        make -B clean test MOREFLAGS=-Werror
-      ) ELSE (
-        SET CXXFLAGS=--std=c++14 &&
-        make -B clean test CC=clang CXX=clang++ MOREFLAGS="--target=x86_64-w64-mingw32 -Werror -Wno-pass-failed" NO_C90_TEST=true
-      ) &&
-      make -C tests/bench
-    )
-    # note 1: strict c90 tests with clang fail, due to (erroneous) presence on `inline` keyword in some included system file
-    # note 2: multi-threading code doesn't work with mingw32, disabled through POOL_MT=0
-    # note 3: clang requires C++14 to compile sort because its own code contains c++14-only code
+  # Visual Studio build process
+  - ps: |
+      Set-Location "build/cmake"
 
-  - if [%COMPILER%]==[visual] (
-      cd cmake_unofficial &&
-      cmake . -DCMAKE_BUILD_TYPE=Release -A %ARCH% -DXXHASH_C_FLAGS="/WX" &&
-      cmake --build . --config Release
-    )
+      # Split architectures and build each one
+      $architectures = $env:ARCHS -split ","
 
-#---------------------------------#
-#       tests configuration       #
-#---------------------------------#
+      foreach ($arch in $architectures) {
+        $arch = $arch.Trim()
+        Write-Host "========================================"
+        Write-Host "Building for architecture: $arch"
+        Write-Host "========================================"
+
+        # Create architecture-specific build directory
+        $buildDir = "build_$arch"
+        New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
+        Set-Location $buildDir
+
+        # Configure CMake for this architecture with fast Debug builds
+        cmake .. -A $arch -DXXHASH_C_FLAGS="/W4 /WX" -DCMAKE_C_FLAGS_DEBUG="/Od /Zi /MDd"
+
+        # Build Debug configuration (fast compilation, no optimizations)
+        Write-Host "Building Debug configuration for $arch..."
+        cmake --build . --config Debug
+
+        # Build Debug with SSE2 if Win32 (x64 has SSE2 by default, ARM doesn't support it)
+        if ($arch -eq "Win32") {
+          Write-Host "Building Debug configuration with SSE2 for $arch..."
+          cmake .. -A $arch -DXXHASH_C_FLAGS="/W4 /WX /arch:SSE2" -DCMAKE_C_FLAGS_DEBUG="/Od /Zi /MDd"
+          cmake --build . --config Debug
+        }
+
+        # Build Debug with AVX2 if enabled and supported
+        if ($env:AVX2 -eq "true" -and $arch -ne "ARM") {
+          Write-Host "Building Debug configuration with AVX2 for $arch..."
+          cmake .. -A $arch -DXXHASH_C_FLAGS="/W4 /WX /arch:AVX2" -DCMAKE_C_FLAGS_DEBUG="/Od /Zi /MDd"
+          cmake --build . --config Debug
+        }
+
+        # Build Release configuration
+        Write-Host "Building Release configuration for $arch..."
+        cmake --build . --config Release
+
+        # Go back to cmake directory for next architecture
+        Set-Location ..
+      }
+
+# ==============================================================================
+#                              Test Scripts
+# ==============================================================================
+
 test_script:
-  # note: can only run x86 and x64 binaries on Appveyor
-  # note: if %COMPILER%==gcc, xxhsum was already tested within `make test`
-  - if [%TEST_XXHSUM%]==[true] (
-      ECHO ***  &&
-      ECHO Testing %COMPILER% %PLATFORM% %ARCH%  &&
-      ECHO ***  &&
-      cd Release &&
-      xxhsum.exe -bi1 &&
-      ECHO ------- xxhsum tested -------
-    )
+  # Test xxhsum Release binaries (only for x86/x64 architectures that can run on CI)
+  - ps: |
+      if ($env:TEST_XXHSUM -eq "true") {
+        Set-Location "build/cmake"
 
+        # Split architectures and test each one
+        $architectures = $env:ARCHS -split ","
 
-#---------------------------------#
-#      artifacts configuration    #
-#---------------------------------#
-# none yet
+        foreach ($arch in $architectures) {
+          $arch = $arch.Trim()
+
+          # Only test architectures that can run on CI (x86/x64)
+          if ($arch -eq "ARM") {
+            Write-Host "Skipping testing for $arch (cannot run on x86/x64 CI)"
+            continue
+          }
+
+          Write-Host "========================================"
+          Write-Host "Testing Visual Studio $arch"
+          Write-Host "========================================"
+
+          Set-Location "build_$arch"
+
+          # Test Release configuration only
+          Write-Host "Testing Release binary for $arch..."
+          Set-Location "Release"
+          cmd /c "xxhsum.exe -b99i0"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Release xxhsum.exe failed for $arch with exit code $LASTEXITCODE"
+            exit 1
+          }
+          Write-Host "Release binary test completed successfully for $arch"
+
+          # Go back to cmake directory for next architecture
+          Set-Location "../.."
+        }
+
+        Write-Host "------- All xxhsum testing completed successfully -------"
+      }
+
+# ==============================================================================
+#                              Artifacts
+# ==============================================================================
+# Currently no artifacts are collected
+# Future: Consider collecting built binaries for distribution
+
+# ==============================================================================
+#                              Build Notes
+# ==============================================================================
+# 1. ARM/ARM64 builds cannot be tested on x86/x64 CI infrastructure
+# 2. AppVeyor focuses on legacy Visual Studio versions (2013, 2015, 2017)
+# 3. Modern Visual Studio versions (2019, 2022) are tested on GitHub Actions

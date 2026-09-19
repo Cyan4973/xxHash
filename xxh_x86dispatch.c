@@ -632,7 +632,7 @@ typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_default)(XXH_NOESCAPE const
 
 typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_withSeed)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t, XXH64_hash_t);
 
-typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_withSecret)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t, const void* XXH_RESTRICT, size_t);
+typedef XXH128_hash_t (*XXH3_dispatchx86_hashLong128_withSecret)(XXH_NOESCAPE const void* XXH_RESTRICT, size_t, XXH_NOESCAPE const void* XXH_RESTRICT, size_t);
 
 typedef struct {
     XXH3_dispatchx86_hashLong128_default    hashLong128_default;

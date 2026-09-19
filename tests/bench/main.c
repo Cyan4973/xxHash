@@ -44,7 +44,7 @@
 
 /*!
  * readIntFromChar():
- * Allows and interprets K, KB, KiB, M, MB and MiB suffix.
+ * Allows K, KB, KiB, M, MB and MiB as binary suffixes.
  * Will also modify `*stringPtr`, advancing it to position where it stopped reading.
  */
 static int readIntFromChar(const char** stringPtr)
@@ -54,7 +54,7 @@ static int readIntFromChar(const char** stringPtr)
     while ((**stringPtr >='0') && (**stringPtr <='9')) {
         assert(result < max);
         result *= 10;
-        result += (unsigned)(**stringPtr - '0');
+        result += **stringPtr - '0';
         (*stringPtr)++ ;
     }
     if ((**stringPtr=='K') || (**stringPtr=='M')) {
@@ -110,7 +110,7 @@ static int longCommandWArg(const char** stringPtr, const char* longCommand)
 #  define SMALL_SIZE_MIN_DEFAULT   1
 #endif
 #ifndef SMALL_SIZE_MAX_DEFAULT
-#  define SMALL_SIZE_MAX_DEFAULT 127
+#  define SMALL_SIZE_MAX_DEFAULT  30
 #endif
 #ifndef LARGE_SIZELOG_MIN_DEFAULT
 #  define LARGE_SIZELOG_MIN_DEFAULT   9

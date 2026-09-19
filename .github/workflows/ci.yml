@@ -30,22 +30,18 @@
 #   | Item                      | Section in the right pane             |
 #   | ------------------------- | ------------------------------------- |
 #   | OS, VM                    | Set up job                            |
-#   | git repo, commit hash     | Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683               |
+#   | git repo, commit hash     | Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1               |
 #   | gcc, tools                | Environment info                      |
 #
 # - To fail earlier, order of tests in the same job are roughly sorted by
 #   elapsed time.
 #
 # Todos:
-# - [ ] Linux: Add native ARM runner.
 # - [ ] Linux: Add native ARM64 runner.
 # - [ ] Linux: Add native PPC64LE runner.
 # - [ ] Linux: Add native S390X runner.
-# - [ ] Windows: Add VS2013.
-# - [ ] Windows: Add VS2015.
 # - [ ] Windows: Add clang for msys2.
-# - [ ] Windows: Add native or emulated ARM runner.
-# - [ ] Windows: Add native or emulated ARM64 runner.
+# - [ ] Windows: Add native or emulated ARM64 runner (note: currently unreliable)
 
 
 # Name of the workflow is also displayed as a SVG badge
@@ -61,6 +57,37 @@ permissions:
   contents: read
 
 jobs:
+  reproduce-system-header-in-extern-c:
+    name: Reproduce system header included inside extern C
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install AArch64 C++ cross-compiler
+      run: |
+        sudo apt-get update
+        sudo apt-get install g++-aarch64-linux-gnu
+
+    - name: Reproduce issue 1122
+      run: |
+        probe_dir="${RUNNER_TEMP}/xxhash-extern-c-probe"
+        mkdir -p "${probe_dir}"
+        # Model a system arm_neon.h that exposes C++ declarations. Such
+        # declarations are ill-formed when xxhash.h includes it in extern "C".
+        cat > "${probe_dir}/arm_neon.h" <<'EOF'
+        #include_next <arm_neon.h>
+        template <typename T>
+        struct XXH_system_header_cxx_probe {};
+        EOF
+        aarch64-linux-gnu-g++ \
+          -std=c++11 \
+          -march=armv8-a+simd \
+          -Wall -Wextra -Werror \
+          -I"${probe_dir}" \
+          -x c++ \
+          -fsyntax-only \
+          xxhash.c
+
   xxhash-c-compilers:
     name: CC=${{ matrix.cc }}, ${{ matrix.os }}
     strategy:
@@ -79,26 +106,23 @@ jobs:
 
           # gcc
           { pkgs: '',                                  cc: gcc,       cxx: g++,         os: ubuntu-latest, },
-          # { pkgs: 'gcc-13  g++-13  lib32gcc-13-dev',   cc: gcc-13,    cxx: g++-13,      os: ubuntu-22.04,  }, # currently failing
+          { pkgs: 'gcc-14  g++-14  lib32gcc-14-dev',   cc: gcc-14,    cxx: g++-14,      os: ubuntu-24.04,  },
+          { pkgs: 'gcc-13  g++-13  lib32gcc-13-dev',   cc: gcc-13,    cxx: g++-13,      os: ubuntu-24.04,  },
           { pkgs: 'gcc-12  g++-12  lib32gcc-12-dev',   cc: gcc-12,    cxx: g++-12,      os: ubuntu-22.04,  },
           { pkgs: 'gcc-11  g++-11  lib32gcc-11-dev',   cc: gcc-11,    cxx: g++-11,      os: ubuntu-22.04,  },
           { pkgs: 'gcc-10  g++-10  lib32gcc-10-dev',   cc: gcc-10,    cxx: g++-10,      os: ubuntu-22.04,  },
           { pkgs: 'gcc-9   g++-9   lib32gcc-9-dev',    cc: gcc-9,     cxx: g++-9,       os: ubuntu-22.04,  },
-          { pkgs: 'gcc-8   g++-8   lib32gcc-8-dev',    cc: gcc-8,     cxx: g++-8,       os: ubuntu-20.04,  },
-          { pkgs: 'gcc-7   g++-7   lib32gcc-7-dev',    cc: gcc-7,     cxx: g++-7,       os: ubuntu-20.04,  },
 
           # clang
           { pkgs: '',                                  cc: clang,     cxx: clang++,     os: ubuntu-latest, },
+          { pkgs: 'clang-18',                          cc: clang-18,  cxx: clang++-18,  os: ubuntu-24.04,  },
+          { pkgs: 'clang-17',                          cc: clang-17,  cxx: clang++-17,  os: ubuntu-24.04,  },
+          { pkgs: 'clang-16',                          cc: clang-16,  cxx: clang++-16,  os: ubuntu-24.04,  },
           { pkgs: 'clang-15',                          cc: clang-15,  cxx: clang++-15,  os: ubuntu-22.04,  },
           { pkgs: 'clang-14',                          cc: clang-14,  cxx: clang++-14,  os: ubuntu-22.04,  },
           { pkgs: 'clang-13',                          cc: clang-13,  cxx: clang++-13,  os: ubuntu-22.04,  },
           { pkgs: 'clang-12',                          cc: clang-12,  cxx: clang++-12,  os: ubuntu-22.04,  },
           { pkgs: 'clang-11',                          cc: clang-11,  cxx: clang++-11,  os: ubuntu-22.04,  },
-          { pkgs: 'clang-10',                          cc: clang-10,  cxx: clang++-10,  os: ubuntu-20.04,  },
-          { pkgs: 'clang-9',                           cc: clang-9,   cxx: clang++-9,   os: ubuntu-20.04,  },
-          { pkgs: 'clang-8',                           cc: clang-8,   cxx: clang++-8,   os: ubuntu-20.04,  },
-          { pkgs: 'clang-7',                           cc: clang-7,   cxx: clang++-7,   os: ubuntu-20.04,  },
-          { pkgs: 'clang-6.0',                         cc: clang-6.0, cxx: clang++-6.0, os: ubuntu-20.04,  },
         ]
 
     runs-on: ${{ matrix.os }}
@@ -107,7 +131,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: apt-get install
       run: |
@@ -149,17 +173,17 @@ jobs:
       run: |
         CFLAGS="-Os -DXXH_SIZE_OPT=2 -Wall -Wextra -Werror" make clean xxhsum
 
-    - name: noxxh3test
+    - name: XXH_NO_XXH3
       if: always()
       run: |
         # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
         make clean noxxh3test
 
-    - name: nostreamtest
+    - name: XXH_NO_STREAM
       if: always()
       run: |
         # check library can be compiled with XXH_NO_STREAM, resulting in no streaming symbols
-        make clean noxxh3test
+        make clean nostreamtest
 
     - name: make avx512f
       run: |
@@ -168,14 +192,19 @@ jobs:
     - name: test-all
       if: always()
       run: |
-        make clean test-all
+        make clean test-all MOREFLAGS="-Wconversion -Werror"
+
+    - name: test-alias
+      run: |
+        make clean
+        make -C tests test_alias
 
 
   ubuntu-consistency:
     name: Linux x64 check results consistency
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Environment info
       run: |
@@ -223,23 +252,23 @@ jobs:
       CC: emcc
 
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Setup cache
       id: cache-system-libraries
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{env.EM_CACHE_FOLDER}}
         key: em${{env.EM_VERSION}}-node${{ matrix.node-version }}-${{ runner.os }}
 
     - name: Setup emsdk
-      uses: mymindstorm/setup-emsdk@v14
+      uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
       with:
         version: ${{env.EM_VERSION}}
         actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
       with:
         node-version: ${{ matrix.node-version }}
 
@@ -267,7 +296,7 @@ jobs:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: apt-get install
       run: |
@@ -310,11 +339,17 @@ jobs:
       run: |
         make clean test-cli-comment-line
 
+    - name: LIBXXH_DISPATCH static library
+      run: |
+        make clean libxxhash.a LIBXXH_DISPATCH=1
+        cc -Wall -Wextra -Werror tests/inlineDispatch.c libxxhash.a -o staticDispatch
+        ./staticDispatch
+
   ubuntu-cmake-unofficial:
     name: Linux x64 cmake unofficial build test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Environment info
       run: |
@@ -323,46 +358,77 @@ jobs:
         echo && make -v
         echo && cat /proc/cpuinfo || echo /proc/cpuinfo is not present
 
-    - name: cmake
+    - name: Configure, build & stage (CMake)
       run: |
-        cd cmake_unofficial
-        cmake -Bbuild
-        cd build
-        CFLAGS=-Werror make
-        mkdir -p test_install_dir
-        DESTDIR=test_install_dir cmake --install .
+        BUILD_DIR="${{ github.workspace }}/cmakebuild"
 
-    - name: cmake pkgconfig generation
+        # 1) configure
+        cmake -S build/cmake -B "$BUILD_DIR" \
+              -DCMAKE_C_FLAGS="-Werror" \
+              -DCMAKE_INSTALL_PREFIX=/usr  # real prefix inside DESTDIR
+
+        # 2) build (uses default Makefile generator on Linux runners)
+        cmake --build "$BUILD_DIR" --parallel
+
+        # 3) staged install
+        DESTDIR="$BUILD_DIR/stage" cmake --install "$BUILD_DIR" --prefix /usr
+
+    - name: Generate & validate libxxhash.pc (CMake)
       run: |
-        cd cmake_unofficial
-        pwd
-        ls
-        rm -rf build
-        cmake -Bbuild -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_INCLUDEDIR=/usr/include -DCMAKE_INSTALL_LIBDIR=/usr/lib
-        echo "checking content of libxxhash.pc"
-        cat build/libxxhash.pc | grep "libdir=/usr/lib"
-        cat build/libxxhash.pc | grep "includedir=/usr/include"
+        SRC_DIR=build/cmake
+        BUILD_PKG_DIR="${{ github.workspace }}/cmakebuildpkg"
+
+        # 1) configure an out‑of‑tree build that writes the .pc file
+        cmake -S "$SRC_DIR" -B "$BUILD_PKG_DIR" \
+              -DCMAKE_INSTALL_PREFIX=/usr \
+              -DCMAKE_INSTALL_INCLUDEDIR=/usr/include \
+              -DCMAKE_INSTALL_LIBDIR=/usr/lib
+
+        # 2) sanity‑check the resulting pkg‑config file
+        PC_FILE="$BUILD_PKG_DIR/libxxhash.pc"
+        test -f "$PC_FILE"                            # file exists
+        grep -q '^libdir=/usr/lib$' "$PC_FILE"
+        grep -q '^includedir=/usr/include$' "$PC_FILE"
 
     - name: cmake minimum version v3.10 test
       run: |
-        mkdir -p cmake_bins
-        cd cmake_bins
-        wget https://cmake.org/files/v3.10/cmake-3.10.0-Linux-x86_64.tar.gz
-        tar xzf cmake-3.10.0-Linux-x86_64.tar.gz
-        cd ../cmake_unofficial
-        rm -rf build
-        pwd
-        ls
-        mkdir -p build
-        cd build
-        ../../cmake_bins/cmake-3.10.0-Linux-x86_64/bin/cmake --version
-        ../../cmake_bins/cmake-3.10.0-Linux-x86_64/bin/cmake ..
-        ../../cmake_bins/cmake-3.10.0-Linux-x86_64/bin/cmake --build .
-        mkdir -p test_install_dir
-        DESTDIR=test_install_dir ../../cmake_bins/cmake-3.10.0-Linux-x86_64/bin/cmake --install .
-        rm -rf *
-        ../../cmake_bins/cmake-3.10.0-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug ..
-        ../../cmake_bins/cmake-3.10.0-Linux-x86_64/bin/cmake --build .
+        CMAKE_VERSION="3.10.0"
+        CMAKE_MAJOR_MINOR="3.10"
+        BASE_DIR="$(pwd)"
+        DOWNLOAD_DIR="${BASE_DIR}/cmake_download"
+        CMAKE_BIN_DIR="${DOWNLOAD_DIR}/cmake-${CMAKE_VERSION}-Linux-x86_64"
+        CMAKE_BIN="${CMAKE_BIN_DIR}/bin/cmake"
+        BUILD_DIR="${BASE_DIR}/cmake_build"
+        INSTALL_TEST_DIR="${BASE_DIR}/cmake_install_test"
+
+        # Create necessary directories
+        mkdir -p "${DOWNLOAD_DIR}" "${BUILD_DIR}" "${INSTALL_TEST_DIR}"
+
+        # Download and extract CMake
+        echo "Downloading CMake ${CMAKE_VERSION}..."
+        wget "https://cmake.org/files/v${CMAKE_MAJOR_MINOR}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz" -P "${DOWNLOAD_DIR}"
+        tar xzf "${DOWNLOAD_DIR}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz" -C "${DOWNLOAD_DIR}"
+
+        # Verify CMake version
+        echo "Using CMake version:"
+        "${CMAKE_BIN}" --version
+
+        # Configure the build
+        echo "Configuring build..."
+        (cd "${BUILD_DIR}" && "${CMAKE_BIN}" "${BASE_DIR}/build/cmake")
+
+        # Build the project
+        echo "Building project..."
+        "${CMAKE_BIN}" --build "${BUILD_DIR}"
+
+        # Install to test directory
+        echo "Installing to test directory..."
+        DESTDIR="${INSTALL_TEST_DIR}" "${CMAKE_BIN}" --build "${BUILD_DIR}" --target install
+
+        echo "Test completed successfully with cmake ${CMAKE_VERSION}"
+
+        # cleaning
+        rm -rf "${DOWNLOAD_DIR}" "${BUILD_DIR}" "${INSTALL_TEST_DIR}"
 
 
 
@@ -384,40 +450,15 @@ jobs:
           { name: 'MIPS',            xcc_pkg: gcc-mips-linux-gnu,           xcc: mips-linux-gnu-gcc,           xemu_pkg: qemu-system-mips,   xemu: qemu-mips-static,    os: ubuntu-latest, },
           { name: 'M68K',            xcc_pkg: gcc-m68k-linux-gnu,           xcc: m68k-linux-gnu-gcc,           xemu_pkg: qemu-system-m68k,   xemu: qemu-m68k-static,    os: ubuntu-latest, },
           { name: 'RISC-V',          xcc_pkg: gcc-riscv64-linux-gnu,        xcc: riscv64-linux-gnu-gcc,        xemu_pkg: qemu-system-riscv64,xemu: qemu-riscv64-static, os: ubuntu-latest, },
-          # SPARC64 qemu emulation seems broken on Ubuntu-22
-          { name: 'SPARC',           xcc_pkg: gcc-sparc64-linux-gnu,        xcc: sparc64-linux-gnu-gcc,        xemu_pkg: qemu-system-sparc,  xemu: qemu-sparc64-static, os: ubuntu-20.04, },
-          { name: 'LoongArch',       xcc_pkg: gcc-14-loongarch64-linux-gnu,    xcc: loongarch64-linux-gnu-gcc-14, xemu_pkg: qemu-system-loongarch64, xemu: qemu-loongarch64-static, os: ubuntu-24.04, },
-
-          { name: 'ARM, gcc-10',     xcc_pkg: gcc-10-arm-linux-gnueabi,     xcc: arm-linux-gnueabi-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          { name: 'AARCH64, gcc-10', xcc_pkg: gcc-10-aarch64-linux-gnu,     xcc: aarch64-linux-gnu-gcc-10,     xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
-          { name: 'PPC64LE, gcc-10', xcc_pkg: gcc-10-powerpc64le-linux-gnu, xcc: powerpc64le-linux-gnu-gcc-10, xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
-          { name: 'PPC64, gcc-10',   xcc_pkg: gcc-10-powerpc64-linux-gnu,   xcc: powerpc64-linux-gnu-gcc-10,   xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
-          { name: 'S390X, gcc-10',   xcc_pkg: gcc-10-s390x-linux-gnu,       xcc: s390x-linux-gnu-gcc-10,       xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
-          { name: 'MIPS, gcc-10',    xcc_pkg: gcc-10-mips-linux-gnu,        xcc: mips-linux-gnu-gcc-10,        xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
-
-          { name: 'ARM, gcc-9',      xcc_pkg: gcc-9-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          # SVE tests require at least gcc-10.1
-          # { name: 'AARCH64, gcc-9',  xcc_pkg: gcc-9-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-9,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
-          { name: 'PPC64LE, gcc-9',  xcc_pkg: gcc-9-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-9,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
-          { name: 'PPC64, gcc-9',    xcc_pkg: gcc-9-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-9,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
-          { name: 'S390X, gcc-9',    xcc_pkg: gcc-9-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-9,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
-          { name: 'MIPS, gcc-9',     xcc_pkg: gcc-9-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-9,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
-
-          { name: 'ARM, gcc-8',      xcc_pkg: gcc-8-arm-linux-gnueabi,      xcc: arm-linux-gnueabi-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-arm-static,     os: ubuntu-20.04, },
-          # aarch64-linux-gnu-gcc-8 linker has an issue for LDFLAGS="-static"
-          # { name: 'AARCH64, gcc-8',  xcc_pkg: gcc-8-aarch64-linux-gnu,      xcc: aarch64-linux-gnu-gcc-8,      xemu_pkg: qemu-system-arm,   xemu: qemu-aarch64-static, os: ubuntu-20.04, },
-          { name: 'PPC64LE, gcc-8',  xcc_pkg: gcc-8-powerpc64le-linux-gnu,  xcc: powerpc64le-linux-gnu-gcc-8,  xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64le-static, os: ubuntu-20.04, },
-          { name: 'PPC64, gcc-8',    xcc_pkg: gcc-8-powerpc64-linux-gnu,    xcc: powerpc64-linux-gnu-gcc-8,    xemu_pkg: qemu-system-ppc,   xemu: qemu-ppc64-static,   os: ubuntu-20.04, },
-          { name: 'S390X, gcc-8',    xcc_pkg: gcc-8-s390x-linux-gnu,        xcc: s390x-linux-gnu-gcc-8,        xemu_pkg: qemu-system-s390x, xemu: qemu-s390x-static,   os: ubuntu-20.04, },
-          # ubuntu-20.04 fails to retrieve gcc-8-mips-linux-gnu for some reason.
-          # { name: 'MIPS, gcc-8',   xcc_pkg: gcc-8-mips-linux-gnu,         xcc: mips-linux-gnu-gcc-8,         xemu_pkg: qemu-system-mips,  xemu: qemu-mips-static,    os: ubuntu-20.04, },
+          { name: 'SPARC',           xcc_pkg: gcc-sparc64-linux-gnu,        xcc: sparc64-linux-gnu-gcc,        xemu_pkg: qemu-system-sparc,  xemu: qemu-sparc64-static, os: ubuntu-latest, },
+          { name: 'LoongArch',       xcc_pkg: gcc-14-loongarch64-linux-gnu, xcc: loongarch64-linux-gnu-gcc-14, xemu_pkg: qemu-system-loongarch64, xemu: qemu-loongarch64-static, os: ubuntu-24.04, },
         ]
     env:                        # Set environment variables
       XCC: ${{ matrix.xcc }}
       XEMU: ${{ matrix.xemu }}
       MOREFLAGS: -Werror
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: apt update & install (1)
       run: |
         sudo apt-get update
@@ -470,10 +511,18 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
         CPPFLAGS=-DXXH_VECTOR=XXH_VSX CFLAGS="-O3 -march=arch11 -mzvector" LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make clean check
 
-    - name: MIPS-M68K-RISCV-SPARC (XXH_VECTOR=[ scalar ])
-      if: ${{ startsWith(matrix.name, 'MIPS') || startsWith(matrix.name, 'M68K') || startsWith(matrix.name, 'RISC-V') || startsWith(matrix.name, 'SPARC') }}
+    - name: MIPS-M68K-SPARC (XXH_VECTOR=[ scalar ])
+      if: ${{ startsWith(matrix.name, 'MIPS') || startsWith(matrix.name, 'M68K') || startsWith(matrix.name, 'SPARC') }}
       run: |
         make clean; LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make check
+
+    - name: RISCV (XXH_VECTOR=[scalar, rvv])
+      if: ${{startsWith(matrix.name, 'RISC-V')}}
+      run: |
+        make clean; LDFLAGS="-static" CC=$XCC RUN_ENV=$XEMU make check
+        CPPFLAGS="-march=rv64gcv -O2 -DXXH_VECTOR=XXH_RVV" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu rv64,v=true,vlen=128,rvv_ta_all_1s=on,rvv_ma_all_1s=on" make clean check
+        CPPFLAGS="-march=rv64gcv -O2 -DXXH_VECTOR=XXH_RVV" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu rv64,v=true,vlen=256,rvv_ta_all_1s=on,rvv_ma_all_1s=on" make clean check
+        CPPFLAGS="-march=rv64gcv -O2 -DXXH_VECTOR=XXH_RVV" LDFLAGS="-static" CC=$XCC RUN_ENV="$XEMU -cpu rv64,v=true,vlen=512,rvv_ta_all_1s=on,rvv_ma_all_1s=on" make clean check
 
     - name: LoongArch (XXH_VECTOR=[ scalar, LSX ])
       if: ${{ startsWith(matrix.name, 'LoongArch') }}
@@ -490,13 +539,12 @@ jobs:
       fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix failed.
       matrix:
         system: [
-          { os: macos-13     },
           { os: macos-14     },
           { os: macos-15     },
           { os: macos-latest },
         ]
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Environment info
       run: |
@@ -511,6 +559,12 @@ jobs:
       run: |
         # test scenario where "stdout" is not the console
         make clean test MOREFLAGS='-Werror' | tee
+
+    - name: Rosetta cross-compile to ARM64 (#1081)
+      run: |
+        arch -x86_64 /usr/bin/make clean
+        arch -x86_64 /usr/bin/make CC=/usr/bin/clang CFLAGS='-O2 -arch arm64 -Werror' xxhsum
+        file xxhsum | grep 'Mach-O 64-bit executable arm64'
 
 
   # Windows, { VC++2022, VC++2019 } x { x64, Win32, ARM, ARM64 }
@@ -527,65 +581,133 @@ jobs:
   windows-visualc-general:
     name: ${{ matrix.system.vc }}, ${{ matrix.arch }}
     runs-on: ${{ matrix.system.os }}   # Runs-on foreach value of strategy.matrix.system.os
+    env:
+      SRC_DIR: build/cmake
     strategy:
       fail-fast: false  # 'false' means: Don't stop matrix workflows even if some matrix failed.
       matrix:
         system: [
           { os: windows-2022, vc: "VC++ 2022", clangcl: 'true', },
-          { os: windows-2019, vc: "VC++ 2019", clangcl: 'true', },
         ]
         arch: [ x64, Win32, ARM64 ]
+    # make every PowerShell step start with `$ErrorActionPreference = 'Stop'`
+    defaults:
+      run:
+        shell: pwsh -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; $PSNativeCommandUseErrorActionPreference=$true; & {0}"
 
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Build ${{ matrix.system.os }}, ${{ matrix.arch }}
       run: |
-        cd cmake_unofficial
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -A ${{ matrix.arch }} -DCMAKE_C_FLAGS="/W4 /WX"
-        cmake --build . --config Release
+        $BUILD_DIR   = "$env:GITHUB_WORKSPACE\cmake_visual_${{ matrix.arch }}"
+        $INSTALL_DIR = "C:/install"
 
-    - name: Test
+        cmake -S $env:SRC_DIR -B $BUILD_DIR `
+              -A "${{ matrix.arch }}" `
+              -DCMAKE_C_FLAGS="/W4 /WX"
+
+        cmake --build $BUILD_DIR --config Release --parallel
+        cmake --install $BUILD_DIR --config Release --prefix $INSTALL_DIR
+
+    - name: Test produced binary
       # Run benchmark for testing only if target arch is x64 or Win32.
       if: ${{ matrix.arch == 'x64' || matrix.arch == 'Win32' }}
       run: |
-        .\cmake_unofficial\build\Release\xxhsum.exe -bi1
+        C:\install\bin\xxhsum.exe -bi1
+
+    - name: Verify PathCch is loaded dynamically
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsPath = & $vswhere -latest -property installationPath
+        $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -Last 1
+        $imports = & $dumpbin.FullName /imports C:\install\bin\xxhsum.exe
+        if ($imports -match "PathCch(Canonicalize|Combine)Ex") { throw "xxhsum.exe imports PathCch statically" }
+
+    - name: Test Windows paths
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $shareName = "xxhash-ci-$PID"
+        $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        New-SmbShare -Name $shareName -Path $env:TMP -FullAccess $account
+        try {
+          $env:XXHASH_TEST_UNC_ROOT = "\\localhost\$shareName"
+          cmd /d /c tests\windows\00-test-all.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+          Remove-SmbShare -Name $shareName -Force
+        }
+
+    - name: Test long Unicode path
+      if: ${{ matrix.arch == 'x64' }}
+      run: |
+        $component = "long-unicode-path-" + ("x" * 90)
+        $root = Join-Path $env:TMP "xxhash-unicode-$PID"
+        $directory = Join-Path (Join-Path (Join-Path $root $component) $component) $component
+        $file = Join-Path $directory "résumé-日本語.txt"
+        if ($file.Length -le 260) { throw "Unicode test path is not long enough" }
+        try {
+          [System.IO.Directory]::CreateDirectory("\\?\$directory") | Out-Null
+          [System.IO.File]::WriteAllText("\\?\$file", "xxHash")
+          C:\install\bin\xxhsum.exe $file
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          C:\install\bin\xxhsum.exe "\\?\$file"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+          if ([System.IO.Directory]::Exists("\\?\$root")) {
+            [System.IO.Directory]::Delete("\\?\$root", $true)
+          }
+        }
+
+    - name: Test MSVC link-time optimization
+      if: ${{ matrix.arch == 'x64' }}
+      shell: cmd
+      run: |
+        call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cl /nologo /O2 /GL /W4 /WX /I. xxhash.c tests\msvc_ltcg_test.cpp /Fe:msvc_ltcg_test.exe /link /LTCG /WX
+        msvc_ltcg_test.exe
+
 
     - name: Build ${{ matrix.system.os }}, ${{ matrix.arch }}, with DISPATCH
       # DISPATCH only if target arch is x64 or Win32.
       if: ${{ ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
       run: |
-        cd cmake_unofficial
-        mkdir build-visual-dispatch
-        cd build-visual-dispatch
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DDISPATCH=ON -A x64 -DCMAKE_C_FLAGS="/W4 /WX"
-        cmake --build . --config Release
+        $BUILD_DIR = "$env:GITHUB_WORKSPACE\cmake_visual_dispatch_${{ matrix.arch }}"
+        $INSTALL_DIR = "C:/install_dispatch"
 
-    - name: Runtime Test (DISPATCH)
-      # Run benchmark for testing only if target arch is x64 or Win32.
-      if: ${{ ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
-      run: |
-        .\cmake_unofficial\build-visual-dispatch\Release\xxhsum.exe -V | grep autoVec
-        .\cmake_unofficial\build-visual-dispatch\Release\xxhsum.exe -bi1
+        cmake -S $env:SRC_DIR -B $BUILD_DIR `
+              -A "${{ matrix.arch }}" `
+              -DDISPATCH=ON `
+              -DCMAKE_C_FLAGS="/W4 /WX"
+
+        cmake --build $BUILD_DIR --config Release --parallel
+        cmake --install $BUILD_DIR --config Release --prefix $INSTALL_DIR
+
+        # Runtime test bundled, this they have same $arch conditions
+        $exe = "$INSTALL_DIR\bin\xxhsum.exe"
+        & "$exe" -V   | Select-String autoVec   # PowerShell’s ‘grep’
+        & "$exe" -bi1
 
 
     - name: Build ${{ matrix.system.os }}, clang-cl, ${{ matrix.arch }}
       if: ${{ matrix.system.clangcl == 'true' }}
       run: |
-        cd cmake_unofficial
-        mkdir build-clang-cl
-        cd build-clang-cl
-        cmake .. -DCMAKE_BUILD_TYPE=Release -A x64 -DCMAKE_GENERATOR_TOOLSET=ClangCL
-        cmake --build . --config Release
+        $BUILD_DIR = "$env:GITHUB_WORKSPACE\cmake_visual_cl_${{ matrix.arch }}"
+
+        cmake -S $env:SRC_DIR -B $BUILD_DIR `
+              -A "${{ matrix.arch }}" `
+              -DCMAKE_GENERATOR_TOOLSET=ClangCL `
+              -DCMAKE_C_FLAGS="/W4 /WX"
+
+        cmake --build $BUILD_DIR --config Release --parallel
+        cmake --install $BUILD_DIR --config Release --prefix "C:/install_cl"
 
     - name: Test (clang-cl)
       # Run benchmark for testing only if target arch is x64 or Win32.
       if: ${{ matrix.system.clangcl == 'true' && ( matrix.arch == 'x64' || matrix.arch == 'Win32' ) }}
       run: |
-        .\cmake_unofficial\build-clang-cl\Release\xxhsum.exe -bi1
-
+        C:\install_cl\bin\xxhsum.exe -bi1
 
 
   # Windows, { mingw64, mingw32 }
@@ -609,8 +731,8 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: msys2/setup-msys2@7efe20baefed56359985e327d329042cde2434ff # v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           msystem: MSYS
           install: mingw-w64-i686-make ${{ matrix.toolchain }}
@@ -630,7 +752,6 @@ jobs:
           # Expected output is "./xxhsum.exe: PE32+ executable (console) x86-64, for MS Windows"
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q 'x86-64' || $(exit 1)
-          ./xxhsum.exe --version
 
       - name: mingw32
         if: ${{ matrix.msystem == 'mingw32' }}
@@ -641,4 +762,9 @@ jobs:
           # Expected output is "./xxhsum.exe: PE32 executable (console) Intel i386, for MS Windows"
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q '386' || $(exit 1)
+
+      - name: Test MinGW binary
+        run: |
           ./xxhsum.exe --version
+          cmd.exe //d //c "xxhsum.exe *.c > nul"
+          cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"

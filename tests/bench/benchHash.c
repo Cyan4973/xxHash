@@ -115,7 +115,7 @@ bench_hash_internal(BMK_benchFn_t hashfn, void* payload,
 
     free(srcBuffer);
     assert(runTime.nanoSecPerRun != 0);
-    return (1000000000U / runTime.nanoSecPerRun) * nbBlocks;
+    return (1000000000U / runTime.nanoSecPerRun) * (double)nbBlocks;
 
 }
 

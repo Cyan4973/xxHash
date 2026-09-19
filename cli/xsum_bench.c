@@ -52,7 +52,7 @@
  * But if it's too large, the first iteration can be very long,
  * before being fixed at second attempt.
  * So prefer starting with small speed targets.
- * XXH_1ST_SPEED_TARGET is defined in MB/s */
+ * XXH_1ST_SPEED_TARGET is defined in MiB/s */
 #ifndef XXH_1ST_SPEED_TARGET
 # define XXH_1ST_SPEED_TARGET 10
 #endif
@@ -264,10 +264,10 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
              * For example, on a Core 2 Duo (without any sort of Turbo Boost),
              * the imprecise timer caused peculiar results like so:
              *
-             *    XXH3_64b                   4800.0 MB/s // conveniently even
-             *    XXH3_64b unaligned         4800.0 MB/s
-             *    XXH3_64b seeded            9600.0 MB/s // magical 2x speedup?!
-             *    XXH3_64b seeded unaligned  4800.0 MB/s
+             *    XXH3_64b                   4800.0 MiB/s // conveniently even
+             *    XXH3_64b unaligned         4800.0 MiB/s
+             *    XXH3_64b seeded            9600.0 MiB/s // magical 2x speedup?!
+             *    XXH3_64b seeded unaligned  4800.0 MiB/s
              *
              * If we sense a suspiciously low number of ticks, we increase the
              * iterations until we can get something meaningful.
@@ -293,7 +293,7 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
             }
             if (ticksPerHash < fastestH) fastestH = ticksPerHash;
             if (fastestH>0.) { /* avoid div by zero */
-                XSUM_logVerbose(2, "%2i-%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \r",
+                XSUM_logVerbose(2, "%2i-%-*.*s : %10u -> %8.0f it/s (%7.1f MiB/s) \r",
                             iterationNb,
                             HASHNAME_MAX, HASHNAME_MAX, hName,
                             (unsigned)bufferSize,
@@ -305,7 +305,7 @@ static void XSUM_benchHash(hashFunction h, const char* hName, int testID,
             nbh_perIteration = (XSUM_U32)nbh_perSecond;
         }
     }
-    XSUM_logVerbose(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MB/s) \n",
+    XSUM_logVerbose(1, "%2i#%-*.*s : %10u -> %8.0f it/s (%7.1f MiB/s) \n",
                     testID,
                     HASHNAME_MAX, HASHNAME_MAX, hName,
                     (unsigned)bufferSize,
@@ -378,7 +378,7 @@ static size_t XSUM_selectBenchedSize(const char* fileName)
     size_t benchedSize = (size_t) XSUM_findMaxMem(inFileSize);
     if ((XSUM_U64)benchedSize > inFileSize) benchedSize = (size_t)inFileSize;
     if (benchedSize < inFileSize) {
-        XSUM_log("Not enough memory for '%s' full size; testing %i MB only...\n", fileName, (int)(benchedSize>>20));
+        XSUM_log("Not enough memory for '%s' full size; testing %i MiB only...\n", fileName, (int)(benchedSize>>20));
     }
     return benchedSize;
 }
@@ -392,35 +392,42 @@ int XSUM_benchFiles(const char* fileNamesTable[], int nbFiles)
         assert(inFileName != NULL);
 
         {   FILE* const inFile = XSUM_fopen( inFileName, "rb" );
-            size_t const benchedSize = XSUM_selectBenchedSize(inFileName);
-            char* const buffer = (char*)calloc(benchedSize+16+3, 1);
-            void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
-
-            /* Checks */
             if (inFile==NULL){
                 XSUM_log("Error: Could not open '%s': %s.\n", inFileName, strerror(errno));
-                free(buffer);
                 exit(11);
             }
-            if(!buffer) {
-                XSUM_log("\nError: Out of memory.\n");
-                fclose(inFile);
-                exit(12);
+
+            {   size_t const benchedSize = XSUM_selectBenchedSize(inFileName);
+                size_t const bufferPadding = 16 + 3;
+                char* buffer;
+
+                /* XSUM_selectBenchedSize() caps the result below MAX_MEM,
+                 * leaving room for bufferPadding even on 32-bit targets. */
+                assert(benchedSize <= (size_t)-1 - bufferPadding);
+                buffer = (char*)calloc(benchedSize + bufferPadding, 1);
+                if (buffer == NULL) {
+                    XSUM_log("\nError: Out of memory.\n");
+                    fclose(inFile);
+                    exit(12);
+                }
+
+                {   void* const alignedBuffer = (buffer+15) - (((size_t)(buffer+15)) & 0xF);  /* align on next 16 bytes */
+
+                    /* Fill input buffer */
+                    {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
+                        fclose(inFile);
+                        if(readSize != benchedSize) {
+                            XSUM_log("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
+                            free(buffer);
+                            exit(13);
+                    }   }
+
+                    /* bench */
+                    XSUM_benchMem(alignedBuffer, benchedSize);
+                }
+
+                free(buffer);
             }
-
-            /* Fill input buffer */
-            {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
-                fclose(inFile);
-                if(readSize != benchedSize) {
-                    XSUM_log("\nError: Could not read '%s': %s.\n", inFileName, strerror(errno));
-                    free(buffer);
-                    exit(13);
-            }   }
-
-            /* bench */
-            XSUM_benchMem(alignedBuffer, benchedSize);
-
-            free(buffer);
     }   }
     return 0;
 }
@@ -428,18 +435,33 @@ int XSUM_benchFiles(const char* fileNamesTable[], int nbFiles)
 
 int XSUM_benchInternal(size_t keySize)
 {
-    void* const buffer = calloc(keySize+16+3, 1);
+    size_t const bufferPadding = 16 + 3;
+    void* buffer;
+    if (keySize > (size_t)-1 - bufferPadding) {
+        XSUM_log("\nError: benchmark block size is too large.\n");
+        return 1;
+    }
+    buffer = calloc(keySize + bufferPadding, 1);
     if (buffer == NULL) {
         XSUM_log("\nError: Out of memory.\n");
         exit(12);
     }
 
-    {   const void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
+    {   void* const alignedBuffer = ((char*)buffer+15) - (((size_t)((char*)buffer+15)) & 0xF);  /* align on next 16 bytes */
+
+        /*
+         * Fill the buffer with non-zero content.
+         * A freshly calloc()'d buffer that is only ever read (never written)
+         * can end up entirely backed by the same shared physical zero page
+         * on Linux, making the benchmark measure cache speed rather than
+         * real memory bandwidth.
+         */
+        XSUM_fillTestBuffer((XSUM_U8*)alignedBuffer, keySize);
 
         /* bench */
         XSUM_logVerbose(1, "Sample of ");
         if (keySize > 10 KB) {
-            XSUM_logVerbose(1, "%u KB", (unsigned)(keySize >> 10));
+            XSUM_logVerbose(1, "%u KiB", (unsigned)(keySize >> 10));
         } else {
             XSUM_logVerbose(1, "%u bytes", (unsigned)keySize);
         }

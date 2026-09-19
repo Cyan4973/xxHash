@@ -50,6 +50,10 @@
 #  endif
 #endif
 
+#if defined(_MSC_VER)
+#  pragma warning(disable : 4127) /* disable: C4127: conditional expression is constant */
+#endif
+
 /* Under Linux at least, pull in the *64 commands */
 #ifndef _LARGEFILE64_SOURCE
 #  define _LARGEFILE64_SOURCE
@@ -170,11 +174,7 @@
 #endif /* XSUM_WIN32_USE_WCHAR */
 
 #ifndef XSUM_API
-#  ifdef XXH_INLINE_ALL
-#    define XSUM_API static
-#  else
-#    define XSUM_API
-#  endif
+#  define XSUM_API
 #endif
 
 #ifndef XSUM_NO_TESTS

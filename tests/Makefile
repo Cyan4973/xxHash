@@ -23,13 +23,12 @@
 #   - xxHash source repository: https://github.com/Cyan4973/xxHash
 # ################################################################
 
-CFLAGS += -Wall -Wextra -Wundef -g
+MAKEFLAGS += --no-print-directory
+CFLAGS += -Wall -Wextra -Wundef -g $(MOREFLAGS)
 
 CP = cp
 NM = nm
 GREP = grep
-XXHSUM_DIR = ..
-XXHSUM = $(XXHSUM_DIR)/xxhsum
 
 # Define *.exe as extension for Windows systems
 ifneq (,$(filter Windows%,$(OS)))
@@ -44,45 +43,65 @@ else
 ENABLE_UNICODE ?= 0
 endif
 
+# the dispatcher can only be built for x86/x64 targets
+X86_TARGET := $(strip $(shell $(CC) -dumpmachine | $(GREP) -E 'i[3-6]86|x86_64'))
+
 .PHONY: default
 default: all
 
+C_SRCDIRS = . .. ../cli
+include ../build/make/multiconf.make
+
 .PHONY: all
-all: test
+all: test test_alias
 
 .PHONY: test
 test: test_multiInclude test_unicode test_sanity
 
 .PHONY: test_multiInclude
 test_multiInclude:
-	@$(MAKE) clean
 	# compile without xxhash.o, ensure symbols exist within target
 	# Note: built using only default rules
 	$(MAKE) multiInclude
-	@$(MAKE) clean
+	$(RM) multiInclude
 	# compile with xxhash.o, to detect duplicated symbols
 	$(MAKE) multiInclude_withxxhash
-	@$(MAKE) clean
+	$(RM) multiInclude_withxxhash
 	# compile with XXH_NAMESPACE before XXH_INLINE_ALL
 	CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude
 	# no symbol prefixed TESTN_ should exist
 	! $(NM) multiInclude | $(GREP) TESTN_
-	$(MAKE) clean
+	$(RM) multiInclude
 	# compile xxhash.o with XXH_NAMESPACE
 	CPPFLAGS=-DXXH_NAMESPACE=TESTN_ $(MAKE) multiInclude_withxxhash
 	# symbols prefixed TESTN_ should exist in xxhash.o (though not be invoked)
 	$(NM) multiInclude_withxxhash | $(GREP) TESTN_
-	$(MAKE) clean
+	$(RM) multiInclude_withxxhash
+
+# a unit requesting XXH_INLINE_ALL can still employ the x86 dispatcher
+# https://github.com/Cyan4973/xxHash/issues/1071
+.PHONY: test_inline_dispatch
+ifneq ($(X86_TARGET),)
+test_inline_dispatch: inlineDispatch
+	$(RUN_ENV) ./inlineDispatch$(EXT)
+	$(RM) inlineDispatch$(EXT)
+else
+test_inline_dispatch:
+	@echo "Skipping inlined dispatch test, the dispatcher requires an x86/x64 target"
+endif
+
+inlineDispatch: CFLAGS += -Werror
+$(eval $(call c_program,inlineDispatch,inlineDispatch.o xxh_x86dispatch.o))
 
 .PHONY: test_ppc_redefine
-test_ppc_redefine: ppc_define.c
-	@$(MAKE) clean
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $^
+test_ppc_redefine: ppc_define.o
 
-.PHONY: $(XXHSUM)
-$(XXHSUM):
-	$(MAKE) -C $(XXHSUM_DIR) xxhsum
-	$(CP) $(XXHSUM) .
+XXHSUM_OBJS = xxhash.o $(notdir $(patsubst %.c,%.o,$(wildcard ../cli/*.c)))
+xxhsum:
+$(eval $(call c_program,xxhsum,$(XXHSUM_OBJS)))
+
+generate_unicode_test:
+$(eval $(call c_program,generate_unicode_test,generate_unicode_test.o))
 
 # Make sure that Unicode filenames work.
 # https://github.com/Cyan4973/xxHash/issues/293
@@ -92,24 +111,23 @@ test_unicode:
 	@echo "Skipping Unicode test, your terminal doesn't appear to support UTF-8."
 	@echo "Try with ENABLE_UNICODE=1"
 else
-test_unicode: $(XXHSUM) generate_unicode_test.c
+test_unicode: generate_unicode_test xxhsum
 	# Generate a Unicode filename test dynamically
 	# to keep UTF-8 out of the source tree.
-	$(CC) $(CFLAGS) $(LDFLAGS) generate_unicode_test.c -o generate_unicode_test$(EXT)
 	./generate_unicode_test$(EXT)
 	$(SHELL) ./unicode_test.sh
 endif
 
 .PHONY: test_filename_escape
-test_filename_escape: $(XXHSUM)
+test_filename_escape: xxhsum
 	./filename-escape.sh
 
 .PHONY: test_cli_comment_line
-test_cli_comment_line: $(XXHSUM)
+test_cli_comment_line: xxhsum
 	$(SHELL) ./cli-comment-line.sh
 
 .PHONY: test_cli_ignore_missing
-test_cli_ignore_missing: $(XXHSUM)
+test_cli_ignore_missing: xxhsum
 	$(SHELL) ./cli-ignore-missing.sh
 
 .PHONY: test_sanity
@@ -117,19 +135,24 @@ test_sanity: sanity_test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) sanity_test.c -o sanity_test$(EXT)
 	$(RUN_ENV) ./sanity_test$(EXT)
 
+sanity_test_vectors_generator:
+$(eval $(call c_program,sanity_test_vectors_generator,sanity_test_vectors_generator.o))
+
 .PHONY: sanity_test_vectors.h
-sanity_test_vectors.h: sanity_test_vectors_generator.c
-	$(CC) $(CFLAGS) $(LDFLAGS) sanity_test_vectors_generator.c -o sanity_test_vectors_generator$(EXT)
+sanity_test_vectors.h: sanity_test_vectors_generator
 	./sanity_test_vectors_generator$(EXT)
 
-xxhash.o: ../xxhash.c ../xxhash.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -c -o $@ $<
+multiInclude_withxxhash:
+$(eval $(call c_program,multiInclude_withxxhash,multiInclude.o xxhash.o))
 
-multiInclude_withxxhash: multiInclude.o xxhash.o
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ $^
+test_alias: CPPFLAGS += -I..
+test_alias: CFLAGS += -O3 -Werror
+$(eval $(call c_program,test_alias,test_alias.o))
 
+.PHONY: clean
 clean:
 	@$(RM) *.o
-	@$(RM) multiInclude multiInclude_withxxhash
-	@$(RM) *.unicode generate_unicode_test$(EXT) unicode_test.* xxhsum*
+	@$(RM) multiInclude
+	@$(RM) inlineDispatch$(EXT)
+	@$(RM) *.unicode unicode_test.*
 	@$(RM) sanity_test$(EXT) sanity_test_vectors_generator$(EXT)

@@ -1,0 +1,39 @@
+name: CMake Cross-Compile Test
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  cmake-cross-compile-host-vs-target:
+    name: Cross-compile x86_64 → ARM64 (shows host/target bug)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      
+      - name: Install ARM64 cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      
+      - name: Create ARM64 toolchain file
+        run: |
+          cat > /tmp/arm64-toolchain.cmake << 'EOF'
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR aarch64)
+          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+          EOF
+      
+      - name: Configure with DISPATCH (demonstrates bug)
+        run: |
+          cmake -S build/cmake -B build_cross \
+                -DCMAKE_TOOLCHAIN_FILE=/tmp/arm64-toolchain.cmake \
+                -DDISPATCH=ON
+      
+      - name: Build (expected to fail)
+        run: |
+          # Bug: CMAKE_HOST_SYSTEM_INFORMATION detects x86_64 (host) instead of aarch64 (target)
+          # Result: Enables x86 dispatch code which fails to compile for ARM64
+          cmake --build build_cross

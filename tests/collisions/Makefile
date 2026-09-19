@@ -23,38 +23,36 @@
 #  - xxHash source repository: https://github.com/Cyan4973/xxHash
 #
 
-SRC_DIRS = ./ ../../ allcodecs/
-VPATH = $(SRC_DIRS)
-CPPFLAGS += $(addprefix -I ,$(SRC_DIRS))
+HEADER_DIRS = ./ ../../ allcodecs/
+CPPFLAGS += $(addprefix -I ,$(HEADER_DIRS))
 CFLAGS   += -Wall -Wextra -Wconversion \
-            -std=c11
+            -std=c11 $(MOREFLAGS)
 CXXFLAGS += -Wall -Wextra -Wconversion \
-            -std=c++11
+            -std=c++11 $(MOREFLAGS)
 LDFLAGS  += -pthread
 TESTHASHES = 3200000
 
-HASH_SRC := $(sort $(wildcard allcodecs/*.c allcodecs/*.cc))
-HASH_OBJ := $(patsubst %.c,%.o,$(HASH_SRC))
-
+HASH_SRC := $(wildcard allcodecs/*.c) $(wildcard allcodecs/*.cc) $(wildcard allcodecs/*.cpp)
+HASH_OBJ := $(addsuffix .o,$(basename $(HASH_SRC)))
 
 .PHONY: default
-default: release
+default: collisionsTest
+
+C_SRCDIRS = $(shell find allcodecs -type d)
+CXX_SRCDIRS = $(shell find allcodecs -type d)
+include ../../build/make/multiconf.make
 
 .PHONY: all
-all: release
+all: collisionsTest
 
-collisionsTest: main.o pool.o threading.o sort.o $(HASH_OBJ)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
+collisionsTest: CXXFLAGS := -O3 $(CXXFLAGS)
+collisionsTest: CFLAGS := -O3 $(CFLAGS)
+$(eval $(call cxx_program,collisionsTest,main.o pool.o threading.o sort.o $(HASH_OBJ)))
 
-main.o: hashes.h xxhash.h
-
-release: CXXFLAGS += -O3
-release: CFLAGS += -O3
-release: collisionsTest
-
-debug: CXXFLAGS += -g3 -O0 -DDEBUG
-debug: CFLAGS += -g3 -O0 -DDEBUG
-debug: collisionsTest
+.PHONY: debug
+debug: CPPFLAGS += -DDEBUG -DXXH_NO_INLINE_HINTS
+debug:
+	CFLAGS='$(CFLAGS) -g3 -Og' CXXFLAGS='$(CXXFLAGS) -g3 -Og' CPPFLAGS='$(CPPFLAGS)' $(MAKE) collisionsTest
 
 .PHONY: check
 check: test
@@ -75,4 +73,3 @@ test: debug
 .PHONY: clean
 clean:
 	$(RM) *.o allcodecs/*.o
-	$(RM) collisionsTest

@@ -41,8 +41,14 @@ OPTIONS
   Alternatively, *HASHTYPE* `32`=XXH32, `64`=XXH64, `128`=XXH128.
   Default value is `1` (XXH64)
 
+* `-s`*SEED*, `--seed` *SEED*:
+  Set the unsigned decimal seed used for hashing and checksum verification.
+  The seed is not stored in checksum files, so the same value must be provided
+  when verifying seeded checksums. Default value is `0`.
+
 * `--binary`:
-  Read in binary mode.
+  Accepted for compatibility. This option has no effect because `xxhsum`
+  always reads files in binary mode.
 
 * `--tag`:
   Output in the BSD style.
@@ -57,17 +63,21 @@ OPTIONS
 * `-h`, `--help`:
   Displays help and exits
 
+* `--`:
+  Treat all following arguments as file names. This is useful for file names
+  beginning with `-`.
+
 ### Advanced file input options
 
 * `--files-from`, `--filelist` *FILE*:
   Read filenames from *FILE* and generate hashes for them.
   `stdin` is also a valid way to provide filenames (when no *FILE* or `-` provided).
   Valid format is one filename per line, which can include embedded spaces, etc with no need for quotes, escapes, etc.
-  A line commencing with '\\' will enable the convention used in the encoding of filenames against output hashes,
-  whereby subsequent \\\\, \n and \r seqeuences are converted to the single
-  character 0x5C, 0x0A and 0x0D respectively.
+  A line beginning with byte `0x5C` enables filename unescaping. Subsequent byte
+  sequences `0x5C 0x5C`, `0x5C 0x6E`, and `0x5C 0x72` are converted to the
+  single bytes `0x5C`, `0x0A`, and `0x0D`, respectively.
 
-### The following options are useful only for checksum verification:
+### Checksum verification options:
 
 * `-c`, `--check` *FILE*:
   Read xxHash sums from *FILE* and check them
@@ -83,12 +93,16 @@ OPTIONS
   Emit a warning message about each improperly formatted line in *FILE*.
 
 * `-q`, `--quiet`:
-   Don't print OK for each successfully verified hash
+  Don't print OK for each successfully verified hash. In benchmark mode,
+  don't display the version header.
 
 * `--status`:
   Don't output anything. Only generate a Status code to show success.
 
-### The following options are useful only benchmark purpose:
+* `--ignore-missing`:
+  Don't fail or report status for missing files.
+
+### Benchmark options:
 
 * `-b`:
   Benchmark mode.  See EXAMPLES for details.
@@ -99,8 +113,11 @@ OPTIONS
 
 * `-B`*BLOCKSIZE*:
   Only useful for benchmark mode (`-b`). See *EXAMPLES* for details.
-  <BLOCKSIZE> specifies benchmark mode's test data block size in bytes.
-  Default value is 102400
+  *BLOCKSIZE* specifies benchmark mode's test data block size in bytes and
+  accepts the suffixes `K`, `KB`, `KiB`, `M`, `MB`, and `MiB`. All suffixes
+  use powers of 1024: `K`, `KB`, and `KiB` multiply by 1024, while `M`, `MB`,
+  and `MiB` multiply by 1048576.
+  Default value is 102400.
 
 * `-i`*ITERATIONS*:
   Only useful for benchmark mode (`-b`). See *EXAMPLES* for details.

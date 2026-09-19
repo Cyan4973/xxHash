@@ -74,6 +74,11 @@ module.exports = async function () {
     // the counterpart: the project itself is not a released artifact
     t.ok("source link stays on the default branch",
       hrefs.includes("https://github.com/Cyan4973/xxHash"));
+    // dropping someone at the top of a long README leaves them to find the part
+    // they came for; the heading GitHub turns into #getting-started is that part
+    t.is("'Get started' aims at #getting-started",
+      d.querySelector(".hero .btn-primary").getAttribute("href"),
+      "https://github.com/Cyan4973/xxHash/tree/release#getting-started");
   }
 
   t.section("the top bar keeps what the old one offered");

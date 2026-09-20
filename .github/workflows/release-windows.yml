@@ -1,0 +1,122 @@
+name: Windows release archive
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to package (for example, v0.8.4)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Windows x64 archive
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      archive: ${{ steps.release.outputs.archive }}
+      artifact: ${{ steps.release.outputs.artifact }}
+
+    steps:
+      - name: Resolve release
+        id: release
+        shell: bash
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${EVENT_TAG:-$INPUT_TAG}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
+          fi
+          version="${tag#v}"
+          archive_version="${tag//./_}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "archive=xxhsum_win64_${archive_version}.zip" >> "$GITHUB_OUTPUT"
+          echo "artifact=xxhsum-win64-${tag}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          persist-credentials: false
+
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+        with:
+          msystem: MSYS
+          install: mingw-w64-i686-make mingw-w64-x86_64-toolchain
+          update: true
+
+      - name: Build and test
+        shell: msys2 {0}
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          /mingw64/bin/gcc --version
+          PATH=/mingw64/bin:$PATH /mingw32/bin/mingw32-make clean xxhsum MOREFLAGS=-Werror
+          file ./xxhsum.exe | tee binary-type.txt
+          grep -q 'PE32+ executable.*x86-64' binary-type.txt
+          /mingw64/bin/objdump -p ./xxhsum.exe | grep 'DLL Name'
+          ./xxhsum.exe --version 2>&1 | tee binary-version.txt
+          grep -Fq "$VERSION" binary-version.txt
+          cmd.exe //d //c "xxhsum.exe *.c > nul"
+          cmd.exe //d //c "set XXHSUM_EXE=%CD%\xxhsum.exe&& call tests\windows\00-test-all.bat"
+
+      - name: Create archive
+        shell: pwsh
+        env:
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+        run: |
+          Compress-Archive -LiteralPath xxhsum.exe -DestinationPath $env:ARCHIVE
+          Get-FileHash -Algorithm SHA256 $env:ARCHIVE
+
+      - name: Preserve archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.release.outputs.artifact }}
+          path: ${{ steps.release.outputs.archive }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  publish:
+    name: Attach archive to release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: dist
+
+      - name: Attach archive to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          ARCHIVE: ${{ needs.build.outputs.archive }}
+        run: |
+          test -f "dist/$ARCHIVE"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --json assets --jq '.assets[].name' | grep -Fxq "$ARCHIVE"; then
+            echo "Release asset already exists: $ARCHIVE" >&2
+            exit 1
+          fi
+          gh release upload "$TAG" "dist/$ARCHIVE" --repo "$GITHUB_REPOSITORY"

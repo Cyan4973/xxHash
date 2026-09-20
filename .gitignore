@@ -24,6 +24,9 @@ tests/sanity_test_vectors_generator
 tests/test_alias
 fuzzer
 
+# Archives
+*.zip
+
 # Mac OS-X artefacts
 *.dSYM
 .DS_Store

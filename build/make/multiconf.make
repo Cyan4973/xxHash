@@ -252,17 +252,19 @@ define program_base  # progName, objectDeps, extraDeps, postLinkCmds, extraHash,
 $$(if $$(filter 2,$$(V)),$$(info $$(call $(0),$(1),$(2),$(3),$(4),$(5),$(6),$(7))))
 MCM_ALL_BINS += $(1)
 
-$$(CACHE_ROOT)/%/$(1) : $$(addprefix $$(CACHE_ROOT)/%/,$(2)) $(3)
+$$(CACHE_ROOT)/%/$(1)$(EXT) : $$(addprefix $$(CACHE_ROOT)/%/,$(2)) $(3)
 	@echo LD $$@
 	$$($(6)) $$(CPPFLAGS) $$($(7)) $$^ -o $$@ $$(LDFLAGS) $$(LDLIBS)
 	$(4)
 
 .PHONY: $(1)
-$(1) : $$(CACHE_ROOT)/$$(call HASH_FUNC,$(1),$$($(6)) $$(CPPFLAGS) $$($(7)) $$(LDFLAGS) $$(LDLIBS) $(5))/$(1)
+$(1) : $$(CACHE_ROOT)/$$(call HASH_FUNC,$(1),$$($(6)) $$(CPPFLAGS) $$($(7)) $$(LDFLAGS) $$(LDLIBS) $(5))/$(1)$(EXT)
 	$$(LN) -sf $$< $$@$(EXT)
 
 endef # program_base
-# Note: $(EXT) must be set to .exe for Windows
+# Note: $(EXT) must be set to .exe for Windows.
+# It is part of the cached binary name, because a Windows compiler
+# (such as mingw) appends .exe to its output when the name lacks it.
 
 define c_program  # progName, objectDeps, extraDeps, postLinkCmds
 $$(eval $$(call program_base,$(1),$(2),$(3),$(4),$(1)$(2),CC,CFLAGS))
@@ -286,7 +288,7 @@ endef # cxx_program_shared_o
 .PHONY: clean_cache
 clean_cache:
 	$(RM) -rf $(CACHE_ROOT)
-	$(RM) $(MCM_ALL_BINS)
+	$(RM) $(MCM_ALL_BINS) $(addsuffix .exe,$(MCM_ALL_BINS))
 
 # automatically attach to standard clean target
 .PHONY: clean

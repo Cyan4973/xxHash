@@ -3234,6 +3234,7 @@ XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void)
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 {
+    if (statePtr == NULL) return XXH_OK;
     XXH_free(statePtr);
     return XXH_OK;
 }
@@ -3241,6 +3242,7 @@ XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr)
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t* srcState)
 {
+    if (dstState == NULL || srcState == NULL) return;
     XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
@@ -3248,6 +3250,7 @@ XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState, const XXH32_state_t
 XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t seed)
 {
     XXH_ASSERT(statePtr != NULL);
+    if (statePtr == NULL) return XXH_ERROR;
     XXH_memset(statePtr, 0, sizeof(*statePtr));
     XXH32_initAccs(statePtr->acc, seed);
     return XXH_OK;
@@ -3258,9 +3261,10 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, XXH32_hash_t s
 XXH_PUBLIC_API XXH_errorcode
 XXH32_update(XXH32_state_t* state, const void* input, size_t len)
 {
+    if (state == NULL) return XXH_ERROR;
     if (input==NULL) {
-        XXH_ASSERT(len == 0);
-        return XXH_OK;
+        if (len == 0) return XXH_OK;
+        return XXH_ERROR;
     }
 
     state->total_len_32 += (XXH32_hash_t)len;
@@ -3306,6 +3310,8 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 {
     xxh_u32 h32;
 
+    if (state == NULL) return 0;
+
     if (state->large_len) {
         h32 = XXH32_mergeAccs(state->acc);
     } else {
@@ -3324,12 +3330,14 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH32_canonical_t) == sizeof(XXH32_hash_t));
+    if (dst == NULL) return;
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
     XXH_memcpy(dst, &hash, sizeof(*dst));
 }
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src)
 {
+    if (src == NULL) return 0;
     return XXH_readBE32(src);
 }
 
@@ -3731,6 +3739,7 @@ XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void)
 /*! @ingroup XXH64_family */
 XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 {
+    if (statePtr == NULL) return XXH_OK;
     XXH_free(statePtr);
     return XXH_OK;
 }
@@ -3738,6 +3747,7 @@ XXH_PUBLIC_API XXH_errorcode XXH64_freeState(XXH64_state_t* statePtr)
 /*! @ingroup XXH64_family */
 XXH_PUBLIC_API void XXH64_copyState(XXH_NOESCAPE XXH64_state_t* dstState, const XXH64_state_t* srcState)
 {
+    if (dstState == NULL || srcState == NULL) return;
     XXH_memcpy(dstState, srcState, sizeof(*dstState));
 }
 
@@ -3745,6 +3755,7 @@ XXH_PUBLIC_API void XXH64_copyState(XXH_NOESCAPE XXH64_state_t* dstState, const 
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH_NOESCAPE XXH64_state_t* statePtr, XXH64_hash_t seed)
 {
     XXH_ASSERT(statePtr != NULL);
+    if (statePtr == NULL) return XXH_ERROR;
     XXH_memset(statePtr, 0, sizeof(*statePtr));
     XXH64_initAccs(statePtr->acc, seed);
     return XXH_OK;
@@ -3754,9 +3765,10 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH_NOESCAPE XXH64_state_t* statePtr, X
 XXH_PUBLIC_API XXH_errorcode
 XXH64_update (XXH_NOESCAPE XXH64_state_t* state, XXH_NOESCAPE const void* input, size_t len)
 {
+    if (state == NULL) return XXH_ERROR;
     if (input==NULL) {
-        XXH_ASSERT(len == 0);
-        return XXH_OK;
+        if (len == 0) return XXH_OK;
+        return XXH_ERROR;
     }
 
     state->total_len += len;
@@ -3801,6 +3813,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state
 {
     xxh_u64 h64;
 
+    if (state == NULL) return 0;
+
     if (state->total_len >= 32) {
         h64 = XXH64_mergeAccs(state->acc);
     } else {
@@ -3819,6 +3833,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst, XXH64_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH64_canonical_t) == sizeof(XXH64_hash_t));
+    if (dst == NULL) return;
     if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
     XXH_memcpy(dst, &hash, sizeof(*dst));
 }
@@ -3826,6 +3841,7 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst,
 /*! @ingroup XXH64_family */
 XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_canonical_t* src)
 {
+    if (src == NULL) return 0;
     return XXH_readBE64(src);
 }
 
@@ -6594,6 +6610,7 @@ XXH_PUBLIC_API XXH3_state_t* XXH3_createState(void)
  */
 XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 {
+    if (statePtr == NULL) return XXH_OK;
     XXH_alignedFree(statePtr);
     return XXH_OK;
 }
@@ -6602,6 +6619,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_freeState(XXH3_state_t* statePtr)
 XXH_PUBLIC_API void
 XXH3_copyState(XXH_NOESCAPE XXH3_state_t* dst_state, XXH_NOESCAPE const XXH3_state_t* src_state)
 {
+    if (dst_state == NULL || src_state == NULL) return;
     XXH_memcpy(dst_state, src_state, sizeof(*dst_state));
 }
 
@@ -6614,6 +6632,7 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
     size_t const initLength = offsetof(XXH3_state_t, nbStripesPerBlock) - initStart;
     XXH_ASSERT(offsetof(XXH3_state_t, nbStripesPerBlock) > initStart);
     XXH_ASSERT(statePtr != NULL);
+    if (statePtr == NULL) return;
     /* set members from bufferedSize to nbStripesPerBlock (excluded) to 0 */
     XXH_memset((char*)statePtr + initStart, 0, initLength);
     statePtr->acc[0] = XXH_PRIME32_3;
@@ -6646,9 +6665,9 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, secret, secretSize);
     if (secret == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
+    XXH3_reset_internal(statePtr, 0, secret, secretSize);
     return XXH_OK;
 }
 
@@ -6744,12 +6763,12 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
             XXH3_f_accumulate f_acc,
             XXH3_f_scrambleAcc f_scramble)
 {
+    if (state == NULL) return XXH_ERROR;
     if (input==NULL) {
-        XXH_ASSERT(len == 0);
-        return XXH_OK;
+        if (len == 0) return XXH_OK;
+        return XXH_ERROR;
     }
 
-    XXH_ASSERT(state != NULL);
     state->totalLen += len;
 
     /* small input : just fill in tmp buffer */
@@ -6876,7 +6895,9 @@ XXH3_digest_long (XXH64_hash_t* acc,
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest (XXH_NOESCAPE const XXH3_state_t* state)
 {
-    const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
+    const unsigned char* secret;
+    if (state == NULL) return 0;
+    secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
     if (state->totalLen > XXH3_MIDSIZE_MAX) {
         XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[XXH_ACC_NB];
         XXH3_digest_long(acc, state, secret);
@@ -7376,7 +7397,12 @@ XXH3_128bits_update(XXH_NOESCAPE XXH3_state_t* state, XXH_NOESCAPE const void* i
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest (XXH_NOESCAPE const XXH3_state_t* state)
 {
-    const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
+    const unsigned char* secret;
+    if (state == NULL) {
+        XXH128_hash_t const zero = { 0, 0 };
+        return zero;
+    }
+    secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
     if (state->totalLen > XXH3_MIDSIZE_MAX) {
         XXH_ALIGN(XXH_ACC_ALIGN) XXH64_hash_t acc[XXH_ACC_NB];
         XXH3_digest_long(acc, state, secret);
@@ -7407,9 +7433,15 @@ XXH_PUBLIC_API int XXH128_isEqual(XXH128_hash_t h1, XXH128_hash_t h2)
 /*! @ingroup XXH3_family */
 XXH_PUBLIC_API int XXH128_cmp(XXH_NOESCAPE const void* h128_1, XXH_NOESCAPE const void* h128_2)
 {
-    XXH128_hash_t const h1 = *(const XXH128_hash_t*)h128_1;
-    XXH128_hash_t const h2 = *(const XXH128_hash_t*)h128_2;
-    int const hcmp = (h1.high64 > h2.high64) - (h2.high64 > h1.high64);
+    XXH128_hash_t h1, h2;
+    int hcmp;
+    if (h128_1 == NULL || h128_2 == NULL) {
+        if (h128_1 == h128_2) return 0;
+        return (h128_1 != NULL) ? 1 : -1;
+    }
+    h1 = *(const XXH128_hash_t*)h128_1;
+    h2 = *(const XXH128_hash_t*)h128_2;
+    hcmp = (h1.high64 > h2.high64) - (h2.high64 > h1.high64);
     /* note : bets that, in most cases, hash values are different */
     if (hcmp) return hcmp;
     return (h1.low64 > h2.low64) - (h2.low64 > h1.low64);
@@ -7422,6 +7454,7 @@ XXH_PUBLIC_API void
 XXH128_canonicalFromHash(XXH_NOESCAPE XXH128_canonical_t* dst, XXH128_hash_t hash)
 {
     XXH_STATIC_ASSERT(sizeof(XXH128_canonical_t) == sizeof(XXH128_hash_t));
+    if (dst == NULL) return;
     if (XXH_CPU_LITTLE_ENDIAN) {
         hash.high64 = XXH_swap64(hash.high64);
         hash.low64  = XXH_swap64(hash.low64);
@@ -7435,6 +7468,9 @@ XXH_PUBLIC_API XXH128_hash_t
 XXH128_hashFromCanonical(XXH_NOESCAPE const XXH128_canonical_t* src)
 {
     XXH128_hash_t h;
+    h.high64 = 0;
+    h.low64  = 0;
+    if (src == NULL) return h;
     h.high64 = XXH_readBE64(src);
     h.low64  = XXH_readBE64(src->digest + 8);
     return h;
@@ -7504,6 +7540,7 @@ XXH_PUBLIC_API void
 XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
 {
     XXH_ALIGN(XXH_SEC_ALIGN) xxh_u8 secret[XXH_SECRET_DEFAULT_SIZE];
+    if (secretBuffer == NULL) return;
     XXH3_initCustomSecret(secret, seed);
     XXH_ASSERT(secretBuffer != NULL);
     XXH_memcpy(secretBuffer, secret, XXH_SECRET_DEFAULT_SIZE);

@@ -373,6 +373,26 @@ jobs:
         # 3) staged install
         DESTDIR="$BUILD_DIR/stage" cmake --install "$BUILD_DIR" --prefix /usr
 
+    - name: Check CMake dispatch option
+      run: |
+        BUILD_DIR="${{ github.workspace }}/cmakebuilddispatch"
+
+        for dispatch in ON OFF; do
+          cmake -S build/cmake -B "$BUILD_DIR" \
+                -DDISPATCH="$dispatch" \
+                -DCMAKE_C_FLAGS="-Werror"
+          cmake --build "$BUILD_DIR" --parallel
+
+          VERSION="$("$BUILD_DIR/xxhsum" -V 2>&1)"
+          echo "$VERSION"
+          if [ "$dispatch" = ON ]; then
+            echo "$VERSION" | grep -q autoVec
+          elif echo "$VERSION" | grep -q autoVec; then
+            echo "DISPATCH=OFF still enabled dispatch"
+            exit 1
+          fi
+        done
+
     - name: Generate & validate libxxhash.pc (CMake)
       run: |
         SRC_DIR=build/cmake

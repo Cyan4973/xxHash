@@ -384,6 +384,10 @@ test-cli-comment-line:
 test-cli-ignore-missing:
 	$(MAKE) -C tests test_cli_ignore_missing
 
+.PHONY: test-cli-tag-validation
+test-cli-tag-validation: xxhsum
+	$(SHELL) tests/cli-tag-validation.sh
+
 .PHONY: armtest
 armtest:
 	@echo ---- test ARM compilation ----
@@ -512,7 +516,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test nostdlibtest
+test: all namespaceTest check test-xxhsum-c test-cli-tag-validation c90test test-tools noxxh3test nostdlibtest
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude

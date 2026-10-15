@@ -1882,7 +1882,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  *    int main(int argc, char* argv[])
  *    {
  *        char secret[XXH3_SECRET_SIZE_MIN];
- *        if (argv != 3) { return 1; }
+ *        if (argc != 3) { return 1; }
  *        XXH3_generateSecret(secret, sizeof(secret), argv[1], strlen(argv[1]));
  *        XXH64_hash_t h = XXH3_64bits_withSecret(
  *             argv[2], strlen(argv[2]),
@@ -1922,7 +1922,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer
  *        unsigned char secret[XXH3_SECRET_DEFAULT_SIZE];
  *    public:
  *        HashFast(XXH64_hash_t s) {
- *            XXH3_generateSecret_fromSeed(secret, seed);
+ *            XXH3_generateSecret_fromSeed(secret, s);
  *        }
  *        size_t operator()(const std::string& x) const {
  *            return size_t{

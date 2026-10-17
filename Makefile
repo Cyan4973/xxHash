@@ -281,8 +281,14 @@ test-xxhsum-c: xxhsum
 	fi
 	# A read error while reading the checksum file must be reported, not treated as EOF.
 	@if test -r /proc/self/mem; then \
-		LC_ALL=C ./xxhsum -c /proc/self/mem 2>&1 | $(GREP) "Error: Could not read"; \
-		LC_ALL=C ./xxhsum --filelist /proc/self/mem 2>&1 | $(GREP) "Error: Could not read"; \
+		for mode in -c --filelist; do \
+			if LC_ALL=C ./xxhsum $$mode /proc/self/mem > /dev/null 2>&1; then \
+				echo "Expected xxhsum $$mode to fail on an unreadable checksum file" >&2; \
+				exit 1; \
+			fi; \
+			LC_ALL=C ./xxhsum $$mode /proc/self/mem 2>&1 | $(GREP) "Error: Could not read" || \
+				{ echo "Expected a read-error diagnostic from xxhsum $$mode" >&2; exit 1; }; \
+		done; \
 	else \
 		echo "Skipping checksum-file read-error test: /proc/self/mem is unavailable"; \
 	fi

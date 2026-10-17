@@ -279,6 +279,13 @@ test-xxhsum-c: xxhsum
 	else \
 		echo "Skipping read-error test: /proc/self/mem is unavailable"; \
 	fi
+	# A read error while reading the checksum file must be reported, not treated as EOF.
+	@if test -r /proc/self/mem; then \
+		LC_ALL=C ./xxhsum -c /proc/self/mem 2>&1 | $(GREP) "Error: Could not read"; \
+		LC_ALL=C ./xxhsum --filelist /proc/self/mem 2>&1 | $(GREP) "Error: Could not read"; \
+	else \
+		echo "Skipping checksum-file read-error test: /proc/self/mem is unavailable"; \
+	fi
 	# xxhsum to/from file, shell redirection
 	./xxhsum $(TEST_FILES) > .test.xxh64
 	./xxhsum --tag $(TEST_FILES) > .test.xxh64_tag

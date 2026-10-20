@@ -5775,7 +5775,6 @@ XXH3_accumulate_512_lsx( void* XXH_RESTRICT acc,
             __m128i const data_key = __lsx_vxor_v(data_vec, key_vec);
             /* data_key_lo = data_key >> 32; */
             __m128i const data_key_lo = __lsx_vsrli_d(data_key, 32);
-            // __m128i const data_key_lo = __lsx_vsrli_d(data_key, 32);
             /* product = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
             __m128i const product = __lsx_vmulwev_d_wu(data_key, data_key_lo);
             /* xacc[i] += swap(data_vec); */
@@ -5839,7 +5838,6 @@ XXH3_accumulate_512_lasx( void* XXH_RESTRICT acc,
             __m256i const data_key = __lasx_xvxor_v(data_vec, key_vec);
             /* data_key_lo = data_key >> 32; */
             __m256i const data_key_lo = __lasx_xvsrli_d(data_key, 32);
-            // __m256i const data_key_lo = __lasx_xvsrli_d(data_key, 32);
             /* product = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
             __m256i const product = __lasx_xvmulwev_d_wu(data_key, data_key_lo);
             /* xacc[i] += swap(data_vec); */
@@ -5897,8 +5895,8 @@ XXH3_accumulate_512_rvv(  void* XXH_RESTRICT acc,
 {
     XXH_ASSERT((((size_t)acc) & 63) == 0);
     {
-        // Try to set vector lenght to 512 bits.
-        // If this length is unavailable, then maximum available will be used
+        /* Try to set vector length to 512 bits.
+         * If this length is unavailable, then maximum available will be used */
         size_t vl = XXH_RVOP(vsetvl_e64m2)(8);
 
         uint64_t*       xacc    = (uint64_t*) acc;
@@ -5979,11 +5977,11 @@ XXH3_initCustomSecret_rvv(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
         const int64_t* kSecret = (const int64_t*)(const void*)XXH3_kSecret;
 
 #if __riscv_v_intrinsic >= 1000000
-        // ratified v1.0 intrinics version
+        /* ratified v1.0 intrinsics version */
         vbool32_t mneg = XXH_RVCAST(u8m1_b32)(
                          XXH_RVOP(vmv_v_x_u8m1)(0xaa, XXH_RVOP(vsetvlmax_e8m1)()));
 #else
-        // support pre-ratification intrinics, which lack mask to vector casts
+        /* support pre-ratification intrinsics, which lack mask to vector casts */
         size_t vlmax = XXH_RVOP(vsetvlmax_e8m1)();
         vbool32_t mneg = XXH_RVOP(vmseq_vx_u8mf4_b32)(
                          XXH_RVOP(vand_vx_u8mf4)(

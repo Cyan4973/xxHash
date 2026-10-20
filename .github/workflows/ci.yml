@@ -151,6 +151,12 @@ jobs:
       run: |
         CFLAGS="-std=c90 -pedantic -Wno-long-long -Werror" make clean xxhsum
 
+    - name: GNU90 + pedantic
+      if: always()
+      run: |
+        # unlike -std=c90, -std=gnu90 -pedantic also flags // comments in inactive #if branches (non-x86 code paths)
+        CFLAGS="-std=gnu90 -pedantic -Wno-long-long -Werror" make clean xxhsum
+
     - name: C90 + XXH_NO_LONG_LONG
       if: always()
       run: |

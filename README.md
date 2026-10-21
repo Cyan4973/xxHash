@@ -208,9 +208,13 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
                            Setting it to 0 states big-endian.
 - `XXH_ENABLE_AUTOVECTORIZE`: Auto-vectorization may be triggered for XXH32 and XXH64, depending on cpu vector capabilities and compiler version.
                               Note: auto-vectorization tends to be triggered more easily with recent versions of `clang`.
-                              For XXH32, SSE4.1 or equivalent (NEON) is enough, while XXH64 requires AVX512.
+                              For XXH32, SSE2 or equivalent (NEON) is enough, while XXH64 benefits from AVX512 but may also be vectorized with AVX2.
                               Unfortunately, auto-vectorization is generally detrimental to XXH performance.
                               For this reason, the xxhash source code tries to prevent auto-vectorization by default.
+                              The loss can be severe: on a Zen5 cpu, with this option enabled,
+                              XXH32 streaming is ~6x slower with `gcc` on baseline SSE2,
+                              XXH64 streaming is ~3x slower with `clang` and AVX2,
+                              and AVX512 vectorization is ~17% slower for both XXH32 and XXH64.
                               That being said, systems evolve, and this conclusion may change.
                               For example, it has been reported that recent Zen4 cpus are more likely to improve performance with vectorization.
                               Therefore, should you prefer or want to test vectorized code, you can enable this flag:

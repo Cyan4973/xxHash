@@ -2935,6 +2935,19 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 /*!
  * @internal
+ * @brief Whether XXH32 code uses compiler fences against autovectorization.
+ *
+ * Autovectorization is detrimental to XXH32 on these targets,
+ * see XXH32_round() and XXH32_mergeAccs().
+ */
+#if (defined(__SSE2__) || defined(__aarch64__) || defined(__wasm_simd128__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+#  define XXH32_PREVENT_AUTOVEC 1
+#else
+#  define XXH32_PREVENT_AUTOVEC 0
+#endif
+
+/*!
+ * @internal
  * @brief Normal stripe processing routine.
  *
  * This shuffles the bits so that any bit from @p input impacts several bits in
@@ -2949,7 +2962,7 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
     acc += input * XXH_PRIME32_2;
     acc  = XXH_rotl32(acc, 13);
     acc *= XXH_PRIME32_1;
-#if (defined(__SSE2__) || defined(__aarch64__) || defined(__wasm_simd128__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+#if XXH32_PREVENT_AUTOVEC
     /*
      * UGLY HACK:
      * A compiler fence is used to prevent GCC and Clang from
@@ -3079,20 +3092,21 @@ XXH32_consumeLong(
 XXH_FORCE_INLINE XXH_PUREF xxh_u32
 XXH32_mergeAccs(const xxh_u32 *acc)
 {
-    xxh_u32 a0 = acc[0], a1 = acc[1], a2 = acc[2], a3 = acc[3];
     XXH_ASSERT(acc != NULL);
-#if (defined(__SSE2__) || defined(__aarch64__) || defined(__wasm_simd128__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
-    /*
-     * Prevent vectorization of this merge (GCC and Clang do it with AVX2).
-     * In XXH32_digest(), it results in a single 16-byte load of state->acc,
-     * which was just written by 4-byte stores: store-to-load forwarding fails,
-     * making XXH32 streaming of small inputs up to ~2x slower.
-     */
-    XXH_COMPILER_GUARD(a0); XXH_COMPILER_GUARD(a1);
-    XXH_COMPILER_GUARD(a2); XXH_COMPILER_GUARD(a3);
+    {   xxh_u32 a0 = acc[0], a1 = acc[1], a2 = acc[2], a3 = acc[3];
+#if XXH32_PREVENT_AUTOVEC
+        /*
+         * Prevent vectorization of this merge (GCC and Clang do it with AVX2).
+         * In XXH32_digest(), it results in a single 16-byte load of state->acc,
+         * which was just written by 4-byte stores: store-to-load forwarding fails,
+         * making XXH32 streaming of small inputs up to ~2x slower.
+         */
+        XXH_COMPILER_GUARD(a0); XXH_COMPILER_GUARD(a1);
+        XXH_COMPILER_GUARD(a2); XXH_COMPILER_GUARD(a3);
 #endif
-    return XXH_rotl32(a0, 1)  + XXH_rotl32(a1, 7)
-         + XXH_rotl32(a2, 12) + XXH_rotl32(a3, 18);
+        return XXH_rotl32(a0, 1)  + XXH_rotl32(a1, 7)
+             + XXH_rotl32(a2, 12) + XXH_rotl32(a3, 18);
+    }
 }
 
 /*!

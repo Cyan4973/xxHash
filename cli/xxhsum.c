@@ -747,18 +747,26 @@ static ParseLineResult XSUM_parseLine1(ParsedLine* parsedLine, char* line, int r
     if (firstSpace == NULL || !firstSpace[1]) return ParseLine_invalidFormat;
 
     if (firstSpace[1] == '(') {
+        size_t algo;
         char* lastSpace = strrchr(line, ' ');
         if (lastSpace - firstSpace < 5) return ParseLine_invalidFormat;
         if (lastSpace[-1] != '=' || lastSpace[-2] != ' ' || lastSpace[-3] != ')') return ParseLine_invalidFormat;
         lastSpace[-3] = '\0'; /* Terminate the filename */
         *firstSpace = '\0';
-        rev = strstr(line, "_LE") != NULL; /* was output little-endian */
         hash_ptr = lastSpace + 1;
         hash_len = strlen(hash_ptr);
-        if (!memcmp(line, "XXH3", 4)) parsedLine->algo = algo_xxh3;
-        if (!memcmp(line, "XXH32", 5)) parsedLine->algo = algo_xxh32;
-        if (!memcmp(line, "XXH64", 5)) parsedLine->algo = algo_xxh64;
-        if (!memcmp(line, "XXH128", 6)) parsedLine->algo = algo_xxh128;
+        for (algo = 0; algo < XSUM_TABLE_ELT_SIZE(XSUM_algoName); ++algo) {
+            if (strcmp(line, XSUM_algoName[algo]) == 0) {
+                rev = 0;
+                break;
+            }
+            if (strcmp(line, XSUM_algoLE_name[algo]) == 0) {
+                rev = 1;
+                break;
+            }
+        }
+        if (algo == XSUM_TABLE_ELT_SIZE(XSUM_algoName)) return ParseLine_invalidFormat;
+        parsedLine->algo = (AlgoSelected)algo;
     } else {
         hash_ptr = line;
         hash_len = (size_t)(firstSpace - line);

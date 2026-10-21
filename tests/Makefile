@@ -130,6 +130,10 @@ test_cli_comment_line: xxhsum
 test_cli_ignore_missing: xxhsum
 	$(SHELL) ./cli-ignore-missing.sh
 
+.PHONY: test_cli_tag_validation
+test_cli_tag_validation: xxhsum
+	$(SHELL) ./cli-tag-validation.sh
+
 .PHONY: test_sanity
 test_sanity: sanity_test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) sanity_test.c -o sanity_test$(EXT)

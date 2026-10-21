@@ -2949,7 +2949,7 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
     acc += input * XXH_PRIME32_2;
     acc  = XXH_rotl32(acc, 13);
     acc *= XXH_PRIME32_1;
-#if (defined(__SSE4_1__) || defined(__aarch64__) || defined(__wasm_simd128__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+#if (defined(__SSE2__) || defined(__aarch64__) || defined(__wasm_simd128__)) && !defined(XXH_ENABLE_AUTOVECTORIZE)
     /*
      * UGLY HACK:
      * A compiler fence is used to prevent GCC and Clang from
@@ -2978,6 +2978,12 @@ static xxh_u32 XXH32_round(xxh_u32 acc, xxh_u32 input)
      *   the SIMD actually serializes this operation: While v1 is rotating, v2
      *   can load data, while v3 can multiply. SSE forces them to operate
      *   together.
+     *
+     * This is also enabled on baseline SSE2 (no SSE4.1), where it matters even
+     * more: without pmulld, each 32-bit vector multiply is emulated with
+     * pmuludq + shuffles, or with long shift/add chains for constants.
+     * GCC 16 does this on XXH32_update(), whose accumulators live in memory
+     * (state->acc), making XXH32 streaming ~6x slower than single-shot.
      *
      * This is also enabled on AArch64, as Clang is *very aggressive* in vectorizing
      * the loop. NEON is only faster on the A53, and with the newer cores, it is less

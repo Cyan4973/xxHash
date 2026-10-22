@@ -132,6 +132,19 @@ check-amalgamation:  ## check that xxhash.h is up to date with lib/
 test-amalgamation:  ## check variants generated from lib/ against xxhash.h
 	$(SHELL) tests/amalgamation_variants.sh
 
+## limited variants of xxhash.h, with only some hash families (see lib/README.md)
+VARIANT      = $(SHELL) build/variant.sh
+VARIANTS_DIR = variants
+.PHONY: variants
+variants:  ## generate limited variants of xxhash.h into variants/
+	@mkdir -p $(VARIANTS_DIR)
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32.h xxh32
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_oneshot.h --no-stream xxh32
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh64.h xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh64_oneshot.h --no-stream xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_xxh64.h xxh32 xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxhash_oneshot.h --no-stream xxh3
+
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
@@ -216,6 +229,7 @@ clean:
 	$(RM) xxhsum.wasm xxhsum.js xxhsum.html
 	$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT) xxh3sum$(EXT)
 	$(RM) fuzzer
+	$(RM) -r $(VARIANTS_DIR)
 	$(MAKE) -C tests clean
 	$(MAKE) -C tests/bench clean
 	$(MAKE) -C tests/collisions clean

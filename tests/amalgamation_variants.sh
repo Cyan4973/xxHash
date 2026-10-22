@@ -15,14 +15,15 @@ NM=${NM:-nm}
 tmp=tests/tmp_amalg
 status=0
 
-# name, build macros (comma separated), C standard, expected symbol, unexpected symbols, excluded units (globs)
+# name, families (comma separated), streaming, build macros (comma separated),
+# C standard, expected symbol, unexpected symbols
 VARIANTS="\
-noxxh3        XXH_NO_XXH3                    c99 XXH64_digest XXH3_|XXH128              xxh3_*
-xxh32         XXH_NO_LONG_LONG               c90 XXH32_digest XXH64|XXH3_|XXH128        xxh64_* xxh3_*
-xxh64         XXH_NO_XXH32                   c99 XXH64_digest XXH32|XXH3_|XXH128        xxh32_* xxh3_*
-oneshot       XXH_NO_STREAM                  c99 XXH3_128bits State|reset|update|digest *_stream_*
-xxh32_oneshot XXH_NO_LONG_LONG,XXH_NO_STREAM c90 XXH32_hashFromCanonical XXH64|XXH3_|XXH128|State|reset|update|digest xxh64_* xxh3_* *_stream_* xxh_doc.h
-xxh64_oneshot XXH_NO_XXH32,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest xxh32_* xxh3_* *_stream_* xxh_doc.h"
+noxxh3        xxh32,xxh64 yes XXH_NO_XXH3                                c99 XXH64_digest XXH3_|XXH128
+xxh32         xxh32       yes XXH_NO_LONG_LONG,XXH_NO_XXH3               c90 XXH32_digest XXH64|XXH3_|XXH128
+xxh64         xxh64       yes XXH_NO_XXH32,XXH_NO_XXH3                   c99 XXH64_digest XXH32|XXH3_|XXH128
+oneshot       xxh3        no  XXH_NO_STREAM                              c99 XXH3_128bits State|reset|update|digest
+xxh32_oneshot xxh32       no  XXH_NO_LONG_LONG,XXH_NO_XXH3,XXH_NO_STREAM c90 XXH32_hashFromCanonical XXH64|XXH3_|XXH128|State|reset|update|digest
+xxh64_oneshot xxh64       no  XXH_NO_XXH32,XXH_NO_XXH3,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest"
 
 # cppflags MACROS : -D options for a comma separated list of macros
 cppflags() {
@@ -31,14 +32,12 @@ cppflags() {
 
 rm -rf "$tmp"
 mkdir -p "$tmp"
-while read -r name macros std present absent units; do
+while read -r name families streaming macros std present absent; do
     mkdir -p "$tmp/$name"
-    options=$(cppflags "$macros" | sed 's/-D/-D /g')
-    for pattern in $units; do
-        for u in lib/$pattern; do options="$options -x ${u#lib/}"; done
-    done
-    # shellcheck disable=SC2086 # options is a list
-    sh build/amalgamate.sh $options -o "$tmp/$name/xxhash.h" lib/xxhash_root.h 2>/dev/null
+    options=""
+    [ "$streaming" = yes ] || options="--no-stream"
+    # shellcheck disable=SC2046,SC2086 # lists
+    sh build/variant.sh $options -o "$tmp/$name/xxhash.h" $(echo "$families" | tr ',' ' ') 2>/dev/null
 done <<EOF
 $VARIANTS
 EOF
@@ -99,7 +98,7 @@ for flags in \
 do
     # shellcheck disable=SC2086 # flags are meant to be split
     compare_pp root xxhash.h lib/xxhash_root.h "$CC" $flags
-    while read -r name macros std present absent units; do
+    while read -r name families streaming macros std present absent; do
         # shellcheck disable=SC2046,SC2086
         compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CC" $(cppflags "$macros") $flags
     done <<EOF
@@ -107,7 +106,7 @@ $VARIANTS
 EOF
 done
 compare_pp root xxhash.h lib/xxhash_root.h "$CXX" -DXXH_INLINE_ALL
-while read -r name macros std present absent units; do
+while read -r name families streaming macros std present absent; do
     # shellcheck disable=SC2046
     compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CXX" $(cppflags "$macros") -DXXH_INLINE_ALL
 done <<EOF
@@ -134,7 +133,7 @@ else
 fi
 
 # each variant must compile cleanly, without build macro, and contain only the expected symbols
-while read -r name macros std present absent units; do
+while read -r name families streaming macros std present absent; do
     cp xxhash.c "$tmp/$name/"
     $CC -std="$std" -pedantic -Wall -Wextra -Werror -c "$tmp/$name/xxhash.c" -o "$tmp/$name/xxhash.o"
     $NM "$tmp/$name/xxhash.o" > "$tmp/$name/symbols"

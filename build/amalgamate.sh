@@ -90,6 +90,7 @@ fi
 
 # list all units, using the same path syntax as the awk script
 rootdir=$(dirname "$root")
+srcname=$(basename "$(CDPATH='' cd "$rootdir" && pwd)")   # e.g. lib, for the generated note
 units=
 if [ "$rootdir" = "." ]; then
     for f in *.h; do [ ! -f "$f" ] || units="$units $f"; done
@@ -99,7 +100,7 @@ fi
 
 generate() {
     $AWK -v prog="$prog" -v root="$root" -v excludes="$excludes" -v defines="$defines" \
-           -v allunits="$units" -v where="$where" -v comments="$comments" -v srcdir="$rootdir" '
+           -v allunits="$units" -v where="$where" -v comments="$comments" -v srcdir="$srcname" '
     function fail(msg) {
         if (!err) print prog ": error: " msg | "cat 1>&2"
         err = 1

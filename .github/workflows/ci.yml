@@ -107,6 +107,7 @@ jobs:
     - name: Variants generated from lib/
       run: |
         make test-amalgamation
+        make variants
         git diff --exit-code xxhash.h
 
     - name: Documentation generated from lib/

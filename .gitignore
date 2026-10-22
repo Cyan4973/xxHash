@@ -38,6 +38,7 @@ fuzzer
 
 # build artifacts
 cachedObjs/
+variants/
 cmakebuild/
 my_build/
 

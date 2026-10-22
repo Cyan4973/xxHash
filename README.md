@@ -111,6 +111,8 @@ benchmarking and advanced command line options.
 
 `xxhash.h` is generated from the source units in [`lib/`](lib/README.md).
 It only keeps the documentation of public declarations, which IDEs display.
+Smaller variants, limited to some hash families, can be generated with `make variants`
+(see [limited variants](lib/README.md#limited-variants)).
 Contributors should modify these units: `make` regenerates `xxhash.h`.
 
 ### Example

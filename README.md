@@ -245,6 +245,8 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
                       which include `XXH3` and `XXH64`.
                       Only `XXH32` will be compiled.
                       Useful for targets (architectures and compilers) without 64-bit support.
+- `XXH_NO_XXH32`: removes `XXH32` from generated binary.
+                  Since `XXH3` depends on `XXH32`, it is removed too: only `XXH64` will be compiled.
 - `XXH_NO_STREAM`: Disables the streaming API, limiting the library to single shot variants only.
 - `XXH_NO_INLINE_HINTS`: By default, xxHash uses `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.
                          Defining this macro to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not.

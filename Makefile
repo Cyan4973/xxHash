@@ -465,6 +465,16 @@ noxxh3test: xxhash.c
 	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
 	$(RM) $(OFILE)
 
+.PHONY: noxxh32test
+noxxh32test: CPPFLAGS += -DXXH_NO_XXH32
+noxxh32test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+noxxh32test: OFILE = xxh_noxxh32.o
+noxxh32test: xxhash.c
+	@echo ---- test compilation without XXH32 ----
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) -E 'XXH32|XXH3_' ; test $$? -eq 1
+	$(RM) $(OFILE)
+
 .PHONY: nostreamtest
 nostreamtest: CPPFLAGS += -DXXH_NO_STREAM
 nostreamtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
@@ -541,7 +551,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test nostdlibtest
+test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test noxxh32test nostdlibtest
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude

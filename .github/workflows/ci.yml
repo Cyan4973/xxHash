@@ -237,6 +237,12 @@ jobs:
         # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
         make clean noxxh3test
 
+    - name: XXH_NO_XXH32
+      if: always()
+      run: |
+        # check library can be compiled with XXH_NO_XXH32, resulting in no XXH32 nor XXH3 symbol
+        make clean noxxh32test
+
     - name: XXH_NO_STREAM
       if: always()
       run: |

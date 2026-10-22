@@ -543,6 +543,60 @@ extern "C" {
 # define XXH_MALLOCF
 #endif
 
+/*! @cond Doxygen ignores this part */
+#ifdef __has_attribute
+# define XXH_HAS_ATTRIBUTE(x) __has_attribute(x)
+#else
+# define XXH_HAS_ATTRIBUTE(x) 0
+#endif
+/*! @endcond */
+
+/*! @cond Doxygen ignores this part */
+/* C-language Attributes are added in C23. */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L) && defined(__has_c_attribute)
+# define XXH_HAS_C_ATTRIBUTE(x) __has_c_attribute(x)
+#else
+# define XXH_HAS_C_ATTRIBUTE(x) 0
+#endif
+/*! @endcond */
+
+/*! @cond Doxygen ignores this part */
+#if defined(__cplusplus) && defined(__has_cpp_attribute)
+# define XXH_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
+#else
+# define XXH_HAS_CPP_ATTRIBUTE(x) 0
+#endif
+/*! @endcond */
+
+/*! @cond Doxygen ignores this part */
+/*
+ * Define XXH_FALLTHROUGH macro for annotating switch case with the 'fallthrough' attribute
+ * introduced in CPP17 and C23.
+ * CPP17 : https://en.cppreference.com/w/cpp/language/attributes/fallthrough
+ * C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
+ */
+#if XXH_HAS_C_ATTRIBUTE(fallthrough) || XXH_HAS_CPP_ATTRIBUTE(fallthrough)
+# define XXH_FALLTHROUGH [[fallthrough]]
+#elif XXH_HAS_ATTRIBUTE(__fallthrough__)
+# define XXH_FALLTHROUGH __attribute__ ((__fallthrough__))
+#else
+# define XXH_FALLTHROUGH /* fallthrough */
+#endif
+/*! @endcond */
+
+/*! @cond Doxygen ignores this part */
+/*
+ * Define XXH_NOESCAPE for annotated pointers in public API.
+ * https://clang.llvm.org/docs/AttributeReference.html#noescape
+ * As of writing this, only supported by clang.
+ */
+#if XXH_HAS_ATTRIBUTE(noescape)
+# define XXH_NOESCAPE __attribute__((__noescape__))
+#else
+# define XXH_NOESCAPE
+#endif
+/*! @endcond */
+
 /* *************************************
 *  Version
 ***************************************/
@@ -607,6 +661,8 @@ typedef uint32_t XXH32_hash_t;
 #     error "unsupported platform: need a 32-bit type"
 #   endif
 #endif
+
+#ifndef XXH_NO_XXH32
 
 /*!
  * @}
@@ -784,66 +840,13 @@ XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t
 XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 
-/*! @cond Doxygen ignores this part */
-#ifdef __has_attribute
-# define XXH_HAS_ATTRIBUTE(x) __has_attribute(x)
-#else
-# define XXH_HAS_ATTRIBUTE(x) 0
-#endif
-/*! @endcond */
-
-/*! @cond Doxygen ignores this part */
-/* C-language Attributes are added in C23. */
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L) && defined(__has_c_attribute)
-# define XXH_HAS_C_ATTRIBUTE(x) __has_c_attribute(x)
-#else
-# define XXH_HAS_C_ATTRIBUTE(x) 0
-#endif
-/*! @endcond */
-
-/*! @cond Doxygen ignores this part */
-#if defined(__cplusplus) && defined(__has_cpp_attribute)
-# define XXH_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
-#else
-# define XXH_HAS_CPP_ATTRIBUTE(x) 0
-#endif
-/*! @endcond */
-
-/*! @cond Doxygen ignores this part */
-/*
- * Define XXH_FALLTHROUGH macro for annotating switch case with the 'fallthrough' attribute
- * introduced in CPP17 and C23.
- * CPP17 : https://en.cppreference.com/w/cpp/language/attributes/fallthrough
- * C23   : https://en.cppreference.com/w/c/language/attributes/fallthrough
- */
-#if XXH_HAS_C_ATTRIBUTE(fallthrough) || XXH_HAS_CPP_ATTRIBUTE(fallthrough)
-# define XXH_FALLTHROUGH [[fallthrough]]
-#elif XXH_HAS_ATTRIBUTE(__fallthrough__)
-# define XXH_FALLTHROUGH __attribute__ ((__fallthrough__))
-#else
-# define XXH_FALLTHROUGH /* fallthrough */
-#endif
-/*! @endcond */
-
-/*! @cond Doxygen ignores this part */
-/*
- * Define XXH_NOESCAPE for annotated pointers in public API.
- * https://clang.llvm.org/docs/AttributeReference.html#noescape
- * As of writing this, only supported by clang.
- */
-#if XXH_HAS_ATTRIBUTE(noescape)
-# define XXH_NOESCAPE __attribute__((__noescape__))
-#else
-# define XXH_NOESCAPE
-#endif
-/*! @endcond */
-
-
 /*!
  * @}
  * @ingroup public
  * @{
  */
+
+#endif  /* XXH_NO_XXH32 */
 
 #ifndef XXH_NO_LONG_LONG
 /*-**********************************************************************
@@ -1046,7 +1049,10 @@ XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst,
  */
 XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_canonical_t* src);
 
-#ifndef XXH_NO_XXH3
+#endif  /* XXH_NO_LONG_LONG */
+
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+/* XXH3 depends on XXH32 and XXH64 */
 
 /*!
  * @}
@@ -1625,7 +1631,6 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128_hashFromCanonical(XXH_NOESCAPE con
 
 
 #endif  /* !XXH_NO_XXH3 */
-#endif  /* XXH_NO_LONG_LONG */
 
 /*!
  * @}
@@ -1650,6 +1655,8 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128_hashFromCanonical(XXH_NOESCAPE con
  * Never **ever** access their members directly.
  */
 
+#ifndef XXH_NO_XXH32
+
 /*!
  * @internal
  * @brief Structure for XXH32 streaming API.
@@ -1670,6 +1677,8 @@ struct XXH32_state_s {
    XXH32_hash_t bufferedSize; /*!< Amount of data in @ref buffer */
    XXH32_hash_t reserved;     /*!< Reserved field. Do not read nor write to it. */
 };   /* typedef'd to XXH32_state_t */
+
+#endif  /* XXH_NO_XXH32 */
 
 
 #ifndef XXH_NO_LONG_LONG  /* defined when there is no 64-bit support */
@@ -1695,7 +1704,10 @@ struct XXH64_state_s {
    XXH64_hash_t reserved64;   /*!< Reserved field. Do not read or write to it. */
 };   /* typedef'd to XXH64_state_t */
 
-#ifndef XXH_NO_XXH3
+#endif  /* XXH_NO_LONG_LONG */
+
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+/* XXH3 depends on XXH32 and XXH64 */
 
 #if defined(__cplusplus) && (__cplusplus >= 201103L) /* >= C++11 */
 /* In C++ alignas() is a keyword */
@@ -2045,7 +2057,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #endif /* !XXH_NO_STREAM */
 
 #endif  /* !XXH_NO_XXH3 */
-#endif  /* XXH_NO_LONG_LONG */
+
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  define XXH_IMPLEMENTATION
 #endif
@@ -2106,6 +2118,13 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
  */
 #  define XXH_NO_LONG_LONG
 #  undef XXH_NO_LONG_LONG /* don't actually */
+/*!
+ * @brief Define this to disable the @ref XXH32_family.
+ *
+ * @ref XXH3_family depends on XXH32, so it is disabled too.
+ */
+#  define XXH_NO_XXH32
+#  undef XXH_NO_XXH32 /* don't actually */
 /*!
  * @brief Controls how unaligned memory is accessed.
  *
@@ -2605,17 +2624,6 @@ typedef XXH32_hash_t xxh_u32;
 
 /*!
  * @internal
- * @fn xxh_u32 XXH_readBE32(const void* ptr)
- * @brief Reads an unaligned 32-bit big endian integer from @p ptr.
- *
- * Affected by @ref XXH_FORCE_MEMORY_ACCESS.
- *
- * @param ptr The pointer to read from.
- * @return The 32-bit big endian integer from the bytes at @p ptr.
- */
-
-/*!
- * @internal
  * @fn xxh_u32 XXH_readLE32_align(const void* ptr, XXH_alignment align)
  * @brief Like @ref XXH_readLE32(), but has an option for aligned reads.
  *
@@ -2874,24 +2882,10 @@ XXH_FORCE_INLINE xxh_u32 XXH_readLE32(const void* memPtr)
          | ((xxh_u32)bytePtr[3] << 24);
 }
 
-XXH_FORCE_INLINE xxh_u32 XXH_readBE32(const void* memPtr)
-{
-    const xxh_u8* bytePtr = (const xxh_u8 *)memPtr;
-    return bytePtr[3]
-         | ((xxh_u32)bytePtr[2] << 8)
-         | ((xxh_u32)bytePtr[1] << 16)
-         | ((xxh_u32)bytePtr[0] << 24);
-}
-
 #else
 XXH_FORCE_INLINE xxh_u32 XXH_readLE32(const void* ptr)
 {
     return XXH_CPU_LITTLE_ENDIAN ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));
-}
-
-static xxh_u32 XXH_readBE32(const void* ptr)
-{
-    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
 }
 #endif
 
@@ -2905,6 +2899,8 @@ XXH_readLE32_align(const void* ptr, XXH_alignment align)
     }
 }
 
+#define XXH_get32bits(p) XXH_readLE32_align(p, align)
+
 
 /* *************************************
 *  Misc
@@ -2912,6 +2908,8 @@ XXH_readLE32_align(const void* ptr, XXH_alignment align)
 /*! @ingroup public */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
+
+#ifndef XXH_NO_XXH32
 
 /* *******************************************************************
 *  32-bit hash functions
@@ -3035,8 +3033,6 @@ static xxh_u32 XXH32_avalanche(xxh_u32 hash)
     hash ^= hash >> 16;
     return hash;
 }
-
-#define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
 /*!
  * @internal
@@ -3367,6 +3363,33 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 
 /*******   Canonical representation   *******/
 
+/*!
+ * @internal
+ * @fn xxh_u32 XXH_readBE32(const void* ptr)
+ * @brief Reads an unaligned 32-bit big endian integer from @p ptr.
+ *
+ * Affected by @ref XXH_FORCE_MEMORY_ACCESS.
+ *
+ * @param ptr The pointer to read from.
+ * @return The 32-bit big endian integer from the bytes at @p ptr.
+ */
+/* XXH_FORCE_MEMORY_ACCESS==3 is an endian-independent byteshift load. */
+#if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
+XXH_FORCE_INLINE xxh_u32 XXH_readBE32(const void* memPtr)
+{
+    const xxh_u8* bytePtr = (const xxh_u8 *)memPtr;
+    return bytePtr[3]
+         | ((xxh_u32)bytePtr[2] << 8)
+         | ((xxh_u32)bytePtr[1] << 16)
+         | ((xxh_u32)bytePtr[0] << 24);
+}
+#else
+static xxh_u32 XXH_readBE32(const void* ptr)
+{
+    return XXH_CPU_LITTLE_ENDIAN ? XXH_swap32(XXH_read32(ptr)) : XXH_read32(ptr);
+}
+#endif
+
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash)
 {
@@ -3379,6 +3402,8 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 {
     return XXH_readBE32(src);
 }
+
+#endif  /* XXH_NO_XXH32 */
 
 
 #ifndef XXH_NO_LONG_LONG
@@ -3886,7 +3911,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
     return XXH_readBE64(src);
 }
 
-#ifndef XXH_NO_XXH3
+#endif  /* XXH_NO_LONG_LONG */
+
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+/* XXH3 depends on XXH32 and XXH64 */
 
 /* *********************************************************************
 *  XXH3
@@ -7574,8 +7602,6 @@ XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
 #endif
 
 #endif  /* XXH_NO_XXH3 */
-
-#endif  /* XXH_NO_LONG_LONG */
 
 /*!
  * @}

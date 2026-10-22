@@ -4,17 +4,26 @@ xxHash source units
 `xxhash.h`, at the root of the repository, is generated from the files in this
 directory. They are the reference source: edit them, not `xxhash.h`.
 
-- `xxhash_root.h` : the skeleton of `xxhash.h`, including the units below
-  at their insertion points. It is a valid header, usable directly.
-- `xxh3_api.h` : `XXH3` and `XXH128` public declarations.
-- `xxh3_static.h` : `XXH3` and `XXH128` declarations reserved to static linking.
-- `xxh3_impl.h` : `XXH3` and `XXH128` implementation.
+- `xxhash_root.h` : the skeleton of `xxhash.h`, with the code common to all hash families,
+  including the units below at their insertion points. It is a valid header, usable directly.
+- `xxh32_api.h`, `xxh32_static.h`, `xxh32_impl.h` : `XXH32` family.
+- `xxh64_api.h`, `xxh64_static.h`, `xxh64_impl.h` : `XXH64` family.
+- `xxh3_api.h`, `xxh3_static.h`, `xxh3_impl.h` : `XXH3` and `XXH128` family.
+
+For each family, `*_api.h` hosts public declarations, `*_static.h` hosts declarations
+reserved to static linking (`XXH_STATIC_LINKING_ONLY`), and `*_impl.h` hosts the implementation.
 
 Units are fragments of `xxhash.h`, not standalone headers:
 they are only meaningful at their insertion point,
 and are not meant to be included directly by user programs.
-Each unit is wrapped into its own `#ifndef XXH_NO_*` guard,
-so that removing a unit is equivalent to defining the corresponding build macro.
+Each unit is wrapped into the build macro guard of its family,
+so that removing the units of a family is equivalent to defining its build macro:
+
+| Family  | Build macro        | Depends on       |
+|---------|--------------------|------------------|
+| `XXH32` | `XXH_NO_XXH32`     |                  |
+| `XXH64` | `XXH_NO_LONG_LONG` |                  |
+| `XXH3`  | `XXH_NO_XXH3`      | `XXH32`, `XXH64` |
 
 
 Workflow
@@ -54,10 +63,13 @@ Expansion is recursive. It also verifies that:
 - all `*.h` files in this directory are used.
 
 Option `-x unit.h` generates a variant without the selected unit.
-For example, a header without `XXH3`:
+For example, a header with only `XXH32`:
 ```sh
-sh build/amalgamate.sh -x xxh3_api.h -x xxh3_static.h -x xxh3_impl.h lib/xxhash_root.h > xxhash.h
+sh build/amalgamate.sh -x xxh64_api.h -x xxh64_static.h -x xxh64_impl.h \
+                       -x xxh3_api.h -x xxh3_static.h -x xxh3_impl.h \
+                       lib/xxhash_root.h > xxhash.h
 ```
+A family can only be excluded together with the families depending on it.
 
 New unit names must be unique across the repository,
 and must differ from installed headers (such as `xxh3.h`).

@@ -37,7 +37,8 @@
  * xxhash.h is generated from lib/ by build/amalgamate.sh, see lib/README.md.
  */
 
-#ifndef XXH_NO_XXH3
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+/* XXH3 depends on XXH32 and XXH64 */
 
 /* *********************************************************************
 *  XXH3

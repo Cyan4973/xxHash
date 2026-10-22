@@ -9,7 +9,7 @@ directory. They are the reference source: edit them, not `xxhash.h`.
 - `xxh32_*.h` : `XXH32` family.
 - `xxh64_*.h` : `XXH64` family.
 - `xxh3_*.h` : `XXH3` and `XXH128` family.
-- `xxh_stream_alloc.h` : memory allocation for streaming states, common to all families.
+- `xxh_stream_impl.h` : streaming implementation common to all families (memory functions).
 
 Each family is split into one-shot and streaming units,
 since streaming is the most complex part of each family:
@@ -26,6 +26,12 @@ with `XXH_NO_STREAM`, as in previous versions.
 Declaration units also host their symbol names, for `XXH_NAMESPACE` and `XXH_INLINE_ALL`.
 `xxh3_stream_impl.h` is included from `xxh3_impl.h`,
 in order to share its compilation settings.
+
+`xxhash_root.h` only keeps what is needed by several families (or by several streaming
+implementations, in `xxh_stream_impl.h`). What is needed by a single family belongs to its units.
+Exceptions preserve definitions previously exposed by xxhash.h, such as `XXH_FALLTHROUGH`.
+Since `XXH3` depends on `XXH32` and `XXH64`, it may use helpers defined in their units,
+and streaming units may use helpers defined in the one-shot units of the same family.
 
 Units are fragments of `xxhash.h`, not standalone headers:
 they are only meaningful at their insertion point,
@@ -85,7 +91,7 @@ For example, a header with only one-shot `XXH32`:
 sh build/amalgamate.sh -D XXH_NO_LONG_LONG -D XXH_NO_STREAM \
     -x xxh64_api.h -x xxh64_stream_api.h -x xxh64_stream_static.h -x xxh64_impl.h -x xxh64_stream_impl.h \
     -x xxh3_api.h -x xxh3_stream_api.h -x xxh3_static.h -x xxh3_stream_static.h -x xxh3_impl.h \
-    -x xxh32_stream_api.h -x xxh32_stream_static.h -x xxh32_stream_impl.h -x xxh_stream_alloc.h \
+    -x xxh32_stream_api.h -x xxh32_stream_static.h -x xxh32_stream_impl.h -x xxh_stream_impl.h \
     lib/xxhash_root.h > xxhash.h
 ```
 A family can only be excluded together with the families depending on it.

@@ -66,6 +66,22 @@
 #endif
 
 /*!
+ * @ingroup tuning
+ * @def XXH32_ENDJMP
+ * @brief Whether to use a jump for `XXH32_finalize`.
+ *
+ * For performance, `XXH32_finalize` uses multiple branches in the finalizer.
+ * This is generally preferable for performance,
+ * but depending on exact architecture, a jmp may be preferable.
+ *
+ * This setting is only possibly making a difference for very small inputs.
+ */
+#ifndef XXH32_ENDJMP
+/* generally preferable for performance */
+#  define XXH32_ENDJMP 0
+#endif
+
+/*!
  * @internal
  * @brief Whether XXH32 code uses compiler fences against autovectorization.
  *

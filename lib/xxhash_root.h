@@ -793,35 +793,6 @@ typedef uint32_t XXH32_hash_t;
 #  define XXH_NO_INLINE_HINTS 0
 
 /*!
- * @def XXH3_INLINE_SECRET
- * @brief Determines whether to inline the XXH3 withSecret code.
- *
- * When the secret size is known, the compiler can improve the performance
- * of XXH3_64bits_withSecret() and XXH3_128bits_withSecret().
- *
- * However, if the secret size is not known, it doesn't have any benefit. This
- * happens when xxHash is compiled into a global symbol. Therefore, if
- * @ref XXH_INLINE_ALL is *not* defined, this will be defined to 0.
- *
- * Additionally, this defaults to 0 on GCC 12+, which has an issue with function pointers
- * that are *sometimes* force inline on -Og, and it is impossible to automatically
- * detect this optimization level.
- */
-#  define XXH3_INLINE_SECRET 0
-
-/*!
- * @def XXH32_ENDJMP
- * @brief Whether to use a jump for `XXH32_finalize`.
- *
- * For performance, `XXH32_finalize` uses multiple branches in the finalizer.
- * This is generally preferable for performance,
- * but depending on exact architecture, a jmp may be preferable.
- *
- * This setting is only possibly making a difference for very small inputs.
- */
-#  define XXH32_ENDJMP 0
-
-/*!
  * @internal
  * @brief Redefines old internal names.
  *
@@ -883,20 +854,6 @@ typedef uint32_t XXH32_hash_t;
 #  endif
 #endif
 
-#ifndef XXH3_INLINE_SECRET
-#  if (defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12) \
-     || !defined(XXH_INLINE_ALL)
-#    define XXH3_INLINE_SECRET 0
-#  else
-#    define XXH3_INLINE_SECRET 1
-#  endif
-#endif
-
-#ifndef XXH32_ENDJMP
-/* generally preferable for performance */
-#  define XXH32_ENDJMP 0
-#endif
-
 /*!
  * @defgroup impl Implementation
  * @{
@@ -906,7 +863,7 @@ typedef uint32_t XXH32_hash_t;
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
-#include "xxh_stream_alloc.h"
+#include "xxh_stream_impl.h"
 
 #ifndef XXH_memcpy
 /*!
@@ -915,25 +872,6 @@ typedef uint32_t XXH32_hash_t;
  */
 #  include <string.h>
 #  define XXH_memcpy memcpy
-#endif
-
-#ifndef XXH_memset
-/*!
- * @internal
- * @brief XXH_memset() macro can be redirected at compile time
- */
-#  include <string.h>
-#  define XXH_memset memset
-#endif
-
-#ifndef XXH_memcmp
-/*!
- * @internal
- * @brief XXH_memcmp() macro can be redirected at compile time
- * Note: only needed by XXH128.
- */
-#  include <string.h>
-#  define XXH_memcmp memcmp
 #endif
 
 
@@ -954,33 +892,16 @@ typedef uint32_t XXH32_hash_t;
 #  else
 #    define XXH_FORCE_INLINE static
 #  endif
-#  define XXH_NO_INLINE static
 /* enable inlining hints */
 #elif defined(__GNUC__) || defined(__clang__)
 #  define XXH_FORCE_INLINE static __inline__ __attribute__((__always_inline__, __unused__))
-#  define XXH_NO_INLINE static __attribute__((__noinline__))
 #elif defined(_MSC_VER)  /* Visual Studio */
 #  define XXH_FORCE_INLINE static __forceinline
-#  define XXH_NO_INLINE static __declspec(noinline)
 #elif defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))   /* C99 */
 #  define XXH_FORCE_INLINE static inline
-#  define XXH_NO_INLINE static
 #else
 #  define XXH_FORCE_INLINE static
-#  define XXH_NO_INLINE static
-#endif
-
-#if defined(XXH_INLINE_ALL)
-#  define XXH_STATIC XXH_FORCE_INLINE
-#else
-#  define XXH_STATIC static
-#endif
-
-#if XXH3_INLINE_SECRET
-#  define XXH3_WITH_SECRET_INLINE XXH_FORCE_INLINE
-#else
-#  define XXH3_WITH_SECRET_INLINE XXH_NO_INLINE
 #endif
 
 /* Solaris includes __STDC_VERSION__ with C++. Tested with GCC 5.5 */
@@ -1063,14 +984,6 @@ typedef uint32_t XXH32_hash_t;
 #  define XXH_COMPILER_GUARD(var) __asm__("" : "+r" (var))
 #else
 #  define XXH_COMPILER_GUARD(var) ((void)0)
-#endif
-
-/* Specifically for NEON vectors which use the "w" constraint, on
- * Clang. */
-#if defined(__clang__) && defined(__ARM_ARCH) && !defined(__wasm__)
-#  define XXH_COMPILER_GUARD_CLANG_NEON(var) __asm__("" : "+w" (var))
-#else
-#  define XXH_COMPILER_GUARD_CLANG_NEON(var) ((void)0)
 #endif
 
 /* *************************************

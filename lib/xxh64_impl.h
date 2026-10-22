@@ -47,6 +47,12 @@
  * @ingroup impl
  * @{
  */
+#if defined(XXH_INLINE_ALL)
+#  define XXH_STATIC XXH_FORCE_INLINE
+#else
+#  define XXH_STATIC static
+#endif
+
 /*******   Memory access   *******/
 
 typedef XXH64_hash_t xxh_u64;

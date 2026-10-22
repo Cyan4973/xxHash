@@ -2301,35 +2301,6 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #  define XXH_NO_INLINE_HINTS 0
 
 /*!
- * @def XXH3_INLINE_SECRET
- * @brief Determines whether to inline the XXH3 withSecret code.
- *
- * When the secret size is known, the compiler can improve the performance
- * of XXH3_64bits_withSecret() and XXH3_128bits_withSecret().
- *
- * However, if the secret size is not known, it doesn't have any benefit. This
- * happens when xxHash is compiled into a global symbol. Therefore, if
- * @ref XXH_INLINE_ALL is *not* defined, this will be defined to 0.
- *
- * Additionally, this defaults to 0 on GCC 12+, which has an issue with function pointers
- * that are *sometimes* force inline on -Og, and it is impossible to automatically
- * detect this optimization level.
- */
-#  define XXH3_INLINE_SECRET 0
-
-/*!
- * @def XXH32_ENDJMP
- * @brief Whether to use a jump for `XXH32_finalize`.
- *
- * For performance, `XXH32_finalize` uses multiple branches in the finalizer.
- * This is generally preferable for performance,
- * but depending on exact architecture, a jmp may be preferable.
- *
- * This setting is only possibly making a difference for very small inputs.
- */
-#  define XXH32_ENDJMP 0
-
-/*!
  * @internal
  * @brief Redefines old internal names.
  *
@@ -2391,20 +2362,6 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #  endif
 #endif
 
-#ifndef XXH3_INLINE_SECRET
-#  if (defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12) \
-     || !defined(XXH_INLINE_ALL)
-#    define XXH3_INLINE_SECRET 0
-#  else
-#    define XXH3_INLINE_SECRET 1
-#  endif
-#endif
-
-#ifndef XXH32_ENDJMP
-/* generally preferable for performance */
-#  define XXH32_ENDJMP 0
-#endif
-
 /*!
  * @defgroup impl Implementation
  * @{
@@ -2452,17 +2409,6 @@ static void XXH_free(void* p) { free(p); }
 
 #endif  /* XXH_NO_STDLIB */
 
-#endif  /* !XXH_NO_STREAM */
-
-#ifndef XXH_memcpy
-/*!
- * @internal
- * @brief XXH_memcpy() macro can be redirected at compile time
- */
-#  include <string.h>
-#  define XXH_memcpy memcpy
-#endif
-
 #ifndef XXH_memset
 /*!
  * @internal
@@ -2472,14 +2418,15 @@ static void XXH_free(void* p) { free(p); }
 #  define XXH_memset memset
 #endif
 
-#ifndef XXH_memcmp
+#endif  /* !XXH_NO_STREAM */
+
+#ifndef XXH_memcpy
 /*!
  * @internal
- * @brief XXH_memcmp() macro can be redirected at compile time
- * Note: only needed by XXH128.
+ * @brief XXH_memcpy() macro can be redirected at compile time
  */
 #  include <string.h>
-#  define XXH_memcmp memcmp
+#  define XXH_memcpy memcpy
 #endif
 
 
@@ -2500,33 +2447,16 @@ static void XXH_free(void* p) { free(p); }
 #  else
 #    define XXH_FORCE_INLINE static
 #  endif
-#  define XXH_NO_INLINE static
 /* enable inlining hints */
 #elif defined(__GNUC__) || defined(__clang__)
 #  define XXH_FORCE_INLINE static __inline__ __attribute__((__always_inline__, __unused__))
-#  define XXH_NO_INLINE static __attribute__((__noinline__))
 #elif defined(_MSC_VER)  /* Visual Studio */
 #  define XXH_FORCE_INLINE static __forceinline
-#  define XXH_NO_INLINE static __declspec(noinline)
 #elif defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))   /* C99 */
 #  define XXH_FORCE_INLINE static inline
-#  define XXH_NO_INLINE static
 #else
 #  define XXH_FORCE_INLINE static
-#  define XXH_NO_INLINE static
-#endif
-
-#if defined(XXH_INLINE_ALL)
-#  define XXH_STATIC XXH_FORCE_INLINE
-#else
-#  define XXH_STATIC static
-#endif
-
-#if XXH3_INLINE_SECRET
-#  define XXH3_WITH_SECRET_INLINE XXH_FORCE_INLINE
-#else
-#  define XXH3_WITH_SECRET_INLINE XXH_NO_INLINE
 #endif
 
 /* Solaris includes __STDC_VERSION__ with C++. Tested with GCC 5.5 */
@@ -2609,14 +2539,6 @@ static void XXH_free(void* p) { free(p); }
 #  define XXH_COMPILER_GUARD(var) __asm__("" : "+r" (var))
 #else
 #  define XXH_COMPILER_GUARD(var) ((void)0)
-#endif
-
-/* Specifically for NEON vectors which use the "w" constraint, on
- * Clang. */
-#if defined(__clang__) && defined(__ARM_ARCH) && !defined(__wasm__)
-#  define XXH_COMPILER_GUARD_CLANG_NEON(var) __asm__("" : "+w" (var))
-#else
-#  define XXH_COMPILER_GUARD_CLANG_NEON(var) ((void)0)
 #endif
 
 /* *************************************
@@ -2980,6 +2902,22 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 #  define PRIME32_3 XXH_PRIME32_3
 #  define PRIME32_4 XXH_PRIME32_4
 #  define PRIME32_5 XXH_PRIME32_5
+#endif
+
+/*!
+ * @ingroup tuning
+ * @def XXH32_ENDJMP
+ * @brief Whether to use a jump for `XXH32_finalize`.
+ *
+ * For performance, `XXH32_finalize` uses multiple branches in the finalizer.
+ * This is generally preferable for performance,
+ * but depending on exact architecture, a jmp may be preferable.
+ *
+ * This setting is only possibly making a difference for very small inputs.
+ */
+#ifndef XXH32_ENDJMP
+/* generally preferable for performance */
+#  define XXH32_ENDJMP 0
 #endif
 
 /*!
@@ -3463,6 +3401,12 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
  * @ingroup impl
  * @{
  */
+#if defined(XXH_INLINE_ALL)
+#  define XXH_STATIC XXH_FORCE_INLINE
+#else
+#  define XXH_STATIC static
+#endif
+
 /*******   Memory access   *******/
 
 typedef XXH64_hash_t xxh_u64;
@@ -3977,6 +3921,65 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state
  */
 
 /* ===   Compiler specifics   === */
+
+#if XXH_NO_INLINE_HINTS  /* disable inlining hints */
+#  define XXH_NO_INLINE static
+#elif defined(__GNUC__) || defined(__clang__)
+#  define XXH_NO_INLINE static __attribute__((__noinline__))
+#elif defined(_MSC_VER)  /* Visual Studio */
+#  define XXH_NO_INLINE static __declspec(noinline)
+#else
+#  define XXH_NO_INLINE static
+#endif
+
+/*!
+ * @ingroup tuning
+ * @def XXH3_INLINE_SECRET
+ * @brief Determines whether to inline the XXH3 withSecret code.
+ *
+ * When the secret size is known, the compiler can improve the performance
+ * of XXH3_64bits_withSecret() and XXH3_128bits_withSecret().
+ *
+ * However, if the secret size is not known, it doesn't have any benefit. This
+ * happens when xxHash is compiled into a global symbol. Therefore, if
+ * @ref XXH_INLINE_ALL is *not* defined, this will be defined to 0.
+ *
+ * Additionally, this defaults to 0 on GCC 12+, which has an issue with function pointers
+ * that are *sometimes* force inline on -Og, and it is impossible to automatically
+ * detect this optimization level.
+ */
+#ifndef XXH3_INLINE_SECRET
+#  if (defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12) \
+     || !defined(XXH_INLINE_ALL)
+#    define XXH3_INLINE_SECRET 0
+#  else
+#    define XXH3_INLINE_SECRET 1
+#  endif
+#endif
+
+#if XXH3_INLINE_SECRET
+#  define XXH3_WITH_SECRET_INLINE XXH_FORCE_INLINE
+#else
+#  define XXH3_WITH_SECRET_INLINE XXH_NO_INLINE
+#endif
+
+/* Specifically for NEON vectors which use the "w" constraint, on
+ * Clang. */
+#if defined(__clang__) && defined(__ARM_ARCH) && !defined(__wasm__)
+#  define XXH_COMPILER_GUARD_CLANG_NEON(var) __asm__("" : "+w" (var))
+#else
+#  define XXH_COMPILER_GUARD_CLANG_NEON(var) ((void)0)
+#endif
+
+#ifndef XXH_memcmp
+/*!
+ * @internal
+ * @brief XXH_memcmp() macro can be redirected at compile time
+ * Note: only needed by XXH128.
+ */
+#  include <string.h>
+#  define XXH_memcmp memcmp
+#endif
 
 
 #if (defined(__GNUC__) && (__GNUC__ >= 3))  \

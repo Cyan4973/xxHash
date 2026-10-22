@@ -1,6 +1,6 @@
 /*
  * xxHash - Extremely Fast Hash algorithm
- * Memory allocation for streaming states
+ * Streaming implementation common to all families: memory functions
  * Copyright (C) 2012-2023 Yann Collet
  *
  * BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
@@ -74,5 +74,14 @@ static XXH_MALLOCF void* XXH_malloc(size_t s) { return malloc(s); }
 static void XXH_free(void* p) { free(p); }
 
 #endif  /* XXH_NO_STDLIB */
+
+#ifndef XXH_memset
+/*!
+ * @internal
+ * @brief XXH_memset() macro can be redirected at compile time
+ */
+#  include <string.h>
+#  define XXH_memset memset
+#endif
 
 #endif  /* !XXH_NO_STREAM */

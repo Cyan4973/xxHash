@@ -130,4 +130,18 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state
 }
 
 
+/* smallest code size: one-shot function employing streaming */
+#if XXH_SIZE_OPT >= 2
+/*! @ingroup XXH64_family */
+XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
+{
+    /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
+    XXH64_state_t state;
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, (const xxh_u8*)input, len);
+    return XXH64_digest(&state);
+}
+#endif
+
+
 #endif  /* !XXH_NO_LONG_LONG && !XXH_NO_STREAM */

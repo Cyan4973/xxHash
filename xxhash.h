@@ -2113,22 +2113,17 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
 #  pragma warning(pop)
 #endif
 
+#if defined(XXH_NO_STREAM) || XXH_SIZE_OPT < 2
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)
 {
-#if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
-    XXH32_state_t state;
-    XXH32_reset(&state, seed);
-    XXH32_update(&state, (const xxh_u8*)input, len);
-    return XXH32_digest(&state);
-#else
     if (XXH_FORCE_ALIGN_CHECK) {
         if ((((size_t)input) & 3) == 0) {
             return XXH32_endian_align((const xxh_u8*)input, len, seed, XXH_aligned);
     }   }
 
     return XXH32_endian_align((const xxh_u8*)input, len, seed, XXH_unaligned);
-#endif
 }
+#endif
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS==3))
 XXH_FORCE_INLINE xxh_u32 XXH_readBE32(const void* memPtr)
@@ -2239,6 +2234,16 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 
     return XXH32_finalize(h32, state->buffer, state->bufferedSize, XXH_aligned);
 }
+
+#if XXH_SIZE_OPT >= 2
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)
+{
+    XXH32_state_t state;
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, (const xxh_u8*)input, len);
+    return XXH32_digest(&state);
+}
+#endif
 
 #endif
 
@@ -2523,23 +2528,17 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
     return XXH64_finalize(h64, input, len, align);
 }
 
+#if defined(XXH_NO_STREAM) || XXH_SIZE_OPT < 2
 XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
 {
-#if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
-    XXH64_state_t state;
-    XXH64_reset(&state, seed);
-    XXH64_update(&state, (const xxh_u8*)input, len);
-    return XXH64_digest(&state);
-#else
     if (XXH_FORCE_ALIGN_CHECK) {
         if ((((size_t)input) & 7)==0) {
             return XXH64_endian_align((const xxh_u8*)input, len, seed, XXH_aligned);
     }   }
 
     return XXH64_endian_align((const xxh_u8*)input, len, seed, XXH_unaligned);
-
-#endif
 }
+#endif
 
 XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH_NOESCAPE XXH64_canonical_t* dst, XXH64_hash_t hash)
 {
@@ -2634,6 +2633,16 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(XXH_NOESCAPE const XXH64_state_t* state
 
     return XXH64_finalize(h64, state->buffer, (size_t)state->total_len, XXH_aligned);
 }
+
+#if XXH_SIZE_OPT >= 2
+XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
+{
+    XXH64_state_t state;
+    XXH64_reset(&state, seed);
+    XXH64_update(&state, (const xxh_u8*)input, len);
+    return XXH64_digest(&state);
+}
+#endif
 
 #endif
 

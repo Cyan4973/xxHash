@@ -132,4 +132,18 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 }
 
 
+/* smallest code size: one-shot function employing streaming */
+#if XXH_SIZE_OPT >= 2
+/*! @ingroup XXH32_family */
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)
+{
+    /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
+    XXH32_state_t state;
+    XXH32_reset(&state, seed);
+    XXH32_update(&state, (const xxh_u8*)input, len);
+    return XXH32_digest(&state);
+}
+#endif
+
+
 #endif  /* !XXH_NO_XXH32 && !XXH_NO_STREAM */

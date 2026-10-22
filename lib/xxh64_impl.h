@@ -420,25 +420,19 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment 
 }
 
 
+/* with XXH_SIZE_OPT >= 2, XXH64() employs streaming instead, see xxh64_stream_impl.h */
+#if defined(XXH_NO_STREAM) || XXH_SIZE_OPT < 2
 /*! @ingroup XXH64_family */
 XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, XXH64_hash_t seed)
 {
-#if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
-    /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH64_state_t state;
-    XXH64_reset(&state, seed);
-    XXH64_update(&state, (const xxh_u8*)input, len);
-    return XXH64_digest(&state);
-#else
     if (XXH_FORCE_ALIGN_CHECK) {
         if ((((size_t)input) & 7)==0) {  /* Input is aligned, let's leverage the speed advantage */
             return XXH64_endian_align((const xxh_u8*)input, len, seed, XXH_aligned);
     }   }
 
     return XXH64_endian_align((const xxh_u8*)input, len, seed, XXH_unaligned);
-
-#endif
 }
+#endif
 
 /******* Canonical representation   *******/
 

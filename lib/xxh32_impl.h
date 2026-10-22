@@ -390,24 +390,19 @@ XXH32_endian_align(const xxh_u8* input, size_t len, xxh_u32 seed, XXH_alignment 
 #  pragma warning(pop)
 #endif
 
+/* with XXH_SIZE_OPT >= 2, XXH32() employs streaming instead, see xxh32_stream_impl.h */
+#if defined(XXH_NO_STREAM) || XXH_SIZE_OPT < 2
 /*! @ingroup XXH32_family */
 XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t len, XXH32_hash_t seed)
 {
-#if !defined(XXH_NO_STREAM) && XXH_SIZE_OPT >= 2
-    /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
-    XXH32_state_t state;
-    XXH32_reset(&state, seed);
-    XXH32_update(&state, (const xxh_u8*)input, len);
-    return XXH32_digest(&state);
-#else
     if (XXH_FORCE_ALIGN_CHECK) {
         if ((((size_t)input) & 3) == 0) {   /* Input is 4-bytes aligned, leverage the speed benefit */
             return XXH32_endian_align((const xxh_u8*)input, len, seed, XXH_aligned);
     }   }
 
     return XXH32_endian_align((const xxh_u8*)input, len, seed, XXH_unaligned);
-#endif
 }
+#endif
 
 
 

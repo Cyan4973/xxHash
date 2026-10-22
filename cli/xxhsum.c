@@ -1741,7 +1741,7 @@ XSUM_API int XSUM_main(int argc, const char* argv[])
 
     /* Check if input is defined as console; trigger an error in this case */
     if ( (filenamesCount==0) && XSUM_isConsole(stdin) && !explicitStdin) {
-        XSUM_log("No input provided \n");
+        XSUM_log("No input provided. For help, type: %s -h \n", exename);
         return 1;
     }
 

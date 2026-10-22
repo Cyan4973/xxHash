@@ -1405,7 +1405,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits(XXH_NOESCAPE const void* dat
  * @return The calculated 128-bit variant of XXH3 value.
  *
  * @note
- *    seed == 0 produces the same results as @ref XXH3_64bits().
+ *    seed == 0 produces the same results as @ref XXH3_128bits().
  *
  * This variant generates a custom secret on the fly based on default secret
  * altered using the @p seed value.
@@ -1882,7 +1882,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  *    int main(int argc, char* argv[])
  *    {
  *        char secret[XXH3_SECRET_SIZE_MIN];
- *        if (argv != 3) { return 1; }
+ *        if (argc != 3) { return 1; }
  *        XXH3_generateSecret(secret, sizeof(secret), argv[1], strlen(argv[1]));
  *        XXH64_hash_t h = XXH3_64bits_withSecret(
  *             argv[2], strlen(argv[2]),
@@ -1922,7 +1922,7 @@ XXH_PUBLIC_API XXH_errorcode XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer
  *        unsigned char secret[XXH3_SECRET_DEFAULT_SIZE];
  *    public:
  *        HashFast(XXH64_hash_t s) {
- *            XXH3_generateSecret_fromSeed(secret, seed);
+ *            XXH3_generateSecret_fromSeed(secret, s);
  *        }
  *        size_t operator()(const std::string& x) const {
  *            return size_t{
@@ -1949,8 +1949,8 @@ XXH_PUBLIC_API void XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer
  * @param seed       The 64-bit seed to alter the hash result predictably.
  *
  * These variants generate hash values using either:
- * - @p seed for "short" keys (< @ref XXH3_MIDSIZE_MAX = 240 bytes)
- * - @p secret for "large" keys (>= @ref XXH3_MIDSIZE_MAX).
+ * - @p seed for "short" keys (<= @ref XXH3_MIDSIZE_MAX = 240 bytes)
+ * - @p secret for "large" keys (> @ref XXH3_MIDSIZE_MAX).
  *
  * This generally benefits speed, compared to `_withSeed()` or `_withSecret()`.
  * `_withSeed()` has to generate the secret on the fly for "large" keys.
@@ -1987,8 +1987,7 @@ XXH3_64bits_withSecretandSeed(XXH_NOESCAPE const void* data, size_t len,
  * @param secretSize The length of @p secret, in bytes (must be >= XXH3_SECRET_SIZE_MIN)
  * @param seed64     The 64-bit seed to alter the hash result predictably.
  *
- * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return The calculated 128-bit XXH3 hash value.
  *
  * @see XXH3_64bits_withSecretandSeed(): contract is the same.
  */

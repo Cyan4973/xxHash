@@ -39,6 +39,33 @@
 
 #ifndef XXH_NO_XXH32
 
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
+   /* see INLINE mode: undefine names, in case they were defined by a previous inclusion */
+#  undef XXH32
+#  undef XXH32_createState
+#  undef XXH32_freeState
+#  undef XXH32_reset
+#  undef XXH32_update
+#  undef XXH32_digest
+#  undef XXH32_copyState
+#  undef XXH32_canonicalFromHash
+#  undef XXH32_hashFromCanonical
+#  define XXH32_canonical_t  XXH_IPREF(XXH32_canonical_t)
+#  define XXH32_state_s XXH_IPREF(XXH32_state_s)
+#  define XXH32_state_t XXH_IPREF(XXH32_state_t)
+#endif
+#ifdef XXH_NAMESPACE
+#  define XXH32 XXH_IPREF(XXH32)
+#  define XXH32_createState XXH_IPREF(XXH32_createState)
+#  define XXH32_freeState XXH_IPREF(XXH32_freeState)
+#  define XXH32_reset XXH_IPREF(XXH32_reset)
+#  define XXH32_update XXH_IPREF(XXH32_update)
+#  define XXH32_digest XXH_IPREF(XXH32_digest)
+#  define XXH32_copyState XXH_IPREF(XXH32_copyState)
+#  define XXH32_canonicalFromHash XXH_IPREF(XXH32_canonicalFromHash)
+#  define XXH32_hashFromCanonical XXH_IPREF(XXH32_hashFromCanonical)
+#endif
+
 /*!
  * @}
  *

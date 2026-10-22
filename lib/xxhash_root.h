@@ -358,58 +358,10 @@ extern "C" {
     */
    /* Before that, we unconditionally #undef all symbols,
     * in case they were already defined with XXH_NAMESPACE.
-    * They will then be redefined for XXH_INLINE_ALL
+    * They will then be redefined for XXH_INLINE_ALL.
+    * Symbols of each hash family are handled at the beginning of its declarations.
     */
 #  undef XXH_versionNumber
-    /* XXH32 */
-#  undef XXH32
-#  undef XXH32_createState
-#  undef XXH32_freeState
-#  undef XXH32_reset
-#  undef XXH32_update
-#  undef XXH32_digest
-#  undef XXH32_copyState
-#  undef XXH32_canonicalFromHash
-#  undef XXH32_hashFromCanonical
-    /* XXH64 */
-#  undef XXH64
-#  undef XXH64_createState
-#  undef XXH64_freeState
-#  undef XXH64_reset
-#  undef XXH64_update
-#  undef XXH64_digest
-#  undef XXH64_copyState
-#  undef XXH64_canonicalFromHash
-#  undef XXH64_hashFromCanonical
-    /* XXH3_64bits */
-#  undef XXH3_64bits
-#  undef XXH3_64bits_withSecret
-#  undef XXH3_64bits_withSeed
-#  undef XXH3_64bits_withSecretandSeed
-#  undef XXH3_createState
-#  undef XXH3_freeState
-#  undef XXH3_copyState
-#  undef XXH3_64bits_reset
-#  undef XXH3_64bits_reset_withSeed
-#  undef XXH3_64bits_reset_withSecret
-#  undef XXH3_64bits_update
-#  undef XXH3_64bits_digest
-#  undef XXH3_generateSecret
-    /* XXH3_128bits */
-#  undef XXH128
-#  undef XXH3_128bits
-#  undef XXH3_128bits_withSeed
-#  undef XXH3_128bits_withSecret
-#  undef XXH3_128bits_reset
-#  undef XXH3_128bits_reset_withSeed
-#  undef XXH3_128bits_reset_withSecret
-#  undef XXH3_128bits_reset_withSecretandSeed
-#  undef XXH3_128bits_update
-#  undef XXH3_128bits_digest
-#  undef XXH128_isEqual
-#  undef XXH128_cmp
-#  undef XXH128_canonicalFromHash
-#  undef XXH128_hashFromCanonical
     /* Finally, free the namespace itself */
 #  undef XXH_NAMESPACE
 
@@ -421,20 +373,11 @@ extern "C" {
     * Alternative solution: do not redeclare them.
     * However, this requires some #ifdefs, and has a more dispersed impact.
     * Meanwhile, renaming can be achieved in a single place.
+    * Type names of each hash family are renamed at the beginning of its declarations.
     */
 #  define XXH_OK XXH_IPREF(XXH_OK)
 #  define XXH_ERROR XXH_IPREF(XXH_ERROR)
 #  define XXH_errorcode XXH_IPREF(XXH_errorcode)
-#  define XXH32_canonical_t  XXH_IPREF(XXH32_canonical_t)
-#  define XXH64_canonical_t  XXH_IPREF(XXH64_canonical_t)
-#  define XXH128_canonical_t XXH_IPREF(XXH128_canonical_t)
-#  define XXH32_state_s XXH_IPREF(XXH32_state_s)
-#  define XXH32_state_t XXH_IPREF(XXH32_state_t)
-#  define XXH64_state_s XXH_IPREF(XXH64_state_s)
-#  define XXH64_state_t XXH_IPREF(XXH64_state_t)
-#  define XXH3_state_s  XXH_IPREF(XXH3_state_s)
-#  define XXH3_state_t  XXH_IPREF(XXH3_state_t)
-#  define XXH128_hash_t XXH_IPREF(XXH128_hash_t)
    /* Ensure the header is parsed again, even if it was previously included */
 #  undef XXHASH_H_5627135585666179
 #  undef XXHASH_H_STATIC_13879238742
@@ -461,58 +404,6 @@ extern "C" {
 
 #ifdef XXH_NAMESPACE
 #  define XXH_versionNumber XXH_IPREF(XXH_versionNumber)
-/* XXH32 */
-#  define XXH32 XXH_IPREF(XXH32)
-#  define XXH32_createState XXH_IPREF(XXH32_createState)
-#  define XXH32_freeState XXH_IPREF(XXH32_freeState)
-#  define XXH32_reset XXH_IPREF(XXH32_reset)
-#  define XXH32_update XXH_IPREF(XXH32_update)
-#  define XXH32_digest XXH_IPREF(XXH32_digest)
-#  define XXH32_copyState XXH_IPREF(XXH32_copyState)
-#  define XXH32_canonicalFromHash XXH_IPREF(XXH32_canonicalFromHash)
-#  define XXH32_hashFromCanonical XXH_IPREF(XXH32_hashFromCanonical)
-/* XXH64 */
-#  define XXH64 XXH_IPREF(XXH64)
-#  define XXH64_createState XXH_IPREF(XXH64_createState)
-#  define XXH64_freeState XXH_IPREF(XXH64_freeState)
-#  define XXH64_reset XXH_IPREF(XXH64_reset)
-#  define XXH64_update XXH_IPREF(XXH64_update)
-#  define XXH64_digest XXH_IPREF(XXH64_digest)
-#  define XXH64_copyState XXH_IPREF(XXH64_copyState)
-#  define XXH64_canonicalFromHash XXH_IPREF(XXH64_canonicalFromHash)
-#  define XXH64_hashFromCanonical XXH_IPREF(XXH64_hashFromCanonical)
-/* XXH3_64bits */
-#  define XXH3_64bits XXH_IPREF(XXH3_64bits)
-#  define XXH3_64bits_withSecret XXH_IPREF(XXH3_64bits_withSecret)
-#  define XXH3_64bits_withSeed XXH_IPREF(XXH3_64bits_withSeed)
-#  define XXH3_64bits_withSecretandSeed XXH_IPREF(XXH3_64bits_withSecretandSeed)
-#  define XXH3_createState XXH_IPREF(XXH3_createState)
-#  define XXH3_freeState XXH_IPREF(XXH3_freeState)
-#  define XXH3_copyState XXH_IPREF(XXH3_copyState)
-#  define XXH3_64bits_reset XXH_IPREF(XXH3_64bits_reset)
-#  define XXH3_64bits_reset_withSeed XXH_IPREF(XXH3_64bits_reset_withSeed)
-#  define XXH3_64bits_reset_withSecret XXH_IPREF(XXH3_64bits_reset_withSecret)
-#  define XXH3_64bits_reset_withSecretandSeed XXH_IPREF(XXH3_64bits_reset_withSecretandSeed)
-#  define XXH3_64bits_update XXH_IPREF(XXH3_64bits_update)
-#  define XXH3_64bits_digest XXH_IPREF(XXH3_64bits_digest)
-#  define XXH3_generateSecret XXH_IPREF(XXH3_generateSecret)
-#  define XXH3_generateSecret_fromSeed XXH_IPREF(XXH3_generateSecret_fromSeed)
-/* XXH3_128bits */
-#  define XXH128 XXH_IPREF(XXH128)
-#  define XXH3_128bits XXH_IPREF(XXH3_128bits)
-#  define XXH3_128bits_withSeed XXH_IPREF(XXH3_128bits_withSeed)
-#  define XXH3_128bits_withSecret XXH_IPREF(XXH3_128bits_withSecret)
-#  define XXH3_128bits_withSecretandSeed XXH_IPREF(XXH3_128bits_withSecretandSeed)
-#  define XXH3_128bits_reset XXH_IPREF(XXH3_128bits_reset)
-#  define XXH3_128bits_reset_withSeed XXH_IPREF(XXH3_128bits_reset_withSeed)
-#  define XXH3_128bits_reset_withSecret XXH_IPREF(XXH3_128bits_reset_withSecret)
-#  define XXH3_128bits_reset_withSecretandSeed XXH_IPREF(XXH3_128bits_reset_withSecretandSeed)
-#  define XXH3_128bits_update XXH_IPREF(XXH3_128bits_update)
-#  define XXH3_128bits_digest XXH_IPREF(XXH3_128bits_digest)
-#  define XXH128_isEqual XXH_IPREF(XXH128_isEqual)
-#  define XXH128_cmp     XXH_IPREF(XXH128_cmp)
-#  define XXH128_canonicalFromHash XXH_IPREF(XXH128_canonicalFromHash)
-#  define XXH128_hashFromCanonical XXH_IPREF(XXH128_hashFromCanonical)
 #endif
 
 

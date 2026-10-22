@@ -10,8 +10,9 @@ directory. They are the reference source: edit them, not `xxhash.h`.
 - `xxh64_api.h`, `xxh64_static.h`, `xxh64_impl.h` : `XXH64` family.
 - `xxh3_api.h`, `xxh3_static.h`, `xxh3_impl.h` : `XXH3` and `XXH128` family.
 
-For each family, `*_api.h` hosts public declarations, `*_static.h` hosts declarations
-reserved to static linking (`XXH_STATIC_LINKING_ONLY`), and `*_impl.h` hosts the implementation.
+For each family, `*_api.h` hosts public declarations (and the family's symbol names,
+for `XXH_NAMESPACE` and `XXH_INLINE_ALL`), `*_static.h` hosts declarations reserved
+to static linking (`XXH_STATIC_LINKING_ONLY`), and `*_impl.h` hosts the implementation.
 
 Units are fragments of `xxhash.h`, not standalone headers:
 they are only meaningful at their insertion point,

@@ -40,6 +40,77 @@
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 /* XXH3 depends on XXH32 and XXH64 */
 
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
+   /* see INLINE mode: undefine names, in case they were defined by a previous inclusion */
+#  undef XXH3_64bits
+#  undef XXH3_64bits_withSecret
+#  undef XXH3_64bits_withSeed
+#  undef XXH3_64bits_withSecretandSeed
+#  undef XXH3_createState
+#  undef XXH3_freeState
+#  undef XXH3_copyState
+#  undef XXH3_64bits_reset
+#  undef XXH3_64bits_reset_withSeed
+#  undef XXH3_64bits_reset_withSecret
+#  undef XXH3_64bits_reset_withSecretandSeed
+#  undef XXH3_64bits_update
+#  undef XXH3_64bits_digest
+#  undef XXH3_generateSecret
+#  undef XXH3_generateSecret_fromSeed
+#  undef XXH128
+#  undef XXH3_128bits
+#  undef XXH3_128bits_withSeed
+#  undef XXH3_128bits_withSecret
+#  undef XXH3_128bits_withSecretandSeed
+#  undef XXH3_128bits_reset
+#  undef XXH3_128bits_reset_withSeed
+#  undef XXH3_128bits_reset_withSecret
+#  undef XXH3_128bits_reset_withSecretandSeed
+#  undef XXH3_128bits_update
+#  undef XXH3_128bits_digest
+#  undef XXH128_isEqual
+#  undef XXH128_cmp
+#  undef XXH128_canonicalFromHash
+#  undef XXH128_hashFromCanonical
+#  define XXH128_canonical_t XXH_IPREF(XXH128_canonical_t)
+#  define XXH3_state_s  XXH_IPREF(XXH3_state_s)
+#  define XXH3_state_t  XXH_IPREF(XXH3_state_t)
+#  define XXH128_hash_t XXH_IPREF(XXH128_hash_t)
+#endif
+#ifdef XXH_NAMESPACE
+#  define XXH3_64bits XXH_IPREF(XXH3_64bits)
+#  define XXH3_64bits_withSecret XXH_IPREF(XXH3_64bits_withSecret)
+#  define XXH3_64bits_withSeed XXH_IPREF(XXH3_64bits_withSeed)
+#  define XXH3_64bits_withSecretandSeed XXH_IPREF(XXH3_64bits_withSecretandSeed)
+#  define XXH3_createState XXH_IPREF(XXH3_createState)
+#  define XXH3_freeState XXH_IPREF(XXH3_freeState)
+#  define XXH3_copyState XXH_IPREF(XXH3_copyState)
+#  define XXH3_64bits_reset XXH_IPREF(XXH3_64bits_reset)
+#  define XXH3_64bits_reset_withSeed XXH_IPREF(XXH3_64bits_reset_withSeed)
+#  define XXH3_64bits_reset_withSecret XXH_IPREF(XXH3_64bits_reset_withSecret)
+#  define XXH3_64bits_reset_withSecretandSeed XXH_IPREF(XXH3_64bits_reset_withSecretandSeed)
+#  define XXH3_64bits_update XXH_IPREF(XXH3_64bits_update)
+#  define XXH3_64bits_digest XXH_IPREF(XXH3_64bits_digest)
+#  define XXH3_generateSecret XXH_IPREF(XXH3_generateSecret)
+#  define XXH3_generateSecret_fromSeed XXH_IPREF(XXH3_generateSecret_fromSeed)
+/* XXH3_128bits */
+#  define XXH128 XXH_IPREF(XXH128)
+#  define XXH3_128bits XXH_IPREF(XXH3_128bits)
+#  define XXH3_128bits_withSeed XXH_IPREF(XXH3_128bits_withSeed)
+#  define XXH3_128bits_withSecret XXH_IPREF(XXH3_128bits_withSecret)
+#  define XXH3_128bits_withSecretandSeed XXH_IPREF(XXH3_128bits_withSecretandSeed)
+#  define XXH3_128bits_reset XXH_IPREF(XXH3_128bits_reset)
+#  define XXH3_128bits_reset_withSeed XXH_IPREF(XXH3_128bits_reset_withSeed)
+#  define XXH3_128bits_reset_withSecret XXH_IPREF(XXH3_128bits_reset_withSecret)
+#  define XXH3_128bits_reset_withSecretandSeed XXH_IPREF(XXH3_128bits_reset_withSecretandSeed)
+#  define XXH3_128bits_update XXH_IPREF(XXH3_128bits_update)
+#  define XXH3_128bits_digest XXH_IPREF(XXH3_128bits_digest)
+#  define XXH128_isEqual XXH_IPREF(XXH128_isEqual)
+#  define XXH128_cmp     XXH_IPREF(XXH128_cmp)
+#  define XXH128_canonicalFromHash XXH_IPREF(XXH128_canonicalFromHash)
+#  define XXH128_hashFromCanonical XXH_IPREF(XXH128_hashFromCanonical)
+#endif
+
 /*!
  * @}
  * ************************************************************************

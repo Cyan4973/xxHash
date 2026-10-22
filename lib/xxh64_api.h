@@ -38,6 +38,34 @@
  */
 
 #ifndef XXH_NO_LONG_LONG
+
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
+   /* see INLINE mode: undefine names, in case they were defined by a previous inclusion */
+#  undef XXH64
+#  undef XXH64_createState
+#  undef XXH64_freeState
+#  undef XXH64_reset
+#  undef XXH64_update
+#  undef XXH64_digest
+#  undef XXH64_copyState
+#  undef XXH64_canonicalFromHash
+#  undef XXH64_hashFromCanonical
+#  define XXH64_canonical_t  XXH_IPREF(XXH64_canonical_t)
+#  define XXH64_state_s XXH_IPREF(XXH64_state_s)
+#  define XXH64_state_t XXH_IPREF(XXH64_state_t)
+#endif
+#ifdef XXH_NAMESPACE
+#  define XXH64 XXH_IPREF(XXH64)
+#  define XXH64_createState XXH_IPREF(XXH64_createState)
+#  define XXH64_freeState XXH_IPREF(XXH64_freeState)
+#  define XXH64_reset XXH_IPREF(XXH64_reset)
+#  define XXH64_update XXH_IPREF(XXH64_update)
+#  define XXH64_digest XXH_IPREF(XXH64_digest)
+#  define XXH64_copyState XXH_IPREF(XXH64_copyState)
+#  define XXH64_canonicalFromHash XXH_IPREF(XXH64_canonicalFromHash)
+#  define XXH64_hashFromCanonical XXH_IPREF(XXH64_hashFromCanonical)
+#endif
+
 /*-**********************************************************************
 *  64-bit hash
 ************************************************************************/

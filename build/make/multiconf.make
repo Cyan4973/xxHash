@@ -66,9 +66,9 @@ CACHE_ROOT ?= cachedObjs
 # Dependency management
 DEPFLAGS = -MT $@ -MMD -MP -MF
 
-# Include dependency files
-include $(wildcard $(CACHE_ROOT)/**/*.d)
-include $(wildcard $(CACHE_ROOT)/generic/*/*.d)
+# Include dependency files, including those of objects in sub-directories
+# (note: GNU make wildcard does not recurse with **)
+include $(wildcard $(CACHE_ROOT)/*/*.d $(CACHE_ROOT)/*/*/*.d $(CACHE_ROOT)/*/*/*/*.d)
 
 # --------------------------------------------------------------------------------------------
 

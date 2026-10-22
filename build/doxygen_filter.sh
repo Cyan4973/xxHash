@@ -7,6 +7,6 @@ set -eu
 
 dir=$(dirname "$0")
 case $1 in
-    *xxhash.h) exec sh "$dir/amalgamate.sh" --keep-comments "$dir/../lib/xxhash_root.h" ;;
+    *xxhash.h) exec sh "$dir/amalgamate.sh" --comments all "$dir/../lib/xxhash_root.h" ;;
     *)         exec cat "$1" ;;
 esac

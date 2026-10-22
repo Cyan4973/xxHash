@@ -109,8 +109,8 @@ For CMake integration, see the [CMake guide](build/cmake/README.md). The
 [`xxhsum` manual](cli/xxhsum.1.md) documents checksum generation, verification,
 benchmarking and advanced command line options.
 
-`xxhash.h` is generated from the source units in [`lib/`](lib/README.md),
-without their comments and documentation.
+`xxhash.h` is generated from the source units in [`lib/`](lib/README.md).
+It only keeps the documentation of public declarations, which IDEs display.
 Contributors should modify these units: `make` regenerates `xxhash.h`.
 
 ### Example

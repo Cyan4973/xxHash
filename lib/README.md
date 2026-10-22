@@ -2,7 +2,7 @@ xxHash source units
 ===================
 
 `xxhash.h`, at the root of the repository, is generated from the files in this
-directory, without their comments and documentation.
+directory. It only keeps the documentation of public declarations, which IDEs display.
 They are the reference source: edit them, not `xxhash.h`.
 
 - `xxhash_root.h` : the skeleton of `xxhash.h`. It defines the layers (public declarations,
@@ -68,8 +68,8 @@ Build macros are documented in `xxh_modes.h` and `xxh_tuning.h`.
 Running `doxygen` (or `doxygen Doxyfile-internal`, which includes internal details)
 at the root of the repository generates the HTML documentation in `doxygen/html`.
 Doxygen reads `xxhash.h` through `build/doxygen_filter.sh`,
-which replaces it by the amalgamation of the units with their comments
-(`build/amalgamate.sh --keep-comments`).
+which replaces it by the amalgamation of the units with all their comments
+(`build/amalgamate.sh --comments all`).
 
 
 Workflow
@@ -103,7 +103,10 @@ It copies `xxhash_root.h`, replacing each line `#include "unit.h"`
 by the content of the unit, minus its leading license block.
 The result starts with the license block of `xxhash_root.h`,
 followed by a note telling it is generated.
-Comments are removed, unless `--keep-comments` is used.
+Comments are removed, except the documentation of declarations in declaration units
+(`*_api.h`, `*_static.h`): documentation blocks (`/*!` or `/**`) followed by a declaration,
+and documentation of members at the end of a line (`/*!< ... */`).
+Option `--comments none` removes all comments, and `--comments all` keeps them all.
 Expansion is recursive. It also verifies that:
 - each unit starts with a license block (`/*` ... ` */`, mentioning `Copyright`
   and `BSD 2-Clause License`), followed by exactly one empty line;

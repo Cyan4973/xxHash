@@ -92,7 +92,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y gawk mawk original-awk busybox dash
+        sudo apt-get install -y gawk mawk original-awk busybox dash unifdef
 
     - name: Same result with all awk implementations and shells
       if: runner.os == 'Linux'

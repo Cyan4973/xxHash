@@ -554,10 +554,13 @@ typedef uint32_t XXH32_hash_t;
 #endif
 
 #include "xxh32_api.h"
+#include "xxh32_stream_api.h"
 
 #include "xxh64_api.h"
+#include "xxh64_stream_api.h"
 
 #include "xxh3_api.h"
+#include "xxh3_stream_api.h"
 
 /*!
  * @}
@@ -588,6 +591,7 @@ typedef uint32_t XXH32_hash_t;
 #include "xxh64_static.h"
 
 #include "xxh3_static.h"
+#include "xxh3_stream_static.h"
 
 #if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  define XXH_IMPLEMENTATION
@@ -902,43 +906,7 @@ typedef uint32_t XXH32_hash_t;
 /* *************************************
 *  Includes & Memory related functions
 ***************************************/
-#if defined(XXH_NO_STREAM)
-/* nothing */
-#elif defined(XXH_NO_STDLIB)
-
-/* When requesting to disable any mention of stdlib,
- * the library loses the ability to invoked malloc / free.
- * In practice, it means that functions like `XXH*_createState()`
- * will always fail, and return NULL.
- * This flag is useful in situations where
- * xxhash.h is integrated into some kernel, embedded or limited environment
- * without access to dynamic allocation.
- */
-
-static XXH_CONSTF void* XXH_malloc(size_t s) { (void)s; return NULL; }
-static void XXH_free(void* p) { (void)p; }
-
-#else
-
-/*
- * Modify the local functions below should you wish to use
- * different memory routines for malloc() and free()
- */
-#include <stdlib.h>
-
-/*!
- * @internal
- * @brief Modify this function to use a different routine than malloc().
- */
-static XXH_MALLOCF void* XXH_malloc(size_t s) { return malloc(s); }
-
-/*!
- * @internal
- * @brief Modify this function to use a different routine than free().
- */
-static void XXH_free(void* p) { free(p); }
-
-#endif  /* XXH_NO_STDLIB */
+#include "xxh_stream_alloc.h"
 
 #ifndef XXH_memcpy
 /*!
@@ -1441,9 +1409,11 @@ XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
 
 
 #include "xxh32_impl.h"
+#include "xxh32_stream_impl.h"
 
 
 #include "xxh64_impl.h"
+#include "xxh64_stream_impl.h"
 
 #include "xxh3_impl.h"
 

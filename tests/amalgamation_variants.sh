@@ -15,20 +15,30 @@ NM=${NM:-nm}
 tmp=tests/tmp_amalg
 status=0
 
-# name, equivalent build macro, C standard, expected symbol, unexpected symbols, excluded units
+# name, build macros (comma separated), C standard, expected symbol, unexpected symbols, excluded units (globs)
 VARIANTS="\
-noxxh3 XXH_NO_XXH3      c99 XXH64_digest XXH3_|XXH128       xxh3_api.h xxh3_static.h xxh3_impl.h
-xxh32  XXH_NO_LONG_LONG c90 XXH32_digest XXH64|XXH3_|XXH128 xxh64_api.h xxh64_static.h xxh64_impl.h xxh3_api.h xxh3_static.h xxh3_impl.h
-xxh64  XXH_NO_XXH32     c99 XXH64_digest XXH32|XXH3_|XXH128 xxh32_api.h xxh32_static.h xxh32_impl.h xxh3_api.h xxh3_static.h xxh3_impl.h"
+noxxh3        XXH_NO_XXH3                    c99 XXH64_digest XXH3_|XXH128              xxh3_*
+xxh32         XXH_NO_LONG_LONG               c90 XXH32_digest XXH64|XXH3_|XXH128        xxh64_* xxh3_*
+xxh64         XXH_NO_XXH32                   c99 XXH64_digest XXH32|XXH3_|XXH128        xxh32_* xxh3_*
+oneshot       XXH_NO_STREAM                  c99 XXH3_128bits State|reset|update|digest *_stream_*
+xxh32_oneshot XXH_NO_LONG_LONG,XXH_NO_STREAM c90 XXH32_hashFromCanonical XXH64|XXH3_|XXH128|State|reset|update|digest xxh64_* xxh3_* *_stream_*
+xxh64_oneshot XXH_NO_XXH32,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest xxh32_* xxh3_* *_stream_*"
+
+# cppflags MACROS : -D options for a comma separated list of macros
+cppflags() {
+    echo "-D$1" | sed 's/,/ -D/g'
+}
 
 rm -rf "$tmp"
 mkdir -p "$tmp"
-while read -r name macro std present absent units; do
+while read -r name macros std present absent units; do
     mkdir -p "$tmp/$name"
-    excludes=
-    for u in $units; do excludes="$excludes -x $u"; done
-    # shellcheck disable=SC2086 # excludes is a list
-    sh build/amalgamate.sh $excludes -o "$tmp/$name/xxhash.h" lib/xxhash_root.h 2>/dev/null
+    options=$(cppflags "$macros" | sed 's/-D/-D /g')
+    for pattern in $units; do
+        for u in lib/$pattern; do options="$options -x ${u#lib/}"; done
+    done
+    # shellcheck disable=SC2086 # options is a list
+    sh build/amalgamate.sh $options -o "$tmp/$name/xxhash.h" lib/xxhash_root.h 2>/dev/null
 done <<EOF
 $VARIANTS
 EOF
@@ -88,33 +98,36 @@ for flags in \
 do
     # shellcheck disable=SC2086 # flags are meant to be split
     compare_pp root xxhash.h lib/xxhash_root.h "$CC" $flags
-    while read -r name macro std present absent units; do
-        # shellcheck disable=SC2086
-        compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CC" "-D$macro" $flags
+    while read -r name macros std present absent units; do
+        # shellcheck disable=SC2046,SC2086
+        compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CC" $(cppflags "$macros") $flags
     done <<EOF
 $VARIANTS
 EOF
 done
 compare_pp root xxhash.h lib/xxhash_root.h "$CXX" -DXXH_INLINE_ALL
-while read -r name macro std present absent units; do
-    compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CXX" "-D$macro" -DXXH_INLINE_ALL
+while read -r name macros std present absent units; do
+    # shellcheck disable=SC2046
+    compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CXX" $(cppflags "$macros") -DXXH_INLINE_ALL
 done <<EOF
 $VARIANTS
 EOF
 
-# the noxxh3 variant must be byte-identical to xxhash.h with XXH_NO_XXH3 sections removed
+# excluding XXH3 units must be byte-identical to removing XXH_NO_XXH3 sections from xxhash.h
 if command -v unifdef >/dev/null 2>&1; then
     unifdef -DXXH_NO_XXH3 xxhash.h > "$tmp/unifdef.h" || [ $? -eq 1 ]
-    if ! cmp -s "$tmp/unifdef.h" "$tmp/noxxh3/xxhash.h"; then
-        echo "FAIL: noxxh3 variant differs from: unifdef -DXXH_NO_XXH3 xxhash.h" >&2
+    sh build/amalgamate.sh -x xxh3_api.h -x xxh3_stream_api.h -x xxh3_static.h -x xxh3_stream_static.h \
+        -x xxh3_impl.h lib/xxhash_root.h > "$tmp/noxxh3.h"
+    if ! cmp -s "$tmp/unifdef.h" "$tmp/noxxh3.h"; then
+        echo "FAIL: excluding XXH3 units differs from: unifdef -DXXH_NO_XXH3 xxhash.h" >&2
         status=1
     fi
 else
     echo "note: unifdef not found, skipping unifdef comparison"
 fi
 
-# each variant must compile cleanly, and contain only the expected symbols
-while read -r name macro std present absent units; do
+# each variant must compile cleanly, without build macro, and contain only the expected symbols
+while read -r name macros std present absent units; do
     cp xxhash.c "$tmp/$name/"
     $CC -std="$std" -pedantic -Wall -Wextra -Werror -c "$tmp/$name/xxhash.c" -o "$tmp/$name/xxhash.o"
     $NM "$tmp/$name/xxhash.o" > "$tmp/$name/symbols"

@@ -21,8 +21,8 @@ noxxh3        XXH_NO_XXH3                    c99 XXH64_digest XXH3_|XXH128      
 xxh32         XXH_NO_LONG_LONG               c90 XXH32_digest XXH64|XXH3_|XXH128        xxh64_* xxh3_*
 xxh64         XXH_NO_XXH32                   c99 XXH64_digest XXH32|XXH3_|XXH128        xxh32_* xxh3_*
 oneshot       XXH_NO_STREAM                  c99 XXH3_128bits State|reset|update|digest *_stream_*
-xxh32_oneshot XXH_NO_LONG_LONG,XXH_NO_STREAM c90 XXH32_hashFromCanonical XXH64|XXH3_|XXH128|State|reset|update|digest xxh64_* xxh3_* *_stream_*
-xxh64_oneshot XXH_NO_XXH32,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest xxh32_* xxh3_* *_stream_*"
+xxh32_oneshot XXH_NO_LONG_LONG,XXH_NO_STREAM c90 XXH32_hashFromCanonical XXH64|XXH3_|XXH128|State|reset|update|digest xxh64_* xxh3_* *_stream_* xxh_doc.h
+xxh64_oneshot XXH_NO_XXH32,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest xxh32_* xxh3_* *_stream_* xxh_doc.h"
 
 # cppflags MACROS : -D options for a comma separated list of macros
 cppflags() {

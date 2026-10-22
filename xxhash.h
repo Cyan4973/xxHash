@@ -245,14 +245,14 @@
 extern "C" {
 #endif
 
-/* ****************************
- *  INLINE mode
- ******************************/
 /*!
  * @defgroup public Public API
  * Contains details on the public xxHash functions.
  * @{
  */
+/* ****************************
+ *  INLINE mode
+ ******************************/
 #ifdef XXH_DOXYGEN
 /*!
  * @brief Gives access to internal state declaration, required for static allocation.
@@ -1680,7 +1680,6 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits_digest (XXH_NOESCAPE const X
 #endif /* XXHASH_H_5627135585666179 */
 
 
-
 #if defined(XXH_STATIC_LINKING_ONLY) && !defined(XXHASH_H_STATIC_13879238742)
 #define XXHASH_H_STATIC_13879238742
 /* ****************************************************************************
@@ -1721,7 +1720,6 @@ struct XXH32_state_s {
 };   /* typedef'd to XXH32_state_t */
 
 #endif  /* XXH_NO_XXH32 */
-
 
 #ifndef XXH_NO_LONG_LONG  /* defined when there is no 64-bit support */
 
@@ -2367,10 +2365,6 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
  * @{
  */
 
-
-/* *************************************
-*  Includes & Memory related functions
-***************************************/
 #ifndef XXH_NO_STREAM
 
 #if defined(XXH_NO_STDLIB)
@@ -2419,21 +2413,6 @@ static void XXH_free(void* p) { free(p); }
 #endif
 
 #endif  /* !XXH_NO_STREAM */
-
-#ifndef XXH_memcpy
-/*!
- * @internal
- * @brief XXH_memcpy() macro can be redirected at compile time
- */
-#  include <string.h>
-#  define XXH_memcpy memcpy
-#endif
-
-
-
-#include <limits.h>   /* ULLONG_MAX */
-
-
 /* *************************************
 *  Compiler Specific Options
 ***************************************/
@@ -2540,6 +2519,78 @@ static void XXH_free(void* p) { free(p); }
 #else
 #  define XXH_COMPILER_GUARD(var) ((void)0)
 #endif
+
+/* ****************************************
+*  Compiler-specific Functions and Macros
+******************************************/
+#define XXH_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
+
+#ifdef __has_builtin
+#  define XXH_HAS_BUILTIN(x) __has_builtin(x)
+#else
+#  define XXH_HAS_BUILTIN(x) 0
+#endif
+
+
+
+/*
+ * C23 and future versions have standard "unreachable()".
+ * Once it has been implemented reliably we can add it as an
+ * additional case:
+ *
+ * ```
+ * #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
+ * #  include <stddef.h>
+ * #  ifdef unreachable
+ * #    define XXH_UNREACHABLE() unreachable()
+ * #  endif
+ * #endif
+ * ```
+ *
+ * Note C++23 also has std::unreachable() which can be detected
+ * as follows:
+ * ```
+ * #if defined(__cpp_lib_unreachable) && (__cpp_lib_unreachable >= 202202L)
+ * #  include <utility>
+ * #  define XXH_UNREACHABLE() std::unreachable()
+ * #endif
+ * ```
+ * NB: `__cpp_lib_unreachable` is defined in the `<version>` header.
+ * We don't use that as including `<utility>` in `extern "C"` blocks
+ * doesn't work on GCC12
+ */
+
+#if XXH_HAS_BUILTIN(__builtin_unreachable)
+#  define XXH_UNREACHABLE() __builtin_unreachable()
+
+#elif defined(_MSC_VER)
+#  define XXH_UNREACHABLE() __assume(0)
+
+#else
+#  define XXH_UNREACHABLE()
+#endif
+
+#if XXH_HAS_BUILTIN(__builtin_assume)
+#  define XXH_ASSUME(c) __builtin_assume(c)
+#else
+#  define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
+#endif
+/* *************************************
+*  Includes & Memory related functions
+***************************************/
+#ifndef XXH_memcpy
+/*!
+ * @internal
+ * @brief XXH_memcpy() macro can be redirected at compile time
+ */
+#  include <string.h>
+#  define XXH_memcpy memcpy
+#endif
+
+
+
+#include <limits.h>   /* ULLONG_MAX */
+
 
 /* *************************************
 *  Basic Types
@@ -2704,64 +2755,9 @@ static int XXH_isLittleEndian(void)
 #endif
 
 
-
-
-/* ****************************************
-*  Compiler-specific Functions and Macros
-******************************************/
-#define XXH_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
-
-#ifdef __has_builtin
-#  define XXH_HAS_BUILTIN(x) __has_builtin(x)
-#else
-#  define XXH_HAS_BUILTIN(x) 0
-#endif
-
-
-
-/*
- * C23 and future versions have standard "unreachable()".
- * Once it has been implemented reliably we can add it as an
- * additional case:
- *
- * ```
- * #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
- * #  include <stddef.h>
- * #  ifdef unreachable
- * #    define XXH_UNREACHABLE() unreachable()
- * #  endif
- * #endif
- * ```
- *
- * Note C++23 also has std::unreachable() which can be detected
- * as follows:
- * ```
- * #if defined(__cpp_lib_unreachable) && (__cpp_lib_unreachable >= 202202L)
- * #  include <utility>
- * #  define XXH_UNREACHABLE() std::unreachable()
- * #endif
- * ```
- * NB: `__cpp_lib_unreachable` is defined in the `<version>` header.
- * We don't use that as including `<utility>` in `extern "C"` blocks
- * doesn't work on GCC12
- */
-
-#if XXH_HAS_BUILTIN(__builtin_unreachable)
-#  define XXH_UNREACHABLE() __builtin_unreachable()
-
-#elif defined(_MSC_VER)
-#  define XXH_UNREACHABLE() __assume(0)
-
-#else
-#  define XXH_UNREACHABLE()
-#endif
-
-#if XXH_HAS_BUILTIN(__builtin_assume)
-#  define XXH_ASSUME(c) __builtin_assume(c)
-#else
-#  define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
-#endif
-
+/* *************************************
+*  Bit operations
+***************************************/
 #if defined(_MSC_VER)
    /* declares the intrinsics _rotl(), _rotl64(), _byteswap_ulong() and _byteswap_uint64(),
     * also needed with XXH_NO_STREAM or XXH_NO_STDLIB */
@@ -2868,13 +2864,11 @@ XXH_readLE32_align(const void* ptr, XXH_alignment align)
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
-
 /* *************************************
 *  Misc
 ***************************************/
 /*! @ingroup public */
 XXH_PUBLIC_API unsigned XXH_versionNumber (void) { return XXH_VERSION_NUMBER; }
-
 
 #ifndef XXH_NO_XXH32
 
@@ -3389,7 +3383,6 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* state)
 
 
 #endif  /* !XXH_NO_XXH32 && !XXH_NO_STREAM */
-
 
 #ifndef XXH_NO_LONG_LONG
 

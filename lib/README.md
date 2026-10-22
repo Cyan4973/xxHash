@@ -4,12 +4,20 @@ xxHash source units
 `xxhash.h`, at the root of the repository, is generated from the files in this
 directory. They are the reference source: edit them, not `xxhash.h`.
 
-- `xxhash_root.h` : the skeleton of `xxhash.h`, with the code common to all hash families,
-  including the units below at their insertion points. It is a valid header, usable directly.
+- `xxhash_root.h` : the skeleton of `xxhash.h`. It defines the layers (public declarations,
+  declarations for static linking, implementation) with their guards,
+  and includes the units below at their insertion points. It is a valid header, usable directly.
+- Units common to all families:
+  - `xxh_doc.h` : main page of documentation (no code).
+  - `xxh_modes.h` : integration modes (`XXH_INLINE_ALL`, `XXH_PRIVATE_API`, `XXH_NAMESPACE`).
+  - `xxh_api.h` : common declarations (symbol visibility, attributes, version, basic types).
+  - `xxh_tuning.h` : common tuning parameters, and their documentation.
+  - `xxh_compiler.h` : compiler specifics (inlining, assertions, builtins).
+  - `xxh_memory.h` : basic types and memory primitives (reads, endianness, rotations, byteswap).
+  - `xxh_stream_impl.h` : memory functions for streaming states.
 - `xxh32_*.h` : `XXH32` family.
 - `xxh64_*.h` : `XXH64` family.
 - `xxh3_*.h` : `XXH3` and `XXH128` family.
-- `xxh_stream_impl.h` : streaming implementation common to all families (memory functions).
 
 Each family is split into one-shot and streaming units,
 since streaming is the most complex part of each family:
@@ -27,8 +35,9 @@ Declaration units also host their symbol names, for `XXH_NAMESPACE` and `XXH_INL
 `xxh3_stream_impl.h` is included from `xxh3_impl.h`,
 in order to share its compilation settings.
 
-`xxhash_root.h` only keeps what is needed by several families (or by several streaming
-implementations, in `xxh_stream_impl.h`). What is needed by a single family belongs to its units.
+Common units only host what is needed by several families
+(or by several streaming implementations, for `xxh_stream_impl.h`).
+What is needed by a single family belongs to its units.
 Exceptions preserve definitions previously exposed by xxhash.h, such as `XXH_FALLTHROUGH`.
 Since `XXH3` depends on `XXH32` and `XXH64`, it may use helpers defined in their units,
 and streaming units may use helpers defined in the one-shot units of the same family.
@@ -95,6 +104,7 @@ sh build/amalgamate.sh -D XXH_NO_LONG_LONG -D XXH_NO_STREAM \
     lib/xxhash_root.h > xxhash.h
 ```
 A family can only be excluded together with the families depending on it.
+`xxh_doc.h` can be excluded too, it only contains documentation.
 `make test-amalgamation` checks such variants against `xxhash.h` compiled with the same build macros.
 
 New unit names must be unique across the repository,

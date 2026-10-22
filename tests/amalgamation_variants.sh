@@ -56,10 +56,11 @@ cat > "$tmp/multi.c" <<EOF
 #include XXH_HEADER
 EOF
 
-# preprocessors may lay out whitespace differently across file boundaries
-# (e.g. clang -P), so compare token streams modulo whitespace
+# preprocessors may lay out whitespace and line breaks differently,
+# e.g. across file boundaries (clang -P), or where comments were removed:
+# compare streams of whitespace-separated words
 normalize() {
-    tr '\t' ' ' | sed -e 's/^  *//' -e 's/   */ /g' -e '/^$/d'
+    awk '{ for (i = 1; i <= NF; i++) print $i }'
 }
 
 # compare_pp NAME REFERENCE_HEADER TESTED_HEADER COMPILER CPPFLAGS...
@@ -113,11 +114,17 @@ done <<EOF
 $VARIANTS
 EOF
 
-# excluding XXH3 units must be byte-identical to removing XXH_NO_XXH3 sections from xxhash.h
+# excluding XXH3 units must be identical to removing XXH_NO_XXH3 sections from xxhash.h
+# (modulo consecutive empty lines, which the generator merges)
+squeeze() {
+    awk 'NF || !blank { print } { blank = !NF }' "$1"
+}
 if command -v unifdef >/dev/null 2>&1; then
-    unifdef -DXXH_NO_XXH3 xxhash.h > "$tmp/unifdef.h" || [ $? -eq 1 ]
+    unifdef -DXXH_NO_XXH3 xxhash.h > "$tmp/raw" || [ $? -eq 1 ]
+    squeeze "$tmp/raw" > "$tmp/unifdef.h"
     sh build/amalgamate.sh -x xxh3_api.h -x xxh3_stream_api.h -x xxh3_static.h -x xxh3_stream_static.h \
-        -x xxh3_impl.h lib/xxhash_root.h > "$tmp/noxxh3.h"
+        -x xxh3_impl.h lib/xxhash_root.h > "$tmp/raw"
+    squeeze "$tmp/raw" > "$tmp/noxxh3.h"
     if ! cmp -s "$tmp/unifdef.h" "$tmp/noxxh3.h"; then
         echo "FAIL: excluding XXH3 units differs from: unifdef -DXXH_NO_XXH3 xxhash.h" >&2
         status=1

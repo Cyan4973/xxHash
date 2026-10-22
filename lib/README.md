@@ -2,7 +2,8 @@ xxHash source units
 ===================
 
 `xxhash.h`, at the root of the repository, is generated from the files in this
-directory. They are the reference source: edit them, not `xxhash.h`.
+directory, without their comments and documentation.
+They are the reference source: edit them, not `xxhash.h`.
 
 - `xxhash_root.h` : the skeleton of `xxhash.h`. It defines the layers (public declarations,
   declarations for static linking, implementation) with their guards,
@@ -56,6 +57,21 @@ so that removing some units is equivalent to defining the corresponding build ma
 | `*_stream_*`  | `XXH_NO_STREAM`    |                  |
 
 
+Documentation
+-------------
+
+The API is documented in the units, starting with `xxh_doc.h` (overview and examples),
+then the public declarations of each family: `xxh32_api.h`, `xxh64_api.h`, `xxh3_api.h`,
+and their streaming counterparts `*_stream_api.h`.
+Build macros are documented in `xxh_modes.h` and `xxh_tuning.h`.
+
+Running `doxygen` (or `doxygen Doxyfile-internal`, which includes internal details)
+at the root of the repository generates the HTML documentation in `doxygen/html`.
+Doxygen reads `xxhash.h` through `build/doxygen_filter.sh`,
+which replaces it by the amalgamation of the units with their comments
+(`build/amalgamate.sh --keep-comments`).
+
+
 Workflow
 --------
 
@@ -82,9 +98,12 @@ Generator
 ---------
 
 `build/amalgamate.sh` only requires a POSIX shell and a POSIX `awk`.
-It copies `xxhash_root.h` verbatim, replacing each line `#include "unit.h"`
+It copies `xxhash_root.h`, replacing each line `#include "unit.h"`
 (exactly this form, at the beginning of the line)
 by the content of the unit, minus its leading license block.
+The result starts with the license block of `xxhash_root.h`,
+followed by a note telling it is generated.
+Comments are removed, unless `--keep-comments` is used.
 Expansion is recursive. It also verifies that:
 - each unit starts with a license block (`/*` ... ` */`, mentioning `Copyright`
   and `BSD 2-Clause License`), followed by exactly one empty line;

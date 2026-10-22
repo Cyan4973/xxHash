@@ -1,7 +1,7 @@
 xxHash - Extremely fast hash algorithm
 ======================================
 
-[Website](https://xxhash.com/) · [API documentation](xxhash.h) · [`xxhsum` manual](cli/xxhsum.1.md) · [Format specification](doc/xxhash_spec.md)
+[Website](https://xxhash.com/) · [API documentation](lib/README.md#documentation) · [`xxhsum` manual](cli/xxhsum.1.md) · [Format specification](doc/xxhash_spec.md)
 
 xxHash is an extremely fast non-cryptographic hash algorithm, working at RAM
 speed limits. It is highly portable and produces identical hashes on all
@@ -109,7 +109,8 @@ For CMake integration, see the [CMake guide](build/cmake/README.md). The
 [`xxhsum` manual](cli/xxhsum.1.md) documents checksum generation, verification,
 benchmarking and advanced command line options.
 
-`xxhash.h` is generated from the source units in [`lib/`](lib/README.md).
+`xxhash.h` is generated from the source units in [`lib/`](lib/README.md),
+without their comments and documentation.
 Contributors should modify these units: `make` regenerates `xxhash.h`.
 
 ### Example
@@ -127,8 +128,8 @@ XXH64_hash_t hash_buffer(const void* buffer, size_t size)
 ```
 
 The API also supports incremental hashing of streams of unknown size. Complete
-single-shot and streaming examples are provided in the documented
-[API header](xxhash.h).
+single-shot and streaming examples are provided in the
+[API documentation](lib/xxh_doc.h).
 
 Quality
 -------------------------

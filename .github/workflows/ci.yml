@@ -92,7 +92,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y gawk mawk original-awk busybox dash unifdef
+        sudo apt-get install -y gawk mawk original-awk busybox dash unifdef doxygen
 
     - name: Same result with all awk implementations and shells
       if: runner.os == 'Linux'
@@ -108,6 +108,15 @@ jobs:
       run: |
         make test-amalgamation
         git diff --exit-code xxhash.h
+
+    - name: Documentation generated from lib/
+      if: runner.os == 'Linux'
+      run: |
+        ( cat Doxyfile; echo "WARN_AS_ERROR = FAIL_ON_WARNINGS"; echo "HAVE_DOT = NO" ) | doxygen -
+        # each family documents its streaming functions (on its own page)
+        grep -q '</span>XXH32_createState()</h2>' doxygen/html/group__XXH32__family.html
+        grep -q '</span>XXH64_createState()</h2>' doxygen/html/group__XXH64__family.html
+        grep -q '</span>XXH3_createState()</h2>' doxygen/html/group__XXH3__family.html
 
   reproduce-system-header-in-extern-c:
     name: Reproduce system header included inside extern C

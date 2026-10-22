@@ -5982,6 +5982,114 @@ XXH3_accumulate_512_rvv(  void* XXH_RESTRICT acc,
     }
 }
 
+#ifndef XXH_SECRET_LASTACC_START
+#define XXH_SECRET_LASTACC_START 7  /* not aligned on 8, last secret is different from acc & scrambler */
+#endif
+
+/* =====================================================================
+ * acc-resident variant (VLEN=128): the 8 accumulators live in 4 local
+ * vuint64m1 variables across ALL stripes and blocks of one hash call.
+ * GCC forbids RVV types in structs/arrays/pointers, so the whole loop
+ * must live in a single function with the acc as plain locals.
+ * Zero acc load/store per stripe; spills only if the compiler chooses.
+ * ===================================================================== */
+XXH_FORCE_INLINE void
+XXH3_hashLong_internal_loop_rvv_acc(xxh_u64* XXH_RESTRICT acc,
+                      const xxh_u8* XXH_RESTRICT input, size_t len,
+                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
+{
+    size_t const nbStripesPerBlock = (secretSize - XXH_STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
+    size_t const block_len = XXH_STRIPE_LEN * nbStripesPerBlock;
+    size_t const nb_blocks = (len - 1) / block_len;
+
+    size_t vl = XXH_RVOP(vsetvl_e64m1)(2);
+    static const uint64_t swap_mask[2] = {1, 0};
+    vuint64m1_t xswap_mask = XXH_RVOP(vle64_v_u64m1)(swap_mask, vl);
+    const xxh_u64* xacc = (const xxh_u64*)acc;
+    size_t n;
+
+    /* acc resident in registers: 4 x (e64m1, vl=2) */
+    vuint64m1_t r0 = XXH_RVOP(vle64_v_u64m1)(xacc + 0, vl);
+    vuint64m1_t r1 = XXH_RVOP(vle64_v_u64m1)(xacc + 2, vl);
+    vuint64m1_t r2 = XXH_RVOP(vle64_v_u64m1)(xacc + 4, vl);
+    vuint64m1_t r3 = XXH_RVOP(vle64_v_u64m1)(xacc + 6, vl);
+
+#define XXH_RVV_ACC_LANE(R, XI, XS)                                   \
+    {                                                                  \
+        vuint64m1_t d_ = XXH_RVCAST(u8m1_u64m1)(XXH_RVOP(vle8_v_u8m1)((const uint8_t*)(XI), 16)); \
+        vuint64m1_t k_ = XXH_RVCAST(u8m1_u64m1)(XXH_RVOP(vle8_v_u8m1)((const uint8_t*)(XS), 16)); \
+        vuint64m1_t dk_ = XXH_RVOP(vxor_vv_u64m1)(d_, k_, vl);        \
+        vuint64m1_t hi_ = XXH_RVOP(vsrl_vx_u64m1)(dk_, 32, vl);       \
+        vuint64m1_t lo_ = XXH_RVOP(vand_vx_u64m1)(dk_, 0xffffffff, vl); \
+        vuint64m1_t sw_ = XXH_RVOP(vrgather_vv_u64m1)(d_, xswap_mask, vl); \
+        R = XXH_RVOP(vmacc_vv_u64m1)(R, lo_, hi_, vl);                \
+        R = XXH_RVOP(vadd_vv_u64m1)(R, sw_, vl);                       \
+    }
+
+#define XXH_RVV_SCRAMBLE_LANE(R, XS)                                  \
+    {                                                                  \
+        vuint64m1_t k_ = XXH_RVCAST(u8m1_u64m1)(XXH_RVOP(vle8_v_u8m1)((const uint8_t*)(XS), 16)); \
+        vuint64m1_t s_ = XXH_RVOP(vsrl_vx_u64m1)(R, 47, vl);          \
+        R = XXH_RVOP(vxor_vv_u64m1)(R, s_, vl);                        \
+        R = XXH_RVOP(vxor_vv_u64m1)(R, k_, vl);                        \
+        R = XXH_RVOP(vmul_vx_u64m1)(R, XXH_PRIME32_1, vl);             \
+    }
+
+    for (n = 0; n < nb_blocks; n++) {
+        const xxh_u8* xin  = input + n*block_len;
+        const xxh_u8* xsec = secret;
+        size_t s;
+        for (s = 0; s < nbStripesPerBlock; s++) {
+            const xxh_u8* si = xin + s*XXH_STRIPE_LEN;
+            const xxh_u8* sk = xsec + s*XXH_SECRET_CONSUME_RATE;
+            /* 4 independent chains per stripe, acc stays in r0..r3 */
+            XXH_RVV_ACC_LANE(r0, si + 0, sk + 0)
+            XXH_RVV_ACC_LANE(r1, si + 16, sk + 16)
+            XXH_RVV_ACC_LANE(r2, si + 32, sk + 32)
+            XXH_RVV_ACC_LANE(r3, si + 48, sk + 48)
+        }
+        {   const uint8_t* sc = secret + secretSize - XXH_STRIPE_LEN;
+            XXH_RVV_SCRAMBLE_LANE(r0, sc + 0)
+            XXH_RVV_SCRAMBLE_LANE(r1, sc + 16)
+            XXH_RVV_SCRAMBLE_LANE(r2, sc + 32)
+            XXH_RVV_SCRAMBLE_LANE(r3, sc + 48)
+        }
+    }
+
+    /* last partial block */
+    {   size_t const nbStripes = ((len - 1) - (block_len * nb_blocks)) / XXH_STRIPE_LEN;
+        const xxh_u8* xin = input + nb_blocks*block_len;
+        size_t s;
+        for (s = 0; s < nbStripes; s++) {
+            const xxh_u8* si = xin + s*XXH_STRIPE_LEN;
+            const xxh_u8* sk = secret + s*XXH_SECRET_CONSUME_RATE;
+            XXH_RVV_ACC_LANE(r0, si + 0, sk + 0)
+            XXH_RVV_ACC_LANE(r1, si + 16, sk + 16)
+            XXH_RVV_ACC_LANE(r2, si + 32, sk + 32)
+            XXH_RVV_ACC_LANE(r3, si + 48, sk + 48)
+        }
+        /* last stripe (fixed secret offset 7 bytes before the end) */
+        {   const xxh_u8* si = input + len - XXH_STRIPE_LEN;
+            const xxh_u8* sk = secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START;
+            XXH_RVV_ACC_LANE(r0, si + 0, sk + 0)
+            XXH_RVV_ACC_LANE(r1, si + 16, sk + 16)
+            XXH_RVV_ACC_LANE(r2, si + 32, sk + 32)
+            XXH_RVV_ACC_LANE(r3, si + 48, sk + 48)
+        }
+    }
+
+#undef XXH_RVV_SCRAMBLE_LANE
+#undef XXH_RVV_ACC_LANE
+
+    /* write acc back once */
+    {   xxh_u64* xa = (xxh_u64*)acc;
+        XXH_RVOP(vse64_v_u64m1)(xa + 0, r0, vl);
+        XXH_RVOP(vse64_v_u64m1)(xa + 2, r1, vl);
+        XXH_RVOP(vse64_v_u64m1)(xa + 4, r2, vl);
+        XXH_RVOP(vse64_v_u64m1)(xa + 6, r3, vl);
+    }
+}
+
 XXH_FORCE_INLINE XXH3_ACCUMULATE_TEMPLATE(rvv)
 
 XXH_FORCE_INLINE void
@@ -6405,7 +6513,15 @@ XXH3_hashLong_64b_internal(const void* XXH_RESTRICT input, size_t len,
 {
     XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64 acc[XXH_ACC_NB] = XXH3_INIT_ACC;
 
+#if (XXH_VECTOR == XXH_RVV)
+    /* acc-resident fast path: accumulators stay in vector registers
+     * across stripes; f_acc/f_scramble are ignored on this path. */
+    (void)f_acc; (void)f_scramble;
+    XXH3_hashLong_internal_loop_rvv_acc(acc, (const xxh_u8*)input, len,
+                                        (const xxh_u8*)secret, secretSize);
+#else
     XXH3_hashLong_internal_loop(acc, (const xxh_u8*)input, len, (const xxh_u8*)secret, secretSize, f_acc, f_scramble);
+#endif
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);
@@ -7242,7 +7358,14 @@ XXH3_hashLong_128b_internal(const void* XXH_RESTRICT input, size_t len,
 {
     XXH_ALIGN(XXH_ACC_ALIGN) xxh_u64 acc[XXH_ACC_NB] = XXH3_INIT_ACC;
 
+#if (XXH_VECTOR == XXH_RVV)
+    /* acc-resident fast path: accumulators stay in vector registers
+     * across stripes; f_acc/f_scramble are ignored on this path. */
+    (void)f_acc; (void)f_scramble;
+    XXH3_hashLong_internal_loop_rvv_acc(acc, (const xxh_u8*)input, len, secret, secretSize);
+#else
     XXH3_hashLong_internal_loop(acc, (const xxh_u8*)input, len, secret, secretSize, f_acc, f_scramble);
+#endif
 
     /* converge into final hash */
     XXH_STATIC_ASSERT(sizeof(acc) == 64);

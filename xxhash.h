@@ -7573,9 +7573,9 @@ XXH3_generateSecret_fromSeed(XXH_NOESCAPE void* secretBuffer, XXH64_hash_t seed)
 #  pragma GCC pop_options
 #endif
 
-#endif  /* XXH_NO_LONG_LONG */
-
 #endif  /* XXH_NO_XXH3 */
+
+#endif  /* XXH_NO_LONG_LONG */
 
 /*!
  * @}

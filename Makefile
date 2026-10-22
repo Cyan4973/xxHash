@@ -672,12 +672,15 @@ libxxhash.pc: libxxhash.pc.in
           $< > $@
 
 
-install_libxxhash.a: libxxhash.a
+# Install binaries built beforehand, without rebuilding with install-time flags.
+# Missing binaries are reported by the install commands below.
+
+install_libxxhash.a:
 	@echo Installing libxxhash.a
 	$(MAKE_DIR) $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libxxhash.a $(DESTDIR)$(LIBDIR)
 
-install_libxxhash: libxxhash
+install_libxxhash:
 	@echo Installing libxxhash
 	$(MAKE_DIR) $(DESTDIR)$(LIBDIR)
 	$(INSTALL_PROGRAM) $(LIBXXH) $(DESTDIR)$(LIBDIR)
@@ -697,7 +700,7 @@ install_libxxhash.pc: libxxhash.pc
 	$(MAKE_DIR) $(DESTDIR)$(PKGCONFIGDIR)/
 	$(INSTALL_DATA) libxxhash.pc $(DESTDIR)$(PKGCONFIGDIR)/
 
-install_xxhsum: xxhsum
+install_xxhsum:
 	@echo Installing xxhsum
 	$(MAKE_DIR) $(DESTDIR)$(BINDIR)/
 	$(INSTALL_PROGRAM) xxhsum$(EXT) $(DESTDIR)$(BINDIR)/xxhsum$(EXT)

@@ -109,6 +109,9 @@ For CMake integration, see the [CMake guide](build/cmake/README.md). The
 [`xxhsum` manual](cli/xxhsum.1.md) documents checksum generation, verification,
 benchmarking and advanced command line options.
 
+`xxhash.h` is generated from the source units in [`lib/`](lib/README.md).
+Contributors should modify these units: `make` regenerates `xxhash.h`.
+
 ### Example
 
 The simplest API hashes a contiguous block of memory in a single call:
@@ -270,9 +273,9 @@ The following variables control runtime dispatch when building with `make`:
 License
 -------
 
-The library files `xxhash.c` and `xxhash.h` are licensed under the
-[BSD 2-Clause License](LICENSE). The `xxhsum` command line utility is licensed
-under [GPLv2](cli/COPYING).
+The library files `xxhash.c` and `xxhash.h`, and the source units in `lib/`,
+are licensed under the [BSD 2-Clause License](LICENSE). The `xxhsum` command
+line utility is licensed under [GPLv2](cli/COPYING).
 
 
 Other programming languages

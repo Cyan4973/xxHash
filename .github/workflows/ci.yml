@@ -70,6 +70,45 @@ jobs:
         test -n "$(git tag -l 'v[0-9]*')"  # fail rather than skip without tags
         make test-api-compat
 
+  amalgamation:
+    name: xxhash.h generated from lib/, ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    # must run before any make invocation, since make refreshes xxhash.h
+    - name: xxhash.h is up to date with lib/
+      run: |
+        if ! sh build/amalgamate.sh --check xxhash.h lib/xxhash_root.h; then
+          echo "::error file=xxhash.h::xxhash.h is generated from lib/: edit the units in lib/, run 'make amalgamate', and commit both"
+          exit 1
+        fi
+
+    - name: Install other awk implementations and shells
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gawk mawk original-awk busybox dash
+
+    - name: Same result with all awk implementations and shells
+      if: runner.os == 'Linux'
+      run: |
+        for awk in mawk "gawk --posix" original-awk "busybox awk"; do
+          for shell in dash "busybox sh" bash; do
+            echo "AWK=$awk, shell=$shell"
+            AWK="$awk" $shell build/amalgamate.sh --check xxhash.h lib/xxhash_root.h
+          done
+        done
+
+    - name: Variants generated from lib/
+      run: |
+        make test-amalgamation
+        git diff --exit-code xxhash.h
+
   reproduce-system-header-in-extern-c:
     name: Reproduce system header included inside extern C
     runs-on: ubuntu-24.04

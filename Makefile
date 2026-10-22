@@ -103,6 +103,35 @@ default: lib xxhsum_and_links
 C_SRCDIRS = . $(CLI_DIR) fuzz
 include build/make/multiconf.make
 
+## xxhash.h is generated from the units in lib/ (see lib/README.md).
+## It is refreshed when units change, before anything else is built,
+## unless it was edited by hand (in which case a warning is issued).
+## Set XXH_SYNC=0 to disable.
+AMALGAMATE = $(SHELL) build/amalgamate.sh
+XXH_ROOT   = lib/xxhash_root.h
+XXH_UNITS := $(wildcard lib/*.h)
+XXH_SYNC  ?= 1
+ifneq ($(filter check-amalgamation,$(MAKECMDGOALS)),)
+XXH_SYNC := 0
+endif
+ifeq ($(XXH_SYNC)$(if $(XXH_UNITS),y),1y)
+include $(CACHE_ROOT)/xxhash_h.stamp
+endif
+$(CACHE_ROOT)/xxhash_h.stamp: $(XXH_UNITS) build/amalgamate.sh $(wildcard xxhash.h)
+	@$(AMALGAMATE) --sync $@ -o xxhash.h $(XXH_ROOT)
+
+.PHONY: amalgamate
+amalgamate:  ## regenerate xxhash.h from lib/, discarding direct edits
+	$(AMALGAMATE) -o xxhash.h $(XXH_ROOT)
+
+.PHONY: check-amalgamation
+check-amalgamation:  ## check that xxhash.h is up to date with lib/
+	$(AMALGAMATE) --check xxhash.h $(XXH_ROOT)
+
+.PHONY: test-amalgamation
+test-amalgamation:  ## check variants generated from lib/ against xxhash.h
+	$(SHELL) tests/amalgamation_variants.sh
+
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
@@ -542,7 +571,7 @@ test-api-compat:  ## check that the API of xxhash.h remains compatible with the 
 	$(SHELL) tests/api_compat.sh
 
 .PHONY: test-tools
-test-tools: check-version test-api-compat
+test-tools: check-version test-api-compat check-amalgamation
 	CFLAGS=-Werror $(MAKE) -C tests/bench
 	CFLAGS=-Werror $(MAKE) -C tests/collisions check
 
@@ -590,7 +619,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	@$(GREP) -n -E "`printf '[ \\t]$$'`" cli/*.c cli/*.h cli/*.1 *.c *.h LICENSE Makefile build/cmake/CMakeLists.txt && { echo "Error: trailing whitespace detected"; exit 1; } || true
+	@$(GREP) -n -E "`printf '[ \\t]$$'`" cli/*.c cli/*.h cli/*.1 *.c *.h lib/*.h LICENSE Makefile build/cmake/CMakeLists.txt && { echo "Error: trailing whitespace detected"; exit 1; } || true
 
 .PHONY: lint-unicode
 lint-unicode:

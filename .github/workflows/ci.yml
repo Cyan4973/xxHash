@@ -448,15 +448,15 @@ jobs:
       fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix failed.
       matrix:
         include: [
-          { name: 'ARM',             xcc_pkg: gcc-arm-linux-gnueabi,        xcc: arm-linux-gnueabi-gcc,        xemu_pkg: qemu-system-arm,    xemu: qemu-arm-static,     os: ubuntu-latest, },
-          { name: 'AARCH64',         xcc_pkg: gcc-aarch64-linux-gnu,        xcc: aarch64-linux-gnu-gcc,        xemu_pkg: qemu-system-arm,    xemu: qemu-aarch64-static, os: ubuntu-latest, },
-          { name: 'PPC64LE',         xcc_pkg: gcc-powerpc64le-linux-gnu,    xcc: powerpc64le-linux-gnu-gcc,    xemu_pkg: qemu-system-ppc,    xemu: qemu-ppc64le-static, os: ubuntu-latest, },
-          { name: 'PPC64',           xcc_pkg: gcc-powerpc64-linux-gnu,      xcc: powerpc64-linux-gnu-gcc,      xemu_pkg: qemu-system-ppc,    xemu: qemu-ppc64-static,   os: ubuntu-latest, },
-          { name: 'S390X',           xcc_pkg: gcc-s390x-linux-gnu,          xcc: s390x-linux-gnu-gcc,          xemu_pkg: qemu-system-s390x,  xemu: qemu-s390x-static,   os: ubuntu-latest, },
-          { name: 'MIPS',            xcc_pkg: gcc-mips-linux-gnu,           xcc: mips-linux-gnu-gcc,           xemu_pkg: qemu-system-mips,   xemu: qemu-mips-static,    os: ubuntu-latest, },
-          { name: 'M68K',            xcc_pkg: gcc-m68k-linux-gnu,           xcc: m68k-linux-gnu-gcc,           xemu_pkg: qemu-system-m68k,   xemu: qemu-m68k-static,    os: ubuntu-latest, },
-          { name: 'RISC-V',          xcc_pkg: gcc-riscv64-linux-gnu,        xcc: riscv64-linux-gnu-gcc,        xemu_pkg: qemu-system-riscv64,xemu: qemu-riscv64-static, os: ubuntu-latest, },
-          { name: 'SPARC',           xcc_pkg: gcc-sparc64-linux-gnu,        xcc: sparc64-linux-gnu-gcc,        xemu_pkg: qemu-system-sparc,  xemu: qemu-sparc64-static, os: ubuntu-latest, },
+          { name: 'ARM',             xcc_pkg: gcc-arm-linux-gnueabi,        xcc: arm-linux-gnueabi-gcc,        xemu_pkg: qemu-system-arm,    xemu: qemu-arm-static,     os: ubuntu-24.04, },
+          { name: 'AARCH64',         xcc_pkg: gcc-aarch64-linux-gnu,        xcc: aarch64-linux-gnu-gcc,        xemu_pkg: qemu-system-arm,    xemu: qemu-aarch64-static, os: ubuntu-24.04, },
+          { name: 'PPC64LE',         xcc_pkg: gcc-powerpc64le-linux-gnu,    xcc: powerpc64le-linux-gnu-gcc,    xemu_pkg: qemu-system-ppc,    xemu: qemu-ppc64le-static, os: ubuntu-24.04, },
+          { name: 'PPC64',           xcc_pkg: gcc-powerpc64-linux-gnu,      xcc: powerpc64-linux-gnu-gcc,      xemu_pkg: qemu-system-ppc,    xemu: qemu-ppc64-static,   os: ubuntu-24.04, },
+          { name: 'S390X',           xcc_pkg: gcc-s390x-linux-gnu,          xcc: s390x-linux-gnu-gcc,          xemu_pkg: qemu-system-s390x,  xemu: qemu-s390x-static,   os: ubuntu-24.04, },
+          { name: 'MIPS',            xcc_pkg: gcc-mips-linux-gnu,           xcc: mips-linux-gnu-gcc,           xemu_pkg: qemu-system-mips,   xemu: qemu-mips-static,    os: ubuntu-24.04, },
+          { name: 'M68K',            xcc_pkg: gcc-m68k-linux-gnu,           xcc: m68k-linux-gnu-gcc,           xemu_pkg: qemu-system-m68k,   xemu: qemu-m68k-static,    os: ubuntu-24.04, },
+          { name: 'RISC-V',          xcc_pkg: gcc-riscv64-linux-gnu,        xcc: riscv64-linux-gnu-gcc,        xemu_pkg: qemu-system-riscv64,xemu: qemu-riscv64-static, os: ubuntu-24.04, },
+          { name: 'SPARC',           xcc_pkg: gcc-sparc64-linux-gnu,        xcc: sparc64-linux-gnu-gcc,        xemu_pkg: qemu-system-sparc,  xemu: qemu-sparc64-static, os: ubuntu-24.04, },
           { name: 'LoongArch',       xcc_pkg: gcc-14-loongarch64-linux-gnu, xcc: loongarch64-linux-gnu-gcc-14, xemu_pkg: qemu-system-loongarch64, xemu: qemu-loongarch64-static, os: ubuntu-24.04, },
         ]
     env:                        # Set environment variables
@@ -716,9 +716,29 @@ jobs:
         C:\install_cl\bin\xxhsum.exe -bi1
 
 
-  # Windows, { mingw64, mingw32 }
+  # 32-bit MinGW, cross-compiled on Linux (MSYS2 no longer provides mingw32)
+  mingw-i686-cross:
+    name: MinGW i686 (cross-compilation)
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: apt install
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-mingw-w64-i686
+    - name: build xxhsum
+      run: |
+        CC=i686-w64-mingw32-gcc make xxhsum EXT=.exe MOREFLAGS=-Werror
+        # Expected output is "PE32 executable (console) Intel 80386, for MS Windows"
+        file -L ./xxhsum.exe
+        file -L ./xxhsum.exe | grep -q '386'
+
+
+  # Windows, mingw64
   #
   # - Shell for msys2 is sh (msys2).  defaults.run.shell is for this setting.
+  # - MSYS2 no longer provides the mingw32 (i686) environment:
+  #   32-bit MinGW is covered by cross-compilation (job mingw-i686-cross).
   #
   # https://github.com/msys2/MINGW-packages/blob/master/.github/workflows/main.yml
   # https://github.com/actions/starter-workflows/issues/95
@@ -731,7 +751,6 @@ jobs:
       matrix:
         include: [
           { msystem: mingw64, toolchain: mingw-w64-x86_64-toolchain },
-          { msystem: mingw32, toolchain: mingw-w64-i686-toolchain },
         ]
     defaults:
       run:
@@ -741,7 +760,7 @@ jobs:
       - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           msystem: MSYS
-          install: mingw-w64-i686-make ${{ matrix.toolchain }}
+          install: mingw-w64-x86_64-make ${{ matrix.toolchain }}
           update: true
 
       - name: Update
@@ -752,22 +771,12 @@ jobs:
       - name: mingw64
         if: ${{ matrix.msystem == 'mingw64' }}
         run: |
-          PATH=/mingw64/bin:$PATH /mingw32/bin/mingw32-make clean test gcc-og-test MOREFLAGS=-Werror
-          PATH=/mingw64/bin:$PATH /mingw32/bin/mingw32-make -C tests/bench
+          PATH=/mingw64/bin:$PATH /mingw64/bin/mingw32-make clean test gcc-og-test MOREFLAGS=-Werror
+          PATH=/mingw64/bin:$PATH /mingw64/bin/mingw32-make -C tests/bench
           # Abort if result of "file ./xxhsum.exe" doesn't contain 'x86-64'.
           # Expected output is "./xxhsum.exe: PE32+ executable (console) x86-64, for MS Windows"
           file ./xxhsum.exe
           file ./xxhsum.exe | grep -q 'x86-64' || $(exit 1)
-
-      - name: mingw32
-        if: ${{ matrix.msystem == 'mingw32' }}
-        run: |
-          PATH=/mingw32/bin:$PATH /mingw32/bin/mingw32-make.exe clean test MOREFLAGS=-Werror
-          PATH=/mingw32/bin:$PATH /mingw32/bin/mingw32-make.exe -C tests/bench
-          # Abort if result of "file ./xxhsum.exe" doesn't contain '80386'.
-          # Expected output is "./xxhsum.exe: PE32 executable (console) Intel i386, for MS Windows"
-          file ./xxhsum.exe
-          file ./xxhsum.exe | grep -q '386' || $(exit 1)
 
       - name: Test MinGW binary
         run: |

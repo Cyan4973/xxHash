@@ -1,0 +1,7 @@
+# Intentional API changes since the latest release, accepted by tests/api_compat.sh.
+# One line per difference, as reported by the test after "only in vX.Y.Z: ", e.g.
+#   macro: XXH_SOME_MACRO
+#   declaration: <declaration, as reported>
+# Declarations are written as preprocessed by the compiler of CI (gcc).
+# Changes must be deliberate, and mentioned in CHANGELOG.
+# This list is emptied when a new release becomes the reference.

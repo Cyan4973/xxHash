@@ -57,6 +57,19 @@ permissions:
   contents: read
 
 jobs:
+  api-compat:
+    name: API compatible with the latest release
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0  # release tags are needed
+
+    - name: make test-api-compat
+      run: |
+        test -n "$(git tag -l 'v[0-9]*')"  # fail rather than skip without tags
+        make test-api-compat
+
   reproduce-system-header-in-extern-c:
     name: Reproduce system header included inside extern C
     runs-on: ubuntu-24.04

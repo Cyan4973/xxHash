@@ -537,8 +537,12 @@ test-inline: test-inline-notexposed test-multiInclude test-inline-dispatch
 test-all: CFLAGS += -Werror
 test-all: test test32 test-unicode clangtest gcc-og-test cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
 
+.PHONY: test-api-compat
+test-api-compat:  ## check that the API of xxhash.h remains compatible with the latest release
+	$(SHELL) tests/api_compat.sh
+
 .PHONY: test-tools
-test-tools: check-version
+test-tools: check-version test-api-compat
 	CFLAGS=-Werror $(MAKE) -C tests/bench
 	CFLAGS=-Werror $(MAKE) -C tests/collisions check
 

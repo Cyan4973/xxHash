@@ -1647,7 +1647,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #  endif
 #endif
 
-#ifndef XXH_NO_STREAM
+#if !defined(XXH_NO_STREAM) && !(defined(XXH_NO_XXH32) && defined(XXH_NO_LONG_LONG))
 
 #if defined(XXH_NO_STDLIB)
 

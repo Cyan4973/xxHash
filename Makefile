@@ -509,6 +509,19 @@ nostdlibtest: xxhash.c
 	$(NM) $(OFILE) | $(GREP) "U _free\|U free" ; test $$? -eq 1
 	$(RM) $(OFILE)
 
+.PHONY: test-build-macros
+test-build-macros: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+test-build-macros: OFILE = xxh_buildmacros.o
+test-build-macros: xxhash.c  ## compile with every combination of build macros removing code, without warning
+	@echo ---- test compilation with every combination of XXH_NO_XXH32, XXH_NO_LONG_LONG, XXH_NO_XXH3, XXH_NO_STREAM, XXH_NO_STDLIB ----
+	@for m1 in "" -DXXH_NO_XXH32; do for m2 in "" -DXXH_NO_LONG_LONG; do for m3 in "" -DXXH_NO_XXH3; do \
+	  for m4 in "" -DXXH_NO_STREAM; do for m5 in "" -DXXH_NO_STDLIB; do \
+	    echo "$$m1 $$m2 $$m3 $$m4 $$m5"; \
+	    $(CC) $(FLAGS) $$m1 $$m2 $$m3 $$m4 $$m5 -c $< -o $(OFILE) || exit 1; \
+	  done; done; \
+	done; done; done
+	$(RM) $(OFILE)
+
 .PHONY: usan
 usan: CC=clang
 usan: CXX=clang++
@@ -565,7 +578,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test noxxh32test nostdlibtest
+test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test noxxh32test nostdlibtest test-build-macros
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude

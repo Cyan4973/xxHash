@@ -70,6 +70,65 @@ jobs:
         test -n "$(git tag -l 'v[0-9]*')"  # fail rather than skip without tags
         make test-api-compat
 
+  amalgamation:
+    name: xxhash.h generated from lib/, ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 2  # to tell what was modified, if xxhash.h is not up to date
+
+    # must run before any make invocation, since make refreshes xxhash.h
+    - name: xxhash.h is up to date with lib/
+      run: |
+        if ! sh build/amalgamate.sh --check xxhash.h lib/xxhash_root.h; then
+          # tell what to do, from the files modified by the pull request (or the last commit)
+          if git diff --quiet HEAD^ HEAD -- xxhash.h 2>/dev/null; then
+            msg="lib/ was modified, but xxhash.h was not regenerated: run 'make amalgamate', and commit xxhash.h"
+          elif git diff --quiet HEAD^ HEAD -- lib/ 2>/dev/null; then
+            msg="xxhash.h was modified directly, but it is generated from lib/: move these changes into the units of lib/, then run 'make amalgamate' (which overwrites xxhash.h), and commit both"
+          else
+            msg="xxhash.h is generated from lib/: move any direct change of xxhash.h into the units of lib/, then run 'make amalgamate' (which overwrites xxhash.h), and commit both"
+          fi
+          echo "::error file=xxhash.h::$msg (see AGENTS.md)"
+          exit 1
+        fi
+
+    - name: Install other awk implementations and shells
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gawk mawk original-awk busybox dash unifdef doxygen
+
+    - name: Same result with all awk implementations and shells
+      if: runner.os == 'Linux'
+      run: |
+        for awk in mawk "gawk --posix" original-awk "busybox awk"; do
+          for shell in dash "busybox sh" bash; do
+            echo "AWK=$awk, shell=$shell"
+            AWK="$awk" $shell build/amalgamate.sh --check xxhash.h lib/xxhash_root.h
+          done
+        done
+
+    - name: Variants generated from lib/
+      run: |
+        make test-amalgamation
+        make variants
+        git diff --exit-code xxhash.h
+
+    - name: Documentation generated from lib/
+      if: runner.os == 'Linux'
+      run: |
+        ( cat Doxyfile; echo "WARN_AS_ERROR = FAIL_ON_WARNINGS"; echo "HAVE_DOT = NO" ) | doxygen -
+        # each family documents its streaming functions (on its own page)
+        grep -q '</span>XXH32_createState()</h2>' doxygen/html/group__XXH32__family.html
+        grep -q '</span>XXH64_createState()</h2>' doxygen/html/group__XXH64__family.html
+        grep -q '</span>XXH3_createState()</h2>' doxygen/html/group__XXH3__family.html
+
   reproduce-system-header-in-extern-c:
     name: Reproduce system header included inside extern C
     runs-on: ubuntu-24.04
@@ -197,6 +256,12 @@ jobs:
       run: |
         # check library can be compiled with XXH_NO_XXH3, resulting in no XXH3_* symbol
         make clean noxxh3test
+
+    - name: XXH_NO_XXH32
+      if: always()
+      run: |
+        # check library can be compiled with XXH_NO_XXH32, resulting in no XXH32 nor XXH3 symbol
+        make clean noxxh32test
 
     - name: XXH_NO_STREAM
       if: always()

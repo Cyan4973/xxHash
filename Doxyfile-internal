@@ -2,7 +2,7 @@
 DOXYFILE_ENCODING      = UTF-8
 
 PROJECT_NAME           = "xxHash"
-PROJECT_NUMBER         = "0.8.4"
+PROJECT_NUMBER         = "0.8.5"
 PROJECT_BRIEF          = "Extremely fast non-cryptographic hash function"
 OUTPUT_DIRECTORY       = doxygen
 OUTPUT_LANGUAGE        = English
@@ -21,6 +21,9 @@ WARN_IF_UNDOCUMENTED   = NO
 
 # TODO: Add the other files. It is just xxhash.h for now.
 FILE_PATTERNS          = xxhash.h xxh_x86dispatch.c
+# xxhash.h is distributed without comments: document the amalgamation of lib/ with comments
+FILTER_PATTERNS        = "*/xxhash.h=sh build/doxygen_filter.sh"
+FILTER_SOURCE_FILES    = YES
 # Note: xxHash's source files are technically ASCII only.
 INPUT_ENCODING         = UTF-8
 TAB_SIZE               = 4

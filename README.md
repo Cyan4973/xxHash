@@ -1,7 +1,7 @@
 xxHash - Extremely fast hash algorithm
 ======================================
 
-[Website](https://xxhash.com/) · [API documentation](xxhash.h) · [`xxhsum` manual](cli/xxhsum.1.md) · [Format specification](doc/xxhash_spec.md)
+[Website](https://xxhash.com/) · [API documentation](lib/README.md#documentation) · [`xxhsum` manual](cli/xxhsum.1.md) · [Format specification](doc/xxhash_spec.md)
 
 xxHash is an extremely fast non-cryptographic hash algorithm, working at RAM
 speed limits. It is highly portable and produces identical hashes on all
@@ -109,6 +109,12 @@ For CMake integration, see the [CMake guide](build/cmake/README.md). The
 [`xxhsum` manual](cli/xxhsum.1.md) documents checksum generation, verification,
 benchmarking and advanced command line options.
 
+`xxhash.h` is generated from the source units in [`lib/`](lib/README.md).
+It only keeps the documentation of public declarations, which IDEs display.
+Smaller variants, limited to some hash families, can be generated with `make variants`
+(see [limited variants](lib/README.md#limited-variants)).
+Contributors should modify these units: `make` regenerates `xxhash.h` (see [`AGENTS.md`](AGENTS.md)).
+
 ### Example
 
 The simplest API hashes a contiguous block of memory in a single call:
@@ -124,8 +130,8 @@ XXH64_hash_t hash_buffer(const void* buffer, size_t size)
 ```
 
 The API also supports incremental hashing of streams of unknown size. Complete
-single-shot and streaming examples are provided in the documented
-[API header](xxhash.h).
+single-shot and streaming examples are provided in the
+[API documentation](lib/xxh_doc.h).
 
 Quality
 -------------------------
@@ -242,6 +248,8 @@ The following macros can be set at compilation time to modify `libxxhash`'s beha
                       which include `XXH3` and `XXH64`.
                       Only `XXH32` will be compiled.
                       Useful for targets (architectures and compilers) without 64-bit support.
+- `XXH_NO_XXH32`: removes `XXH32` from generated binary.
+                  Since `XXH3` depends on `XXH32`, it is removed too: only `XXH64` will be compiled.
 - `XXH_NO_STREAM`: Disables the streaming API, limiting the library to single shot variants only.
 - `XXH_NO_INLINE_HINTS`: By default, xxHash uses `__attribute__((always_inline))` and `__forceinline` to improve performance at the cost of code size.
                          Defining this macro to 1 will mark all internal functions as `static`, allowing the compiler to decide whether to inline a function or not.
@@ -270,9 +278,9 @@ The following variables control runtime dispatch when building with `make`:
 License
 -------
 
-The library files `xxhash.c` and `xxhash.h` are licensed under the
-[BSD 2-Clause License](LICENSE). The `xxhsum` command line utility is licensed
-under [GPLv2](cli/COPYING).
+The library files `xxhash.c` and `xxhash.h`, and the source units in `lib/`,
+are licensed under the [BSD 2-Clause License](LICENSE). The `xxhsum` command
+line utility is licensed under [GPLv2](cli/COPYING).
 
 
 Other programming languages

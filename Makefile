@@ -103,6 +103,48 @@ default: lib xxhsum_and_links
 C_SRCDIRS = . $(CLI_DIR) fuzz
 include build/make/multiconf.make
 
+## xxhash.h is generated from the units in lib/ (see lib/README.md).
+## It is refreshed when units change, before anything else is built,
+## unless it was edited by hand (in which case a warning is issued).
+## Set XXH_SYNC=0 to disable.
+AMALGAMATE = $(SHELL) build/amalgamate.sh
+XXH_ROOT   = lib/xxhash_root.h
+XXH_UNITS := $(wildcard lib/*.h)
+XXH_SYNC  ?= 1
+ifneq ($(filter check-amalgamation,$(MAKECMDGOALS)),)
+XXH_SYNC := 0
+endif
+ifeq ($(XXH_SYNC)$(if $(XXH_UNITS),y),1y)
+include $(CACHE_ROOT)/xxhash_h.stamp
+endif
+$(CACHE_ROOT)/xxhash_h.stamp: $(XXH_UNITS) build/amalgamate.sh $(wildcard xxhash.h)
+	@$(AMALGAMATE) --sync $@ -o xxhash.h $(XXH_ROOT)
+
+.PHONY: amalgamate
+amalgamate:  ## regenerate xxhash.h from lib/, discarding direct edits
+	$(AMALGAMATE) -o xxhash.h $(XXH_ROOT)
+
+.PHONY: check-amalgamation
+check-amalgamation:  ## check that xxhash.h is up to date with lib/
+	$(AMALGAMATE) --check xxhash.h $(XXH_ROOT)
+
+.PHONY: test-amalgamation
+test-amalgamation:  ## check variants generated from lib/ against xxhash.h
+	$(SHELL) tests/amalgamation_variants.sh
+
+## limited variants of xxhash.h, with only some hash families (see lib/README.md)
+VARIANT      = $(SHELL) build/variant.sh
+VARIANTS_DIR = variants
+.PHONY: variants
+variants:  ## generate limited variants of xxhash.h into variants/
+	@mkdir -p $(VARIANTS_DIR)
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32.h xxh32
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_oneshot.h --no-stream xxh32
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh64.h xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh64_oneshot.h --no-stream xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_xxh64.h xxh32 xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxhash_oneshot.h --no-stream xxh3
+
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
 
@@ -187,6 +229,7 @@ clean:
 	$(RM) xxhsum.wasm xxhsum.js xxhsum.html
 	$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT) xxh3sum$(EXT)
 	$(RM) fuzzer
+	$(RM) -r $(VARIANTS_DIR)
 	$(MAKE) -C tests clean
 	$(MAKE) -C tests/bench clean
 	$(MAKE) -C tests/collisions clean
@@ -436,6 +479,16 @@ noxxh3test: xxhash.c
 	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
 	$(RM) $(OFILE)
 
+.PHONY: noxxh32test
+noxxh32test: CPPFLAGS += -DXXH_NO_XXH32
+noxxh32test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+noxxh32test: OFILE = xxh_noxxh32.o
+noxxh32test: xxhash.c
+	@echo ---- test compilation without XXH32 ----
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) -E 'XXH32|XXH3_' ; test $$? -eq 1
+	$(RM) $(OFILE)
+
 .PHONY: nostreamtest
 nostreamtest: CPPFLAGS += -DXXH_NO_STREAM
 nostreamtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
@@ -512,7 +565,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test nostdlibtest
+test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test noxxh32test nostdlibtest
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude
@@ -542,7 +595,7 @@ test-api-compat:  ## check that the API of xxhash.h remains compatible with the 
 	$(SHELL) tests/api_compat.sh
 
 .PHONY: test-tools
-test-tools: check-version test-api-compat
+test-tools: check-version test-api-compat check-amalgamation
 	CFLAGS=-Werror $(MAKE) -C tests/bench
 	CFLAGS=-Werror $(MAKE) -C tests/collisions check
 
@@ -590,7 +643,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	@$(GREP) -n -E "`printf '[ \\t]$$'`" cli/*.c cli/*.h cli/*.1 *.c *.h LICENSE Makefile build/cmake/CMakeLists.txt && { echo "Error: trailing whitespace detected"; exit 1; } || true
+	@$(GREP) -n -E "`printf '[ \\t]$$'`" cli/*.c cli/*.h cli/*.1 *.c *.h lib/*.h LICENSE Makefile build/cmake/CMakeLists.txt && { echo "Error: trailing whitespace detected"; exit 1; } || true
 
 .PHONY: lint-unicode
 lint-unicode:

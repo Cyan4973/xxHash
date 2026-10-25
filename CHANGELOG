@@ -1,3 +1,9 @@
+v0.8.5 (in development)
+- build: xxhash.h is generated from source units in `lib/`, now the source of truth (#550)
+- build: `make variants` and `build/variant.sh` generate limited variants of xxhash.h (e.g. XXH32 or XXH64 only, without streaming)
+- build: xxhash.h only keeps the documentation of public declarations; complete documentation is in `lib/`
+- api  : new build macro `XXH_NO_XXH32`
+
 v0.8.4
 - perf : added RISC-V Vector extension (RVV) implementation, by @zijianli1234, @BoBoDai and @camel-cdr
 - perf : added LoongArch LASX implementation and improved LSX, by @24bit-xjkp

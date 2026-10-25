@@ -2787,6 +2787,12 @@ static int XXH_isLittleEndian(void)
 #  define XXH_ASSUME(c) if (!(c)) { XXH_UNREACHABLE(); }
 #endif
 
+#if defined(_MSC_VER)
+   /* declares the intrinsics _rotl(), _rotl64(), _byteswap_ulong() and _byteswap_uint64(),
+    * also needed with XXH_NO_STREAM or XXH_NO_STDLIB */
+#  include <stdlib.h>
+#endif
+
 /*!
  * @internal
  * @def XXH_rotl32(x,r)

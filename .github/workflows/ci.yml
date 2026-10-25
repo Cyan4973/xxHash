@@ -728,6 +728,25 @@ jobs:
       run: |
         C:\install_cl\bin\xxhsum.exe -bi1
 
+    - name: Build library with XXH_NO_STREAM and XXH_NO_STDLIB, ${{ matrix.arch }}
+      # these build macros remove the code which uses <stdlib.h> for malloc() and free()
+      run: |
+        $toolsets = @("")
+        if ("${{ matrix.system.clangcl }}" -eq "true") { $toolsets += "ClangCL" }
+        foreach ($toolset in $toolsets) {
+          foreach ($macro in @("XXH_NO_STREAM", "XXH_NO_STDLIB")) {
+            $BUILD_DIR = "$env:GITHUB_WORKSPACE\cmake_visual_${macro}${toolset}_${{ matrix.arch }}"
+            $toolsetOption = @()
+            if ($toolset) { $toolsetOption = @("-DCMAKE_GENERATOR_TOOLSET=$toolset") }
+            cmake -S $env:SRC_DIR -B $BUILD_DIR `
+                  -A "${{ matrix.arch }}" `
+                  @toolsetOption `
+                  -DXXHASH_BUILD_XXHSUM=OFF `
+                  -DCMAKE_C_FLAGS="/W4 /WX /D$macro"
+            cmake --build $BUILD_DIR --config Release --parallel
+          }
+        }
+
 
   # 32-bit MinGW, cross-compiled on Linux (MSYS2 no longer provides mingw32)
   mingw-i686-cross:

@@ -113,7 +113,7 @@ benchmarking and advanced command line options.
 It only keeps the documentation of public declarations, which IDEs display.
 Smaller variants, limited to some hash families, can be generated with `make variants`
 (see [limited variants](lib/README.md#limited-variants)).
-Contributors should modify these units: `make` regenerates `xxhash.h`.
+Contributors should modify these units: `make` regenerates `xxhash.h` (see [`AGENTS.md`](AGENTS.md)).
 
 ### Example
 

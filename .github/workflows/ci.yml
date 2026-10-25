@@ -79,12 +79,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 2  # to tell what was modified, if xxhash.h is not up to date
 
     # must run before any make invocation, since make refreshes xxhash.h
     - name: xxhash.h is up to date with lib/
       run: |
         if ! sh build/amalgamate.sh --check xxhash.h lib/xxhash_root.h; then
-          echo "::error file=xxhash.h::xxhash.h is generated from lib/: edit the units in lib/, run 'make amalgamate', and commit both"
+          # tell what to do, from the files modified by the pull request (or the last commit)
+          if git diff --quiet HEAD^ HEAD -- xxhash.h 2>/dev/null; then
+            msg="lib/ was modified, but xxhash.h was not regenerated: run 'make amalgamate', and commit xxhash.h"
+          elif git diff --quiet HEAD^ HEAD -- lib/ 2>/dev/null; then
+            msg="xxhash.h was modified directly, but it is generated from lib/: move these changes into the units of lib/, then run 'make amalgamate' (which overwrites xxhash.h), and commit both"
+          else
+            msg="xxhash.h is generated from lib/: move any direct change of xxhash.h into the units of lib/, then run 'make amalgamate' (which overwrites xxhash.h), and commit both"
+          fi
+          echo "::error file=xxhash.h::$msg (see AGENTS.md)"
           exit 1
         fi
 

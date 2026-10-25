@@ -380,12 +380,24 @@ replace() {
     echo "$prog: updated $out" >&2
 }
 
+# tell where FILE starts to differ from the result (in $tmp), and which unit line is expected there
+firstdiff() {
+    # shellcheck disable=SC2016 # awk script
+    first=$($AWK 'NR == FNR { a[NR] = $0; next }
+                  !(FNR in a) || a[FNR] "" != $0 "" { print FNR; found = 1; exit }
+                  END { if (!found) print FNR + 1 }' "$tmp" "$1")
+    expected=$(where=$first; generate 2>/dev/null) || expected=''
+    printf '%s: first difference: %s:%s%s\n' "$prog" "$1" "$first" "${expected:+, expected from $expected}" >&2
+}
+
 if [ -n "$check" ]; then
     tmp="$check.tmp.$$"
     generate > "$tmp"
     if ! same "$tmp" "$check"; then
         echo "$prog: $check is not up to date with $rootdir/" >&2
-        echo "$prog: $check is generated: edit the units in $rootdir/, then run 'make amalgamate'" >&2
+        firstdiff "$check"
+        echo "$prog: $check is generated: changes must be made in the units of $rootdir/," >&2
+        echo "$prog: then 'make amalgamate' regenerates $check (overwriting direct edits): commit both" >&2
         if command -v diff > /dev/null 2>&1; then
             diff -u "$check" "$tmp" | head -n 40 >&2 || true
         fi
@@ -410,6 +422,7 @@ elif [ -n "$stamp" ]; then
         record generated
     else
         echo "$prog: warning: $out seems edited by hand, it differs from the result of $rootdir/" >&2
+        firstdiff "$out"
         echo "$prog: warning: $out kept as is: port the changes to $rootdir/," \
              "or discard them with 'make amalgamate'" >&2
         record divergent

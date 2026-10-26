@@ -130,7 +130,7 @@ generate() {
             emit("/* This variant of xxhash.h is generated with:" defines " */", "(-D)", 0)
             for (k = 1; k <= ndefines; k++) {
                 emit("#ifndef " deflist[k], "(-D)", 0)
-                emit("#  define " deflist[k], "(-D)", 0)
+                emit("#  define " deflist[k] " 1", "(-D)", 0)
                 emit("#endif", "(-D)", 0)
             }
         }

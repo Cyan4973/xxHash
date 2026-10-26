@@ -103,12 +103,13 @@ Workflow
 --------
 
 - Edit the units, then run `make` as usual:
-  `xxhash.h` is regenerated automatically before anything else is built.
+  `xxhash.h` is regenerated when units change, before being used.
+  This happens in a git working tree, and requires a POSIX shell and `awk`:
+  `XXH_SYNC=0` disables it, `XXH_SYNC=1` enables it outside of git.
 - Commit both the units and the regenerated `xxhash.h`.
   CI fails if `xxhash.h` is not up to date with `lib/`.
-- `make amalgamate` regenerates `xxhash.h` unconditionally.
-  If `xxhash.h` was edited directly, `make` keeps it and issues a warning:
-  port the changes to `lib/`, or discard them with `make amalgamate`.
+- `xxhash.h` must not be edited: each regeneration overwrites direct changes.
+  `make amalgamate` regenerates it unconditionally.
 - `make check-amalgamation` verifies that `xxhash.h` is up to date, without writing it.
 - `make test-amalgamation` checks that headers generated from `lib/` are equivalent to `xxhash.h`.
 

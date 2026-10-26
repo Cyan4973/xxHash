@@ -28,9 +28,11 @@
 # Version numbers
 SED ?= sed
 SED_ERE_OPT ?= -E
-LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+# read from the source unit when available, since xxhash.h may not be generated yet
+XXH_VERSION_FILE := $(firstword $(wildcard lib/xxh_api.h) xxhash.h)
+LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < $(XXH_VERSION_FILE)`
+LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < $(XXH_VERSION_FILE)`
+LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < $(XXH_VERSION_FILE)`
 LIBVER_MAJOR := $(shell echo $(LIBVER_MAJOR_SCRIPT))
 LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
@@ -100,25 +102,25 @@ CLI_OBJS = $(CLI_SRCS:.c=.o)
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
-C_SRCDIRS = . $(CLI_DIR) fuzz
-include build/make/multiconf.make
-
-## xxhash.h is generated from the units in lib/ (see lib/README.md).
-## It is refreshed when units change, before anything else is built,
-## unless it was edited by hand (in which case a warning is issued).
-## Set XXH_SYNC=0 to disable.
+## xxhash.h is generated from the units in lib/ (see lib/README.md): it must not be edited.
+## In a git working tree, make regenerates it when units change,
+## which requires a POSIX shell and awk (see build/amalgamate.sh).
+## Set XXH_SYNC=0 to disable, or XXH_SYNC=1 to enable outside of git.
 AMALGAMATE = $(SHELL) build/amalgamate.sh
 XXH_ROOT   = lib/xxhash_root.h
 XXH_UNITS := $(wildcard lib/*.h)
-XXH_SYNC  ?= 1
-ifneq ($(filter check-amalgamation,$(MAKECMDGOALS)),)
-XXH_SYNC := 0
-endif
+XXH_SYNC  ?= $(if $(wildcard .git),1,0)
 ifeq ($(XXH_SYNC)$(if $(XXH_UNITS),y),1y)
-include $(CACHE_ROOT)/xxhash_h.stamp
+xxhash.h: $(XXH_UNITS) build/amalgamate.sh
+	@$(AMALGAMATE) -o $@ $(XXH_ROOT) || \
+	{ echo "cannot regenerate xxhash.h from lib/: set XXH_SYNC=0 to use it as is" >&2; exit 1; }
+	@touch $@  # also when unchanged, to be more recent than the units
 endif
-$(CACHE_ROOT)/xxhash_h.stamp: $(XXH_UNITS) build/amalgamate.sh $(wildcard xxhash.h)
-	@$(AMALGAMATE) --sync $@ -o xxhash.h $(XXH_ROOT)
+## objects depend on xxhash.h, even before their dependency files exist
+OBJ_DEPS = xxhash.h
+
+C_SRCDIRS = . $(CLI_DIR) fuzz
+include build/make/multiconf.make
 
 .PHONY: amalgamate
 amalgamate:  ## regenerate xxhash.h from lib/, discarding direct edits
@@ -129,7 +131,7 @@ check-amalgamation:  ## check that xxhash.h is up to date with lib/
 	$(AMALGAMATE) --check xxhash.h $(XXH_ROOT)
 
 .PHONY: test-amalgamation
-test-amalgamation:  ## check variants generated from lib/ against xxhash.h
+test-amalgamation: | xxhash.h  ## check variants generated from lib/ against xxhash.h
 	$(SHELL) tests/amalgamation_variants.sh
 
 ## limited variants of xxhash.h, with only some hash families (see lib/README.md)
@@ -268,11 +270,11 @@ check: xxhsum test_sanity   ## basic tests for xxhsum CLI, set RUN_ENV for emula
 	@printf "\n .......   checks completed successfully   ....... \n"
 
 .PHONY: test-unicode
-test-unicode:
+test-unicode: | xxhash.h
 	$(MAKE) -C tests test_unicode
 
 .PHONY: test_sanity
-test_sanity:
+test_sanity: | xxhash.h
 	$(MAKE) -C tests test_sanity
 
 .PHONY: test-mem
@@ -416,15 +418,15 @@ test-seed:
 	@$(RM) .test.*
 
 .PHONY: test-filename-escape
-test-filename-escape:
+test-filename-escape: | xxhash.h
 	$(MAKE) -C tests test_filename_escape
 
 .PHONY: test-cli-comment-line
-test-cli-comment-line:
+test-cli-comment-line: | xxhash.h
 	$(MAKE) -C tests test_cli_comment_line
 
 .PHONY: test-cli-ignore-missing
-test-cli-ignore-missing:
+test-cli-ignore-missing: | xxhash.h
 	$(MAKE) -C tests test_cli_ignore_missing
 
 .PHONY: armtest
@@ -461,7 +463,7 @@ c90test:
 else
 c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
 c90test: CFLAGS += -std=c90 -Werror -pedantic
-c90test: xxhash.c
+c90test: xxhash.c | xxhash.h
 	@echo ---- test strict C90 compilation [xxh32 only] ----
 	$(RM) xxhash.o
 	$(CC) $(FLAGS) $^ -c
@@ -473,7 +475,7 @@ endif
 noxxh3test: CPPFLAGS += -DXXH_NO_XXH3
 noxxh3test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 noxxh3test: OFILE = xxh_noxxh3.o
-noxxh3test: xxhash.c
+noxxh3test: xxhash.c | xxhash.h
 	@echo ---- test compilation without XXH3 ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
@@ -483,7 +485,7 @@ noxxh3test: xxhash.c
 noxxh32test: CPPFLAGS += -DXXH_NO_XXH32
 noxxh32test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 noxxh32test: OFILE = xxh_noxxh32.o
-noxxh32test: xxhash.c
+noxxh32test: xxhash.c | xxhash.h
 	@echo ---- test compilation without XXH32 ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) -E 'XXH32|XXH3_' ; test $$? -eq 1
@@ -493,7 +495,7 @@ noxxh32test: xxhash.c
 nostreamtest: CPPFLAGS += -DXXH_NO_STREAM
 nostreamtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 nostreamtest: OFILE = xxh_nostream.o
-nostreamtest: xxhash.c
+nostreamtest: xxhash.c | xxhash.h
 	@echo ---- test compilation without streaming ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) update ; test $$? -eq 1
@@ -503,7 +505,7 @@ nostreamtest: xxhash.c
 nostdlibtest: CPPFLAGS += -DXXH_NO_STDLIB
 nostdlibtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 nostdlibtest: OFILE = xxh_nostdlib.o
-nostdlibtest: xxhash.c
+nostdlibtest: xxhash.c | xxhash.h
 	@echo ---- test compilation without \<stdlib.h\> ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) "U _free\|U free" ; test $$? -eq 1
@@ -512,7 +514,7 @@ nostdlibtest: xxhash.c
 .PHONY: test-build-macros
 test-build-macros: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 test-build-macros: OFILE = xxh_buildmacros.o
-test-build-macros: xxhash.c  ## compile with every combination of build macros removing code, without warning
+test-build-macros: xxhash.c | xxhash.h  ## compile with every combination of build macros removing code, without warning
 	@echo ---- test compilation with every combination of XXH_NO_XXH32, XXH_NO_LONG_LONG, XXH_NO_XXH3, XXH_NO_STREAM, XXH_NO_STDLIB ----
 	@for m1 in "" -DXXH_NO_XXH32; do for m2 in "" -DXXH_NO_LONG_LONG; do for m3 in "" -DXXH_NO_XXH3; do \
 	  for m4 in "" -DXXH_NO_STREAM; do for m5 in "" -DXXH_NO_STDLIB; do \
@@ -542,7 +544,7 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 	$(CPPCHECK) . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
 .PHONY: namespaceTest
-namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
+namespaceTest: | xxhash.h  ## ensure XXH_NAMESPACE redefines all public symbols
 	$(CC) -c xxhash.c
 	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
 	$(CC) xxhash.o xxhash2.o $(CLI_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
@@ -582,7 +584,7 @@ test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test noxxh3
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude
-test-multiInclude:
+test-multiInclude: | xxhash.h
 	$(MAKE) -C tests test_multiInclude
 
 .PHONY: test-inline-notexposed
@@ -592,7 +594,7 @@ test-inline-notexposed: xxhsum_inlinedXXH
 
 # this test checks that a unit requesting XXH_INLINE_ALL can nonetheless employ the x86 dispatcher
 .PHONY: test-inline-dispatch
-test-inline-dispatch:
+test-inline-dispatch: | xxhash.h
 	$(MAKE) -C tests test_inline_dispatch
 
 .PHONY: test-inline
@@ -604,7 +606,7 @@ test-all: CFLAGS += -Werror
 test-all: test test32 test-unicode clangtest gcc-og-test cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
 
 .PHONY: test-api-compat
-test-api-compat:  ## check that the API of xxhash.h remains compatible with the latest release
+test-api-compat: | xxhash.h  ## check that the API of xxhash.h remains compatible with the latest release
 	$(SHELL) tests/api_compat.sh
 
 .PHONY: test-tools

@@ -28,13 +28,11 @@ prog=amalgamate.sh
 
 usage() {
     cat >&2 <<EOF
-Usage: $0 [--comments MODE] [-x UNIT]... [-D MACRO]... [-o FILE | --check FILE | --sync STAMP -o FILE | --where N] ROOT
+Usage: $0 [--comments MODE] [-x UNIT]... [-D MACRO]... [-o FILE | --check FILE | --where N] ROOT
 
   (default)       write the result to stdout
   -o FILE         write the result to FILE (only touched if content changes)
   --check FILE    exit 1 if FILE differs from the result (never writes)
-  --sync STAMP    with -o: update FILE, unless it was edited by hand since
-                  last generation (recorded in STAMP); used by the Makefile
   --where N       tell which unit, and which line, line N of the result comes from
   -x UNIT         exclude UNIT (name as written in #include) from the result
   -D MACRO        define build MACRO at the beginning of the result
@@ -52,12 +50,11 @@ die() {
     exit 1
 }
 
-out='' check='' stamp='' where='' excludes='' defines='' comments=api root=''
+out='' check='' where='' excludes='' defines='' comments=api root=''
 while [ $# -gt 0 ]; do
     case $1 in
     -o)       [ $# -ge 2 ] || usage; out=$2; shift 2 ;;
     --check)  [ $# -ge 2 ] || usage; check=$2; shift 2 ;;
-    --sync)   [ $# -ge 2 ] || usage; stamp=$2; shift 2 ;;
     --where)  [ $# -ge 2 ] || usage; where=$2; shift 2 ;;
     -x)       [ $# -ge 2 ] || usage; excludes="$excludes $2"; shift 2 ;;
     -D)       [ $# -ge 2 ] || usage
@@ -78,7 +75,6 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$root" ] || usage
 [ -f "$root" ] || die "cannot read $root"
-[ -z "$stamp" ] || [ -n "$out" ] || die "--sync requires -o"
 [ -z "$check" ] || [ -z "$out" ] || die "--check and -o are mutually exclusive"
 [ -z "$check" ] || [ -f "$check" ] || die "cannot read $check"
 if [ -n "$where" ]; then
@@ -357,16 +353,6 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 2' HUP INT TERM
 
-# record in the stamp whether FILE is the result of last generation
-record() {
-    mkdir -p "$(dirname "$stamp")"
-    if [ "$1" = generated ]; then
-        printf '# written by %s, do not edit\n# generated: %s\n' "$prog" "$(cksum < "$out")" > "$stamp"
-    else
-        printf '# written by %s, do not edit\n# divergent\n' "$prog" > "$stamp"
-    fi
-}
-
 # succeed if files $1 and $2 are identical (cmp is not always available, e.g. on MSYS2)
 same() {
     # shellcheck disable=SC2016 # awk script
@@ -402,30 +388,6 @@ if [ -n "$check" ]; then
             diff -u "$check" "$tmp" | head -n 40 >&2 || true
         fi
         exit 1
-    fi
-elif [ -n "$stamp" ]; then
-    tmp="$out.tmp.$$"
-    generate > "$tmp"
-    newer=''
-    # shellcheck disable=SC2086 # $units is a list
-    [ ! -f "$out" ] || newer=$(find $units -newer "$out")
-    if [ ! -f "$out" ]; then
-        replace
-        record generated
-    elif same "$tmp" "$out"; then
-        record generated
-    elif [ -f "$stamp" ] && [ "$(sed -n 's/^# generated: //p' "$stamp")" = "$(cksum < "$out")" ]; then
-        replace   # $out is the result of last generation: units were modified
-        record generated
-    elif [ ! -f "$stamp" ] && [ -n "$newer" ]; then
-        replace   # no history (e.g. fresh checkout): units are more recent
-        record generated
-    else
-        echo "$prog: warning: $out seems edited by hand, it differs from the result of $rootdir/" >&2
-        firstdiff "$out"
-        echo "$prog: warning: $out kept as is: port the changes to $rootdir/," \
-             "or discard them with 'make amalgamate'" >&2
-        record divergent
     fi
 elif [ -n "$out" ]; then
     tmp="$out.tmp.$$"

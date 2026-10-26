@@ -85,15 +85,17 @@ if [ -n "$where" ]; then
     esac
 fi
 
-# list all units, using the same path syntax as the awk script
+# list all units by name (their directory may contain spaces, not their names)
 rootdir=$(dirname "$root")
 srcname=$(basename "$(CDPATH='' cd "$rootdir" && pwd)")   # e.g. lib, for the generated note
 units=
-if [ "$rootdir" = "." ]; then
-    for f in *.h; do [ ! -f "$f" ] || units="$units $f"; done
-else
-    for f in "$rootdir"/*.h; do [ ! -f "$f" ] || units="$units $f"; done
-fi
+for f in "$rootdir"/*.h; do
+    [ -f "$f" ] || continue
+    case ${f##*/} in
+    *' '*|*'	'*) die "unit names cannot contain spaces: ${f##*/}" ;;
+    esac
+    units="$units ${f##*/}"
+done
 
 generate() {
     $AWK -v prog="$prog" -v root="$root" -v excludes="$excludes" -v defines="$defines" \
@@ -360,9 +362,13 @@ generate() {
         for (u in excluded)
             if (!err && !(u in exused)) fail("-x " u ": no such #include")
         if (!err && !licensed) fail(root ": cannot find the end of its license block")
+        rootdir = root
+        if (!sub(/\/[^\/]*$/, "", rootdir)) rootdir = "."
         n = split(allunits, list, " ")
-        for (i = 1; i <= n; i++)
-            if (!err && !(list[i] in seen)) fail(list[i] ": unit is never included")
+        for (i = 1; i <= n; i++) {
+            unitpath = (rootdir == ".") ? list[i] : rootdir "/" list[i]
+            if (!err && !(unitpath in seen)) fail(unitpath ": unit is never included")
+        }
         if (!err && where != "") {
             if (wherefile == "") fail("line " where " is beyond the end of the result (" outn " lines)")
             else print wherefile ":" whereline ": " whatline

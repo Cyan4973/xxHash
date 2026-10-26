@@ -149,6 +149,16 @@ done <<EOF
 $VARIANTS
 EOF
 
+# the generators must work from a directory whose path contains spaces
+spaced="$PWD/$tmp/dir with spaces"
+mkdir -p "$spaced"
+cp -R lib build "$spaced/"
+if ! sh "$spaced/build/amalgamate.sh" --check xxhash.h "$spaced/lib/xxhash_root.h" \
+   || ! sh "$spaced/build/variant.sh" xxh32 | cmp -s - "$tmp/xxh32/xxhash.h"; then
+    echo "FAIL: generation from a path containing spaces" >&2
+    status=1
+fi
+
 # removing comments must keep the code intact: synthetic units, with comments
 # in difficult places, must preprocess alike in every comment mode
 syn="$tmp/synthetic"

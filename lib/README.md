@@ -150,4 +150,4 @@ A family can only be excluded together with the families depending on it.
 `make test-amalgamation` checks variants against `xxhash.h` compiled with the same build macros.
 
 New unit names must be unique across the repository,
-and must differ from installed headers (such as `xxh3.h`).
+must differ from installed headers (such as `xxh3.h`), and cannot contain spaces.

@@ -16,6 +16,9 @@
 # The result keeps the license block of the root, followed by a note telling
 # it is generated. By default, comments are removed, except the documentation
 # of declarations in declaration units (*_api.h, *_static.h), which IDEs display.
+# Fallthrough markers (/* fallthrough */) are always kept, for tools relying on them.
+# Code depending on XXH_DOXYGEN, which only serves the documentation, is removed,
+# except when all comments are kept.
 #
 # Requires only a POSIX shell and a POSIX awk.
 
@@ -28,20 +31,18 @@ prog=amalgamate.sh
 
 usage() {
     cat >&2 <<EOF
-Usage: $0 [--comments MODE] [-x UNIT]... [-D MACRO]... [-o FILE | --check FILE | --sync STAMP -o FILE | --where N] ROOT
+Usage: $0 [--comments MODE] [-x UNIT]... [-D MACRO]... [-o FILE | --check FILE | --where N] ROOT
 
   (default)       write the result to stdout
   -o FILE         write the result to FILE (only touched if content changes)
   --check FILE    exit 1 if FILE differs from the result (never writes)
-  --sync STAMP    with -o: update FILE, unless it was edited by hand since
-                  last generation (recorded in STAMP); used by the Makefile
   --where N       tell which unit, and which line, line N of the result comes from
   -x UNIT         exclude UNIT (name as written in #include) from the result
   -D MACRO        define build MACRO at the beginning of the result
                   (after the license block of ROOT)
   --comments MODE api (default): keep only the documentation of declarations
                   in declaration units (*_api.h, *_static.h)
-                  none: remove all comments
+                  none: remove all comments (except fallthrough markers)
                   all: keep all comments (e.g. to generate documentation)
 EOF
     exit 2
@@ -52,12 +53,11 @@ die() {
     exit 1
 }
 
-out='' check='' stamp='' where='' excludes='' defines='' comments=api root=''
+out='' check='' where='' excludes='' defines='' comments=api root=''
 while [ $# -gt 0 ]; do
     case $1 in
     -o)       [ $# -ge 2 ] || usage; out=$2; shift 2 ;;
     --check)  [ $# -ge 2 ] || usage; check=$2; shift 2 ;;
-    --sync)   [ $# -ge 2 ] || usage; stamp=$2; shift 2 ;;
     --where)  [ $# -ge 2 ] || usage; where=$2; shift 2 ;;
     -x)       [ $# -ge 2 ] || usage; excludes="$excludes $2"; shift 2 ;;
     -D)       [ $# -ge 2 ] || usage
@@ -78,7 +78,6 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$root" ] || usage
 [ -f "$root" ] || die "cannot read $root"
-[ -z "$stamp" ] || [ -n "$out" ] || die "--sync requires -o"
 [ -z "$check" ] || [ -z "$out" ] || die "--check and -o are mutually exclusive"
 [ -z "$check" ] || [ -f "$check" ] || die "cannot read $check"
 if [ -n "$where" ]; then
@@ -88,15 +87,17 @@ if [ -n "$where" ]; then
     esac
 fi
 
-# list all units, using the same path syntax as the awk script
+# list all units by name (their directory may contain spaces, not their names)
 rootdir=$(dirname "$root")
 srcname=$(basename "$(CDPATH='' cd "$rootdir" && pwd)")   # e.g. lib, for the generated note
 units=
-if [ "$rootdir" = "." ]; then
-    for f in *.h; do [ ! -f "$f" ] || units="$units $f"; done
-else
-    for f in "$rootdir"/*.h; do [ ! -f "$f" ] || units="$units $f"; done
-fi
+for f in "$rootdir"/*.h; do
+    [ -f "$f" ] || continue
+    case ${f##*/} in
+    *' '*|*'	'*) die "unit names cannot contain spaces: ${f##*/}" ;;
+    esac
+    units="$units ${f##*/}"
+done
 
 generate() {
     $AWK -v prog="$prog" -v root="$root" -v excludes="$excludes" -v defines="$defines" \
@@ -106,10 +107,58 @@ generate() {
         err = 1
     }
 
-    function emit(line, file, lineno) {
+    # writes a line of the result (or locates it, for --where)
+    function put(line, file, lineno) {
+        if (comments != "all") {            # merge consecutive empty lines
+            if (line == "" && putblank) return
+            putblank = (line == "")
+        }
         outn++
         if (where == "") print line
         else if (outn == where) { wherefile = file; whereline = lineno; whatline = line }
+    }
+
+    # emits a line of the result. Unless all comments are kept (for the documentation),
+    # code depending on XXH_DOXYGEN, which only serves the documentation, is removed,
+    # like unifdef -UXXH_DOXYGEN. Supported conditions: #ifdef XXH_DOXYGEN,
+    # #ifndef XXH_DOXYGEN, #if defined(XXH_DOXYGEN).
+    function emit(line, file, lineno,    isdir, d, kw) {
+        if (comments == "all") { put(line, file, lineno); return }
+        isdir = !dcont && line ~ /^[ \t]*#[ \t]*(if|ifdef|ifndef|elif|else|endif)([^a-z_]|$)/
+        dcont = (line ~ /\\$/)
+        if (!isdir) { if (!dskip) put(line, file, lineno); return }
+        d = line; sub(/^[ \t]*#[ \t]*/, "", d)
+        kw = d; sub(/[^a-z].*$/, "", kw)
+        if (kw ~ /^if/) {
+            if (dskip) { dnest++; return }
+            if (d ~ /^ifn?def[ \t]+XXH_DOXYGEN$/ || d ~ /^if[ \t]+defined[ \t]*\([ \t]*XXH_DOXYGEN[ \t]*\)$/) {
+                fd++; ft[fd] = "D"
+                if (kw == "ifndef") fs[fd] = "keep"
+                else { fs[fd] = "drop"; dskip = 1 }
+                return
+            }
+            if (d ~ /XXH_DOXYGEN/) { fail(file ":" lineno ": unsupported condition on XXH_DOXYGEN"); return }
+            fd++; ft[fd] = "N"
+            put(line, file, lineno)
+            return
+        }
+        if (dskip && dnest) { if (kw == "endif") dnest--; return }
+        if (d ~ /XXH_DOXYGEN/) { fail(file ":" lineno ": unsupported condition on XXH_DOXYGEN"); return }
+        if (!fd || ft[fd] == "N") {
+            if (kw == "endif" && fd) fd--
+            put(line, file, lineno)
+            return
+        }
+        # #elif, #else or #endif of a condition on XXH_DOXYGEN
+        if (kw == "endif") {
+            if (fs[fd] == "emit") put(line, file, lineno)
+            fd--; dskip = 0
+        } else if (fs[fd] == "drop") {                 # previous branches are removed
+            dskip = 0
+            if (kw == "elif") { sub(/elif/, "if", line); fs[fd] = "emit"; put(line, file, lineno) }
+            else fs[fd] = "keep"
+        } else if (fs[fd] == "keep") { fs[fd] = "dropall"; dskip = 1 }
+        else if (fs[fd] == "emit") put(line, file, lineno)
     }
 
     # note following the license block of the root, then macros of -D
@@ -131,7 +180,7 @@ generate() {
             emit("/* This variant of xxhash.h is generated with:" defines " */", "(-D)", 0)
             for (k = 1; k <= ndefines; k++) {
                 emit("#ifndef " deflist[k], "(-D)", 0)
-                emit("#  define " deflist[k], "(-D)", 0)
+                emit("#  define " deflist[k] " 1", "(-D)", 0)
                 emit("#endif", "(-D)", 0)
             }
         }
@@ -140,9 +189,10 @@ generate() {
 
     # removes comments from a line, keeping string and character literals;
     # a comment is replaced by a space, so that it cannot join tokens.
+    # Fallthrough markers (/* fallthrough */) are kept, for tools which rely on them.
     # With keepdoc, documentation of members at the end of a line (/*!< ... */) is kept.
     function uncomment(line, keepdoc,    out, pos, cnt, c, nxt, q, e) {
-        if (!incomment && !index(line, "/")) return line
+        if (!incomment && !index(line "", "/")) return line
         out = ""; cnt = length(line); pos = 1
         while (pos <= cnt) {
             c = substr(line, pos, 1)
@@ -158,6 +208,11 @@ generate() {
                 if (keepdoc && pos + 3 < cnt && substr(line, pos, 4) == "/*!<" \
                     && (e = index(substr(line, pos + 4), "*/"))) {
                     out = out substr(line, pos, e + 5); pos += e + 5
+                    continue
+                }
+                e = (pos + 2 <= cnt) ? index(substr(line, pos + 2), "*/") : 0
+                if (e > 1 && tolower(substr(line, pos + 2, e - 1)) ~ /^[ \t]*fall[ -]?thr(ough|u)[ \t.]*$/) {
+                    out = out substr(line, pos, e + 3); pos += e + 3
                     continue
                 }
                 incomment = 1; pos += 2
@@ -180,6 +235,9 @@ generate() {
     # emits a line of code, without its comments (unless --comments all):
     # lines left empty are removed, consecutive empty lines are merged,
     # and macros continued by a final backslash are preserved.
+    # A directive which continues within a comment spanning several lines
+    # is held until the end of the comment: if code follows the comment,
+    # the directive is continued by a backslash.
     # With keepdoc, a documentation block (/*! or /** on its own lines)
     # is kept if it is followed by a declaration.
     function output(line, file, lineno, keepdoc,    s, blank, k) {
@@ -194,6 +252,20 @@ generate() {
         blank = (!incomment && line ~ /^[ \t]*$/)
         s = uncomment(line, keepdoc)
         sub(/[ \t]+$/, "", s)
+        if (inheld) {
+            if (incomment) return               # still within the comment
+            inheld = 0
+            if (s == "") {                      # nothing follows the comment: the directive ends
+                if (held != "") { emit(held, heldf, heldn); lastblank = 0; lastcont = 0 }
+                else if (lastcont) { emit("", file, lineno); lastcont = 0; lastblank = 1 }
+                return
+            }
+            if (held != "") emit(held " \\", heldf, heldn)
+            lastcont = 1
+        } else if (incomment && (lastcont || s ~ /^[ \t]*#/)) {
+            inheld = 1; held = s; heldf = file; heldn = lineno
+            return
+        }
         if (s == "") {
             if (pending) return
             if (lastcont) { emit("", file, lineno); lastcont = 0; lastblank = 1 }
@@ -215,11 +287,12 @@ generate() {
     }
 
     # collects a line of a documentation block
-    function docline(line, file, lineno, keepdoc,    rest) {
+    function docline(line, file, lineno, keepdoc,    rest, e) {
         ndoc++; docl[ndoc] = line; docf[ndoc] = file; docn[ndoc] = lineno
         if (!index(line, "*/")) return
         indoc = 0
-        rest = line; sub(/^.*\*\//, "", rest)
+        e = index(line, "*/") + 2
+        rest = (e <= length(line)) ? substr(line, e) : ""
         if (rest ~ /^[ \t]*$/) { pending = 1; return }
         ndoc = 0                    # code follows the block: process it alone
         output(rest, file, lineno, keepdoc)
@@ -329,8 +402,9 @@ generate() {
     }
 
     BEGIN {
-        err = 0; outn = 0; wherefile = ""; licensed = 0; incomment = 0; lastblank = 0; lastcont = 0
+        err = 0; outn = 0; wherefile = ""; licensed = 0; incomment = 0; lastblank = 0; lastcont = 0; inheld = 0
         indoc = 0; pending = 0; ndoc = 0
+        putblank = 0; dcont = 0; dskip = 0; dnest = 0; fd = 0
         ndefines = split(defines, deflist, " ")
         n = split(excludes, list, " ")
         for (i = 1; i <= n; i++) excluded[list[i]] = 1
@@ -339,9 +413,13 @@ generate() {
         for (u in excluded)
             if (!err && !(u in exused)) fail("-x " u ": no such #include")
         if (!err && !licensed) fail(root ": cannot find the end of its license block")
+        rootdir = root
+        if (!sub(/\/[^\/]*$/, "", rootdir)) rootdir = "."
         n = split(allunits, list, " ")
-        for (i = 1; i <= n; i++)
-            if (!err && !(list[i] in seen)) fail(list[i] ": unit is never included")
+        for (i = 1; i <= n; i++) {
+            unitpath = (rootdir == ".") ? list[i] : rootdir "/" list[i]
+            if (!err && !(unitpath in seen)) fail(unitpath ": unit is never included")
+        }
         if (!err && where != "") {
             if (wherefile == "") fail("line " where " is beyond the end of the result (" outn " lines)")
             else print wherefile ":" whereline ": " whatline
@@ -356,16 +434,6 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 2' HUP INT TERM
-
-# record in the stamp whether FILE is the result of last generation
-record() {
-    mkdir -p "$(dirname "$stamp")"
-    if [ "$1" = generated ]; then
-        printf '# written by %s, do not edit\n# generated: %s\n' "$prog" "$(cksum < "$out")" > "$stamp"
-    else
-        printf '# written by %s, do not edit\n# divergent\n' "$prog" > "$stamp"
-    fi
-}
 
 # succeed if files $1 and $2 are identical (cmp is not always available, e.g. on MSYS2)
 same() {
@@ -402,30 +470,6 @@ if [ -n "$check" ]; then
             diff -u "$check" "$tmp" | head -n 40 >&2 || true
         fi
         exit 1
-    fi
-elif [ -n "$stamp" ]; then
-    tmp="$out.tmp.$$"
-    generate > "$tmp"
-    newer=''
-    # shellcheck disable=SC2086 # $units is a list
-    [ ! -f "$out" ] || newer=$(find $units -newer "$out")
-    if [ ! -f "$out" ]; then
-        replace
-        record generated
-    elif same "$tmp" "$out"; then
-        record generated
-    elif [ -f "$stamp" ] && [ "$(sed -n 's/^# generated: //p' "$stamp")" = "$(cksum < "$out")" ]; then
-        replace   # $out is the result of last generation: units were modified
-        record generated
-    elif [ ! -f "$stamp" ] && [ -n "$newer" ]; then
-        replace   # no history (e.g. fresh checkout): units are more recent
-        record generated
-    else
-        echo "$prog: warning: $out seems edited by hand, it differs from the result of $rootdir/" >&2
-        firstdiff "$out"
-        echo "$prog: warning: $out kept as is: port the changes to $rootdir/," \
-             "or discard them with 'make amalgamate'" >&2
-        record divergent
     fi
 elif [ -n "$out" ]; then
     tmp="$out.tmp.$$"

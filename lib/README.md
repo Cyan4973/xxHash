@@ -103,12 +103,13 @@ Workflow
 --------
 
 - Edit the units, then run `make` as usual:
-  `xxhash.h` is regenerated automatically before anything else is built.
+  `xxhash.h` is regenerated when units change, before being used.
+  This happens in a git working tree, and requires a POSIX shell and `awk`:
+  `XXH_SYNC=0` disables it, `XXH_SYNC=1` enables it outside of git.
 - Commit both the units and the regenerated `xxhash.h`.
   CI fails if `xxhash.h` is not up to date with `lib/`.
-- `make amalgamate` regenerates `xxhash.h` unconditionally.
-  If `xxhash.h` was edited directly, `make` keeps it and issues a warning:
-  port the changes to `lib/`, or discard them with `make amalgamate`.
+- `xxhash.h` must not be edited: each regeneration overwrites direct changes.
+  `make amalgamate` regenerates it unconditionally.
 - `make check-amalgamation` verifies that `xxhash.h` is up to date, without writing it.
 - `make test-amalgamation` checks that headers generated from `lib/` are equivalent to `xxhash.h`.
 
@@ -134,6 +135,9 @@ Comments are removed, except the documentation of declarations in declaration un
 (`*_api.h`, `*_static.h`): documentation blocks (`/*!` or `/**`) followed by a declaration,
 and documentation of members at the end of a line (`/*!< ... */`).
 Option `--comments none` removes all comments, and `--comments all` keeps them all.
+Fallthrough markers (`/* fallthrough */`) are always kept, for tools which rely on them.
+Code depending on `XXH_DOXYGEN`, which only serves the documentation, is removed
+(like `unifdef -UXXH_DOXYGEN`), except with `--comments all`.
 Expansion is recursive. It also verifies that:
 - each unit starts with a license block (`/*` ... ` */`, mentioning `Copyright`
   and `BSD 2-Clause License`), followed by exactly one empty line;
@@ -148,4 +152,4 @@ A family can only be excluded together with the families depending on it.
 `make test-amalgamation` checks variants against `xxhash.h` compiled with the same build macros.
 
 New unit names must be unique across the repository,
-and must differ from installed headers (such as `xxh3.h`).
+must differ from installed headers (such as `xxh3.h`), and cannot contain spaces.

@@ -12,12 +12,11 @@ CI fails if the committed `xxhash.h` differs from the result of `lib/`.
    To find which unit, and which line, line `N` of `xxhash.h` comes from:
    `sh build/amalgamate.sh --where N lib/xxhash_root.h`
 2. Regenerate `xxhash.h` with `make amalgamate`
-   (other `make` targets, such as `make test`, also regenerate it first).
+   (other `make` targets, such as `make test`, also regenerate it when units change).
 3. Commit the modified units and the regenerated `xxhash.h` together.
 
-`make amalgamate` overwrites `xxhash.h`: changes made directly in `xxhash.h` are lost,
-move them into `lib/` first. As long as `xxhash.h` contains direct changes,
-other `make` targets keep it as is, and print a warning.
+Each regeneration overwrites `xxhash.h`: changes made directly in `xxhash.h` are lost,
+move them into `lib/` first.
 
 ## Before submitting
 

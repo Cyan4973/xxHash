@@ -37,7 +37,7 @@ while read -r name families streaming macros std present absent; do
     options=""
     [ "$streaming" = yes ] || options="--no-stream"
     # shellcheck disable=SC2046,SC2086 # lists
-    sh build/variant.sh $options -o "$tmp/$name/xxhash.h" $(echo "$families" | tr ',' ' ') 2>/dev/null
+    sh build/variant.sh $options $(echo "$families" | tr ',' ' ') > "$tmp/$name/xxhash.h"
 done <<EOF
 $VARIANTS
 EOF
@@ -62,19 +62,24 @@ normalize() {
     awk '{ for (i = 1; i <= NF; i++) print $i }'
 }
 
-# compare_pp NAME REFERENCE_HEADER TESTED_HEADER COMPILER CPPFLAGS...
+# compare_pp NAME REFERENCE_HEADER TESTED_HEADER COMPILER REFERENCE_CPPFLAGS CPPFLAGS...
+# REFERENCE_CPPFLAGS only apply to the reference: e.g. the build macros
+# of a variant, which the variant must define by itself.
 compare_pp() {
-    name=$1; ref=$2; new=$3; cc=$4
-    shift 4
+    name=$1; ref=$2; new=$3; cc=$4; refflags=$5
+    shift 5
     if [ "$cc" = "$CXX" ]; then lang=c++; else lang=c; fi
     for side in ref new; do
-        if [ "$side" = ref ]; then header=$ref; else header=$new; fi
+        if [ "$side" = ref ]; then header=$ref; extra=$refflags; else header=$new; extra=; fi
         # no pipe from the compiler: its failures must stop the script
-        $cc -x $lang -E -P "$@" "$header" > "$tmp/raw"
+        # shellcheck disable=SC2086 # extra is a list
+        $cc -x $lang -E -P $extra "$@" "$header" > "$tmp/raw"
         normalize < "$tmp/raw" > "$tmp/$side.E"
-        $cc -x $lang -E -dM "$@" "$header" > "$tmp/raw"
+        # shellcheck disable=SC2086
+        $cc -x $lang -E -dM $extra "$@" "$header" > "$tmp/raw"
         sort < "$tmp/raw" > "$tmp/$side.dM"
-        $cc -x $lang -E -P "$@" -DXXH_HEADER="\"$PWD/$header\"" "$tmp/multi.c" > "$tmp/raw"
+        # shellcheck disable=SC2086
+        $cc -x $lang -E -P $extra "$@" -DXXH_HEADER="\"$PWD/$header\"" "$tmp/multi.c" > "$tmp/raw"
         normalize < "$tmp/raw" > "$tmp/$side.multi"
     done
     for mode in E dM multi; do
@@ -97,18 +102,17 @@ for flags in \
     "-DXXH_NO_LONG_LONG -DXXH_INLINE_ALL"
 do
     # shellcheck disable=SC2086 # flags are meant to be split
-    compare_pp root xxhash.h lib/xxhash_root.h "$CC" $flags
+    compare_pp root xxhash.h lib/xxhash_root.h "$CC" "" $flags
     while read -r name families streaming macros std present absent; do
-        # shellcheck disable=SC2046,SC2086
-        compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CC" $(cppflags "$macros") $flags
+        # shellcheck disable=SC2086
+        compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CC" "$(cppflags "$macros")" $flags
     done <<EOF
 $VARIANTS
 EOF
 done
-compare_pp root xxhash.h lib/xxhash_root.h "$CXX" -DXXH_INLINE_ALL
+compare_pp root xxhash.h lib/xxhash_root.h "$CXX" "" -DXXH_INLINE_ALL
 while read -r name families streaming macros std present absent; do
-    # shellcheck disable=SC2046
-    compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CXX" $(cppflags "$macros") -DXXH_INLINE_ALL
+    compare_pp "$name" xxhash.h "$tmp/$name/xxhash.h" "$CXX" "$(cppflags "$macros")" -DXXH_INLINE_ALL
 done <<EOF
 $VARIANTS
 EOF
@@ -148,6 +152,102 @@ while read -r name families streaming macros std present absent; do
 done <<EOF
 $VARIANTS
 EOF
+
+# the generators must work from a directory whose path contains spaces
+spaced="$PWD/$tmp/dir with spaces"
+mkdir -p "$spaced"
+cp -R lib build "$spaced/"
+if ! sh "$spaced/build/amalgamate.sh" --check xxhash.h "$spaced/lib/xxhash_root.h" \
+   || ! sh "$spaced/build/variant.sh" xxh32 | cmp -s - "$tmp/xxh32/xxhash.h"; then
+    echo "FAIL: generation from a path containing spaces" >&2
+    status=1
+fi
+
+# removing comments must keep the code intact: synthetic units, with comments
+# in difficult places, must preprocess alike in every comment mode.
+# Code depending on XXH_DOXYGEN (undefined) must be removed, except with all comments.
+syn="$tmp/synthetic"
+mkdir -p "$syn/lib" "$syn/out"
+license='/*
+ * Copyright (C) Yann Collet
+ * BSD 2-Clause License
+ */
+'
+{ echo "$license"; printf '#include "t_api.h"\n#include "t_impl.h"\n'; } > "$syn/lib/xxhash_root.h"
+{ echo "$license"; cat <<'EOF'
+/*!
+ * documentation block, followed by code and by another comment on its last line
+ */ int a; /* comment */ int b;
+
+/*! @brief documented declaration */
+int f(void); /*!< documentation of a member */
+EOF
+} > "$syn/lib/t_api.h"
+{ echo "$license"; cat <<'EOF'
+#define X1 1 /* comment spanning lines,
+   inside a directive */ + 2
+#define X2 3 /* comment ending with a backslash \
+   inside a directive */ + 4
+#define X3(a) \
+   (a) /* comment spanning lines,
+   inside a continued macro */ + \
+   5
+#define X4 6 \
+   /* comment-only continuation line,
+   followed by code */ + 7
+#define X5 8  /* comment spanning lines,
+                 followed by nothing */
+int g(void) { return X1 + X2 + X3(0) + X4 + X5; }
+const char* s = "/* not a comment */"; const char c = '/'; int/**/d;
+int h(int x) { int y = 1 /* comment spanning lines,
+    within code */ + 2;
+    switch (x) {
+    case 0: x++;  /* fallthrough */
+    case 1: x++;  /* FALLTHRU */
+    default: break;
+    }
+    return x + y;
+}
+#ifdef XXH_DOXYGEN
+#  define DOC_ONLY 1
+#endif
+#if defined(XXH_DOXYGEN) /* documentation only */
+typedef int T;
+#elif defined(__STDC__) \
+   || defined(__cplusplus)
+typedef long T;
+#else
+typedef short T;
+#endif
+#ifndef XXH_DOXYGEN
+#  ifdef __STDC__
+int kept;
+#  endif
+#else
+int removed;
+#endif
+EOF
+} > "$syn/lib/t_impl.h"
+for comments in all api none; do
+    sh build/amalgamate.sh --comments "$comments" "$syn/lib/xxhash_root.h" > "$syn/out/$comments.h"
+done
+for comments in api none; do
+    compare_pp "synthetic units, --comments $comments" "$syn/out/all.h" "$syn/out/$comments.h" "$CC" ""
+    if [ "$(grep -c -i -e 'fallthrough \*/' -e 'fallthru \*/' "$syn/out/$comments.h")" -ne 2 ]; then
+        echo "FAIL: synthetic units, --comments $comments: fallthrough markers removed" >&2
+        status=1
+    fi
+    if grep -q XXH_DOXYGEN "$syn/out/$comments.h"; then
+        echo "FAIL: synthetic units, --comments $comments: code depending on XXH_DOXYGEN remains" >&2
+        status=1
+    fi
+done
+# other conditions on XXH_DOXYGEN must be rejected
+printf '#if defined(XXH_DOXYGEN) || defined(X)\n#endif\n' >> "$syn/lib/t_impl.h"
+if sh build/amalgamate.sh "$syn/lib/xxhash_root.h" > /dev/null 2>&1; then
+    echo "FAIL: synthetic units: unsupported condition on XXH_DOXYGEN accepted" >&2
+    status=1
+fi
 
 if [ "$status" -eq 0 ]; then
     rm -rf "$tmp"

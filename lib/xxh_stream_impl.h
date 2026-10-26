@@ -37,7 +37,9 @@
  * xxhash.h is generated from lib/ by build/amalgamate.sh, see lib/README.md.
  */
 
-#ifndef XXH_NO_STREAM
+/* only needed by the streaming functions of at least one family
+ * (XXH_NO_XXH32 with XXH_NO_LONG_LONG removes all of them) */
+#if !defined(XXH_NO_STREAM) && !(defined(XXH_NO_XXH32) && defined(XXH_NO_LONG_LONG))
 
 #if defined(XXH_NO_STDLIB)
 
@@ -84,4 +86,4 @@ static void XXH_free(void* p) { free(p); }
 #  define XXH_memset memset
 #endif
 
-#endif  /* !XXH_NO_STREAM */
+#endif  /* streaming functions of at least one family */

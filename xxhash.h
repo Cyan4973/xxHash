@@ -45,19 +45,6 @@
 extern "C" {
 #endif
 
-#ifdef XXH_DOXYGEN
-#  define XXH_STATIC_LINKING_ONLY
-
-#  define XXH_IMPLEMENTATION
-
-#  define XXH_INLINE_ALL
-#  undef XXH_INLINE_ALL
-#  define XXH_PRIVATE_API
-#  undef XXH_PRIVATE_API
-#  define XXH_NAMESPACE
-#  undef XXH_NAMESPACE
-#endif
-
 #define XXH_CAT(A,B) A##B
 #define XXH_NAME2(A,B) XXH_CAT(A,B)
 #define XXH_IPREF(Id) XXH_NAME2(XXH_NAMESPACE, Id)
@@ -150,7 +137,7 @@ extern "C" {
 #elif XXH_HAS_ATTRIBUTE(__fallthrough__)
 # define XXH_FALLTHROUGH __attribute__ ((__fallthrough__))
 #else
-# define XXH_FALLTHROUGH
+# define XXH_FALLTHROUGH /* fallthrough */
 #endif
 #if XXH_HAS_ATTRIBUTE(noescape)
 # define XXH_NOESCAPE __attribute__((__noescape__))
@@ -186,16 +173,7 @@ typedef enum {
     XXH_ERROR   /*!< Error */
 } XXH_errorcode;
 
-#if defined(XXH_DOXYGEN)
-
-/*!
- * @brief An unsigned 32-bit integer.
- *
- * Not necessarily defined to `uint32_t` but functionally equivalent.
- */
-typedef uint32_t XXH32_hash_t;
-
-#elif !defined (__VMS) \
+#if !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) ) )
 #   ifdef _AIX
@@ -426,15 +404,7 @@ XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_digest (const XXH32_state_t* statePt
 #  define XXH64_hashFromCanonical XXH_IPREF(XXH64_hashFromCanonical)
 #endif
 
-#if defined(XXH_DOXYGEN)
-
-/*!
- * @brief An unsigned 64-bit integer.
- *
- * Not necessarily defined to `uint64_t` but functionally equivalent.
- */
-typedef uint64_t XXH64_hash_t;
-#elif !defined (__VMS) \
+#if !defined (__VMS) \
   && (defined (__cplusplus) \
   || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) ) )
 #   ifdef _AIX
@@ -1595,26 +1565,6 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
    || defined(XXH_IMPLEMENTATION) ) && !defined(XXH_IMPLEM_13a8737387)
 #  define XXH_IMPLEM_13a8737387
 
-#ifdef XXH_DOXYGEN
-#  define XXH_NO_LONG_LONG
-#  undef XXH_NO_LONG_LONG
-#  define XXH_NO_XXH32
-#  undef XXH_NO_XXH32
-#  define XXH_FORCE_MEMORY_ACCESS 0
-
-#  define XXH_SIZE_OPT 0
-
-#  define XXH_FORCE_ALIGN_CHECK 0
-
-#  define XXH_NO_INLINE_HINTS 0
-
-#  define XXH_OLD_NAMES
-#  undef XXH_OLD_NAMES
-
-#  define XXH_NO_STREAM
-#  undef XXH_NO_STREAM
-#endif
-
 #ifndef XXH_FORCE_MEMORY_ACCESS
 #  if defined(__GNUC__) && !(defined(__ARM_ARCH) && __ARM_ARCH < 7 && defined(__ARM_FEATURE_UNALIGNED))
 #    define XXH_FORCE_MEMORY_ACCESS 1
@@ -1647,7 +1597,7 @@ XXH3_128bits_reset_withSecretandSeed(XXH_NOESCAPE XXH3_state_t* statePtr,
 #  endif
 #endif
 
-#ifndef XXH_NO_STREAM
+#if !defined(XXH_NO_STREAM) && !(defined(XXH_NO_XXH32) && defined(XXH_NO_LONG_LONG))
 
 #if defined(XXH_NO_STDLIB)
 
@@ -2033,41 +1983,41 @@ XXH32_finalize(xxh_u32 hash, const xxh_u8* ptr, size_t len, XXH_alignment align)
     } else {
          switch(len&15)  {
            case 12:      XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 8:       XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 4:       XXH_PROCESS4;
                          return XXH32_avalanche(hash);
 
            case 13:      XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 9:       XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 5:       XXH_PROCESS4;
                          XXH_PROCESS1;
                          return XXH32_avalanche(hash);
 
            case 14:      XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 10:      XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 6:       XXH_PROCESS4;
                          XXH_PROCESS1;
                          XXH_PROCESS1;
                          return XXH32_avalanche(hash);
 
            case 15:      XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 11:      XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 7:       XXH_PROCESS4;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 3:       XXH_PROCESS1;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 2:       XXH_PROCESS1;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 1:       XXH_PROCESS1;
-                         XXH_FALLTHROUGH;
+                         XXH_FALLTHROUGH;  /* fallthrough */
            case 0:       return XXH32_avalanche(hash);
         }
         XXH_ASSERT(0);
@@ -2735,14 +2685,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, X
 #   warning "XXH3 is highly inefficient without ARM or Thumb-2."
 #endif
 
-#ifdef XXH_DOXYGEN
-#  define XXH_VECTOR XXH_SCALAR
-#  define XXH_ACC_ALIGN 8
-#endif
-
-#ifndef XXH_DOXYGEN
-#endif
-
 #ifndef XXH_VECTOR
 #  if ( \
         defined(__ARM_NEON__) || defined(__ARM_NEON)  \
@@ -3025,13 +2967,7 @@ static const xxh_u64 PRIME_MX2 = 0x9FB21C651E98DF25ULL;
 #  define kSecret XXH3_kSecret
 #endif
 
-#ifdef XXH_DOXYGEN
-XXH_FORCE_INLINE xxh_u64
-XXH_mult32to64(xxh_u64 x, xxh_u64 y)
-{
-   return (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF);
-}
-#elif defined(_MSC_VER) && defined(_M_IX86)
+#if defined(_MSC_VER) && defined(_M_IX86)
 #    define XXH_mult32to64(x, y) __emulu((unsigned)(x), (unsigned)(y))
 #else
 #    define XXH_mult32to64(x, y) ((xxh_u64)(xxh_u32)(x) * (xxh_u64)(xxh_u32)(y))

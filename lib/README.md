@@ -136,6 +136,8 @@ Comments are removed, except the documentation of declarations in declaration un
 and documentation of members at the end of a line (`/*!< ... */`).
 Option `--comments none` removes all comments, and `--comments all` keeps them all.
 Fallthrough markers (`/* fallthrough */`) are always kept, for tools which rely on them.
+Code depending on `XXH_DOXYGEN`, which only serves the documentation, is removed
+(like `unifdef -UXXH_DOXYGEN`), except with `--comments all`.
 Expansion is recursive. It also verifies that:
 - each unit starts with a license block (`/*` ... ` */`, mentioning `Copyright`
   and `BSD 2-Clause License`), followed by exactly one empty line;

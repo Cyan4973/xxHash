@@ -164,7 +164,8 @@ if ! sh "$spaced/build/amalgamate.sh" --check xxhash.h "$spaced/lib/xxhash_root.
 fi
 
 # removing comments must keep the code intact: synthetic units, with comments
-# in difficult places, must preprocess alike in every comment mode
+# in difficult places, must preprocess alike in every comment mode.
+# Code depending on XXH_DOXYGEN (undefined) must be removed, except with all comments.
 syn="$tmp/synthetic"
 mkdir -p "$syn/lib" "$syn/out"
 license='/*
@@ -207,6 +208,24 @@ int h(int x) { int y = 1 /* comment spanning lines,
     }
     return x + y;
 }
+#ifdef XXH_DOXYGEN
+#  define DOC_ONLY 1
+#endif
+#if defined(XXH_DOXYGEN) /* documentation only */
+typedef int T;
+#elif defined(__STDC__) \
+   || defined(__cplusplus)
+typedef long T;
+#else
+typedef short T;
+#endif
+#ifndef XXH_DOXYGEN
+#  ifdef __STDC__
+int kept;
+#  endif
+#else
+int removed;
+#endif
 EOF
 } > "$syn/lib/t_impl.h"
 for comments in all api none; do
@@ -218,7 +237,17 @@ for comments in api none; do
         echo "FAIL: synthetic units, --comments $comments: fallthrough markers removed" >&2
         status=1
     fi
+    if grep -q XXH_DOXYGEN "$syn/out/$comments.h"; then
+        echo "FAIL: synthetic units, --comments $comments: code depending on XXH_DOXYGEN remains" >&2
+        status=1
+    fi
 done
+# other conditions on XXH_DOXYGEN must be rejected
+printf '#if defined(XXH_DOXYGEN) || defined(X)\n#endif\n' >> "$syn/lib/t_impl.h"
+if sh build/amalgamate.sh "$syn/lib/xxhash_root.h" > /dev/null 2>&1; then
+    echo "FAIL: synthetic units: unsupported condition on XXH_DOXYGEN accepted" >&2
+    status=1
+fi
 
 if [ "$status" -eq 0 ]; then
     rm -rf "$tmp"

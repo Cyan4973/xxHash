@@ -17,6 +17,8 @@
 # it is generated. By default, comments are removed, except the documentation
 # of declarations in declaration units (*_api.h, *_static.h), which IDEs display.
 # Fallthrough markers (/* fallthrough */) are always kept, for tools relying on them.
+# Code depending on XXH_DOXYGEN, which only serves the documentation, is removed,
+# except when all comments are kept.
 #
 # Requires only a POSIX shell and a POSIX awk.
 
@@ -105,10 +107,58 @@ generate() {
         err = 1
     }
 
-    function emit(line, file, lineno) {
+    # writes a line of the result (or locates it, for --where)
+    function put(line, file, lineno) {
+        if (comments != "all") {            # merge consecutive empty lines
+            if (line == "" && putblank) return
+            putblank = (line == "")
+        }
         outn++
         if (where == "") print line
         else if (outn == where) { wherefile = file; whereline = lineno; whatline = line }
+    }
+
+    # emits a line of the result. Unless all comments are kept (for the documentation),
+    # code depending on XXH_DOXYGEN, which only serves the documentation, is removed,
+    # like unifdef -UXXH_DOXYGEN. Supported conditions: #ifdef XXH_DOXYGEN,
+    # #ifndef XXH_DOXYGEN, #if defined(XXH_DOXYGEN).
+    function emit(line, file, lineno,    isdir, d, kw) {
+        if (comments == "all") { put(line, file, lineno); return }
+        isdir = !dcont && line ~ /^[ \t]*#[ \t]*(if|ifdef|ifndef|elif|else|endif)([^a-z_]|$)/
+        dcont = (line ~ /\\$/)
+        if (!isdir) { if (!dskip) put(line, file, lineno); return }
+        d = line; sub(/^[ \t]*#[ \t]*/, "", d)
+        kw = d; sub(/[^a-z].*$/, "", kw)
+        if (kw ~ /^if/) {
+            if (dskip) { dnest++; return }
+            if (d ~ /^ifn?def[ \t]+XXH_DOXYGEN$/ || d ~ /^if[ \t]+defined[ \t]*\([ \t]*XXH_DOXYGEN[ \t]*\)$/) {
+                fd++; ft[fd] = "D"
+                if (kw == "ifndef") fs[fd] = "keep"
+                else { fs[fd] = "drop"; dskip = 1 }
+                return
+            }
+            if (d ~ /XXH_DOXYGEN/) { fail(file ":" lineno ": unsupported condition on XXH_DOXYGEN"); return }
+            fd++; ft[fd] = "N"
+            put(line, file, lineno)
+            return
+        }
+        if (dskip && dnest) { if (kw == "endif") dnest--; return }
+        if (d ~ /XXH_DOXYGEN/) { fail(file ":" lineno ": unsupported condition on XXH_DOXYGEN"); return }
+        if (!fd || ft[fd] == "N") {
+            if (kw == "endif" && fd) fd--
+            put(line, file, lineno)
+            return
+        }
+        # #elif, #else or #endif of a condition on XXH_DOXYGEN
+        if (kw == "endif") {
+            if (fs[fd] == "emit") put(line, file, lineno)
+            fd--; dskip = 0
+        } else if (fs[fd] == "drop") {                 # previous branches are removed
+            dskip = 0
+            if (kw == "elif") { sub(/elif/, "if", line); fs[fd] = "emit"; put(line, file, lineno) }
+            else fs[fd] = "keep"
+        } else if (fs[fd] == "keep") { fs[fd] = "dropall"; dskip = 1 }
+        else if (fs[fd] == "emit") put(line, file, lineno)
     }
 
     # note following the license block of the root, then macros of -D
@@ -354,6 +404,7 @@ generate() {
     BEGIN {
         err = 0; outn = 0; wherefile = ""; licensed = 0; incomment = 0; lastblank = 0; lastcont = 0; inheld = 0
         indoc = 0; pending = 0; ndoc = 0
+        putblank = 0; dcont = 0; dskip = 0; dnest = 0; fd = 0
         ndefines = split(defines, deflist, " ")
         n = split(excludes, list, " ")
         for (i = 1; i <= n; i++) excluded[list[i]] = 1

@@ -149,6 +149,63 @@ done <<EOF
 $VARIANTS
 EOF
 
+# removing comments must keep the code intact: synthetic units, with comments
+# in difficult places, must preprocess alike in every comment mode
+syn="$tmp/synthetic"
+mkdir -p "$syn/lib" "$syn/out"
+license='/*
+ * Copyright (C) Yann Collet
+ * BSD 2-Clause License
+ */
+'
+{ echo "$license"; printf '#include "t_api.h"\n#include "t_impl.h"\n'; } > "$syn/lib/xxhash_root.h"
+{ echo "$license"; cat <<'EOF'
+/*!
+ * documentation block, followed by code and by another comment on its last line
+ */ int a; /* comment */ int b;
+
+/*! @brief documented declaration */
+int f(void); /*!< documentation of a member */
+EOF
+} > "$syn/lib/t_api.h"
+{ echo "$license"; cat <<'EOF'
+#define X1 1 /* comment spanning lines,
+   inside a directive */ + 2
+#define X2 3 /* comment ending with a backslash \
+   inside a directive */ + 4
+#define X3(a) \
+   (a) /* comment spanning lines,
+   inside a continued macro */ + \
+   5
+#define X4 6 \
+   /* comment-only continuation line,
+   followed by code */ + 7
+#define X5 8  /* comment spanning lines,
+                 followed by nothing */
+int g(void) { return X1 + X2 + X3(0) + X4 + X5; }
+const char* s = "/* not a comment */"; const char c = '/'; int/**/d;
+int h(int x) { int y = 1 /* comment spanning lines,
+    within code */ + 2;
+    switch (x) {
+    case 0: x++;  /* fallthrough */
+    case 1: x++;  /* FALLTHRU */
+    default: break;
+    }
+    return x + y;
+}
+EOF
+} > "$syn/lib/t_impl.h"
+for comments in all api none; do
+    sh build/amalgamate.sh --comments "$comments" -o "$syn/out/$comments.h" "$syn/lib/xxhash_root.h" 2>/dev/null
+done
+for comments in api none; do
+    compare_pp "synthetic units, --comments $comments" "$syn/out/all.h" "$syn/out/$comments.h" "$CC"
+    if [ "$(grep -c -i -e 'fallthrough \*/' -e 'fallthru \*/' "$syn/out/$comments.h")" -ne 2 ]; then
+        echo "FAIL: synthetic units, --comments $comments: fallthrough markers removed" >&2
+        status=1
+    fi
+done
+
 if [ "$status" -eq 0 ]; then
     rm -rf "$tmp"
     echo "amalgamation variants: OK"

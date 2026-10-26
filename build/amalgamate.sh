@@ -16,6 +16,7 @@
 # The result keeps the license block of the root, followed by a note telling
 # it is generated. By default, comments are removed, except the documentation
 # of declarations in declaration units (*_api.h, *_static.h), which IDEs display.
+# Fallthrough markers (/* fallthrough */) are always kept, for tools relying on them.
 #
 # Requires only a POSIX shell and a POSIX awk.
 
@@ -39,7 +40,7 @@ Usage: $0 [--comments MODE] [-x UNIT]... [-D MACRO]... [-o FILE | --check FILE |
                   (after the license block of ROOT)
   --comments MODE api (default): keep only the documentation of declarations
                   in declaration units (*_api.h, *_static.h)
-                  none: remove all comments
+                  none: remove all comments (except fallthrough markers)
                   all: keep all comments (e.g. to generate documentation)
 EOF
     exit 2
@@ -136,9 +137,10 @@ generate() {
 
     # removes comments from a line, keeping string and character literals;
     # a comment is replaced by a space, so that it cannot join tokens.
+    # Fallthrough markers (/* fallthrough */) are kept, for tools which rely on them.
     # With keepdoc, documentation of members at the end of a line (/*!< ... */) is kept.
     function uncomment(line, keepdoc,    out, pos, cnt, c, nxt, q, e) {
-        if (!incomment && !index(line, "/")) return line
+        if (!incomment && !index(line "", "/")) return line
         out = ""; cnt = length(line); pos = 1
         while (pos <= cnt) {
             c = substr(line, pos, 1)
@@ -154,6 +156,11 @@ generate() {
                 if (keepdoc && pos + 3 < cnt && substr(line, pos, 4) == "/*!<" \
                     && (e = index(substr(line, pos + 4), "*/"))) {
                     out = out substr(line, pos, e + 5); pos += e + 5
+                    continue
+                }
+                e = (pos + 2 <= cnt) ? index(substr(line, pos + 2), "*/") : 0
+                if (e > 1 && tolower(substr(line, pos + 2, e - 1)) ~ /^[ \t]*fall[ -]?thr(ough|u)[ \t.]*$/) {
+                    out = out substr(line, pos, e + 3); pos += e + 3
                     continue
                 }
                 incomment = 1; pos += 2
@@ -176,6 +183,9 @@ generate() {
     # emits a line of code, without its comments (unless --comments all):
     # lines left empty are removed, consecutive empty lines are merged,
     # and macros continued by a final backslash are preserved.
+    # A directive which continues within a comment spanning several lines
+    # is held until the end of the comment: if code follows the comment,
+    # the directive is continued by a backslash.
     # With keepdoc, a documentation block (/*! or /** on its own lines)
     # is kept if it is followed by a declaration.
     function output(line, file, lineno, keepdoc,    s, blank, k) {
@@ -190,6 +200,20 @@ generate() {
         blank = (!incomment && line ~ /^[ \t]*$/)
         s = uncomment(line, keepdoc)
         sub(/[ \t]+$/, "", s)
+        if (inheld) {
+            if (incomment) return               # still within the comment
+            inheld = 0
+            if (s == "") {                      # nothing follows the comment: the directive ends
+                if (held != "") { emit(held, heldf, heldn); lastblank = 0; lastcont = 0 }
+                else if (lastcont) { emit("", file, lineno); lastcont = 0; lastblank = 1 }
+                return
+            }
+            if (held != "") emit(held " \\", heldf, heldn)
+            lastcont = 1
+        } else if (incomment && (lastcont || s ~ /^[ \t]*#/)) {
+            inheld = 1; held = s; heldf = file; heldn = lineno
+            return
+        }
         if (s == "") {
             if (pending) return
             if (lastcont) { emit("", file, lineno); lastcont = 0; lastblank = 1 }
@@ -211,11 +235,12 @@ generate() {
     }
 
     # collects a line of a documentation block
-    function docline(line, file, lineno, keepdoc,    rest) {
+    function docline(line, file, lineno, keepdoc,    rest, e) {
         ndoc++; docl[ndoc] = line; docf[ndoc] = file; docn[ndoc] = lineno
         if (!index(line, "*/")) return
         indoc = 0
-        rest = line; sub(/^.*\*\//, "", rest)
+        e = index(line, "*/") + 2
+        rest = (e <= length(line)) ? substr(line, e) : ""
         if (rest ~ /^[ \t]*$/) { pending = 1; return }
         ndoc = 0                    # code follows the block: process it alone
         output(rest, file, lineno, keepdoc)
@@ -325,7 +350,7 @@ generate() {
     }
 
     BEGIN {
-        err = 0; outn = 0; wherefile = ""; licensed = 0; incomment = 0; lastblank = 0; lastcont = 0
+        err = 0; outn = 0; wherefile = ""; licensed = 0; incomment = 0; lastblank = 0; lastcont = 0; inheld = 0
         indoc = 0; pending = 0; ndoc = 0
         ndefines = split(defines, deflist, " ")
         n = split(excludes, list, " ")

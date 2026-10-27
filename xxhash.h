@@ -2778,152 +2778,6 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, X
 #  pragma GCC optimize("-O2")
 #endif
 
-#if XXH_VECTOR == XXH_NEON
-
-typedef uint64x2_t xxh_aliasing_uint64x2_t XXH_ALIASING;
-
-#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__)
-XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
-{
-    return *(xxh_aliasing_uint64x2_t const *)ptr;
-}
-#else
-XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
-{
-    return vreinterpretq_u64_u8(vld1q_u8((uint8_t const*)ptr));
-}
-#endif
-
-#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 11
-XXH_FORCE_INLINE uint64x2_t
-XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
-{
-    __asm__("umlal   %0.2d, %1.2s, %2.2s" : "+w" (acc) : "w" (lhs), "w" (rhs));
-    return acc;
-}
-XXH_FORCE_INLINE uint64x2_t
-XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
-{
-    return vmlal_high_u32(acc, lhs, rhs);
-}
-#else
-XXH_FORCE_INLINE uint64x2_t
-XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
-{
-    return vmlal_u32(acc, vget_low_u32(lhs), vget_low_u32(rhs));
-}
-XXH_FORCE_INLINE uint64x2_t
-XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
-{
-    return vmlal_u32(acc, vget_high_u32(lhs), vget_high_u32(rhs));
-}
-#endif
-
-# ifndef XXH3_NEON_LANES
-#  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
-   && !defined(__APPLE__) && XXH_SIZE_OPT <= 0
-#   define XXH3_NEON_LANES 6
-#  else
-#   define XXH3_NEON_LANES XXH_ACC_NB
-#  endif
-# endif
-#endif
-
-#if XXH_VECTOR == XXH_VSX
-#  pragma push_macro("bool")
-#  pragma push_macro("vector")
-#  pragma push_macro("pixel")
-#  undef bool
-#  undef vector
-#  undef pixel
-
-#  if defined(__s390x__)
-#    include <s390intrin.h>
-#  else
-#    include <altivec.h>
-#  endif
-
-#  pragma pop_macro("pixel")
-#  pragma pop_macro("vector")
-#  pragma pop_macro("bool")
-
-typedef __vector unsigned long long xxh_u64x2;
-typedef __vector unsigned char xxh_u8x16;
-typedef __vector unsigned xxh_u32x4;
-
-typedef xxh_u64x2 xxh_aliasing_u64x2 XXH_ALIASING;
-
-# ifndef XXH_VSX_BE
-#  if defined(__BIG_ENDIAN__) \
-  || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#    define XXH_VSX_BE 1
-#  elif defined(__VEC_ELEMENT_REG_ORDER__) && __VEC_ELEMENT_REG_ORDER__ == __ORDER_BIG_ENDIAN__
-#    warning "-maltivec=be is not recommended. Please use native endianness."
-#    define XXH_VSX_BE 1
-#  else
-#    define XXH_VSX_BE 0
-#  endif
-# endif
-
-# if XXH_VSX_BE
-#  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
-#    define XXH_vec_revb vec_revb
-#  else
-XXH_FORCE_INLINE xxh_u64x2 XXH_vec_revb(xxh_u64x2 val)
-{
-    xxh_u8x16 const vByteSwap = { 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
-                                  0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08 };
-    return vec_perm(val, val, vByteSwap);
-}
-#  endif
-# endif
-
-XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr)
-{
-    xxh_u64x2 ret;
-    XXH_memcpy(&ret, ptr, sizeof(xxh_u64x2));
-# if XXH_VSX_BE
-    ret = XXH_vec_revb(ret);
-# endif
-    return ret;
-}
-
-# if defined(__s390x__)
-#  define XXH_vec_mulo vec_mulo
-#  define XXH_vec_mule vec_mule
-# elif defined(__clang__) && XXH_HAS_BUILTIN(__builtin_altivec_vmuleuw) && !defined(__ibmxl__)
-#  define XXH_vec_mulo __builtin_altivec_vmulouw
-#  define XXH_vec_mule __builtin_altivec_vmuleuw
-# else
-XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mulo(xxh_u32x4 a, xxh_u32x4 b)
-{
-    xxh_u64x2 result;
-    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
-    return result;
-}
-XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
-{
-    xxh_u64x2 result;
-    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
-    return result;
-}
-# endif
-#endif
-
-#if XXH_VECTOR == XXH_SVE
-#define ACCRND(acc, offset) \
-do { \
-    svuint64_t input_vec = svld1_u64(mask, xinput + offset);         \
-    svuint64_t secret_vec = svld1_u64(mask, xsecret + offset);       \
-    svuint64_t mixed = sveor_u64_x(mask, secret_vec, input_vec);     \
-    svuint64_t swapped = svtbl_u64(input_vec, kSwap);                \
-    svuint64_t mixed_lo = svextw_u64_x(mask, mixed);                 \
-    svuint64_t mixed_hi = svlsr_n_u64_x(mask, mixed, 32);            \
-    svuint64_t mul = svmad_u64_x(mask, mixed_lo, mixed_hi, swapped); \
-    acc = svadd_u64_x(mask, acc, mul);                               \
-} while (0)
-#endif
-
 #if defined(XXH_NO_PREFETCH)
 #  define XXH_PREFETCH(ptr)  (void)(ptr)
 #else
@@ -3257,6 +3111,8 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
     typedef long long xxh_i64;
 #endif
 
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
 
@@ -3328,6 +3184,9 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 }
 
 #endif
+
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_AVX2) \
     || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)
@@ -3412,6 +3271,9 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
 }
 
 #endif
+
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_SSE2) || defined(XXH_X86DISPATCH)
 
@@ -3502,7 +3364,58 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 
 #endif
 
-#if (XXH_VECTOR == XXH_NEON)
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
+#if XXH_VECTOR == XXH_NEON
+
+typedef uint64x2_t xxh_aliasing_uint64x2_t XXH_ALIASING;
+
+#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__)
+XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
+{
+    return *(xxh_aliasing_uint64x2_t const *)ptr;
+}
+#else
+XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
+{
+    return vreinterpretq_u64_u8(vld1q_u8((uint8_t const*)ptr));
+}
+#endif
+
+#if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 11
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    __asm__("umlal   %0.2d, %1.2s, %2.2s" : "+w" (acc) : "w" (lhs), "w" (rhs));
+    return acc;
+}
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_high_u32(acc, lhs, rhs);
+}
+#else
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_low_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_u32(acc, vget_low_u32(lhs), vget_low_u32(rhs));
+}
+XXH_FORCE_INLINE uint64x2_t
+XXH_vmlal_high_u32(uint64x2_t acc, uint32x4_t lhs, uint32x4_t rhs)
+{
+    return vmlal_u32(acc, vget_high_u32(lhs), vget_high_u32(rhs));
+}
+#endif
+
+# ifndef XXH3_NEON_LANES
+#  if (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) \
+   && !defined(__APPLE__) && XXH_SIZE_OPT <= 0
+#   define XXH3_NEON_LANES 6
+#  else
+#   define XXH3_NEON_LANES XXH_ACC_NB
+#  endif
+# endif
 
 XXH_FORCE_INLINE void
 XXH3_scalarRound(void* XXH_RESTRICT acc, void const* XXH_RESTRICT input,
@@ -3604,9 +3517,91 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
         }
     }
 }
+
 #endif
 
-#if (XXH_VECTOR == XXH_VSX)
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
+#if XXH_VECTOR == XXH_VSX
+#  pragma push_macro("bool")
+#  pragma push_macro("vector")
+#  pragma push_macro("pixel")
+#  undef bool
+#  undef vector
+#  undef pixel
+
+#  if defined(__s390x__)
+#    include <s390intrin.h>
+#  else
+#    include <altivec.h>
+#  endif
+
+#  pragma pop_macro("pixel")
+#  pragma pop_macro("vector")
+#  pragma pop_macro("bool")
+
+typedef __vector unsigned long long xxh_u64x2;
+typedef __vector unsigned char xxh_u8x16;
+typedef __vector unsigned xxh_u32x4;
+
+typedef xxh_u64x2 xxh_aliasing_u64x2 XXH_ALIASING;
+
+# ifndef XXH_VSX_BE
+#  if defined(__BIG_ENDIAN__) \
+  || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#    define XXH_VSX_BE 1
+#  elif defined(__VEC_ELEMENT_REG_ORDER__) && __VEC_ELEMENT_REG_ORDER__ == __ORDER_BIG_ENDIAN__
+#    warning "-maltivec=be is not recommended. Please use native endianness."
+#    define XXH_VSX_BE 1
+#  else
+#    define XXH_VSX_BE 0
+#  endif
+# endif
+
+# if XXH_VSX_BE
+#  if defined(__POWER9_VECTOR__) || (defined(__clang__) && defined(__s390x__))
+#    define XXH_vec_revb vec_revb
+#  else
+XXH_FORCE_INLINE xxh_u64x2 XXH_vec_revb(xxh_u64x2 val)
+{
+    xxh_u8x16 const vByteSwap = { 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
+                                  0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08 };
+    return vec_perm(val, val, vByteSwap);
+}
+#  endif
+# endif
+
+XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr)
+{
+    xxh_u64x2 ret;
+    XXH_memcpy(&ret, ptr, sizeof(xxh_u64x2));
+# if XXH_VSX_BE
+    ret = XXH_vec_revb(ret);
+# endif
+    return ret;
+}
+
+# if defined(__s390x__)
+#  define XXH_vec_mulo vec_mulo
+#  define XXH_vec_mule vec_mule
+# elif defined(__clang__) && XXH_HAS_BUILTIN(__builtin_altivec_vmuleuw) && !defined(__ibmxl__)
+#  define XXH_vec_mulo __builtin_altivec_vmulouw
+#  define XXH_vec_mule __builtin_altivec_vmuleuw
+# else
+XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mulo(xxh_u32x4 a, xxh_u32x4 b)
+{
+    xxh_u64x2 result;
+    __asm__("vmulouw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
+XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mule(xxh_u32x4 a, xxh_u32x4 b)
+{
+    xxh_u64x2 result;
+    __asm__("vmuleuw %0, %1, %2" : "=v" (result) : "v" (a), "v" (b));
+    return result;
+}
+# endif
 
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_vsx(  void* XXH_RESTRICT acc,
@@ -3663,7 +3658,21 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #endif
 
-#if (XXH_VECTOR == XXH_SVE)
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
+#if XXH_VECTOR == XXH_SVE
+#define ACCRND(acc, offset) \
+do { \
+    svuint64_t input_vec = svld1_u64(mask, xinput + offset);         \
+    svuint64_t secret_vec = svld1_u64(mask, xsecret + offset);       \
+    svuint64_t mixed = sveor_u64_x(mask, secret_vec, input_vec);     \
+    svuint64_t swapped = svtbl_u64(input_vec, kSwap);                \
+    svuint64_t mixed_lo = svextw_u64_x(mask, mixed);                 \
+    svuint64_t mixed_hi = svlsr_n_u64_x(mask, mixed, 32);            \
+    svuint64_t mul = svmad_u64_x(mask, mixed_lo, mixed_hi, swapped); \
+    acc = svadd_u64_x(mask, acc, mul);                               \
+} while (0)
 
 XXH_FORCE_INLINE void
 XXH3_accumulate_512_sve( void* XXH_RESTRICT acc,
@@ -3771,6 +3780,9 @@ XXH3_accumulate_sve(xxh_u64* XXH_RESTRICT acc,
 
 #endif
 
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
 #if (XXH_VECTOR == XXH_LSX)
 #define _LSX_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
 
@@ -3824,6 +3836,9 @@ XXH3_scrambleAcc_lsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #endif
 
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
 #if (XXH_VECTOR == XXH_LASX)
 #define _LASX_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
 
@@ -3876,6 +3891,9 @@ XXH3_scrambleAcc_lasx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 }
 
 #endif
+
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_RVV)
     #define XXH_CONCAT2(X, Y) X ## Y
@@ -3982,6 +4000,9 @@ XXH3_initCustomSecret_rvv(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 }
 #endif
 
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
 XXH_FORCE_INLINE xxh_u64
 XXH_mult32to64_add64(xxh_u64 lhs, xxh_u64 rhs, xxh_u64 acc)
@@ -4081,6 +4102,8 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
             XXH_writeLE64((xxh_u8*)customSecret + 16*i + 8, hi);
     }   }
 }
+
+#endif
 
 typedef void (*XXH3_f_accumulate)(xxh_u64* XXH_RESTRICT, const xxh_u8* XXH_RESTRICT, const xxh_u8* XXH_RESTRICT, size_t);
 typedef void (*XXH3_f_scrambleAcc)(void* XXH_RESTRICT, const void*);

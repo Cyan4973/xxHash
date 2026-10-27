@@ -1,8 +1,10 @@
 v0.8.5 (in development)
-- build: xxhash.h is generated from source units in `lib/`, now the source of truth (#550)
+- build: xxhash.h is generated from source units in `lib/`, now the source of truth (#550); in a git working tree, `make` regenerates it when they change (`XXH_SYNC=0` disables it)
 - build: `make variants` and `build/variant.sh` generate limited variants of xxhash.h (e.g. XXH32 or XXH64 only, without streaming), also attached to each release
 - build: xxhash.h only keeps the documentation of public declarations; complete documentation is in `lib/`
 - api  : new build macro `XXH_NO_XXH32`
+- fix  : compilation with Visual Studio and `XXH_NO_STREAM` or `XXH_NO_STDLIB`
+- fix  : `make list`, `make help`, and parallel `make test`
 
 v0.8.4
 - perf : added RISC-V Vector extension (RVV) implementation, by @zijianli1234, @BoBoDai and @camel-cdr

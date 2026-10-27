@@ -338,7 +338,7 @@ static xxh_u64 XXH_xgetbv(void)
  * Runs various CPUID/XGETBV tests to try and determine the best implementation.
  *
  * @return The best @ref XXH_VECTOR implementation.
- * @see XXH_VECTOR_TYPES
+ * @see XXH_SCALAR, XXH_SSE2, XXH_AVX2, XXH_AVX512
  */
 int XXH_featureTest(void)
 {
@@ -600,7 +600,7 @@ typedef struct {
  * @private
  * @brief Table of dispatchers for @ref XXH3_64bits().
  *
- * @pre The indices must match @ref XXH_VECTOR_TYPE.
+ * @pre The indices must match the values of @ref XXH_VECTOR (@ref XXH_SCALAR, ...).
  */
 static const XXH_dispatchFunctions_s XXH_kDispatch[XXH_NB_DISPATCHES] = {
 #if XXH_DISPATCH_SCALAR
@@ -647,7 +647,7 @@ typedef struct {
  * @private
  * @brief Table of dispatchers for @ref XXH3_128bits().
  *
- * @pre The indices must match @ref XXH_VECTOR_TYPE.
+ * @pre The indices must match the values of @ref XXH_VECTOR (@ref XXH_SCALAR, ...).
  */
 static const XXH_dispatch128Functions_s XXH_kDispatch128[XXH_NB_DISPATCHES] = {
 #if XXH_DISPATCH_SCALAR

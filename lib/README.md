@@ -36,6 +36,15 @@ Declaration units also host their symbol names, for `XXH_NAMESPACE` and `XXH_INL
 `xxh3_stream_impl.h` is included from `xxh3_impl.h`,
 in order to share its compilation settings.
 
+The routines of `XXH3` for long inputs exist for each instruction set,
+each in its own unit, also included from `xxh3_impl.h`:
+`xxh3_scalar.h` (always available), `xxh3_sse2.h`, `xxh3_avx2.h`, `xxh3_avx512.h` (x86),
+`xxh3_neon.h` (ARM, WebAssembly), `xxh3_sve.h` (ARM), `xxh3_vsx.h` (POWER, s390x),
+`xxh3_lsx.h`, `xxh3_lasx.h` (LoongArch) and `xxh3_rvv.h` (RISC-V).
+Each one is guarded by the instruction set it implements.
+`xxh3_impl.h` keeps the detection of the instruction set (`XXH_VECTOR`),
+and the selection of the corresponding routines.
+
 Common units only host what is needed by several families
 (or by several streaming implementations, for `xxh_stream_impl.h`).
 What is needed by a single family belongs to its units.

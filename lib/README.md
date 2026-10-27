@@ -36,6 +36,9 @@ Declaration units also host their symbol names, for `XXH_NAMESPACE` and `XXH_INL
 `xxh3_stream_impl.h` is included from `xxh3_impl.h`,
 in order to share its compilation settings.
 
+The implementation of `XXH3` is split into `xxh3_impl.h`, which hosts what is common
+to both widths, and `xxh3_64bits_impl.h` (`XXH3_64bits*()`) and `xxh3_128bits_impl.h`
+(`XXH3_128bits*()`, `XXH128*()`), included from it.
 The routines of `XXH3` for long inputs exist for each instruction set,
 each in its own unit, also included from `xxh3_impl.h`:
 `xxh3_scalar.h` (always available), `xxh3_sse2.h`, `xxh3_avx2.h`, `xxh3_avx512.h` (x86),

@@ -865,6 +865,22 @@ typedef void (*XXH3_f_scrambleAcc)(void* XXH_RESTRICT, const void*);
 typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
 
 
+/*
+ * A limited variant of xxhash.h may only contain the routines of some instruction sets:
+ * those selected by XXH_VECTOR, or by the x86 dispatcher, must be available.
+ */
+#if ((XXH_VECTOR == XXH_SSE2 || defined(XXH_X86DISPATCH)) && !defined(XXH3_ROUTINES_SSE2)) \
+ || ((XXH_VECTOR == XXH_AVX2 || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)) && !defined(XXH3_ROUTINES_AVX2)) \
+ || ((XXH_VECTOR == XXH_AVX512 || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)) && !defined(XXH3_ROUTINES_AVX512)) \
+ || (XXH_VECTOR == XXH_NEON && !defined(XXH3_ROUTINES_NEON)) \
+ || (XXH_VECTOR == XXH_SVE && !defined(XXH3_ROUTINES_SVE)) \
+ || (XXH_VECTOR == XXH_VSX && !defined(XXH3_ROUTINES_VSX)) \
+ || (XXH_VECTOR == XXH_LSX && !defined(XXH3_ROUTINES_LSX)) \
+ || (XXH_VECTOR == XXH_LASX && !defined(XXH3_ROUTINES_LASX)) \
+ || (XXH_VECTOR == XXH_RVV && !defined(XXH3_ROUTINES_RVV))
+#  error "XXH_VECTOR or the x86 dispatcher selects an instruction set whose routines are not in this variant of xxhash.h"
+#endif
+
 #if (XXH_VECTOR == XXH_AVX512)
 
 #define XXH3_accumulate_512 XXH3_accumulate_512_avx512

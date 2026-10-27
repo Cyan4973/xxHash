@@ -2,9 +2,10 @@
 # Generates a limited variant of xxhash.h, with only the selected hash families,
 # from the source units in lib/ (see lib/README.md).
 #
-# Units of excluded families (and of streaming, with --no-stream) are removed,
-# and the corresponding build macros are defined, so that the variant behaves
-# like xxhash.h compiled with these macros.
+# Units of excluded families (and of streaming, with --no-stream, and of other
+# instruction sets, with --vector) are removed, and the corresponding build
+# macros are defined, so that the variant behaves like xxhash.h compiled with
+# these macros.
 #
 # Requires only a POSIX shell and a POSIX awk.
 
@@ -12,11 +13,15 @@ set -eu
 
 usage() {
     cat >&2 <<EOF
-Usage: $0 [--no-stream] [--comments MODE] [-o FILE] FAMILY...
+Usage: $0 [--no-stream] [--vector ISA] [--comments MODE] [-o FILE] FAMILY...
 
   FAMILY          xxh32, xxh64 or xxh3 (xxh3 requires xxh32 and xxh64,
                   which are then included)
   --no-stream     remove the streaming API (one-shot functions only)
+  --vector ISA    only keep the XXH3 routines of instruction set ISA (and the
+                  scalar ones): scalar, sse2, avx2, avx512, neon, sve, vsx,
+                  lsx, lasx or rvv. Like XXH_VECTOR, which it sets, the target
+                  must support ISA (e.g. -mavx2 for avx2).
   --comments MODE api (default), none or all: see build/amalgamate.sh
   -o FILE         write the result to FILE (default: stdout)
 EOF
@@ -30,13 +35,14 @@ die() {
 
 dir=$(dirname "$0")
 lib="$dir/../lib"
-xxh32=0 xxh64=0 xxh3=0 stream=1 comments=api out=''
+xxh32=0 xxh64=0 xxh3=0 stream=1 vector='' comments=api out=''
 while [ $# -gt 0 ]; do
     case $1 in
     xxh32)       xxh32=1; shift ;;
     xxh64)       xxh64=1; shift ;;
     xxh3)        xxh3=1; shift ;;
     --no-stream) stream=0; shift ;;
+    --vector)    [ $# -ge 2 ] || usage; vector=$2; shift 2 ;;
     --comments)  [ $# -ge 2 ] || usage; comments=$2; shift 2 ;;
     -o)          [ $# -ge 2 ] || usage; out=$2; shift 2 ;;
     -h|--help)   usage ;;
@@ -45,6 +51,11 @@ while [ $# -gt 0 ]; do
 done
 [ $((xxh32 + xxh64 + xxh3)) -gt 0 ] || usage
 if [ "$xxh3" = 1 ]; then xxh32=1; xxh64=1; fi
+isas="sse2 avx2 avx512 neon sve vsx lsx lasx rvv"   # units xxh3_ISA.h, besides xxh3_scalar.h
+if [ -n "$vector" ]; then
+    [ "$xxh3" = 1 ] || die "--vector applies to xxh3"
+    case " scalar $isas " in *" $vector "*) ;; *) die "unknown instruction set: $vector" ;; esac
+fi
 
 # exclude the units matching a pattern
 exclude() {
@@ -58,5 +69,9 @@ if [ "$xxh32" = 0 ]; then options="$options -D XXH_NO_XXH32"; exclude 'xxh32_*.h
 if [ "$xxh64" = 0 ]; then options="$options -D XXH_NO_LONG_LONG"; exclude 'xxh64_*.h'; fi
 if [ "$xxh3" = 0 ];  then options="$options -D XXH_NO_XXH3"; exclude 'xxh3_*.h'; fi
 if [ "$stream" = 0 ]; then options="$options -D XXH_NO_STREAM"; exclude '*_stream_*.h'; fi
+if [ -n "$vector" ]; then
+    options="$options -D XXH_VECTOR=XXH_$(echo "$vector" | tr '[:lower:]' '[:upper:]')"
+    for isa in $isas; do [ "$isa" = "$vector" ] || exclude "xxh3_$isa.h"; done
+fi
 # shellcheck disable=SC2086 # options is a list (unit names contain no space)
 exec sh "$dir/amalgamate.sh" $options ${out:+-o "$out"} "$lib/xxhash_root.h"

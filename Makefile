@@ -146,6 +146,7 @@ variants:  ## generate limited variants of xxhash.h into variants/
 	$(VARIANT) -o $(VARIANTS_DIR)/xxh64_oneshot.h --no-stream xxh64
 	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_xxh64.h xxh32 xxh64
 	$(VARIANT) -o $(VARIANTS_DIR)/xxhash_oneshot.h --no-stream xxh3
+	$(VARIANT) -o $(VARIANTS_DIR)/xxhash_oneshot_scalar.h --no-stream --vector scalar xxh3
 
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH

@@ -49,6 +49,7 @@
  * inconsistent intrinsics, spotty coverage, and multiple endiannesses.
  */
 #if XXH_VECTOR == XXH_VSX
+#define XXH3_ROUTINES_VSX 1 /* see the selection of routines in xxh3_impl.h */
 /* Annoyingly, these headers _may_ define three macros: `bool`, `vector`,
  * and `pixel`. This is a problem for obvious reasons.
  *

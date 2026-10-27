@@ -2984,6 +2984,7 @@ XXH_FORCE_INLINE void XXH_writeLE64(void* dst, xxh_u64 v64)
 
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
+#define XXH3_ROUTINES_AVX512 1
 
 #ifndef XXH_TARGET_AVX512
 # define XXH_TARGET_AVX512
@@ -3059,6 +3060,7 @@ XXH3_initCustomSecret_avx512(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 
 #if (XXH_VECTOR == XXH_AVX2) \
     || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)
+#define XXH3_ROUTINES_AVX2 1
 
 #ifndef XXH_TARGET_AVX2
 # define XXH_TARGET_AVX2
@@ -3145,6 +3147,7 @@ XXH_FORCE_INLINE XXH_TARGET_AVX2 void XXH3_initCustomSecret_avx2(void* XXH_RESTR
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_SSE2) || defined(XXH_X86DISPATCH)
+#define XXH3_ROUTINES_SSE2 1
 
 #ifndef XXH_TARGET_SSE2
 # define XXH_TARGET_SSE2
@@ -3237,6 +3240,7 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if XXH_VECTOR == XXH_NEON
+#define XXH3_ROUTINES_NEON 1
 
 typedef uint64x2_t xxh_aliasing_uint64x2_t XXH_ALIASING;
 
@@ -3393,6 +3397,7 @@ XXH3_scrambleAcc_neon(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if XXH_VECTOR == XXH_VSX
+#define XXH3_ROUTINES_VSX 1
 #  pragma push_macro("bool")
 #  pragma push_macro("vector")
 #  pragma push_macro("pixel")
@@ -3531,6 +3536,7 @@ XXH3_scrambleAcc_vsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if XXH_VECTOR == XXH_SVE
+#define XXH3_ROUTINES_SVE 1
 #define ACCRND(acc, offset) \
 do { \
     svuint64_t input_vec = svld1_u64(mask, xinput + offset);         \
@@ -3653,6 +3659,7 @@ XXH3_accumulate_sve(xxh_u64* XXH_RESTRICT acc,
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_LSX)
+#define XXH3_ROUTINES_LSX 1
 #define _LSX_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
 
 XXH_FORCE_INLINE void
@@ -3709,6 +3716,7 @@ XXH3_scrambleAcc_lsx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_LASX)
+#define XXH3_ROUTINES_LASX 1
 #define _LASX_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
 
 XXH_FORCE_INLINE void
@@ -3765,6 +3773,7 @@ XXH3_scrambleAcc_lasx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 #if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 #if (XXH_VECTOR == XXH_RVV)
+#define XXH3_ROUTINES_RVV 1
     #define XXH_CONCAT2(X, Y) X ## Y
     #define XXH_CONCAT(X, Y) XXH_CONCAT2(X, Y)
 #if ((defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 13) || \
@@ -3977,6 +3986,18 @@ XXH3_initCustomSecret_scalar(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
 typedef void (*XXH3_f_accumulate)(xxh_u64* XXH_RESTRICT, const xxh_u8* XXH_RESTRICT, const xxh_u8* XXH_RESTRICT, size_t);
 typedef void (*XXH3_f_scrambleAcc)(void* XXH_RESTRICT, const void*);
 typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
+
+#if ((XXH_VECTOR == XXH_SSE2 || defined(XXH_X86DISPATCH)) && !defined(XXH3_ROUTINES_SSE2)) \
+ || ((XXH_VECTOR == XXH_AVX2 || (defined(XXH_DISPATCH_AVX2) && XXH_DISPATCH_AVX2 != 0)) && !defined(XXH3_ROUTINES_AVX2)) \
+ || ((XXH_VECTOR == XXH_AVX512 || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)) && !defined(XXH3_ROUTINES_AVX512)) \
+ || (XXH_VECTOR == XXH_NEON && !defined(XXH3_ROUTINES_NEON)) \
+ || (XXH_VECTOR == XXH_SVE && !defined(XXH3_ROUTINES_SVE)) \
+ || (XXH_VECTOR == XXH_VSX && !defined(XXH3_ROUTINES_VSX)) \
+ || (XXH_VECTOR == XXH_LSX && !defined(XXH3_ROUTINES_LSX)) \
+ || (XXH_VECTOR == XXH_LASX && !defined(XXH3_ROUTINES_LASX)) \
+ || (XXH_VECTOR == XXH_RVV && !defined(XXH3_ROUTINES_RVV))
+#  error "XXH_VECTOR or the x86 dispatcher selects an instruction set whose routines are not in this variant of xxhash.h"
+#endif
 
 #if (XXH_VECTOR == XXH_AVX512)
 

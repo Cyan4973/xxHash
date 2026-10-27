@@ -41,6 +41,7 @@
 /* XXH3 depends on XXH32 and XXH64 */
 
 #if XXH_VECTOR == XXH_NEON
+#define XXH3_ROUTINES_NEON 1 /* see the selection of routines in xxh3_impl.h */
 
 /*
  * UGLY HACK: While AArch64 GCC on Linux does not seem to care, on macOS, GCC -O3

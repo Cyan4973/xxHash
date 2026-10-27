@@ -2910,67 +2910,6 @@ static XXH64_hash_t XXH3_rrmxmx(xxh_u64 h64, xxh_u64 len)
     return XXH_xorshift64(h64, 28);
 }
 
-XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
-XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
-{
-    XXH_ASSERT(input != NULL);
-    XXH_ASSERT(1 <= len && len <= 3);
-    XXH_ASSERT(secret != NULL);
-    {   xxh_u8  const c1 = input[0];
-        xxh_u8  const c2 = input[len >> 1];
-        xxh_u8  const c3 = input[len - 1];
-        xxh_u32 const combined = ((xxh_u32)c1 << 16) | ((xxh_u32)c2  << 24)
-                               | ((xxh_u32)c3 <<  0) | ((xxh_u32)len << 8);
-        xxh_u64 const bitflip = (XXH_readLE32(secret) ^ XXH_readLE32(secret+4)) + seed;
-        xxh_u64 const keyed = (xxh_u64)combined ^ bitflip;
-        return XXH64_avalanche(keyed);
-    }
-}
-
-XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
-XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
-{
-    XXH_ASSERT(input != NULL);
-    XXH_ASSERT(secret != NULL);
-    XXH_ASSERT(4 <= len && len <= 8);
-    seed ^= (xxh_u64)XXH_swap32((xxh_u32)seed) << 32;
-    {   xxh_u32 const input1 = XXH_readLE32(input);
-        xxh_u32 const input2 = XXH_readLE32(input + len - 4);
-        xxh_u64 const bitflip = (XXH_readLE64(secret+8) ^ XXH_readLE64(secret+16)) - seed;
-        xxh_u64 const input64 = input2 + (((xxh_u64)input1) << 32);
-        xxh_u64 const keyed = input64 ^ bitflip;
-        return XXH3_rrmxmx(keyed, len);
-    }
-}
-
-XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
-XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
-{
-    XXH_ASSERT(input != NULL);
-    XXH_ASSERT(secret != NULL);
-    XXH_ASSERT(9 <= len && len <= 16);
-    {   xxh_u64 const bitflip1 = (XXH_readLE64(secret+24) ^ XXH_readLE64(secret+32)) + seed;
-        xxh_u64 const bitflip2 = (XXH_readLE64(secret+40) ^ XXH_readLE64(secret+48)) - seed;
-        xxh_u64 const input_lo = XXH_readLE64(input)           ^ bitflip1;
-        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitflip2;
-        xxh_u64 const acc = len
-                          + XXH_swap64(input_lo) + input_hi
-                          + XXH3_mul128_fold64(input_lo, input_hi);
-        return XXH3_avalanche(acc);
-    }
-}
-
-XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
-XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
-{
-    XXH_ASSERT(len <= 16);
-    {   if (XXH_likely(len >  8)) return XXH3_len_9to16_64b(input, len, secret, seed);
-        if (XXH_likely(len >= 4)) return XXH3_len_4to8_64b(input, len, secret, seed);
-        if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
-        return XXH64_avalanche(seed ^ (XXH_readLE64(secret+56) ^ XXH_readLE64(secret+64)));
-    }
-}
-
 XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
                                      const xxh_u8* XXH_RESTRICT secret, xxh_u64 seed64)
 {
@@ -2985,76 +2924,6 @@ XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
             input_lo ^ (XXH_readLE64(secret)   + seed64),
             input_hi ^ (XXH_readLE64(secret+8) - seed64)
         );
-    }
-}
-
-XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
-XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
-                     const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
-                     XXH64_hash_t seed)
-{
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    XXH_ASSERT(16 < len && len <= 128);
-
-    {   xxh_u64 acc = len * XXH_PRIME64_1;
-#if XXH_SIZE_OPT >= 1
-        unsigned int i = (unsigned int)(len - 1) / 32;
-        do {
-            acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
-            acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
-        } while (i-- != 0);
-#else
-        if (len > 32) {
-            if (len > 64) {
-                if (len > 96) {
-                    acc += XXH3_mix16B(input+48, secret+96, seed);
-                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
-                }
-                acc += XXH3_mix16B(input+32, secret+64, seed);
-                acc += XXH3_mix16B(input+len-48, secret+80, seed);
-            }
-            acc += XXH3_mix16B(input+16, secret+32, seed);
-            acc += XXH3_mix16B(input+len-32, secret+48, seed);
-        }
-        acc += XXH3_mix16B(input+0, secret+0, seed);
-        acc += XXH3_mix16B(input+len-16, secret+16, seed);
-#endif
-        return XXH3_avalanche(acc);
-    }
-}
-
-XXH_NO_INLINE XXH_PUREF XXH64_hash_t
-XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
-                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
-                      XXH64_hash_t seed)
-{
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
-    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
-
-    #define XXH3_MIDSIZE_STARTOFFSET 3
-    #define XXH3_MIDSIZE_LASTOFFSET  17
-
-    {   xxh_u64 acc = len * XXH_PRIME64_1;
-        xxh_u64 acc_end;
-        unsigned int const nbRounds = (unsigned int)len / 16;
-        unsigned int i;
-        XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
-        for (i=0; i<8; i++) {
-            acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
-        }
-        acc_end = XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
-        XXH_ASSERT(nbRounds >= 8);
-        acc = XXH3_avalanche(acc);
-#if defined(__clang__)                                 \
-    && (defined(__ARM_NEON) || defined(__ARM_NEON__))  \
-    && !defined(XXH_ENABLE_AUTOVECTORIZE)
-        #pragma clang loop vectorize(disable)
-#endif
-        for (i=8 ; i < nbRounds; i++) {
-            XXH_COMPILER_GUARD(acc);
-            acc_end += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
-        }
-        return XXH3_avalanche(acc + acc_end);
     }
 }
 
@@ -4251,6 +4120,139 @@ XXH3_finalizeLong_64b(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRIC
 #define XXH3_INIT_ACC { XXH_PRIME32_3, XXH_PRIME64_1, XXH_PRIME64_2, XXH_PRIME64_3, \
                         XXH_PRIME64_4, XXH_PRIME32_2, XXH_PRIME64_5, XXH_PRIME32_1 }
 
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
+
+XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
+XXH3_len_1to3_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
+{
+    XXH_ASSERT(input != NULL);
+    XXH_ASSERT(1 <= len && len <= 3);
+    XXH_ASSERT(secret != NULL);
+    {   xxh_u8  const c1 = input[0];
+        xxh_u8  const c2 = input[len >> 1];
+        xxh_u8  const c3 = input[len - 1];
+        xxh_u32 const combined = ((xxh_u32)c1 << 16) | ((xxh_u32)c2  << 24)
+                               | ((xxh_u32)c3 <<  0) | ((xxh_u32)len << 8);
+        xxh_u64 const bitflip = (XXH_readLE32(secret) ^ XXH_readLE32(secret+4)) + seed;
+        xxh_u64 const keyed = (xxh_u64)combined ^ bitflip;
+        return XXH64_avalanche(keyed);
+    }
+}
+
+XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
+XXH3_len_4to8_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
+{
+    XXH_ASSERT(input != NULL);
+    XXH_ASSERT(secret != NULL);
+    XXH_ASSERT(4 <= len && len <= 8);
+    seed ^= (xxh_u64)XXH_swap32((xxh_u32)seed) << 32;
+    {   xxh_u32 const input1 = XXH_readLE32(input);
+        xxh_u32 const input2 = XXH_readLE32(input + len - 4);
+        xxh_u64 const bitflip = (XXH_readLE64(secret+8) ^ XXH_readLE64(secret+16)) - seed;
+        xxh_u64 const input64 = input2 + (((xxh_u64)input1) << 32);
+        xxh_u64 const keyed = input64 ^ bitflip;
+        return XXH3_rrmxmx(keyed, len);
+    }
+}
+
+XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
+XXH3_len_9to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
+{
+    XXH_ASSERT(input != NULL);
+    XXH_ASSERT(secret != NULL);
+    XXH_ASSERT(9 <= len && len <= 16);
+    {   xxh_u64 const bitflip1 = (XXH_readLE64(secret+24) ^ XXH_readLE64(secret+32)) + seed;
+        xxh_u64 const bitflip2 = (XXH_readLE64(secret+40) ^ XXH_readLE64(secret+48)) - seed;
+        xxh_u64 const input_lo = XXH_readLE64(input)           ^ bitflip1;
+        xxh_u64 const input_hi = XXH_readLE64(input + len - 8) ^ bitflip2;
+        xxh_u64 const acc = len
+                          + XXH_swap64(input_lo) + input_hi
+                          + XXH3_mul128_fold64(input_lo, input_hi);
+        return XXH3_avalanche(acc);
+    }
+}
+
+XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
+XXH3_len_0to16_64b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
+{
+    XXH_ASSERT(len <= 16);
+    {   if (XXH_likely(len >  8)) return XXH3_len_9to16_64b(input, len, secret, seed);
+        if (XXH_likely(len >= 4)) return XXH3_len_4to8_64b(input, len, secret, seed);
+        if (len) return XXH3_len_1to3_64b(input, len, secret, seed);
+        return XXH64_avalanche(seed ^ (XXH_readLE64(secret+56) ^ XXH_readLE64(secret+64)));
+    }
+}
+
+XXH_FORCE_INLINE XXH_PUREF XXH64_hash_t
+XXH3_len_17to128_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
+                     const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                     XXH64_hash_t seed)
+{
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(16 < len && len <= 128);
+
+    {   xxh_u64 acc = len * XXH_PRIME64_1;
+#if XXH_SIZE_OPT >= 1
+        unsigned int i = (unsigned int)(len - 1) / 32;
+        do {
+            acc += XXH3_mix16B(input+16 * i, secret+32*i, seed);
+            acc += XXH3_mix16B(input+len-16*(i+1), secret+32*i+16, seed);
+        } while (i-- != 0);
+#else
+        if (len > 32) {
+            if (len > 64) {
+                if (len > 96) {
+                    acc += XXH3_mix16B(input+48, secret+96, seed);
+                    acc += XXH3_mix16B(input+len-64, secret+112, seed);
+                }
+                acc += XXH3_mix16B(input+32, secret+64, seed);
+                acc += XXH3_mix16B(input+len-48, secret+80, seed);
+            }
+            acc += XXH3_mix16B(input+16, secret+32, seed);
+            acc += XXH3_mix16B(input+len-32, secret+48, seed);
+        }
+        acc += XXH3_mix16B(input+0, secret+0, seed);
+        acc += XXH3_mix16B(input+len-16, secret+16, seed);
+#endif
+        return XXH3_avalanche(acc);
+    }
+}
+
+XXH_NO_INLINE XXH_PUREF XXH64_hash_t
+XXH3_len_129to240_64b(const xxh_u8* XXH_RESTRICT input, size_t len,
+                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
+                      XXH64_hash_t seed)
+{
+    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN); (void)secretSize;
+    XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
+
+    #define XXH3_MIDSIZE_STARTOFFSET 3
+    #define XXH3_MIDSIZE_LASTOFFSET  17
+
+    {   xxh_u64 acc = len * XXH_PRIME64_1;
+        xxh_u64 acc_end;
+        unsigned int const nbRounds = (unsigned int)len / 16;
+        unsigned int i;
+        XXH_ASSERT(128 < len && len <= XXH3_MIDSIZE_MAX);
+        for (i=0; i<8; i++) {
+            acc += XXH3_mix16B(input+(16*i), secret+(16*i), seed);
+        }
+        acc_end = XXH3_mix16B(input + len - 16, secret + XXH3_SECRET_SIZE_MIN - XXH3_MIDSIZE_LASTOFFSET, seed);
+        XXH_ASSERT(nbRounds >= 8);
+        acc = XXH3_avalanche(acc);
+#if defined(__clang__)                                 \
+    && (defined(__ARM_NEON) || defined(__ARM_NEON__))  \
+    && !defined(XXH_ENABLE_AUTOVECTORIZE)
+        #pragma clang loop vectorize(disable)
+#endif
+        for (i=8 ; i < nbRounds; i++) {
+            XXH_COMPILER_GUARD(acc);
+            acc_end += XXH3_mix16B(input+(16*i), secret+(16*(i-8)) + XXH3_MIDSIZE_STARTOFFSET, seed);
+        }
+        return XXH3_avalanche(acc + acc_end);
+    }
+}
+
 XXH_FORCE_INLINE XXH64_hash_t
 XXH3_hashLong_64b_internal(const void* XXH_RESTRICT input, size_t len,
                            const void* XXH_RESTRICT secret, size_t secretSize,
@@ -4353,6 +4355,9 @@ XXH3_64bits_withSecretandSeed(XXH_NOESCAPE const void* input, size_t length, XXH
         return XXH3_64bits_internal(input, length, seed, XXH3_kSecret, sizeof(XXH3_kSecret), NULL);
     return XXH3_hashLong_64b_withSecret(input, length, seed, (const xxh_u8*)secret, secretSize);
 }
+
+#endif
+#if !defined(XXH_NO_XXH3) && !defined(XXH_NO_XXH32) && !defined(XXH_NO_LONG_LONG)
 
 XXH_FORCE_INLINE XXH_PUREF XXH128_hash_t
 XXH3_len_1to3_128b(const xxh_u8* input, size_t len, const xxh_u8* secret, XXH64_hash_t seed)
@@ -4711,6 +4716,8 @@ XXH128_hashFromCanonical(XXH_NOESCAPE const XXH128_canonical_t* src)
     h.low64  = XXH_readBE64(src->digest + 8);
     return h;
 }
+
+#endif
 
 #define XXH_MIN(x, y) (((x) > (y)) ? (y) : (x))
 

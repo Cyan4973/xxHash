@@ -470,12 +470,12 @@ c90test:
 else
 c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
 c90test: CFLAGS += -std=c90 -Werror -pedantic
+c90test: OFILE = xxh_c90.o
 c90test: xxhash.c | xxhash.h
 	@echo ---- test strict C90 compilation [xxh32 only] ----
-	$(RM) xxhash.o
-	$(CC) $(FLAGS) $^ -c
-	$(NM) xxhash.o | $(GREP) XXH64 ; test $$? -eq 1
-	$(RM) xxhash.o
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) XXH64 ; test $$? -eq 1
+	$(RM) $(OFILE)
 endif
 
 .PHONY: noxxh3test
@@ -552,10 +552,10 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 
 .PHONY: namespaceTest
 namespaceTest: | xxhash.h  ## ensure XXH_NAMESPACE redefines all public symbols
-	$(CC) -c xxhash.c
-	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
-	$(CC) xxhash.o xxhash2.o $(CLI_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
-	$(RM) *.o xxhsum2  # clean
+	$(CC) -c xxhash.c -o xxh_namespace1.o
+	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxh_namespace2.o
+	$(CC) xxh_namespace1.o xxh_namespace2.o $(CLI_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(RM) xxh_namespace1.o xxh_namespace2.o xxhsum2  # clean
 
 MAN = $(CLI_DIR)/xxhsum.1
 MD2ROFF ?= ronn

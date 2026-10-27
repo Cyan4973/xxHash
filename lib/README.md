@@ -98,6 +98,8 @@ Families are `xxh32`, `xxh64` and `xxh3` (which requires, hence includes, `xxh32
 | `xxh32_xxh64.h`    | `XXH32` and `XXH64`             |
 | `xxhash_oneshot.h` | all families, without streaming |
 
+They are also attached to each release (starting with v0.8.5).
+
 
 Workflow
 --------

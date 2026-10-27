@@ -128,6 +128,9 @@ jobs:
         grep -q '</span>XXH32_createState()</h2>' doxygen/html/group__XXH32__family.html
         grep -q '</span>XXH64_createState()</h2>' doxygen/html/group__XXH64__family.html
         grep -q '</span>XXH3_createState()</h2>' doxygen/html/group__XXH3__family.html
+        # documentation of internals
+        rm -rf doxygen
+        ( cat Doxyfile-internal; echo "WARN_AS_ERROR = FAIL_ON_WARNINGS"; echo "HAVE_DOT = NO" ) | doxygen -
 
   reproduce-system-header-in-extern-c:
     name: Reproduce system header included inside extern C

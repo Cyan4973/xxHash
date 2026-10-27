@@ -216,11 +216,18 @@ NM   ?= nm
 
 .PHONY: list
 list:  ## list all Makefile targets
-	$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | $(AWK) -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | $(SORT) | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
+	@# targets of the make database, except files which are only prerequisites ("Not a target"),
+	@# pattern rules, special targets and target-specific variables
+	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | \
+	$(AWK) '/^# Files/ { f = 1; next } /^# Finished Make data base/ { f = 0 } \
+	        f && /^# Not a target:/ { n = 1; next } \
+	        f && !n && /^[0-9A-Za-z_][^:=%]*::?([^=]|$$)/ && !/^[^:]*:[^=]*=/ { sub(/:.*/, ""); print } \
+	        { n = 0 }' | \
+	LC_ALL=C $(SORT) -u | $(GREP) -v -x -e '$@' | xargs
 
 .PHONY: help
 help:  ## list documented targets
-	$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | \
 	$(SORT) | \
 	$(AWK) 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 

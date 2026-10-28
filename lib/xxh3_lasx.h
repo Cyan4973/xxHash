@@ -41,6 +41,7 @@
 /* XXH3 depends on XXH32 and XXH64 */
 
 #if (XXH_VECTOR == XXH_LASX)
+#define XXH3_ROUTINES_LASX 1 /* see the selection of routines in xxh3_impl.h */
 #define _LASX_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
 
 XXH_FORCE_INLINE void

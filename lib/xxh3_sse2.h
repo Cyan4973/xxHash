@@ -42,6 +42,7 @@
 
 /* x86dispatch always generates SSE2 */
 #if (XXH_VECTOR == XXH_SSE2) || defined(XXH_X86DISPATCH)
+#define XXH3_ROUTINES_SSE2 1 /* see the selection of routines in xxh3_impl.h */
 
 #ifndef XXH_TARGET_SSE2
 # define XXH_TARGET_SSE2  /* disable attribute target */

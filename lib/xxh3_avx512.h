@@ -42,6 +42,7 @@
 
 #if (XXH_VECTOR == XXH_AVX512) \
      || (defined(XXH_DISPATCH_AVX512) && XXH_DISPATCH_AVX512 != 0)
+#define XXH3_ROUTINES_AVX512 1 /* see the selection of routines in xxh3_impl.h */
 
 #ifndef XXH_TARGET_AVX512
 # define XXH_TARGET_AVX512  /* disable attribute target */

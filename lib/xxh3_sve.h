@@ -41,6 +41,7 @@
 /* XXH3 depends on XXH32 and XXH64 */
 
 #if XXH_VECTOR == XXH_SVE
+#define XXH3_ROUTINES_SVE 1 /* see the selection of routines in xxh3_impl.h */
 #define ACCRND(acc, offset) \
 do { \
     svuint64_t input_vec = svld1_u64(mask, xinput + offset);         \

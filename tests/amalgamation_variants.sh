@@ -16,14 +16,16 @@ tmp=tests/tmp_amalg
 status=0
 
 # name, families (comma separated), streaming, build macros (comma separated),
-# C standard, expected symbol, unexpected symbols
+# C standard, expected symbol, unexpected symbols.
+# XXH_VECTOR=XXH_<ISA> among the build macros selects the variant of instruction set <ISA>.
 VARIANTS="\
 noxxh3        xxh32,xxh64 yes XXH_NO_XXH3                                c99 XXH64_digest XXH3_|XXH128
 xxh32         xxh32       yes XXH_NO_LONG_LONG,XXH_NO_XXH3               c90 XXH32_digest XXH64|XXH3_|XXH128
 xxh64         xxh64       yes XXH_NO_XXH32,XXH_NO_XXH3                   c99 XXH64_digest XXH32|XXH3_|XXH128
 oneshot       xxh3        no  XXH_NO_STREAM                              c99 XXH3_128bits State|reset|update|digest
 xxh32_oneshot xxh32       no  XXH_NO_LONG_LONG,XXH_NO_XXH3,XXH_NO_STREAM c90 XXH32_hashFromCanonical XXH64|XXH3_|XXH128|State|reset|update|digest
-xxh64_oneshot xxh64       no  XXH_NO_XXH32,XXH_NO_XXH3,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest"
+xxh64_oneshot xxh64       no  XXH_NO_XXH32,XXH_NO_XXH3,XXH_NO_STREAM     c99 XXH64_hashFromCanonical XXH32|XXH3_|XXH128|State|reset|update|digest
+scalar_oneshot xxh3       no  XXH_NO_STREAM,XXH_VECTOR=XXH_SCALAR        c99 XXH3_128bits State|reset|update|digest"
 
 # cppflags MACROS : -D options for a comma separated list of macros
 cppflags() {
@@ -36,6 +38,9 @@ while read -r name families streaming macros std present absent; do
     mkdir -p "$tmp/$name"
     options=""
     [ "$streaming" = yes ] || options="--no-stream"
+    case ,$macros, in
+    *,XXH_VECTOR=XXH_*) isa=${macros#*XXH_VECTOR=XXH_}; options="$options --vector $(echo "${isa%%,*}" | tr '[:upper:]' '[:lower:]')" ;;
+    esac
     # shellcheck disable=SC2046,SC2086 # lists
     sh build/variant.sh $options $(echo "$families" | tr ',' ' ') > "$tmp/$name/xxhash.h"
 done <<EOF
@@ -248,6 +253,26 @@ if sh build/amalgamate.sh "$syn/lib/xxhash_root.h" > /dev/null 2>&1; then
     echo "FAIL: synthetic units: unsupported condition on XXH_DOXYGEN accepted" >&2
     status=1
 fi
+
+# the scalar variant contains no vector routines, and rejects other instruction sets
+if grep -q '^#define XXH3_ROUTINES_' "$tmp/scalar_oneshot/xxhash.h"; then
+    echo "FAIL: scalar_oneshot variant contains vector routines" >&2
+    status=1
+fi
+if $CC -DXXH_VECTOR=XXH_SSE2 -c "$tmp/scalar_oneshot/xxhash.c" -o "$tmp/raw.o" > "$tmp/raw" 2>&1 \
+   || ! grep -q "routines are not in this variant" "$tmp/raw"; then
+    echo "FAIL: scalar_oneshot variant accepts XXH_VECTOR=XXH_SSE2" >&2
+    status=1
+fi
+case $(uname -m) in
+x86_64|amd64|i?86)  # neither can the x86 dispatcher use it
+    cp xxh_x86dispatch.c xxh_x86dispatch.h "$tmp/scalar_oneshot/"
+    if $CC -c "$tmp/scalar_oneshot/xxh_x86dispatch.c" -o "$tmp/raw.o" > "$tmp/raw" 2>&1 \
+       || ! grep -q "routines are not in this variant" "$tmp/raw"; then
+        echo "FAIL: scalar_oneshot variant accepted by the x86 dispatcher" >&2
+        status=1
+    fi ;;
+esac
 
 if [ "$status" -eq 0 ]; then
     rm -rf "$tmp"

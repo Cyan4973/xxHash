@@ -41,6 +41,7 @@
 /* XXH3 depends on XXH32 and XXH64 */
 
 #if (XXH_VECTOR == XXH_RVV)
+#define XXH3_ROUTINES_RVV 1 /* see the selection of routines in xxh3_impl.h */
     #define XXH_CONCAT2(X, Y) X ## Y
     #define XXH_CONCAT(X, Y) XXH_CONCAT2(X, Y)
 #if ((defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 13) || \

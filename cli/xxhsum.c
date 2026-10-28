@@ -552,6 +552,7 @@ typedef enum {
     GetLine_ok,
     GetLine_comment,
     GetLine_eof,
+    GetLine_readError,
     GetLine_exceedMaxLineLength,
     GetLine_outOfMemory
 } GetLineResult;
@@ -612,6 +613,7 @@ typedef struct {
  * Returns GetLine_ok, if it reads line successfully.
  * Returns GetLine_comment, if the line is beginning with '#'.
  * Returns GetLine_eof, if stream reaches EOF.
+ * Returns GetLine_readError, if a read error occurs.
  * Returns GetLine_exceedMaxLineLength, if line length is longer than MAX_LINE_LENGTH.
  * Returns GetLine_outOfMemory, if line buffer memory allocation failed.
  */
@@ -631,6 +633,9 @@ static GetLineResult XSUM_getLine(char** lineBuf, int* lineMax, FILE* inFile)
     for (;;) {
         const int c = fgetc(inFile);
         if (c == EOF) {
+            /* fgetc() reports a read error as EOF as well: they must not be confused. */
+            if (ferror(inFile)) return GetLine_readError;
+
             /*
              * If we meet EOF before first character, returns GetLine_eof,
              * otherwise GetLine_ok.
@@ -913,6 +918,10 @@ static void XSUM_parseFile1(ParseFileArg* XSUM_parseFileArg, int rev)
 
                 case GetLine_outOfMemory:
                     XSUM_log("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
+                    break;
+
+                case GetLine_readError:
+                    XSUM_log("%s:%lu: Error: Could not read.\n", inFileName, lineNumber);
                     break;
                 }
                 report->quit = 1;
@@ -1256,6 +1265,10 @@ static void XSUM_parseGenFile1(ParseFileArg* XSUM_parseGenArg,
 
             case GetLine_outOfMemory:
                 XSUM_log("%s:%lu: Error: Out of memory.\n", inFileName, lineNumber);
+                break;
+
+            case GetLine_readError:
+                XSUM_log("%s:%lu: Error: Could not read.\n", inFileName, lineNumber);
                 break;
             }
             report->quit = 1;

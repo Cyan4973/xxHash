@@ -56,7 +56,7 @@ include ../build/make/multiconf.make
 all: test test_alias
 
 .PHONY: test
-test: test_multiInclude test_unicode test_sanity
+test: test_multiInclude test_unicode test_sanity test_invalid_args
 
 .PHONY: test_multiInclude
 test_multiInclude:
@@ -134,6 +134,14 @@ test_cli_ignore_missing: xxhsum
 test_cli_tag_validation: xxhsum
 	$(SHELL) ./cli-tag-validation.sh
 
+# argument checks must survive optimizations and assertions (XXH_ASSERT)
+.PHONY: test_invalid_args
+test_invalid_args: invalid_args.c
+	for level in 0 1; do \
+	    $(CC) $(CFLAGS) -O2 -DXXH_DEBUGLEVEL=$$level $(LDFLAGS) invalid_args.c -o invalid_args$(EXT) && \
+	    $(RUN_ENV) ./invalid_args$(EXT) || exit 1; \
+	done
+
 .PHONY: test_sanity
 test_sanity: sanity_test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) sanity_test.c -o sanity_test$(EXT)
@@ -160,3 +168,4 @@ clean:
 	@$(RM) inlineDispatch$(EXT)
 	@$(RM) *.unicode unicode_test.*
 	@$(RM) sanity_test$(EXT) sanity_test_vectors_generator$(EXT)
+	@$(RM) invalid_args$(EXT)

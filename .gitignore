@@ -20,6 +20,7 @@ xxhsum_inlinedXXH
 dispatch
 tests/generate_unicode_test
 tests/sanity_test
+tests/invalid_args
 tests/sanity_test_vectors_generator
 tests/test_alias
 fuzzer
@@ -38,6 +39,7 @@ fuzzer
 
 # build artifacts
 cachedObjs/
+variants/
 cmakebuild/
 my_build/
 

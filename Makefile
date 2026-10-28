@@ -28,9 +28,11 @@
 # Version numbers
 SED ?= sed
 SED_ERE_OPT ?= -E
-LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
-LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < xxhash.h`
+# read from the source unit when available, since xxhash.h may not be generated yet
+XXH_VERSION_FILE := $(firstword $(wildcard lib/xxh_api.h) xxhash.h)
+LIBVER_MAJOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < $(XXH_VERSION_FILE)`
+LIBVER_MINOR_SCRIPT:=`$(SED) -n '/define XXH_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < $(XXH_VERSION_FILE)`
+LIBVER_PATCH_SCRIPT:=`$(SED) -n '/define XXH_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < $(XXH_VERSION_FILE)`
 LIBVER_MAJOR := $(shell echo $(LIBVER_MAJOR_SCRIPT))
 LIBVER_MINOR := $(shell echo $(LIBVER_MINOR_SCRIPT))
 LIBVER_PATCH := $(shell echo $(LIBVER_PATCH_SCRIPT))
@@ -100,8 +102,51 @@ CLI_OBJS = $(CLI_SRCS:.c=.o)
 default: DEBUGFLAGS=
 default: lib xxhsum_and_links
 
+## xxhash.h is generated from the units in lib/ (see lib/README.md): it must not be edited.
+## In a git working tree, make regenerates it when units change,
+## which requires a POSIX shell and awk (see build/amalgamate.sh).
+## Set XXH_SYNC=0 to disable, or XXH_SYNC=1 to enable outside of git.
+AMALGAMATE = $(SHELL) build/amalgamate.sh
+XXH_ROOT   = lib/xxhash_root.h
+XXH_UNITS := $(wildcard lib/*.h)
+XXH_SYNC  ?= $(if $(wildcard .git),1,0)
+ifeq ($(XXH_SYNC)$(if $(XXH_UNITS),y),1y)
+xxhash.h: $(XXH_UNITS) build/amalgamate.sh
+	@$(AMALGAMATE) -o $@ $(XXH_ROOT) || \
+	{ echo "cannot regenerate xxhash.h from lib/: set XXH_SYNC=0 to use it as is" >&2; exit 1; }
+	@touch $@  # also when unchanged, to be more recent than the units
+endif
+## objects depend on xxhash.h, even before their dependency files exist
+OBJ_DEPS = xxhash.h
+
 C_SRCDIRS = . $(CLI_DIR) fuzz
 include build/make/multiconf.make
+
+.PHONY: amalgamate
+amalgamate:  ## regenerate xxhash.h from lib/, discarding direct edits
+	$(AMALGAMATE) -o xxhash.h $(XXH_ROOT)
+
+.PHONY: check-amalgamation
+check-amalgamation:  ## check that xxhash.h is up to date with lib/
+	$(AMALGAMATE) --check xxhash.h $(XXH_ROOT)
+
+.PHONY: test-amalgamation
+test-amalgamation: | xxhash.h  ## check variants generated from lib/ against xxhash.h
+	$(SHELL) tests/amalgamation_variants.sh
+
+## limited variants of xxhash.h, with only some hash families (see lib/README.md)
+VARIANT      = $(SHELL) build/variant.sh
+VARIANTS_DIR = variants
+.PHONY: variants
+variants:  ## generate limited variants of xxhash.h into variants/
+	@mkdir -p $(VARIANTS_DIR)
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32.h xxh32
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_oneshot.h --no-stream xxh32
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh64.h xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh64_oneshot.h --no-stream xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxh32_xxh64.h xxh32 xxh64
+	$(VARIANT) -o $(VARIANTS_DIR)/xxhash_oneshot.h --no-stream xxh3
+	$(VARIANT) -o $(VARIANTS_DIR)/xxhash_oneshot_scalar.h --no-stream --vector scalar xxh3
 
 .PHONY: all
 all: lib xxhsum xxhsum_inlinedXXH
@@ -172,11 +217,18 @@ NM   ?= nm
 
 .PHONY: list
 list:  ## list all Makefile targets
-	$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | $(AWK) -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | $(SORT) | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
+	@# targets of the make database, except files which are only prerequisites ("Not a target"),
+	@# pattern rules, special targets and target-specific variables
+	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | \
+	$(AWK) '/^# Files/ { f = 1; next } /^# Finished Make data base/ { f = 0 } \
+	        f && /^# Not a target:/ { n = 1; next } \
+	        f && !n && /^[0-9A-Za-z_][^:=%]*::?([^=]|$$)/ && !/^[^:]*:[^=]*=/ { sub(/:.*/, ""); print } \
+	        { n = 0 }' | \
+	LC_ALL=C $(SORT) -u | $(GREP) -v -x -e '$@' | xargs
 
 .PHONY: help
 help:  ## list documented targets
-	$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@$(GREP) -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | \
 	$(SORT) | \
 	$(AWK) 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
@@ -187,6 +239,7 @@ clean:
 	$(RM) xxhsum.wasm xxhsum.js xxhsum.html
 	$(RM) xxh32sum$(EXT) xxh64sum$(EXT) xxh128sum$(EXT) xxh3sum$(EXT)
 	$(RM) fuzzer
+	$(RM) -r $(VARIANTS_DIR)
 	$(MAKE) -C tests clean
 	$(MAKE) -C tests/bench clean
 	$(MAKE) -C tests/collisions clean
@@ -225,12 +278,16 @@ check: xxhsum test_sanity   ## basic tests for xxhsum CLI, set RUN_ENV for emula
 	@printf "\n .......   checks completed successfully   ....... \n"
 
 .PHONY: test-unicode
-test-unicode:
+test-unicode: | xxhash.h
 	$(MAKE) -C tests test_unicode
 
 .PHONY: test_sanity
-test_sanity:
+test_sanity: | xxhash.h
 	$(MAKE) -C tests test_sanity
+
+.PHONY: test-invalid-args
+test-invalid-args: | xxhash.h  ## check that public functions report invalid arguments
+	$(MAKE) -C tests test_invalid_args
 
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
@@ -278,6 +335,19 @@ test-xxhsum-c: xxhsum
 		diff -u .test.read-error.expected .test.read-error.actual; \
 	else \
 		echo "Skipping read-error test: /proc/self/mem is unavailable"; \
+	fi
+	# A read error while reading the checksum file must be reported, not treated as EOF.
+	@if test -r /proc/self/mem; then \
+		for mode in -c --filelist; do \
+			if LC_ALL=C ./xxhsum $$mode /proc/self/mem > /dev/null 2>&1; then \
+				echo "Expected xxhsum $$mode to fail on an unreadable checksum file" >&2; \
+				exit 1; \
+			fi; \
+			LC_ALL=C ./xxhsum $$mode /proc/self/mem 2>&1 | $(GREP) "Error: Could not read" || \
+				{ echo "Expected a read-error diagnostic from xxhsum $$mode" >&2; exit 1; }; \
+		done; \
+	else \
+		echo "Skipping checksum-file read-error test: /proc/self/mem is unavailable"; \
 	fi
 	# xxhsum to/from file, shell redirection
 	./xxhsum $(TEST_FILES) > .test.xxh64
@@ -373,15 +443,15 @@ test-seed:
 	@$(RM) .test.*
 
 .PHONY: test-filename-escape
-test-filename-escape:
+test-filename-escape: | xxhash.h
 	$(MAKE) -C tests test_filename_escape
 
 .PHONY: test-cli-comment-line
-test-cli-comment-line:
+test-cli-comment-line: | xxhash.h
 	$(MAKE) -C tests test_cli_comment_line
 
 .PHONY: test-cli-ignore-missing
-test-cli-ignore-missing:
+test-cli-ignore-missing: | xxhash.h
 	$(MAKE) -C tests test_cli_ignore_missing
 
 .PHONY: test-cli-tag-validation
@@ -422,29 +492,39 @@ c90test:
 else
 c90test: CPPFLAGS += -DXXH_NO_LONG_LONG
 c90test: CFLAGS += -std=c90 -Werror -pedantic
-c90test: xxhash.c
+c90test: OFILE = xxh_c90.o
+c90test: xxhash.c | xxhash.h
 	@echo ---- test strict C90 compilation [xxh32 only] ----
-	$(RM) xxhash.o
-	$(CC) $(FLAGS) $^ -c
-	$(NM) xxhash.o | $(GREP) XXH64 ; test $$? -eq 1
-	$(RM) xxhash.o
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) XXH64 ; test $$? -eq 1
+	$(RM) $(OFILE)
 endif
 
 .PHONY: noxxh3test
 noxxh3test: CPPFLAGS += -DXXH_NO_XXH3
 noxxh3test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 noxxh3test: OFILE = xxh_noxxh3.o
-noxxh3test: xxhash.c
+noxxh3test: xxhash.c | xxhash.h
 	@echo ---- test compilation without XXH3 ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) XXH3_ ; test $$? -eq 1
+	$(RM) $(OFILE)
+
+.PHONY: noxxh32test
+noxxh32test: CPPFLAGS += -DXXH_NO_XXH32
+noxxh32test: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+noxxh32test: OFILE = xxh_noxxh32.o
+noxxh32test: xxhash.c | xxhash.h
+	@echo ---- test compilation without XXH32 ----
+	$(CC) $(FLAGS) -c $^ -o $(OFILE)
+	$(NM) $(OFILE) | $(GREP) -E 'XXH32|XXH3_' ; test $$? -eq 1
 	$(RM) $(OFILE)
 
 .PHONY: nostreamtest
 nostreamtest: CPPFLAGS += -DXXH_NO_STREAM
 nostreamtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 nostreamtest: OFILE = xxh_nostream.o
-nostreamtest: xxhash.c
+nostreamtest: xxhash.c | xxhash.h
 	@echo ---- test compilation without streaming ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) update ; test $$? -eq 1
@@ -454,10 +534,23 @@ nostreamtest: xxhash.c
 nostdlibtest: CPPFLAGS += -DXXH_NO_STDLIB
 nostdlibtest: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
 nostdlibtest: OFILE = xxh_nostdlib.o
-nostdlibtest: xxhash.c
+nostdlibtest: xxhash.c | xxhash.h
 	@echo ---- test compilation without \<stdlib.h\> ----
 	$(CC) $(FLAGS) -c $^ -o $(OFILE)
 	$(NM) $(OFILE) | $(GREP) "U _free\|U free" ; test $$? -eq 1
+	$(RM) $(OFILE)
+
+.PHONY: test-build-macros
+test-build-macros: CFLAGS += -Werror -pedantic -Wno-long-long  # XXH64 requires long long support
+test-build-macros: OFILE = xxh_buildmacros.o
+test-build-macros: xxhash.c | xxhash.h  ## compile with every combination of build macros removing code, without warning
+	@echo ---- test compilation with every combination of XXH_NO_XXH32, XXH_NO_LONG_LONG, XXH_NO_XXH3, XXH_NO_STREAM, XXH_NO_STDLIB ----
+	@for m1 in "" -DXXH_NO_XXH32; do for m2 in "" -DXXH_NO_LONG_LONG; do for m3 in "" -DXXH_NO_XXH3; do \
+	  for m4 in "" -DXXH_NO_STREAM; do for m5 in "" -DXXH_NO_STDLIB; do \
+	    echo "$$m1 $$m2 $$m3 $$m4 $$m5"; \
+	    $(CC) $(FLAGS) $$m1 $$m2 $$m3 $$m4 $$m5 -c $< -o $(OFILE) || exit 1; \
+	  done; done; \
+	done; done; done
 	$(RM) $(OFILE)
 
 .PHONY: usan
@@ -480,11 +573,11 @@ cppcheck:  ## check C source files using $(CPPCHECK) static analyzer
 	$(CPPCHECK) . --force --enable=warning,portability,performance,style --error-exitcode=1 > /dev/null
 
 .PHONY: namespaceTest
-namespaceTest:  ## ensure XXH_NAMESPACE redefines all public symbols
-	$(CC) -c xxhash.c
-	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxhash2.o
-	$(CC) xxhash.o xxhash2.o $(CLI_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
-	$(RM) *.o xxhsum2  # clean
+namespaceTest: | xxhash.h  ## ensure XXH_NAMESPACE redefines all public symbols
+	$(CC) -c xxhash.c -o xxh_namespace1.o
+	$(CC) -DXXH_NAMESPACE=TEST_ -c xxhash.c -o xxh_namespace2.o
+	$(CC) xxh_namespace1.o xxh_namespace2.o $(CLI_SRCS)  -o xxhsum2  # will fail if one namespace missing (symbol collision)
+	$(RM) xxh_namespace1.o xxh_namespace2.o xxhsum2  # clean
 
 MAN = $(CLI_DIR)/xxhsum.1
 MD2ROFF ?= ronn
@@ -516,11 +609,11 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c test-cli-tag-validation c90test test-tools noxxh3test nostdlibtest
+test: all namespaceTest check test-xxhsum-c test-cli-tag-validation test-invalid-args c90test test-tools noxxh3test noxxh32test nostdlibtest test-build-macros
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude
-test-multiInclude:
+test-multiInclude: | xxhash.h
 	$(MAKE) -C tests test_multiInclude
 
 .PHONY: test-inline-notexposed
@@ -530,7 +623,7 @@ test-inline-notexposed: xxhsum_inlinedXXH
 
 # this test checks that a unit requesting XXH_INLINE_ALL can nonetheless employ the x86 dispatcher
 .PHONY: test-inline-dispatch
-test-inline-dispatch:
+test-inline-dispatch: | xxhash.h
 	$(MAKE) -C tests test_inline_dispatch
 
 .PHONY: test-inline
@@ -541,8 +634,12 @@ test-inline: test-inline-notexposed test-multiInclude test-inline-dispatch
 test-all: CFLAGS += -Werror
 test-all: test test32 test-unicode clangtest gcc-og-test cxxtest usan test-inline listL120 trailingWhitespace test-xxh-nnn-sums
 
+.PHONY: test-api-compat
+test-api-compat: | xxhash.h  ## check that the API of xxhash.h remains compatible with the latest release
+	$(SHELL) tests/api_compat.sh
+
 .PHONY: test-tools
-test-tools: check-version
+test-tools: check-version test-api-compat check-amalgamation
 	CFLAGS=-Werror $(MAKE) -C tests/bench
 	CFLAGS=-Werror $(MAKE) -C tests/collisions check
 
@@ -590,7 +687,7 @@ listL120:  # extract lines >= 120 characters in *.{c,h}, by Takayuki Matsuoka (n
 
 .PHONY: trailingWhitespace
 trailingWhitespace:
-	@$(GREP) -n -E "`printf '[ \\t]$$'`" cli/*.c cli/*.h cli/*.1 *.c *.h LICENSE Makefile build/cmake/CMakeLists.txt && { echo "Error: trailing whitespace detected"; exit 1; } || true
+	@$(GREP) -n -E "`printf '[ \\t]$$'`" cli/*.c cli/*.h cli/*.1 *.c *.h lib/*.h LICENSE Makefile build/cmake/CMakeLists.txt && { echo "Error: trailing whitespace detected"; exit 1; } || true
 
 .PHONY: lint-unicode
 lint-unicode:

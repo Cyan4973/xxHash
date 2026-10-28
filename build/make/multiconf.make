@@ -39,6 +39,8 @@
 #   alternatively: set CACHE_ROOT to some different value.
 # Optional:
 # - HASH can be set to a different custom hash program.
+# - OBJ_DEPS: prerequisites of all object files, such as generated headers
+#   (dependency files only record them after a first compilation).
 
 # *_program*: generates a recipe for a target that will be built in a cache directory.
 # The cache directory is automatically derived from CACHE_ROOT and list of flags and compilers.
@@ -66,9 +68,9 @@ CACHE_ROOT ?= cachedObjs
 # Dependency management
 DEPFLAGS = -MT $@ -MMD -MP -MF
 
-# Include dependency files
-include $(wildcard $(CACHE_ROOT)/**/*.d)
-include $(wildcard $(CACHE_ROOT)/generic/*/*.d)
+# Include dependency files, including those of objects in sub-directories
+# (note: GNU make wildcard does not recurse with **)
+include $(wildcard $(CACHE_ROOT)/*/*.d $(CACHE_ROOT)/*/*/*.d $(CACHE_ROOT)/*/*/*/*.d)
 
 # --------------------------------------------------------------------------------------------
 
@@ -166,10 +168,10 @@ CC_OBJS  ?= $(patsubst %.cc,%.o,$(CC_SRCS))
 CXX_OBJS ?= $(CPP_OBJS) $(CC_OBJS) # Note: not used
 ASM_OBJS ?= $(patsubst %.S,%.o,$(ASM_SRCS))
 
-$(foreach OBJ,$(C_OBJS),$(eval $(call addTargetCObject,$(OBJ))))
-$(foreach OBJ,$(CPP_OBJS),$(eval $(call addTargetCxxObject,$(OBJ),cpp)))
-$(foreach OBJ,$(CC_OBJS),$(eval $(call addTargetCxxObject,$(OBJ),cc)))
-$(foreach OBJ,$(ASM_OBJS),$(eval $(call addTargetAsmObject,$(OBJ))))
+$(foreach OBJ,$(C_OBJS),$(eval $(call addTargetCObject,$(OBJ),$(OBJ_DEPS))))
+$(foreach OBJ,$(CPP_OBJS),$(eval $(call addTargetCxxObject,$(OBJ),cpp,$(OBJ_DEPS))))
+$(foreach OBJ,$(CC_OBJS),$(eval $(call addTargetCxxObject,$(OBJ),cc,$(OBJ_DEPS))))
+$(foreach OBJ,$(ASM_OBJS),$(eval $(call addTargetAsmObject,$(OBJ),$(OBJ_DEPS))))
 
 # --------------------------------------------------------------------------------------------
 # The following macros are used to create targets in the user Makefile.

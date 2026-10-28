@@ -1,0 +1,178 @@
+xxHash source units
+===================
+
+`xxhash.h`, at the root of the repository, is generated from the files in this
+directory. It only keeps the documentation of public declarations, which IDEs display.
+They are the reference source: edit them, not `xxhash.h`.
+
+- `xxhash_root.h` : the skeleton of `xxhash.h`. It defines the layers (public declarations,
+  declarations for static linking, implementation) with their guards,
+  and includes the units below at their insertion points. It is a valid header, usable directly.
+- Units common to all families:
+  - `xxh_doc.h` : main page of documentation (no code).
+  - `xxh_modes.h` : integration modes (`XXH_INLINE_ALL`, `XXH_PRIVATE_API`, `XXH_NAMESPACE`).
+  - `xxh_api.h` : common declarations (symbol visibility, attributes, version, basic types).
+  - `xxh_tuning.h` : common tuning parameters, and their documentation.
+  - `xxh_compiler.h` : compiler specifics (inlining, assertions, builtins).
+  - `xxh_memory.h` : basic types and memory primitives (reads, endianness, rotations, byteswap).
+  - `xxh_stream_impl.h` : memory functions for streaming states.
+- `xxh32_*.h` : `XXH32` family.
+- `xxh64_*.h` : `XXH64` family.
+- `xxh3_*.h` : `XXH3` and `XXH128` family.
+
+Each family is split into one-shot and streaming units,
+since streaming is the most complex part of each family:
+
+| Layer                                      | One-shot         | Streaming                            |
+|--------------------------------------------|------------------|--------------------------------------|
+| public declarations                        | `xxhNN_api.h`    | `xxhNN_stream_api.h`                 |
+| declarations for `XXH_STATIC_LINKING_ONLY` | `xxhNN_static.h` | `xxh3_stream_static.h` (`XXH3` only) |
+| implementation                             | `xxhNN_impl.h`   | `xxhNN_stream_impl.h`                |
+
+where `NN` is `32`, `64` or `3`.
+Streaming states are declared in `xxhNN_static.h`, so that they remain available
+with `XXH_NO_STREAM`, as in previous versions.
+Declaration units also host their symbol names, for `XXH_NAMESPACE` and `XXH_INLINE_ALL`.
+`xxh3_stream_impl.h` is included from `xxh3_impl.h`,
+in order to share its compilation settings.
+
+The implementation of `XXH3` is split into `xxh3_impl.h`, which hosts what is common
+to both widths, and `xxh3_64bits_impl.h` (`XXH3_64bits*()`) and `xxh3_128bits_impl.h`
+(`XXH3_128bits*()`, `XXH128*()`), included from it.
+The routines of `XXH3` for long inputs exist for each instruction set,
+each in its own unit, also included from `xxh3_impl.h`:
+`xxh3_scalar.h` (always available), `xxh3_sse2.h`, `xxh3_avx2.h`, `xxh3_avx512.h` (x86),
+`xxh3_neon.h` (ARM, WebAssembly), `xxh3_sve.h` (ARM), `xxh3_vsx.h` (POWER, s390x),
+`xxh3_lsx.h`, `xxh3_lasx.h` (LoongArch) and `xxh3_rvv.h` (RISC-V).
+Each one is guarded by the instruction set it implements.
+`xxh3_impl.h` keeps the detection of the instruction set (`XXH_VECTOR`),
+and the selection of the corresponding routines.
+
+Common units only host what is needed by several families
+(or by several streaming implementations, for `xxh_stream_impl.h`).
+What is needed by a single family belongs to its units.
+Exceptions preserve definitions previously exposed by xxhash.h, such as `XXH_FALLTHROUGH`.
+Since `XXH3` depends on `XXH32` and `XXH64`, it may use helpers defined in their units,
+and streaming units may use helpers defined in the one-shot units of the same family.
+
+Units are fragments of `xxhash.h`, not standalone headers:
+they are only meaningful at their insertion point,
+and are not meant to be included directly by user programs.
+Each unit is wrapped into the build macro guards of its family, and of streaming if applicable,
+so that removing some units is equivalent to defining the corresponding build macros:
+
+| Units         | Build macro        | Depends on       |
+|---------------|--------------------|------------------|
+| `xxh32_*`     | `XXH_NO_XXH32`     |                  |
+| `xxh64_*`     | `XXH_NO_LONG_LONG` |                  |
+| `xxh3_*`      | `XXH_NO_XXH3`      | `XXH32`, `XXH64` |
+| `*_stream_*`  | `XXH_NO_STREAM`    |                  |
+
+
+Documentation
+-------------
+
+The API is documented in the units, starting with `xxh_doc.h` (overview and examples),
+then the public declarations of each family: `xxh32_api.h`, `xxh64_api.h`, `xxh3_api.h`,
+and their streaming counterparts `*_stream_api.h`.
+Build macros are documented in `xxh_modes.h` and `xxh_tuning.h`.
+
+Running `doxygen` (or `doxygen Doxyfile-internal`, which includes internal details)
+at the root of the repository generates the HTML documentation in `doxygen/html`.
+Doxygen reads `xxhash.h` through `build/doxygen_filter.sh`,
+which replaces it by the amalgamation of the units with all their comments
+(`build/amalgamate.sh --comments all`).
+
+
+Limited variants
+----------------
+
+Applications which only need some hash families can use a limited variant of `xxhash.h`,
+generated by `build/variant.sh`. It behaves like `xxhash.h` compiled with the corresponding
+build macros (`XXH_NO_XXH32`, `XXH_NO_LONG_LONG`, `XXH_NO_XXH3`, `XXH_NO_STREAM`, `XXH_VECTOR`),
+but only contains the selected code. It replaces `xxhash.h`, and offers the same interface.
+```sh
+sh build/variant.sh --no-stream xxh32 > xxh32_oneshot.h   # one-shot XXH32 only
+sh build/variant.sh xxh32 xxh64 > xxh32_xxh64.h            # XXH32 and XXH64, with streaming
+sh build/variant.sh --vector scalar xxh3 > xxhash_scalar.h # all families, without vector instructions
+```
+Families are `xxh32`, `xxh64` and `xxh3` (which requires, hence includes, `xxh32` and `xxh64`).
+`--no-stream` removes the streaming API.
+`--vector ISA` only keeps the `XXH3` routines of one instruction set (and the scalar ones):
+`scalar`, `sse2`, `avx2`, `avx512`, `neon`, `sve`, `vsx`, `lsx`, `lasx` or `rvv`.
+Like `XXH_VECTOR`, which it sets, it requires a target supporting this instruction set
+(e.g. `-mavx2` for `avx2`). `XXH_VECTOR` can still select the scalar routines,
+but selecting another instruction set is an error. For the same reason, such a variant
+cannot be used by the x86 dispatcher (`xxh_x86dispatch.c`), which needs the SSE2, AVX2
+and AVX512 routines.
+`--comments none` removes all comments, including the documentation of declarations.
+
+`make variants` generates a few of them in `variants/`:
+
+| File                      | Content                                                 |
+|---------------------------|---------------------------------------------------------|
+| `xxh32.h`                 | `XXH32`                                                 |
+| `xxh32_oneshot.h`         | `XXH32`, without streaming                              |
+| `xxh64.h`                 | `XXH64`                                                 |
+| `xxh64_oneshot.h`         | `XXH64`, without streaming                              |
+| `xxh32_xxh64.h`           | `XXH32` and `XXH64`                                     |
+| `xxhash_oneshot.h`        | all families, without streaming                         |
+| `xxhash_oneshot_scalar.h` | all families, without streaming nor vector instructions |
+
+They are also attached to each release (starting with v0.8.5).
+
+
+Workflow
+--------
+
+- Edit the units, then run `make` as usual:
+  `xxhash.h` is regenerated when units change, before being used.
+  This happens in a git working tree, and requires a POSIX shell and `awk`:
+  `XXH_SYNC=0` disables it, `XXH_SYNC=1` enables it outside of git.
+- Commit both the units and the regenerated `xxhash.h`.
+  CI fails if `xxhash.h` is not up to date with `lib/`.
+- `xxhash.h` must not be edited: each regeneration overwrites direct changes.
+  `make amalgamate` regenerates it unconditionally.
+- `make check-amalgamation` verifies that `xxhash.h` is up to date, without writing it.
+- `make test-amalgamation` checks that headers generated from `lib/` are equivalent to `xxhash.h`.
+
+Bug reports and debuggers generally reference lines in `xxhash.h`.
+To find the corresponding source line:
+```sh
+sh build/amalgamate.sh --where 4242 lib/xxhash_root.h
+```
+
+History of code moved from `xxhash.h` into units can be tracked with `git blame -C -C`.
+
+
+Generator
+---------
+
+`build/amalgamate.sh` only requires a POSIX shell and a POSIX `awk`.
+It copies `xxhash_root.h`, replacing each line `#include "unit.h"`
+(exactly this form, at the beginning of the line)
+by the content of the unit, minus its leading license block.
+The result starts with the license block of `xxhash_root.h`,
+followed by a note telling it is generated.
+Comments are removed, except the documentation of declarations in declaration units
+(`*_api.h`, `*_static.h`): documentation blocks (`/*!` or `/**`) followed by a declaration,
+and documentation of members at the end of a line (`/*!< ... */`).
+Option `--comments none` removes all comments, and `--comments all` keeps them all.
+Fallthrough markers (`/* fallthrough */`) are always kept, for tools which rely on them.
+Code depending on `XXH_DOXYGEN`, which only serves the documentation, is removed
+(like `unifdef -UXXH_DOXYGEN`), except with `--comments all`.
+Expansion is recursive. It also verifies that:
+- each unit starts with a license block (`/*` ... ` */`, mentioning `Copyright`
+  and `BSD 2-Clause License`), followed by exactly one empty line;
+- each file has balanced `#if` / `#endif`;
+- each unit is included exactly once;
+- all `*.h` files in this directory are used.
+
+Lower level, `build/amalgamate.sh` generates custom variants by excluding units
+(`-x unit.h`, which also excludes the units it includes), and by defining the corresponding
+build macros (`-D MACRO`), since remaining code may still test them.
+A family can only be excluded together with the families depending on it.
+`make test-amalgamation` checks variants against `xxhash.h` compiled with the same build macros.
+
+New unit names must be unique across the repository,
+must differ from installed headers (such as `xxh3.h`), and cannot contain spaces.

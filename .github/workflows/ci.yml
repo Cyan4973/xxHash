@@ -379,6 +379,103 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" RUN_ENV="node" NODE_JS=1 LDFLAGS="-sWASM=0" make clean check
 
 
+  ubuntu-wasi:
+    name: WebAssembly/WASI ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: [
+          # oldest and newest clang of Ubuntu, with the wasi-libc of the distribution
+          # (simde: whether its SIMDe builds the NEON code path, 0.7.2 lacks vshrn_n_u64)
+          { name: 'clang-16, wasi',        os: ubuntu-24.04, toolchain: clang, clang: 16, simde: false, },
+          { name: 'clang-22, wasi, SIMDe', os: ubuntu-26.04, toolchain: clang, clang: 22, simde: true,  },
+          # official WASI SDK, with its own clang, libc and sysroot: WASI preview 2 component
+          { name: 'WASI SDK, wasip2',      os: ubuntu-24.04, toolchain: wasi-sdk, },
+          # zig cc, with its own wasi-libc
+          { name: 'zig, wasi',             os: ubuntu-24.04, toolchain: zig, },
+        ]
+    runs-on: ${{ matrix.os }}
+
+    env:
+      LDFLAGS: -lwasi-emulated-process-clocks
+      RUN_ENV: wasmtime run --dir=.
+      WASI_SDK_VERSION: '34.0'
+      WASI_SDK_SHA256: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
+      ZIG_VERSION: 0.17.0
+      ZIG_SHA256: 1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install clang and wasi-libc
+      if: ${{ matrix.toolchain == 'clang' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install clang-${{ matrix.clang }} lld-${{ matrix.clang }} libclang-rt-${{ matrix.clang }}-dev-wasm32 wasi-libc libsimde-dev
+        echo "CC=clang-${{ matrix.clang }} --target=wasm32-wasi --sysroot=/usr -D_WASI_EMULATED_PROCESS_CLOCKS" >> "$GITHUB_ENV"
+
+    - name: Install WASI SDK
+      if: ${{ matrix.toolchain == 'wasi-sdk' }}
+      run: |
+        archive="wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz"
+        curl -sSfL -o "$RUNNER_TEMP/$archive" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION%%.*}/$archive"
+        echo "$WASI_SDK_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c
+        tar xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+        sdk="$RUNNER_TEMP/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux"
+        echo "CC=$sdk/bin/clang --target=wasm32-wasip2 --sysroot=$sdk/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS" >> "$GITHUB_ENV"
+
+    - name: Install zig
+      if: ${{ matrix.toolchain == 'zig' }}
+      run: |
+        archive="zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+        curl -sSfL -o "$RUNNER_TEMP/$archive" "https://ziglang.org/download/${ZIG_VERSION}/$archive"
+        echo "$ZIG_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c
+        tar xJf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+        echo "$RUNNER_TEMP/zig-x86_64-linux-${ZIG_VERSION}" >> "$GITHUB_PATH"
+        echo "CC=zig cc -target wasm32-wasi -D_WASI_EMULATED_PROCESS_CLOCKS" >> "$GITHUB_ENV"
+
+    - name: Setup wasmtime
+      uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1.1.3
+      with:
+        version: v50.0.0
+
+    - name: Environment info
+      run: |
+        echo && $CC --version
+        echo && wasmtime --version
+        echo && make -v
+
+    - name: Scalar code path
+      run: |
+        CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" make clean check
+
+    - name: SIMD128 code path
+      run: |
+        CPPFLAGS="-msimd128" make clean check
+
+    - name: SIMD128 (via NEON SIMDe) code path (XXH_VECTOR=XXH_NEON)
+      if: ${{ matrix.simde }}
+      run: |
+        simde_dir="${RUNNER_TEMP}/simde"  # an arm_neon.h from SIMDe, as Emscripten provides
+        mkdir -p "${simde_dir}"
+        printf '#define SIMDE_ENABLE_NATIVE_ALIASES\n#include <simde/arm/neon.h>\n' > "${simde_dir}/arm_neon.h"
+        CPPFLAGS="-DXXH_VECTOR=XXH_NEON -msimd128 -isystem ${simde_dir} -DSIMDE_FLOAT16_API=SIMDE_FLOAT16_API_PORTABLE" make clean check
+
+    - name: Size-optimized code path (XXH_SIZE_OPT=2)
+      if: ${{ matrix.toolchain == 'zig' }}
+      run: |
+        CPPFLAGS="-Os -DXXH_SIZE_OPT=2" make clean check
+
+    - name: wasm64 compilation (no WASI libc for wasm64)
+      if: ${{ matrix.toolchain == 'clang' && matrix.clang == 22 }}
+      run: |
+        for flags in "" -msimd128; do
+          clang-22 --target=wasm64-unknown-unknown -ffreestanding -DXXH_NO_STDLIB \
+                   -DXXH_memcpy=__builtin_memcpy -DXXH_memset=__builtin_memset -DXXH_memcmp=__builtin_memcmp \
+                   -O2 -Wall -Wextra -Werror $flags -c xxhash.c -o /dev/null
+        done
+
+
   ubuntu-misc:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest

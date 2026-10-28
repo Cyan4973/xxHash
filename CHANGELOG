@@ -1,11 +1,18 @@
 v0.8.5 (in development)
+- perf : RISC-V Vector (RVV) implementation keeps XXH3 accumulators in vector registers, up to 68% faster on SG2044, by @Deng-zewen (#1162)
+- api  : new build macro `XXH_NO_XXH32`
+- cli  : `--check` and `--filelist` report read errors instead of treating them as the end of the file, by @Chimpanther (#1172)
+- cli  : `--check` rejects invalid algorithm names, by @arpitkjaiswal (#1166)
+- cli  : suggest `-h` when no input is provided, by @officialjisanhalder-art, #1157 reported by @therube
+- fix  : `XXH3_*_reset_withSecret()` and `XXH3_generateSecret()` accepted a secret too small in optimized builds, and aborted in debug builds, #1171 reported by @gitallcrypt
+- fix  : compilation with Visual Studio and `XXH_NO_STREAM` or `XXH_NO_STDLIB`
+- fix  : WebAssembly SIMD128 compilation with clang's own `arm_neon.h`, by @mikatammi (#1165)
 - build: xxhash.h is generated from source units in `lib/`, now the source of truth (#550); in a git working tree, `make` regenerates it when they change (`XXH_SYNC=0` disables it)
 - build: `make variants` and `build/variant.sh` generate limited variants of xxhash.h (e.g. XXH32 or XXH64 only, without streaming, or without vector instructions), also attached to each release
 - build: xxhash.h only keeps the documentation of public declarations; complete documentation is in `lib/`
-- api  : new build macro `XXH_NO_XXH32`
-- fix  : compilation with Visual Studio and `XXH_NO_STREAM` or `XXH_NO_STDLIB`
-- fix  : `make list`, `make help`, and parallel `make test`
-
+- build: CMake honors `DISPATCH=OFF`, by @fhgffy (#1160)
+- build: fixed `make list`, `make help`, and parallel `make test`
+- doc  : fixed secret examples and API contracts, by @dajiaohuang (#1170)
 v0.8.4
 - perf : added RISC-V Vector extension (RVV) implementation, by @zijianli1234, @BoBoDai and @camel-cdr
 - perf : added LoongArch LASX implementation and improved LSX, by @24bit-xjkp

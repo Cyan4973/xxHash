@@ -186,7 +186,8 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  * @param customSeedSize  Size of customSeed, in bytes.
  *
  * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return @ref XXH_ERROR if @p secretBuffer is `NULL`,
+ *         or if @p secretSize < @ref XXH3_SECRET_SIZE_MIN.
  *
  * The generated secret can be used in combination with `*_withSecret()` functions.
  * The `_withSecret()` variants are useful to provide a higher level of protection
@@ -211,8 +212,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  * of zeroes. The resulting `secret` will nonetheless provide all required qualities.
  *
  * @pre
- *   - @p secretSize must be >= @ref XXH3_SECRET_SIZE_MIN
- *   - When @p customSeedSize > 0, supplying NULL as customSeed is undefined behavior.
+ *   When @p customSeedSize > 0, supplying NULL as customSeed is undefined behavior.
  *
  * Example code:
  * @code{.c}

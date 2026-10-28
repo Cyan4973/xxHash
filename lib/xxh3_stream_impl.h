@@ -150,6 +150,7 @@ XXH3_copyState(XXH_NOESCAPE XXH3_state_t* dst_state, XXH_NOESCAPE const XXH3_sta
     XXH_memcpy(dst_state, src_state, sizeof(*dst_state));
 }
 
+/* arguments are validated by the public reset functions */
 static void
 XXH3_reset_internal(XXH3_state_t* statePtr,
                     XXH64_hash_t seed,
@@ -158,7 +159,6 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
     size_t const initStart = offsetof(XXH3_state_t, bufferedSize);
     size_t const initLength = offsetof(XXH3_state_t, nbStripesPerBlock) - initStart;
     XXH_ASSERT(offsetof(XXH3_state_t, nbStripesPerBlock) > initStart);
-    XXH_ASSERT(statePtr != NULL);
     /* set members from bufferedSize to nbStripesPerBlock (excluded) to 0 */
     XXH_memset((char*)statePtr + initStart, 0, initLength);
     statePtr->acc[0] = XXH_PRIME32_3;
@@ -172,7 +172,6 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
     statePtr->seed = seed;
     statePtr->useSeed = (seed != 0);
     statePtr->extSecret = (const unsigned char*)secret;
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     statePtr->secretLimit = secretSize - XXH_STRIPE_LEN;
     statePtr->nbStripesPerBlock = statePtr->secretLimit / XXH_SECRET_CONSUME_RATE;
 }
@@ -191,9 +190,9 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, secret, secretSize);
     if (secret == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
+    XXH3_reset_internal(statePtr, 0, secret, secretSize);
     return XXH_OK;
 }
 

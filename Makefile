@@ -285,6 +285,10 @@ test-unicode: | xxhash.h
 test_sanity: | xxhash.h
 	$(MAKE) -C tests test_sanity
 
+.PHONY: test-invalid-args
+test-invalid-args: | xxhash.h  ## check that public functions report invalid arguments
+	$(MAKE) -C tests test_invalid_args
+
 .PHONY: test-mem
 VALGRIND = valgrind --leak-check=yes --error-exitcode=1
 test-mem: RUN_ENV = $(VALGRIND)
@@ -588,7 +592,7 @@ preview-man: man
 
 .PHONY: test
 test: DEBUGFLAGS += -DXXH_DEBUGLEVEL=1
-test: all namespaceTest check test-xxhsum-c c90test test-tools noxxh3test noxxh32test nostdlibtest test-build-macros
+test: all namespaceTest check test-xxhsum-c test-invalid-args c90test test-tools noxxh3test noxxh32test nostdlibtest test-build-macros
 
 # this test checks that including "xxhash.h" multiple times and with different directives still compiles properly
 .PHONY: test-multiInclude

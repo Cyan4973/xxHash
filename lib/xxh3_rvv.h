@@ -165,6 +165,107 @@ XXH3_initCustomSecret_rvv(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
         }
     }
 }
+
+/*
+ * The whole loop of long inputs, with the accumulators kept in 4 vector
+ * registers across all stripes and blocks, instead of being loaded and stored
+ * at each stripe. It requires VLEN >= 128, like the rest of this unit.
+ * RVV types cannot be members of structs or arrays, hence a single function.
+ */
+XXH_FORCE_INLINE void
+XXH3_hashLong_internal_loop_rvv(xxh_u64* XXH_RESTRICT acc,
+                      const xxh_u8* XXH_RESTRICT input, size_t len,
+                      const xxh_u8* XXH_RESTRICT secret, size_t secretSize)
+{
+    size_t const nbStripesPerBlock = (secretSize - XXH_STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
+    size_t const block_len = XXH_STRIPE_LEN * nbStripesPerBlock;
+    size_t const nb_blocks = (len - 1) / block_len;
+
+    size_t vl = XXH_RVOP(vsetvl_e64m1)(2);
+    static const uint64_t swap_mask[2] = {1, 0};
+    vuint64m1_t xswap_mask = XXH_RVOP(vle64_v_u64m1)(swap_mask, vl);
+    const xxh_u64* xacc = (const xxh_u64*)acc;
+    size_t n;
+
+    /* accumulators: 4 x (e64m1, vl=2) */
+    vuint64m1_t r0 = XXH_RVOP(vle64_v_u64m1)(xacc + 0, vl);
+    vuint64m1_t r1 = XXH_RVOP(vle64_v_u64m1)(xacc + 2, vl);
+    vuint64m1_t r2 = XXH_RVOP(vle64_v_u64m1)(xacc + 4, vl);
+    vuint64m1_t r3 = XXH_RVOP(vle64_v_u64m1)(xacc + 6, vl);
+
+#define XXH_RVV_ACC_LANE(R, XI, XS)                                   \
+    {                                                                  \
+        vuint64m1_t d_ = XXH_RVCAST(u8m1_u64m1)(XXH_RVOP(vle8_v_u8m1)((const uint8_t*)(XI), 16)); \
+        vuint64m1_t k_ = XXH_RVCAST(u8m1_u64m1)(XXH_RVOP(vle8_v_u8m1)((const uint8_t*)(XS), 16)); \
+        vuint64m1_t dk_ = XXH_RVOP(vxor_vv_u64m1)(d_, k_, vl);        \
+        vuint64m1_t hi_ = XXH_RVOP(vsrl_vx_u64m1)(dk_, 32, vl);       \
+        vuint64m1_t lo_ = XXH_RVOP(vand_vx_u64m1)(dk_, 0xffffffff, vl); \
+        vuint64m1_t sw_ = XXH_RVOP(vrgather_vv_u64m1)(d_, xswap_mask, vl); \
+        R = XXH_RVOP(vmacc_vv_u64m1)(R, lo_, hi_, vl);                \
+        R = XXH_RVOP(vadd_vv_u64m1)(R, sw_, vl);                       \
+    }
+
+#define XXH_RVV_SCRAMBLE_LANE(R, XS)                                  \
+    {                                                                  \
+        vuint64m1_t k_ = XXH_RVCAST(u8m1_u64m1)(XXH_RVOP(vle8_v_u8m1)((const uint8_t*)(XS), 16)); \
+        vuint64m1_t s_ = XXH_RVOP(vsrl_vx_u64m1)(R, 47, vl);          \
+        R = XXH_RVOP(vxor_vv_u64m1)(R, s_, vl);                        \
+        R = XXH_RVOP(vxor_vv_u64m1)(R, k_, vl);                        \
+        R = XXH_RVOP(vmul_vx_u64m1)(R, XXH_PRIME32_1, vl);             \
+    }
+
+    for (n = 0; n < nb_blocks; n++) {
+        const xxh_u8* xin  = input + n*block_len;
+        size_t s;
+        for (s = 0; s < nbStripesPerBlock; s++) {
+            const xxh_u8* si = xin + s*XXH_STRIPE_LEN;
+            const xxh_u8* sk = secret + s*XXH_SECRET_CONSUME_RATE;
+            /* 4 independent chains per stripe */
+            XXH_RVV_ACC_LANE(r0, si + 0, sk + 0)
+            XXH_RVV_ACC_LANE(r1, si + 16, sk + 16)
+            XXH_RVV_ACC_LANE(r2, si + 32, sk + 32)
+            XXH_RVV_ACC_LANE(r3, si + 48, sk + 48)
+        }
+        {   const uint8_t* sc = secret + secretSize - XXH_STRIPE_LEN;
+            XXH_RVV_SCRAMBLE_LANE(r0, sc + 0)
+            XXH_RVV_SCRAMBLE_LANE(r1, sc + 16)
+            XXH_RVV_SCRAMBLE_LANE(r2, sc + 32)
+            XXH_RVV_SCRAMBLE_LANE(r3, sc + 48)
+        }
+    }
+
+    /* last partial block */
+    {   size_t const nbStripes = ((len - 1) - (block_len * nb_blocks)) / XXH_STRIPE_LEN;
+        const xxh_u8* xin = input + nb_blocks*block_len;
+        size_t s;
+        for (s = 0; s < nbStripes; s++) {
+            const xxh_u8* si = xin + s*XXH_STRIPE_LEN;
+            const xxh_u8* sk = secret + s*XXH_SECRET_CONSUME_RATE;
+            XXH_RVV_ACC_LANE(r0, si + 0, sk + 0)
+            XXH_RVV_ACC_LANE(r1, si + 16, sk + 16)
+            XXH_RVV_ACC_LANE(r2, si + 32, sk + 32)
+            XXH_RVV_ACC_LANE(r3, si + 48, sk + 48)
+        }
+        /* last stripe */
+        {   const xxh_u8* si = input + len - XXH_STRIPE_LEN;
+            const xxh_u8* sk = secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START;
+            XXH_RVV_ACC_LANE(r0, si + 0, sk + 0)
+            XXH_RVV_ACC_LANE(r1, si + 16, sk + 16)
+            XXH_RVV_ACC_LANE(r2, si + 32, sk + 32)
+            XXH_RVV_ACC_LANE(r3, si + 48, sk + 48)
+        }
+    }
+
+#undef XXH_RVV_SCRAMBLE_LANE
+#undef XXH_RVV_ACC_LANE
+
+    XXH_RVOP(vse64_v_u64m1)(acc + 0, r0, vl);
+    XXH_RVOP(vse64_v_u64m1)(acc + 2, r1, vl);
+    XXH_RVOP(vse64_v_u64m1)(acc + 4, r2, vl);
+    XXH_RVOP(vse64_v_u64m1)(acc + 6, r3, vl);
+}
+/* replaces the generic loop of long inputs, in xxh3_impl.h */
+#define XXH3_hashLong_internal_loop_simd XXH3_hashLong_internal_loop_rvv
 #endif
 
 #endif  /* !XXH_NO_XXH3 */

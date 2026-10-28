@@ -757,6 +757,7 @@ XXH_FORCE_INLINE xxh_u64 XXH3_mix16B(const xxh_u8* XXH_RESTRICT input,
 #define XXH_STRIPE_LEN 64
 #define XXH_SECRET_CONSUME_RATE 8   /* nb of secret bytes consumed at each accumulation */
 #define XXH_ACC_NB (XXH_STRIPE_LEN / sizeof(xxh_u64))
+#define XXH_SECRET_LASTACC_START 7  /* not aligned on 8, last secret is different from acc & scrambler */
 
 #ifdef XXH_OLD_NAMES
 #  define STRIPE_LEN XXH_STRIPE_LEN
@@ -962,6 +963,12 @@ XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
                       const xxh_u8* XXH_RESTRICT secret, size_t secretSize,
                             XXH3_f_accumulate f_acc,
                             XXH3_f_scrambleAcc f_scramble)
+#ifdef XXH3_hashLong_internal_loop_simd
+{   /* the selected instruction set provides its own loop, see xxh3_rvv.h */
+    (void)f_acc; (void)f_scramble;
+    XXH3_hashLong_internal_loop_simd(acc, input, len, secret, secretSize);
+}
+#else
 {
     size_t const nbStripesPerBlock = (secretSize - XXH_STRIPE_LEN) / XXH_SECRET_CONSUME_RATE;
     size_t const block_len = XXH_STRIPE_LEN * nbStripesPerBlock;
@@ -984,10 +991,10 @@ XXH3_hashLong_internal_loop(xxh_u64* XXH_RESTRICT acc,
 
         /* last stripe */
         {   const xxh_u8* const p = input + len - XXH_STRIPE_LEN;
-#define XXH_SECRET_LASTACC_START 7  /* not aligned on 8, last secret is different from acc & scrambler */
             XXH3_accumulate_512(acc, p, secret + secretSize - XXH_STRIPE_LEN - XXH_SECRET_LASTACC_START);
     }   }
 }
+#endif
 
 XXH_FORCE_INLINE xxh_u64
 XXH3_mix2Accs(const xxh_u64* XXH_RESTRICT acc, const xxh_u8* XXH_RESTRICT secret)

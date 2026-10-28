@@ -1057,14 +1057,8 @@ XXH_FORCE_INLINE void XXH3_combine16(void* dst, XXH128_hash_t h128)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer, size_t secretSize, XXH_NOESCAPE const void* customSeed, size_t customSeedSize)
 {
-#if (XXH_DEBUGLEVEL >= 1)
-    XXH_ASSERT(secretBuffer != NULL);
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-#else
-    /* production mode, assert() are disabled */
     if (secretBuffer == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
-#endif
 
     if (customSeedSize == 0) {
         customSeed = XXH3_kSecret;

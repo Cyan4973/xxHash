@@ -988,11 +988,9 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH_NOESCAPE XXH3_state_
  * @param secret     The secret data.
  * @param secretSize The length of @p secret, in bytes.
  *
- * @pre
- *   @p statePtr must not be `NULL`.
- *
  * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return @ref XXH_ERROR if @p statePtr or @p secret is `NULL`,
+ *         or if @p secretSize < @ref XXH3_SECRET_SIZE_MIN.
  *
  * @note
  *   `secret` is referenced, it _must outlive_ the hash streaming session.
@@ -1096,11 +1094,9 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH_NOESCAPE XXH3_state
  * @param secret     The secret data.
  * @param secretSize The length of @p secret, in bytes.
  *
- * @pre
- *   @p statePtr must not be `NULL`.
- *
  * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return @ref XXH_ERROR if @p statePtr or @p secret is `NULL`,
+ *         or if @p secretSize < @ref XXH3_SECRET_SIZE_MIN.
  *
  * `secret` is referenced, it _must outlive_ the hash streaming session.
  * Similar to one-shot API, `secretSize` must be >= @ref XXH3_SECRET_SIZE_MIN,
@@ -1348,7 +1344,8 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  * @param customSeedSize  Size of customSeed, in bytes.
  *
  * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return @ref XXH_ERROR if @p secretBuffer is `NULL`,
+ *         or if @p secretSize < @ref XXH3_SECRET_SIZE_MIN.
  *
  * The generated secret can be used in combination with `*_withSecret()` functions.
  * The `_withSecret()` variants are useful to provide a higher level of protection
@@ -1373,8 +1370,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH128(XXH_NOESCAPE const void* data, siz
  * of zeroes. The resulting `secret` will nonetheless provide all required qualities.
  *
  * @pre
- *   - @p secretSize must be >= @ref XXH3_SECRET_SIZE_MIN
- *   - When @p customSeedSize > 0, supplying NULL as customSeed is undefined behavior.
+ *   When @p customSeedSize > 0, supplying NULL as customSeed is undefined behavior.
  *
  * Example code:
  * @code{.c}
@@ -4753,13 +4749,8 @@ XXH_FORCE_INLINE void XXH3_combine16(void* dst, XXH128_hash_t h128)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_generateSecret(XXH_NOESCAPE void* secretBuffer, size_t secretSize, XXH_NOESCAPE const void* customSeed, size_t customSeedSize)
 {
-#if (XXH_DEBUGLEVEL >= 1)
-    XXH_ASSERT(secretBuffer != NULL);
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
-#else
     if (secretBuffer == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
-#endif
 
     if (customSeedSize == 0) {
         customSeed = XXH3_kSecret;
@@ -4858,7 +4849,6 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
     size_t const initStart = offsetof(XXH3_state_t, bufferedSize);
     size_t const initLength = offsetof(XXH3_state_t, nbStripesPerBlock) - initStart;
     XXH_ASSERT(offsetof(XXH3_state_t, nbStripesPerBlock) > initStart);
-    XXH_ASSERT(statePtr != NULL);
     XXH_memset((char*)statePtr + initStart, 0, initLength);
     statePtr->acc[0] = XXH_PRIME32_3;
     statePtr->acc[1] = XXH_PRIME64_1;
@@ -4871,7 +4861,6 @@ XXH3_reset_internal(XXH3_state_t* statePtr,
     statePtr->seed = seed;
     statePtr->useSeed = (seed != 0);
     statePtr->extSecret = (const unsigned char*)secret;
-    XXH_ASSERT(secretSize >= XXH3_SECRET_SIZE_MIN);
     statePtr->secretLimit = secretSize - XXH_STRIPE_LEN;
     statePtr->nbStripesPerBlock = statePtr->secretLimit / XXH_SECRET_CONSUME_RATE;
 }
@@ -4888,9 +4877,9 @@ XXH_PUBLIC_API XXH_errorcode
 XXH3_64bits_reset_withSecret(XXH_NOESCAPE XXH3_state_t* statePtr, XXH_NOESCAPE const void* secret, size_t secretSize)
 {
     if (statePtr == NULL) return XXH_ERROR;
-    XXH3_reset_internal(statePtr, 0, secret, secretSize);
     if (secret == NULL) return XXH_ERROR;
     if (secretSize < XXH3_SECRET_SIZE_MIN) return XXH_ERROR;
+    XXH3_reset_internal(statePtr, 0, secret, secretSize);
     return XXH_OK;
 }
 

@@ -154,11 +154,9 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH_NOESCAPE XXH3_state_
  * @param secret     The secret data.
  * @param secretSize The length of @p secret, in bytes.
  *
- * @pre
- *   @p statePtr must not be `NULL`.
- *
  * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return @ref XXH_ERROR if @p statePtr or @p secret is `NULL`,
+ *         or if @p secretSize < @ref XXH3_SECRET_SIZE_MIN.
  *
  * @note
  *   `secret` is referenced, it _must outlive_ the hash streaming session.
@@ -275,11 +273,9 @@ XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH_NOESCAPE XXH3_state
  * @param secret     The secret data.
  * @param secretSize The length of @p secret, in bytes.
  *
- * @pre
- *   @p statePtr must not be `NULL`.
- *
  * @return @ref XXH_OK on success.
- * @return @ref XXH_ERROR on failure.
+ * @return @ref XXH_ERROR if @p statePtr or @p secret is `NULL`,
+ *         or if @p secretSize < @ref XXH3_SECRET_SIZE_MIN.
  *
  * `secret` is referenced, it _must outlive_ the hash streaming session.
  * Similar to one-shot API, `secretSize` must be >= @ref XXH3_SECRET_SIZE_MIN,

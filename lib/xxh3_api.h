@@ -298,7 +298,7 @@ XXH_PUBLIC_API XXH_PUREF XXH128_hash_t XXH3_128bits(XXH_NOESCAPE const void* dat
  * @return The calculated 128-bit variant of XXH3 value.
  *
  * @note
- *    seed == 0 produces the same results as @ref XXH3_64bits().
+ *    seed == 0 produces the same results as @ref XXH3_128bits().
  *
  * This variant generates a custom secret on the fly based on default secret
  * altered using the @p seed value.

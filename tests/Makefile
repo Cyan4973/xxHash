@@ -130,6 +130,10 @@ test_cli_comment_line: xxhsum
 test_cli_ignore_missing: xxhsum
 	$(SHELL) ./cli-ignore-missing.sh
 
+.PHONY: test_cli_tag_validation
+test_cli_tag_validation: xxhsum
+	$(SHELL) ./cli-tag-validation.sh
+
 # argument checks must survive optimizations and assertions (XXH_ASSERT)
 .PHONY: test_invalid_args
 test_invalid_args: invalid_args.c

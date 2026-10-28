@@ -2659,7 +2659,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, X
 #  if defined(__ARM_NEON__) || defined(__ARM_NEON) \
    || (defined(_M_ARM) && _M_ARM >= 7) \
    || defined(_M_ARM64) || defined(_M_ARM64EC) \
-   || (defined(__wasm_simd128__) && XXH_HAS_INCLUDE(<arm_neon.h>))
+   || (defined(__wasm_simd128__) && XXH_HAS_INCLUDE(<arm_neon.h>)  \
+       && (defined(__EMSCRIPTEN__) || (defined(XXH_VECTOR) && XXH_VECTOR == XXH_NEON)))
 #    define inline __inline__
 #    include <arm_neon.h>
 #    undef inline
@@ -2689,7 +2690,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64 (XXH_NOESCAPE const void* input, size_t len, X
 #  if ( \
         defined(__ARM_NEON__) || defined(__ARM_NEON)  \
      || defined(_M_ARM) || defined(_M_ARM64) || defined(_M_ARM64EC)  \
-     || (defined(__wasm_simd128__) && XXH_HAS_INCLUDE(<arm_neon.h>))  \
+     || (defined(__wasm_simd128__) && XXH_HAS_INCLUDE(<arm_neon.h>)  \
+         && defined(__EMSCRIPTEN__)) \
    ) && ( \
         defined(_WIN32) || defined(__LITTLE_ENDIAN__)  \
     || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) \

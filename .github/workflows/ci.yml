@@ -379,6 +379,64 @@ jobs:
         CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" RUN_ENV="node" NODE_JS=1 LDFLAGS="-sWASM=0" make clean check
 
 
+  ubuntu-wasi:
+    name: WebAssembly/WASI clang-${{ matrix.clang }}, ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: [
+          # simde: whether the SIMDe of the distribution builds the NEON code path (0.7.2 lacks vshrn_n_u64)
+          { clang: 16, os: ubuntu-24.04, simde: false, },
+          { clang: 17, os: ubuntu-24.04, simde: false, },
+          { clang: 18, os: ubuntu-24.04, simde: false, },
+          { clang: 19, os: ubuntu-24.04, simde: false, },
+          { clang: 20, os: ubuntu-26.04, simde: true,  },
+          { clang: 21, os: ubuntu-26.04, simde: true,  },
+          { clang: 22, os: ubuntu-26.04, simde: true,  },
+        ]
+    runs-on: ${{ matrix.os }}
+
+    env:
+      CC: clang-${{ matrix.clang }} --target=wasm32-wasi --sysroot=/usr -D_WASI_EMULATED_PROCESS_CLOCKS
+      LDFLAGS: -lwasi-emulated-process-clocks
+      RUN_ENV: wasmtime run --dir=.
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: apt-get install
+      run: |
+        sudo apt-get update
+        sudo apt-get install clang-${{ matrix.clang }} lld-${{ matrix.clang }} libclang-rt-${{ matrix.clang }}-dev-wasm32 wasi-libc libsimde-dev
+
+    - name: Setup wasmtime
+      uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1.1.3
+      with:
+        version: v50.0.0
+
+    - name: Environment info
+      run: |
+        echo && clang-${{ matrix.clang }} --version
+        echo && wasmtime --version
+        echo && make -v
+
+    - name: Scalar code path
+      run: |
+        CPPFLAGS="-DXXH_VECTOR=XXH_SCALAR" make clean check
+
+    - name: SIMD128 code path
+      run: |
+        CPPFLAGS="-msimd128" make clean check
+
+    - name: SIMD128 (via NEON SIMDe) code path (XXH_VECTOR=XXH_NEON)
+      if: ${{ matrix.simde }}
+      run: |
+        simde_dir="${RUNNER_TEMP}/simde"  # an arm_neon.h from SIMDe, as Emscripten provides
+        mkdir -p "${simde_dir}"
+        printf '#define SIMDE_ENABLE_NATIVE_ALIASES\n#include <simde/arm/neon.h>\n' > "${simde_dir}/arm_neon.h"
+        CPPFLAGS="-DXXH_VECTOR=XXH_NEON -msimd128 -isystem ${simde_dir} -DSIMDE_FLOAT16_API=SIMDE_FLOAT16_API_PORTABLE" make clean check
+
+
   ubuntu-misc:
     name: Linux x64 misc tests
     runs-on: ubuntu-latest

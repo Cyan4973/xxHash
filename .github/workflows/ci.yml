@@ -331,7 +331,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [16.x, 17.x, 18.x]
+        # the JavaScript and WebAssembly engine running Emscripten's output:
+        # oldest one enabling WebAssembly SIMD by default (16.4), maintenance LTS, active LTS
+        node-version: [16.x, 22.x, 26.x]
 
     env:
       EM_VERSION: 3.1.33 # TODO: more emsdk versions

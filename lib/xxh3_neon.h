@@ -68,7 +68,8 @@ typedef uint64x2_t xxh_aliasing_uint64x2_t XXH_ALIASING;
 #if defined(__aarch64__) && defined(__GNUC__) && !defined(__clang__)
 XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr) /* silence -Wcast-align */
 {
-    return *(xxh_aliasing_uint64x2_t const *)ptr;
+    typedef uint64x2_t xxh_unaligned_uint64x2_t XXH_ALIASING __attribute__((__aligned__(1)));
+    return *(xxh_unaligned_uint64x2_t const *)ptr;
 }
 #else
 XXH_FORCE_INLINE uint64x2_t XXH_vld1q_u64(void const* ptr)
